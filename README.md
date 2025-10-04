@@ -240,4 +240,5 @@ Orbit respects the intellectual property rights of others. If you believe that a
 - Your contact information
 - A statement that you have a good faith belief that the use is not authorized by the copyright owner
 
-<p align="center">🎵 Created with ❤️ by <a href="https://github.com/gauravxdev">Gaurav Saini</a> 🎵</p>
+<p align="center">Official Fork of <a href="https://github.com/Infinite-Null/Melody">
+<p align="center">🎵 Created with ❤️ by <a href="https://github.com/gauravxdev">Gaurav Sharma</a> 🎵</p>
