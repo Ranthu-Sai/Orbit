@@ -241,4 +241,4 @@ Orbit respects the intellectual property rights of others. If you believe that a
 - A statement that you have a good faith belief that the use is not authorized by the copyright owner
 
 <p align="center">Official Fork of <a href="https://github.com/Infinite-Null/Melody">Melody</a> </p>
-<p align="center">🎵 Created with ❤️ by <a href="https://github.com/gauravxdev">Gaurav Sharma</a> 🎵</p>
+<p align="center">🎵 Modified with ❤️ by <a href="https://github.com/gauravxdev">Gaurav Sharma</a> 🎵</p>
