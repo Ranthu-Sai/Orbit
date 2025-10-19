@@ -577,21 +577,8 @@ export const MyMusicPage = () => {
     }
   }, [localMusic]);
 
-  // Add a direct back button handler to ensure we go back to Library main page
-  useEffect(() => {
-    const handleBackPress = () => {
-      navigation.navigate('LibraryPage');
-      return true; // Prevents default back action
-    };
-
-    // Add back handler
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
-
-    // Clean up on unmount
-    return () => {
-      backHandler.remove();
-    };
-  }, [navigation]);
+  // Removed problematic BackHandler - let RootRoute handle navigation
+  // The normal navigation stack will handle back gesture properly
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

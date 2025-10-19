@@ -15,7 +15,6 @@ import EventRegister from '../../Utils/EventRegister';
 import Octicons from 'react-native-vector-icons/Octicons';
 import { requestStoragePermission } from '../../Utils/PermissionManager';
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
-import { formatTidalSongForPlayer, showTidalUnsupportedMessage, preloadTidalStreamingUrl } from '../../Utils/TidalMusicHandler';
 
 export const EachSongCard = memo(function EachSongCard({title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', tidalUrl, truncateTitle = false}) {
   const theme = useTheme();
@@ -75,27 +74,41 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
 
     checkDownloadStatus();
 
-    // Note: Tidal preloading is now handled by TidalPreloadManager
-    // to prevent rate limiting issues
+    // Note: Tidal support removed in this build.
   }, [id]);
 
   useEffect(() => {
-    const downloadListener = EventRegister.addEventListener('download-complete', (songId) => {
-      if (songId === id) {
-        setIsDownloaded(true);
-        setDownloadInProgress(false);
-      }
-    });
+    let downloadListener = null;
+    let downloadStartedListener = null;
 
-    const downloadStartedListener = EventRegister.addEventListener('download-started', (songId) => {
-      if (songId === id) {
-        setDownloadInProgress(true);
-      }
-    });
+    try {
+      downloadListener = EventRegister.addEventListener('download-complete', (songId) => {
+        if (songId === id) {
+          setIsDownloaded(true);
+          setDownloadInProgress(false);
+        }
+      });
+
+      downloadStartedListener = EventRegister.addEventListener('download-started', (songId) => {
+        if (songId === id) {
+          setDownloadInProgress(true);
+        }
+      });
+    } catch (error) {
+      console.error('Error setting up download listeners:', error);
+    }
 
     return () => {
-      EventRegister.removeEventListener(downloadListener);
-      EventRegister.removeEventListener(downloadStartedListener);
+      try {
+        if (downloadListener !== null) {
+          EventRegister.removeEventListener(downloadListener);
+        }
+        if (downloadStartedListener !== null) {
+          EventRegister.removeEventListener(downloadStartedListener);
+        }
+      } catch (error) {
+        console.error('Error cleaning up download listeners:', error);
+      }
     };
   }, [id]);
 
@@ -247,27 +260,9 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
       await AddPlaylist(Final)
     } else {
       // Handle single song playback
-      if (source === 'tidal' && tidalUrl) {
-        try {
-          // Create Tidal song object for formatting
-          const tidalSong = {
-            id,
-            title,
-            artist,
-            image: [{ url: safeImageUri }],
-            duration,
-            language,
-            primary_artists_id: artistID,
-            tidalUrl
-          };
-
-          const formattedSong = await formatTidalSongForPlayer(tidalSong);
-          PlayOneSong(formattedSong);
-        } catch (error) {
-          console.error('Error playing Tidal song:', error);
-          ToastAndroid.show('Failed to play Tidal song. Please try again.', ToastAndroid.SHORT);
-          return;
-        }
+      if (source === 'tidal') {
+        ToastAndroid.show('Tidal support has been removed.', ToastAndroid.SHORT);
+        return;
       } else {
         // Handle Saavn songs (existing logic)
         const quality = await getIndexQuality()
@@ -449,9 +444,9 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
       return;
     }
 
-    // Check if it's a Tidal song
+    // Tidal support removed: inform user and abort download
     if (source === 'tidal') {
-      showTidalUnsupportedMessage('downloads');
+      ToastAndroid.show('Tidal support has been removed.', ToastAndroid.SHORT);
       return;
     }
 

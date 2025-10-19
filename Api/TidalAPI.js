@@ -2,6 +2,10 @@ import axios from "axios";
 import { getCachedData, CACHE_GROUPS } from './CacheManager';
 import tidalResultCache from '../Utils/TidalResultCache';
 
+// Request cancellation management
+const activeRequests = new Set();
+const CancelToken = axios.CancelToken;
+
 // Endpoints for searching
 const TIDAL_SEARCH_ENDPOINTS = [
   'https://dev-paxsenix.koyeb.app',
@@ -18,6 +22,34 @@ const TIDAL_STREAM_BACKUP_ENDPOINT = 'https://ancient-cloud-e525.imdbgdrive.work
 
 let currentSearchEndpointIndex = 0;
 let currentStreamEndpointIndex = 0;
+
+// Rate limiting implementation
+const rateLimiter = {
+  requestCount: 0,
+  lastRequestTime: 0,
+  maxRequestsPerMinute: 3,
+  windowMs: 60000,
+
+  canMakeRequest() {
+    const now = Date.now();
+    if (now - this.lastRequestTime > this.windowMs) {
+      this.requestCount = 0;
+      this.lastRequestTime = now;
+    }
+    return this.requestCount < this.maxRequestsPerMinute;
+  },
+
+  recordRequest() {
+    this.requestCount++;
+    this.lastRequestTime = Date.now();
+  },
+
+  getWaitTime() {
+    const now = Date.now();
+    const timeSinceReset = now - this.lastRequestTime;
+    return Math.max(0, this.windowMs - timeSinceReset);
+  }
+};
 
 function getCurrentTidalSearchEndpoint() {
   return TIDAL_SEARCH_ENDPOINTS[currentSearchEndpointIndex];
@@ -60,6 +92,13 @@ async function getTidalSearchSongData(searchText) {
 
     for (let attempt = 0; attempt < TIDAL_SEARCH_ENDPOINTS.length; attempt++) {
       try {
+        // Check rate limiting before making request
+        if (!rateLimiter.canMakeRequest()) {
+          const waitTime = rateLimiter.getWaitTime();
+          console.log(`Rate limit reached, waiting ${waitTime}ms before request`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+
         const currentEndpoint = getCurrentTidalSearchEndpoint();
         const url = currentEndpoint.includes('orbitmusic')
           ? `${currentEndpoint}?q=${encodeURIComponent(searchText)}`
@@ -74,10 +113,22 @@ async function getTidalSearchSongData(searchText) {
             'User-Agent': 'Orbit-Music-App/1.0',
             'X-Forwarded-For': generateRandomIP(),
           },
-          timeout: 20000
+          timeout: 20000,
+          cancelToken: new CancelToken((cancel) => {
+            // Track active request for cleanup
+            activeRequests.add(cancel);
+          })
         };
 
         const response = await axios.request(config);
+
+        // Remove from active requests on success
+        if (response.config && response.config.cancelToken) {
+          activeRequests.delete(response.config.cancelToken.token);
+        }
+
+        // Record successful request for rate limiting
+        rateLimiter.recordRequest();
 
         if (response.data && response.data.items && Array.isArray(response.data.items)) {
           const losslessResults = response.data.items
@@ -126,8 +177,18 @@ async function getTidalSearchSongData(searchText) {
       } catch (error) {
         lastError = error;
         console.error(`Search attempt ${attempt + 1} failed for ${getCurrentTidalSearchEndpoint()}:`, error.message);
-        rotateSearchEndpoint();
-        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Record failed request for rate limiting
+        rateLimiter.recordRequest();
+
+        // If rate limited, wait longer before retry
+        if (error.message?.includes('429') || error.message?.includes('rate limit')) {
+          console.log('Rate limited, waiting 30 seconds before retry...');
+          await new Promise(resolve => setTimeout(resolve, 30000));
+        } else {
+          rotateSearchEndpoint();
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
         continue;
       }
     }
@@ -163,6 +224,13 @@ async function getTidalStreamingUrl(tidalUrl, quality = 'LOSSLESS') {
     // 1. Try primary stream endpoints
     for (let attempt = 0; attempt < TIDAL_STREAM_ENDPOINTS.length; attempt++) {
       try {
+        // Check rate limiting before making request
+        if (!rateLimiter.canMakeRequest()) {
+          const waitTime = rateLimiter.getWaitTime();
+          console.log(`Rate limit reached, waiting ${waitTime}ms before stream request`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+
         const streamEndpoint = getCurrentTidalStreamEndpoint();
         // Corrected path to /dl/tidal
         const url = `${streamEndpoint}/dl/tidal?url=${encodeURIComponent(tidalUrl)}&quality=${quality}`;
@@ -174,16 +242,28 @@ async function getTidalStreamingUrl(tidalUrl, quality = 'LOSSLESS') {
             'User-Agent': 'Orbit-Music-App/1.0',
             'X-Forwarded-For': generateRandomIP(),
           },
-          timeout: 15000
+          timeout: 15000,
+          cancelToken: new CancelToken((cancel) => {
+            // Track active request for cleanup
+            activeRequests.add(cancel);
+          })
         };
         const response = await axios.request(config);
-        
+
+        // Remove from active requests on success
+        if (response.config && response.config.cancelToken) {
+          activeRequests.delete(response.config.cancelToken.token);
+        }
+
+        // Record successful request for rate limiting
+        rateLimiter.recordRequest();
+
         // The response from this endpoint might be different, let's check for url/directUrl first
         if (response.data && (response.data.url || response.data.directUrl)) {
           console.log(`Successfully fetched stream from ${streamEndpoint}`);
           return response.data.url || response.data.directUrl;
         }
-        
+
         // Fallback for other possible structures
         if (response.data && response.data.sources && response.data.sources.length > 0) {
           console.log(`Successfully fetched stream from ${streamEndpoint}`);
@@ -194,7 +274,17 @@ async function getTidalStreamingUrl(tidalUrl, quality = 'LOSSLESS') {
       } catch (error) {
         console.error(`Primary stream endpoint ${getCurrentTidalStreamEndpoint()} failed:`, error.message);
         lastError = error;
-        rotateStreamEndpoint();
+
+        // Record failed request for rate limiting
+        rateLimiter.recordRequest();
+
+        // If rate limited, wait longer before retry
+        if (error.message?.includes('429') || error.message?.includes('rate limit')) {
+          console.log('Rate limited, waiting 30 seconds before retry...');
+          await new Promise(resolve => setTimeout(resolve, 30000));
+        } else {
+          rotateStreamEndpoint();
+        }
       }
     }
 
@@ -204,8 +294,17 @@ async function getTidalStreamingUrl(tidalUrl, quality = 'LOSSLESS') {
       const backupUrl = `${TIDAL_STREAM_BACKUP_ENDPOINT}?url=${encodeURIComponent(tidalUrl)}&quality=${quality}`;
       const response = await axios.get(backupUrl, {
         headers: { 'Accept': 'application/json', 'User-Agent': 'Orbit-Music-App/1.0' },
-        timeout: 15000
+        timeout: 15000,
+        cancelToken: new CancelToken((cancel) => {
+          // Track active request for cleanup
+          activeRequests.add(cancel);
+        })
       });
+
+      // Remove from active requests on success
+      if (response.config && response.config.cancelToken) {
+        activeRequests.delete(response.config.cancelToken.token);
+      }
       // Correctly parse the backup endpoint's response
       if (response.data && (response.data.url || response.data.directUrl)) {
         console.log('Successfully fetched streaming URL from backup endpoint.');
@@ -244,10 +343,26 @@ async function getTidalPlaylistData(playlistId) {
   };
 }
 
+// Cleanup function to cancel all active requests
+function cancelAllActiveRequests() {
+  activeRequests.forEach(cancel => {
+    if (cancel && typeof cancel === 'function') {
+      try {
+        cancel('Component unmounted or operation cancelled');
+      } catch (error) {
+        console.warn('Error cancelling request:', error);
+      }
+    }
+  });
+  activeRequests.clear();
+  console.log('Cancelled all active Tidal API requests');
+}
+
 export {
   getTidalSearchSongData,
   getTidalTrackData,
   getTidalStreamingUrl,
   getTidalAlbumData,
   getTidalPlaylistData,
+  cancelAllActiveRequests,
 };

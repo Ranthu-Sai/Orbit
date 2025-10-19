@@ -1,5 +1,5 @@
 import { MainWrapper } from "../../Layout/MainWrapper";
-import { Linking, Pressable, ScrollView, View, Image, BackHandler, StyleSheet, Dimensions, TouchableOpacity } from "react-native";
+import { Linking, Pressable, ScrollView, View, Image, StyleSheet, Dimensions, TouchableOpacity } from "react-native";
 import { PlainText } from "../../Component/Global/PlainText";
 import { Heading } from "../../Component/Global/Heading";
 import { SmallText } from "../../Component/Global/SmallText";
@@ -18,20 +18,7 @@ export const AboutProject = () => {
   const navigation = useNavigation();
   const theme = useTheme();
   
-  // Handle back button
-  useEffect(() => {
-    const handleBackPress = () => {
-      console.log('Back pressed in AboutProject, navigating to LibraryPage');
-      navigation.navigate('LibraryPage');
-      return true; // Prevent default back action
-    };
-
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
-    
-    return () => {
-      backHandler.remove();
-    };
-  }, [navigation]);
+  // Removed BackHandler - let RootRoute handle navigation
   
   const openLink = (url) => {
     if (url) {

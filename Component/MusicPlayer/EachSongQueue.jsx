@@ -41,34 +41,32 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
     try {
       // Check if this is the current track and get appropriate animation
       if (isCurrentTrack) {
-        return playerState.state === "playing"
-          ? require("../../Images/playing.gif")
-          : require("../../Images/songPaused.gif");
+        return playerState.state === 'playing'
+          ? require('../../Images/playing.gif')
+          : require('../../Images/songPaused.gif');
       }
 
       // For downloaded/local tracks, prioritize songData artwork first
-      if (songData && (songData.isLocal || songData.sourceType === 'mymusic' || songData.sourceType === 'downloaded' || songData.path)) {
-        // First check songData artwork (for downloaded songs)
-        if (songData.artwork) {
+      if (songData) {
+        const st = songData.sourceType ? String(songData.sourceType).toLowerCase() : null;
+        const isLocalSongData = songData.isLocal || st === 'mymusic' || st === 'download' || st === 'downloaded' || songData.path;
 
+        // First check songData artwork (for downloaded songs)
+        if (isLocalSongData && songData.artwork) {
           // Handle require() result (number)
-          if (typeof songData.artwork === 'number') {
-            return songData.artwork;
-          }
+          if (typeof songData.artwork === 'number') return songData.artwork;
+
           // Handle object with uri property
-          if (typeof songData.artwork === 'object' && songData.artwork.uri) {
-            return songData.artwork;
-          }
+          if (typeof songData.artwork === 'object' && songData.artwork.uri) return songData.artwork;
+
           // Handle string URIs
           if (typeof songData.artwork === 'string') {
             // For file:// paths, return directly
-            if (songData.artwork.startsWith('file://')) {
-              return { uri: songData.artwork };
-            }
+            if (songData.artwork.startsWith('file://')) return { uri: songData.artwork };
+
             // For other paths, add file:// prefix if needed
-            if (songData.artwork.startsWith('/')) {
-              return { uri: `file://${songData.artwork}` };
-            }
+            if (songData.artwork.startsWith('/')) return { uri: `file://${songData.artwork}` };
+
             return { uri: songData.artwork };
           }
         }
@@ -77,30 +75,22 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
       // Fallback to artwork prop for other tracks
       if (artwork) {
         // Handle numeric artwork values (which come from local files)
-        if (typeof artwork === 'number') {
-          return artwork; // If it's a require() result, return it directly
-        }
+        if (typeof artwork === 'number') return artwork; // If it's a require() result, return it directly
 
         // Handle artwork as object with URI
         if (typeof artwork === 'object' && artwork.uri) {
           // Ensure URI is not null or undefined
-          if (!artwork.uri) {
-            return getDefaultImage();
-          }
+          if (!artwork.uri) return getDefaultImage();
           return artwork;
         }
 
         // Handle local file paths for downloaded songs
         if (typeof artwork === 'string') {
           // Check if it's a local file path that needs file:// prefix
-          if (artwork.startsWith('/') && !artwork.startsWith('file://')) {
-            return { uri: `file://${artwork}` };
-          }
+          if (artwork.startsWith('/') && !artwork.startsWith('file://')) return { uri: `file://${artwork}` };
 
           // Handle file:// paths
-          if (artwork.startsWith('file://')) {
-            return { uri: artwork };
-          }
+          if (artwork.startsWith('file://')) return { uri: artwork };
 
           // Handle remote URLs
           return { uri: artwork };
@@ -118,7 +108,8 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
   // Function to get a default image for songs without artwork
   const getDefaultImage = () => {
     // Check if this is a local track
-    const isLocal = songData?.isLocal || songData?.sourceType === 'mymusic' || songData?.sourceType === 'downloaded' || songData?.path ||
+  const st = songData?.sourceType ? String(songData.sourceType).toLowerCase() : null;
+  const isLocal = songData?.isLocal || st === 'mymusic' || st === 'download' || st === 'downloaded' || songData?.path ||
                    (songData?.url && (songData.url.startsWith('file://') || songData.url.includes('content://') || songData.url.includes('/storage/')));
 
     // Use Music.jpeg for local tracks, Music.jpeg for others

@@ -9,7 +9,7 @@ import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityI
 import { useTheme } from "@react-navigation/native";
 import CustomTabBar from '../Component/Tab/CustomTabBar';
 import BottomSheetMusic from '../Component/MusicPlayer/BottomSheetMusic';
-import { View, TouchableOpacity } from 'react-native';
+import { View, TouchableOpacity, ToastAndroid } from 'react-native';
 import { useNavigation, useFocusEffect, CommonActions } from '@react-navigation/native';
 import { BackHandler } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -41,6 +41,7 @@ export const RootRoute = () => {
   const navigation = useNavigation();
   const isFullscreenActive = useRef(false);
   const previousTabName = useRef(null);
+  const backPressedOnce = useRef(false);
   
   // Track fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -65,7 +66,35 @@ export const RootRoute = () => {
       const currentActiveTab = currentState.routes[currentState.index];
       if (!currentActiveTab) return false;
       
-      // Handle back navigation only for LibraryRoute
+      // Handle Home tab - exit app if at root
+      if (currentActiveTab.name === 'Home') {
+        const homeState = currentActiveTab.state;
+        
+        // If we're at the root of Home tab (or no nested state), show exit confirmation
+        if (!homeState || homeState.index === 0) {
+          if (backPressedOnce.current) {
+            // Second press - exit the app
+            BackHandler.exitApp();
+            return true;
+          } else {
+            // First press - show toast and set flag
+            backPressedOnce.current = true;
+            ToastAndroid.show('Press back again to exit', ToastAndroid.SHORT);
+            
+            // Reset flag after 2 seconds
+            setTimeout(() => {
+              backPressedOnce.current = false;
+            }, 2000);
+            
+            return true; // Prevent default action on first press
+          }
+        }
+        
+        // Otherwise let default back navigation handle it
+        return false;
+      }
+      
+      // Handle back navigation for LibraryRoute
       if (currentActiveTab.name === 'Library') {
         const libraryState = currentActiveTab.state;
         
@@ -296,117 +325,127 @@ export const RootRoute = () => {
   // This helps with navigation after closing the fullscreen player
   useEffect(() => {
     let lastRecordedPath = '';
+    let debounceTimer = null;
+    let isProcessing = false;
 
     // Function to record the current screen path
     const recordScreenPath = () => {
-      // STRONG PROTECTION: Don't update navigation state vars if fullscreen is active
-      if (isFullscreenActive.current) {
-        console.log('PROTECTED: Fullscreen active - prevented updating navigation state');
+      // Prevent concurrent execution
+      if (isProcessing || isFullscreenActive.current) {
         return;
       }
 
-      const currentState = navigation.getState();
-      
-      if (currentState && currentState.routes && currentState.routes.length > 0) {
-        // Get the active route information
-        const currentTabRoute = currentState.routes[currentState.index];
-        
-        // Store both the main tab and the nested screen state
-        const nestedState = currentTabRoute.state;
-        let fullNavPath = currentTabRoute.name; // Start with the tab name
-        let screenName = ''; // To capture nested screen name
-        
-        // If there's a nested navigation state, get the current active route
-        if (nestedState && nestedState.routes && nestedState.routes.length > 0) {
-          const activeNestedRoute = nestedState.routes[nestedState.index];
-          
-          // Save the screen name
-          screenName = activeNestedRoute.name;
-          
-          // Check if this is a navigation to MyMusicPage through params
-          if (activeNestedRoute.params && activeNestedRoute.params.screen === 'MyMusicPage') {
-            console.log('Detected MyMusicPage navigation through params');
-            fullNavPath = `${currentTabRoute.name}/MyMusicPage`;
-          }
-          // Check for deeper nesting (for screens like MyMusicPage in Library)
-          else if (activeNestedRoute.state && activeNestedRoute.state.routes && activeNestedRoute.state.routes.length > 0) {
-            const deepNestedRoute = activeNestedRoute.state.routes[activeNestedRoute.state.index];
-            // Store the full navigation path with tab, screen and nested screen
-            fullNavPath = `${currentTabRoute.name}/${activeNestedRoute.name}/${deepNestedRoute.name}`;
+      isProcessing = true;
 
-          } else {
-          // Store the full navigation path (tab/screen)
-          fullNavPath = `${currentTabRoute.name}/${activeNestedRoute.name}`;
+      try {
+        const currentState = navigation.getState();
+
+        if (currentState && currentState.routes && currentState.routes.length > 0) {
+          // Get the active route information
+          const currentTabRoute = currentState.routes[currentState.index];
+
+          // Store both the main tab and the nested screen state
+          const nestedState = currentTabRoute.state;
+          let fullNavPath = currentTabRoute.name; // Start with the tab name
+          let screenName = ''; // To capture nested screen name
+
+          // If there's a nested navigation state, get the current active route
+          if (nestedState && nestedState.routes && nestedState.routes.length > 0) {
+            const activeNestedRoute = nestedState.routes[nestedState.index];
+
+            // Save the screen name
+            screenName = activeNestedRoute.name;
+
+            // Check if this is a navigation to MyMusicPage through params
+            if (activeNestedRoute.params && activeNestedRoute.params.screen === 'MyMusicPage') {
+              console.log('Detected MyMusicPage navigation through params');
+              fullNavPath = `${currentTabRoute.name}/MyMusicPage`;
+            }
+            // Check for deeper nesting (for screens like MyMusicPage in Library)
+            else if (activeNestedRoute.state && activeNestedRoute.state.routes && activeNestedRoute.state.routes.length > 0) {
+              const deepNestedRoute = activeNestedRoute.state.routes[activeNestedRoute.state.index];
+              // Store the full navigation path with tab, screen and nested screen
+              fullNavPath = `${currentTabRoute.name}/${activeNestedRoute.name}/${deepNestedRoute.name}`;
+
+            } else {
+            // Store the full navigation path (tab/screen)
+            fullNavPath = `${currentTabRoute.name}/${activeNestedRoute.name}`;
+            }
+          }
+
+          // Clean fullNavPath if it has MainRoute prefix for consistency
+          if (fullNavPath.startsWith('MainRoute/')) {
+            fullNavPath = fullNavPath.replace('MainRoute/', '');
+            console.log('Cleaned MainRoute prefix from path:', fullNavPath);
+          }
+
+          // CRITICAL FIX: Special handling for Library tab
+          // If we're in Library tab but a specific screen name wasn't captured properly,
+          // check the params to see if there's a target screen
+          if (fullNavPath === 'Library' && currentTabRoute.params && currentTabRoute.params.screen) {
+            // Don't set Library/Library - check for more specific screens first
+            const screenFromParams = currentTabRoute.params.screen;
+
+            // Check if we're trying to navigate to MyMusicPage specifically
+            if (screenFromParams === 'MyMusicPage') {
+              fullNavPath = `Library/MyMusicPage`;
+              console.log('Fixed Library path for MyMusicPage:', fullNavPath);
+            } else if (screenFromParams !== 'Library') {
+              // Only use params if the screen is not 'Library' to avoid Library/Library
+              fullNavPath = `Library/${screenFromParams}`;
+              console.log('Fixed Library path using params:', fullNavPath);
+            }
+          }
+
+          // Only proceed if the path has actually changed
+          if (fullNavPath === lastRecordedPath) {
+            return;
+          }
+
+          lastRecordedPath = fullNavPath;
+
+          // Don't update if Index is 1 (fullscreen player active) - extra safety check
+          if (!isFullscreenActive.current) {
+            setPreviousScreen(fullNavPath);
+
+            // Only update musicPreviousScreen if we're in a music-related screen
+            // This preserves the music context even when navigating to non-music screens
+            if (fullNavPath.includes('Library') || fullNavPath.includes('MyMusic')) {
+              setMusicPreviousScreen(fullNavPath);
+            }
           }
         }
-        
-        // Clean fullNavPath if it has MainRoute prefix for consistency
-        if (fullNavPath.startsWith('MainRoute/')) {
-          fullNavPath = fullNavPath.replace('MainRoute/', '');
-          console.log('Cleaned MainRoute prefix from path:', fullNavPath);
-        }
-        
-        // CRITICAL FIX: Special handling for Library tab
-        // If we're in Library tab but a specific screen name wasn't captured properly,
-        // check the params to see if there's a target screen
-        if (fullNavPath === 'Library' && currentTabRoute.params && currentTabRoute.params.screen) {
-          // Don't set Library/Library - check for more specific screens first
-          const screenFromParams = currentTabRoute.params.screen;
-          
-          // Check if we're trying to navigate to MyMusicPage specifically
-          if (screenFromParams === 'MyMusicPage') {
-            fullNavPath = `Library/MyMusicPage`;
-            console.log('Fixed Library path for MyMusicPage:', fullNavPath);
-          } else if (screenFromParams !== 'Library') {
-            // Only use params if the screen is not 'Library' to avoid Library/Library
-            fullNavPath = `Library/${screenFromParams}`;
-            console.log('Fixed Library path using params:', fullNavPath);
-          }
-        }
-        
-        // Only proceed if the path has actually changed
-        if (fullNavPath === lastRecordedPath) {
-          return;
-        }
-
-        lastRecordedPath = fullNavPath;
-
-        // Don't update if Index is 1 (fullscreen player active) - extra safety check
-        if (!isFullscreenActive.current) {
-          setPreviousScreen(fullNavPath);
-
-          // Only update musicPreviousScreen if we're in a music-related screen
-          // This preserves the music context even when navigating to non-music screens
-          if (fullNavPath.includes('Library') || fullNavPath.includes('MyMusic')) {
-            setMusicPreviousScreen(fullNavPath);
-          }
-        }
+      } catch (error) {
+        console.error('Error in recordScreenPath:', error);
+      } finally {
+        isProcessing = false;
       }
     };
 
     // Set up a listener for state changes with debounced execution
     // This ensures we don't update during the transition to fullscreen and prevents infinite loops
-    let debounceTimer = null;
     const unsubscribe = navigation.addListener('state', () => {
       // Clear previous timer
       if (debounceTimer) {
         clearTimeout(debounceTimer);
       }
       // Add a debounced delay to prevent rapid successive calls
-      debounceTimer = setTimeout(recordScreenPath, 200);
+      debounceTimer = setTimeout(recordScreenPath, 300);
     });
-    
+
     // Record the initial screen - but only if not in fullscreen player
     if (!isFullscreenActive.current) {
       recordScreenPath();
     }
-    
+
     // Clean up the listener and timer when the component unmounts
     return () => {
       if (debounceTimer) {
         clearTimeout(debounceTimer);
       }
-      unsubscribe();
+      if (unsubscribe) {
+        unsubscribe();
+      }
     };
   }, [navigation, setPreviousScreen, setMusicPreviousScreen]);
 

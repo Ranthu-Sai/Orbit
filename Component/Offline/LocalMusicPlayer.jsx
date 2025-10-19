@@ -51,7 +51,7 @@ const LocalMusicPlayer = ({
               url: `file://${songPath}`,
               artwork: artworkPath ? `file://${artworkPath}` : null,
               isLocal: true,
-              sourceType: 'downloaded',
+              sourceType: 'download',
               downloadTime: metadata.downloadTime,
               quality: metadata.quality || 'unknown',
               fileSize: metadata.fileSize || 0,

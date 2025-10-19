@@ -4,7 +4,7 @@ import { LikedDetails } from "../../Component/Library/LikedDetails";
 import { useEffect, useState } from "react";
 import { GetLikedPlaylist } from "../../LocalStorage/StoreLikedPlaylists";
 import { EachPlaylistCard } from "../../Component/Global/EachPlaylistCard";
-import { View, BackHandler, Dimensions, StyleSheet } from "react-native";
+import { View, Dimensions, StyleSheet } from "react-native";
 import { useTheme, useNavigation, useFocusEffect } from "@react-navigation/native";
 import { PaddingConatiner } from "../../Layout/PaddingConatiner";
 import React from "react";
@@ -17,20 +17,7 @@ export const LikedPlaylistPage = () => {
   const [LikedPlaylist, setLikedPlaylist] = useState([]);
   const navigation = useNavigation();
   
-  // Add a direct back button handler to ensure proper navigation
-  useEffect(() => {
-    const handleBackPress = () => {
-      console.log('Back pressed in LikedPlaylistPage, navigating to LibraryPage');
-      navigation.navigate('Library', { screen: 'LibraryPage' });
-      return true; // Prevent default back action
-    };
-
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
-    
-    return () => {
-      backHandler.remove();
-    };
-  }, [navigation]);
+  // Removed BackHandler - let RootRoute handle navigation
 
   async function getAllLikedSongs(){
     const Playlists = await GetLikedPlaylist()

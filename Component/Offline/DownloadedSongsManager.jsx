@@ -62,7 +62,7 @@ const DownloadedSongsManager = ({
               songPath,
               artworkPath,
               isLocal: true,
-              sourceType: 'downloaded',
+              sourceType: 'download',
               ...metadata
             };
             

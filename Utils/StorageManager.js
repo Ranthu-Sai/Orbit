@@ -71,12 +71,28 @@ const ensureDirectoriesExist = async () => {
 // Helper function to sanitize filename
 const sanitizeFilename = (filename) => {
   if (!filename) return '';
-  // Remove invalid characters for filenames
-  return filename
-    .replace(/[<>:"/\\|?*]/g, '') // Remove invalid characters
+
+  // Convert to string and remove any path traversal attempts
+  let sanitized = String(filename)
+    .replace(/\.\./g, '') // Remove path traversal attempts
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '') // Remove invalid characters including control chars
     .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-    .trim()
-    .substring(0, 50); // Limit length to avoid path issues
+    .trim();
+
+  // Ensure filename doesn't start with dangerous patterns
+  if (sanitized.startsWith('/') || sanitized.startsWith('\\') || sanitized.startsWith('.')) {
+    sanitized = sanitized.substring(1);
+  }
+
+  // Limit length to avoid path issues and ensure reasonable filename
+  sanitized = sanitized.substring(0, 100);
+
+  // Ensure we have a valid filename
+  if (!sanitized || sanitized.length === 0) {
+    sanitized = 'unknown_file';
+  }
+
+  return sanitized;
 };
 
 const getSongPath = async (songId, songTitle = null) => {
@@ -116,21 +132,105 @@ const STORAGE_KEYS = {
   LOCAL_MUSIC_CACHE: '@orbit_local_music_cache',
 };
 
+// Storage quota management
+const STORAGE_QUOTA = {
+  MAX_TOTAL_SIZE: 50 * 1024 * 1024, // 50MB max total storage
+  MAX_SONGS_COUNT: 500, // Max 500 songs
+  CLEANUP_THRESHOLD: 40 * 1024 * 1024, // Start cleanup at 40MB
+};
+
+// Check storage quota before saving
+const checkStorageQuota = async () => {
+  try {
+    const allMetadata = await getAllDownloadedSongsMetadata();
+    const songCount = Object.keys(allMetadata).length;
+
+    // Check if we're approaching limits
+    if (songCount >= STORAGE_QUOTA.MAX_SONGS_COUNT) {
+      await cleanupOldMetadata(allMetadata);
+    }
+
+    // Estimate storage size (rough calculation)
+    const estimatedSize = JSON.stringify(allMetadata).length;
+    if (estimatedSize >= STORAGE_QUOTA.CLEANUP_THRESHOLD) {
+      await cleanupOldMetadata(allMetadata);
+    }
+  } catch (error) {
+    console.error('Error checking storage quota:', error);
+  }
+};
+
+// Cleanup old metadata entries
+const cleanupOldMetadata = async (allMetadata) => {
+  try {
+    const entries = Object.entries(allMetadata);
+    if (entries.length === 0) return;
+
+    // Sort by download time (oldest first)
+    entries.sort((a, b) => a[1].downloadTime - b[1].downloadTime);
+
+    // Remove oldest 20% of entries
+    const removeCount = Math.ceil(entries.length * 0.2);
+    const keepEntries = entries.slice(removeCount);
+
+    const cleanedMetadata = {};
+    keepEntries.forEach(([id, metadata]) => {
+      cleanedMetadata[id] = metadata;
+    });
+
+    await AsyncStorage.setItem(
+      STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
+      JSON.stringify(cleanedMetadata),
+    );
+
+    console.log(`Cleaned up ${removeCount} old metadata entries`);
+  } catch (error) {
+    console.error('Error cleaning up old metadata:', error);
+  }
+};
+
 // Saves metadata for a downloaded song to AsyncStorage
 const saveDownloadedSongMetadata = async (songId, metadata) => {
   try {
+    // Check quota before saving
+    await checkStorageQuota();
+
     const allMetadata = await getAllDownloadedSongsMetadata();
     allMetadata[songId] = {
       ...metadata,
       downloadTime: Date.now(),
     };
+
     await AsyncStorage.setItem(
       STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
       JSON.stringify(allMetadata),
     );
   } catch (error) {
     console.error('Error saving downloaded song metadata:', error);
-    throw error; // Re-throw the error to notify the caller
+
+    // If storage is full, try cleanup and retry once
+    if (error.message?.includes('storage') || error.message?.includes('quota')) {
+      try {
+        const allMetadata = await getAllDownloadedSongsMetadata();
+        await cleanupOldMetadata(allMetadata);
+
+        // Retry save after cleanup
+        const retryMetadata = await getAllDownloadedSongsMetadata();
+        retryMetadata[songId] = {
+          ...metadata,
+          downloadTime: Date.now(),
+        };
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
+          JSON.stringify(retryMetadata),
+        );
+      } catch (retryError) {
+        console.error('Error saving metadata even after cleanup:', retryError);
+        throw retryError;
+      }
+    } else {
+      throw error;
+    }
   }
 };
 

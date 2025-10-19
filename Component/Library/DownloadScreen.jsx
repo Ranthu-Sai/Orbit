@@ -8,8 +8,6 @@ import { useTheme,useNavigation } from '@react-navigation/native';
 import { StorageManager } from '../../Utils/StorageManager';
 import { safeExists } from '../../Utils/FileUtils';
 import { analyticsService } from '../../Utils/AnalyticsUtils';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import BackHandler from 'react-native/Libraries/Utilities/BackHandler';
 
 const { width, height } = Dimensions.get('window');
 
@@ -29,57 +27,9 @@ export default function DownloadScreen(props) {
     
     // Track active user for analytics
     analyticsService.trackActiveUser();
-
-    // Add back handler to properly navigate back to Library instead of Home
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (showSearch) {
-        setShowSearch(false);
-        setSearchQuery('');
-        return true;
-      }
-      
-      console.log('Back pressed in Download screen, navigating to Library');
-      
-      // Check if we came from fullscreen player (special case)
-      AsyncStorage.getItem('came_from_fullscreen_player')
-        .then(value => {
-          if (value === 'true') {
-            // Clear the flag
-            AsyncStorage.removeItem('came_from_fullscreen_player');
-            console.log('Detected special navigation case from fullscreen player');
-            
-            // Navigate to LibraryPage explicitly
-            navigation.navigate('Library', {
-              screen: 'LibraryPage',
-              params: { timestamp: Date.now() }
-            });
-          } else {
-            // Standard navigation flow
-            // Check if we were navigated from Library
-            const previousScreen = props.route?.params?.previousScreen;
-            
-            if (previousScreen === 'Library') {
-              // Go back to Library main screen explicitly
-              navigation.navigate('Library', { screen: 'LibraryPage' });
-            } else {
-              // If we don't know where we came from, use the default library navigation
-              navigation.navigate('Library', { screen: 'LibraryPage' });
-            }
-          }
-        })
-        .catch(error => {
-          console.error('Error checking navigation flag:', error);
-          // Fallback to standard navigation
-          navigation.navigate('Library', { screen: 'LibraryPage' });
-        });
-      
-      return true; // Prevent default back action
-    });
     
-    return () => {
-      backHandler.remove();
-    };
-  }, [navigation, props.route, showSearch]);
+    // Removed BackHandler - let RootRoute handle navigation
+  }, []);
 
   // Filter songs based on search query
   useEffect(() => {

@@ -156,7 +156,7 @@ export class LocalTracksMetadataProcessor {
       localArtworkPath: artworkPath,
       isLocal: true,
       isDownloaded: true,
-      sourceType: 'downloaded',
+  sourceType: 'download',
       downloadTime: metadata.downloadTime,
       fileSize: metadata.fileSize,
       quality: metadata.quality,
@@ -169,7 +169,7 @@ export class LocalTracksMetadataProcessor {
       artwork: artworkPath ? `file://${artworkPath}` : null,
       isLocal: true,
       isDownloaded: true,
-      sourceType: 'downloaded'
+  sourceType: 'download'
     };
   }
 

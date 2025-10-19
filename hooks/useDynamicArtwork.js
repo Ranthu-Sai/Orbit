@@ -47,7 +47,8 @@ const useDynamicArtwork = () => {
 
     try {
       // For local music files, prioritize track's artwork property first
-      if (track.isLocal || track.sourceType === 'mymusic' || track.sourceType === 'downloaded' || track.path) {
+  const st = track?.sourceType ? String(track.sourceType).toLowerCase() : null;
+  if (track.isLocal || st === 'mymusic' || st === 'download' || st === 'downloaded' || track.path) {
         // First, check if track already has artwork property (from downloaded songs)
         if (track.artwork) {
           // Handle require() result (number)
@@ -153,7 +154,8 @@ const useDynamicArtwork = () => {
 
     try {
       // For local tracks, preload file existence checks
-      if (track.isLocal || track.sourceType === 'mymusic' || track.sourceType === 'downloaded' || track.path) {
+  const st2 = track?.sourceType ? String(track.sourceType).toLowerCase() : null;
+  if (track.isLocal || st2 === 'mymusic' || st2 === 'download' || st2 === 'downloaded' || track.path) {
         const trackId = track.id || track.songId;
         if (trackId) {
           const gifPath = safePath(`${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${trackId}.gif`);

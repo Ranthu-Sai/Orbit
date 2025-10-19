@@ -83,17 +83,12 @@ function App(){
     const handleBackPress = () => {
       if (navigationRef.current) {
         try {
+          // If we can't go back (we're at the root), allow the app to exit
           if (!navigationRef.current.canGoBack()) {
-            navigationRef.current.dispatch(
-              CommonActions.reset({
-                index: 0,
-                routes: [{ name: 'MainRoute' }],
-              })
-            );
-            return true;
+            return false; // Return false to allow system to handle (exit app)
           }
 
-          return false;
+          return false; // Allow default back navigation
         } catch (error) {
           return false;
         }

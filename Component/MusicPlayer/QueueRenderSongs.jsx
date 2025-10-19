@@ -128,7 +128,7 @@ const QueueRenderSongs = memo(() => {
           duration: metadata.duration || 0,
           isLocal: true,
           isDownloaded: true,
-          sourceType: 'downloaded'
+    sourceType: 'download'
         };
       }));
     } catch (error) {
@@ -147,11 +147,11 @@ const QueueRenderSongs = memo(() => {
       console.log(`Found ${downloadedTracks.length} downloaded tracks for queue`);
       
       // Check if the current track has a sourceType (mymusic or download)
-      const sourceType = currentTrack.sourceType || (isLocalTrack(currentTrack) ? 'download' : 'online');
+  const sourceType = (currentTrack.sourceType || (isLocalTrack(currentTrack) ? 'download' : 'online'))?.toString?.().toLowerCase();
       console.log('Current track source type:', sourceType);
       
       // If playing a track from MyMusic, only show MyMusic tracks in the queue
-      if (sourceType === 'mymusic') {
+  if (sourceType === 'mymusic') {
         console.log('Playing from MyMusic - showing only MyMusic tracks in queue');
         
         // Get the full queue from TrackPlayer which should contain all MyMusic tracks
@@ -176,7 +176,8 @@ const QueueRenderSongs = memo(() => {
       }
       
       // If playing a downloaded track
-      if (sourceType === 'download' || (isLocalTrack(currentTrack) && !currentTrack.sourceType)) {
+  // Treat both 'download' and legacy 'downloaded' as downloaded source
+  if (sourceType === 'download' || sourceType === 'downloaded' || (isLocalTrack(currentTrack) && !currentTrack.sourceType)) {
         console.log('Playing downloaded track - showing all downloaded tracks in queue');
         
         // Always use downloaded tracks in offline mode or when explicitly playing downloaded music
@@ -184,8 +185,9 @@ const QueueRenderSongs = memo(() => {
         const fullQueue = await TrackPlayer.getQueue();
         
         // Filter to only include downloaded tracks
-        const downloadSourceTracks = fullQueue.filter(track => 
-          track.sourceType === 'download' || 
+          const downloadSourceTracks = fullQueue.filter(track => 
+          (track.sourceType && String(track.sourceType).toLowerCase() === 'download') || 
+          (track.sourceType && String(track.sourceType).toLowerCase() === 'downloaded') || 
           (isLocalTrack(track) && !track.sourceType)
         );
         
@@ -219,7 +221,7 @@ const QueueRenderSongs = memo(() => {
       }
       
       // For online tracks in online mode - normal behavior
-      if (!isOffline) {
+  if (!isOffline) {
         // Get the full queue from TrackPlayer
         const fullQueue = await TrackPlayer.getQueue();
         
@@ -230,7 +232,7 @@ const QueueRenderSongs = memo(() => {
         
         // Filter to only include online tracks (neither mymusic nor download source type)
         const onlineTracks = fullQueue.filter(track => 
-          !track.sourceType && !isLocalTrack(track)
+          (!track.sourceType || (track.sourceType && String(track.sourceType).toLowerCase() === 'online')) && !isLocalTrack(track)
         );
         
         // Put current track first if it exists in the online tracks

@@ -92,86 +92,92 @@ const ContextState = (props)=>{
     }
 
     useTrackPlayerEvents(events, async (event) => {
-        if (event.type === Event.PlaybackError) {
-            console.warn('An error occured while playing the current track.');
+        try {
+            if (event.type === Event.PlaybackError) {
+                console.warn('An error occured while playing the current track.');
 
-            // Enhanced error handling for unsupported formats
-            try {
-                const currentTrack = await TrackPlayer.getActiveTrack();
-                if (currentTrack) {
-                    console.error(`❌ Playback error for: ${currentTrack.title}`);
+                // Enhanced error handling for unsupported formats
+                try {
+                    const currentTrack = await TrackPlayer.getActiveTrack();
+                    if (currentTrack) {
+                        console.error(`❌ Playback error for: ${currentTrack.title}`);
 
-                    // Check if it's an unsupported format error
-                    const isUnsupportedFormat = event.code === 'android-parsing-container-unsupported' ||
-                        event.message?.includes('Source error') ||
-                        event.message?.includes('unsupported');
+                        // Check if it's an unsupported format error
+                        const isUnsupportedFormat = event.code === 'android-parsing-container-unsupported' ||
+                            event.message?.includes('Source error') ||
+                            event.message?.includes('unsupported');
 
-                    if (isUnsupportedFormat) {
-                        console.warn('⚠️ Unsupported audio format detected, attempting to skip...');
+                        if (isUnsupportedFormat) {
+                            console.warn('⚠️ Unsupported audio format detected, attempting to skip...');
 
-                        // Try to skip to next track
-                        try {
-                            const queue = await TrackPlayer.getQueue();
-                            if (queue.length > 1) {
-                                await TrackPlayer.skipToNext();
-                                console.log('✅ Skipped to next track due to format error');
-                            } else {
-                                console.warn('⚠️ No more tracks available, stopping playback');
-                                await TrackPlayer.stop();
+                            // Try to skip to next track
+                            try {
+                                const queue = await TrackPlayer.getQueue();
+                                if (queue.length > 1) {
+                                    await TrackPlayer.skipToNext();
+                                    console.log('✅ Skipped to next track due to format error');
+                                } else {
+                                    console.warn('⚠️ No more tracks available, stopping playback');
+                                    await TrackPlayer.stop();
+                                }
+                            } catch (skipError) {
+                                console.error('❌ Failed to skip track:', skipError);
                             }
-                        } catch (skipError) {
-                            console.error('❌ Failed to skip track:', skipError);
                         }
                     }
+                } catch (error) {
+                    console.error('Error handling playback error:', error);
                 }
-            } catch (error) {
-                console.error('Error handling playback error:', error);
             }
-        }
-        if (event.type === Event.PlaybackActiveTrackChanged) {
-            const trackingInfo = historyManager.getCurrentTrackingInfo();
-            const currentTrackId = trackingInfo?.currentTrack?.id;
-            const newTrackId = event.track?.id;
 
-            // Only process if it's actually a different track
-            if (currentTrackId !== newTrackId) {
-                // Stop tracking previous song if any
-                if (trackingInfo.isTracking) {
+            if (event.type === Event.PlaybackActiveTrackChanged) {
+                const trackingInfo = historyManager.getCurrentTrackingInfo();
+                const currentTrackId = trackingInfo?.currentTrack?.id;
+                const newTrackId = event.track?.id;
+
+                // Only process if it's actually a different track
+                if (currentTrackId !== newTrackId) {
+                    // Stop tracking previous song if any
+                    if (trackingInfo.isTracking) {
+                        await historyManager.stopTracking();
+                    }
+
+                    setCurrentPlaying(event.track)
+                    if (Repeat === Repeats.NoRepeat){
+                        if (event.track?.id ){
+                            AddRecommendedSongs(event.index,event.track?.id)
+                        }
+                    }
+
+                    // Start tracking the new track
+                    if (event.track?.id) {
+                        await historyManager.startTracking(event.track);
+                    }
+                } else {
+                    // Same track, just update UI state
+                    setCurrentPlaying(event.track)
+                }
+            }
+
+            if (event.type === Event.PlaybackState) {
+                // Handle playback state changes for pause/resume tracking
+                console.log('Context: Playback state changed', event.state);
+
+                if (event.state === 'playing') {
+                    if (historyManager.isCurrentlyTracking) {
+                        // Resume tracking if already tracking but was paused
+                        historyManager.resumeTracking();
+                    }
+                } else if (event.state === 'paused') {
+                    // Pause tracking when music is paused
+                    historyManager.pauseTracking();
+                } else if (event.state === 'stopped') {
+                    // Stop tracking completely when music is stopped
                     await historyManager.stopTracking();
                 }
-
-                setCurrentPlaying(event.track)
-                if (Repeat === Repeats.NoRepeat){
-                    if (event.track?.id ){
-                        AddRecommendedSongs(event.index,event.track?.id)
-                    }
-                }
-
-                // Start tracking the new track
-                if (event.track?.id) {
-                    await historyManager.startTracking(event.track);
-                }
-            } else {
-                // Same track, just update UI state
-                setCurrentPlaying(event.track)
             }
-        }
-        if (event.type === Event.PlaybackState) {
-            // Handle playback state changes for pause/resume tracking
-            console.log('Context: Playback state changed', event.state);
-
-            if (event.state === 'playing') {
-                if (historyManager.isCurrentlyTracking) {
-                    // Resume tracking if already tracking but was paused
-                    historyManager.resumeTracking();
-                }
-            } else if (event.state === 'paused') {
-                // Pause tracking when music is paused
-                historyManager.pauseTracking();
-            } else if (event.state === 'stopped') {
-                // Stop tracking completely when music is stopped
-                await historyManager.stopTracking();
-            }
+        } catch (error) {
+            console.error('Error in TrackPlayer event handler:', error);
         }
     });
     async function InitialSetup(){

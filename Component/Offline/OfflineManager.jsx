@@ -83,7 +83,7 @@ const OfflineManager = ({
               url: `file://${songPath}`,
               artwork: artworkPath ? `file://${artworkPath}` : null,
               isLocal: true,
-              sourceType: 'downloaded',
+              sourceType: 'download',
               downloadTime: metadata.downloadTime,
               ...metadata // Include any additional metadata
             };
@@ -157,7 +157,7 @@ const OfflineManager = ({
               url: `file://${songPath}`,
               artwork: artworkPath ? `file://${artworkPath}` : null,
               isLocal: true,
-              sourceType: 'downloaded',
+              sourceType: 'download',
               downloadTime: metadata.downloadTime,
               ...metadata
             };

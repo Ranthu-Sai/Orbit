@@ -17,7 +17,7 @@ const createHistoryEntry = (song, listenDuration = 0) => ({
   playCount: 1,
   lastPlayed: Date.now(),
   firstPlayed: Date.now(),
-  sourceType: song.sourceType || (song.isLocal ? 'local' : song.path ? 'downloaded' : 'online'),
+  sourceType: song.sourceType || (song.isLocal ? 'local' : song.path ? 'download' : 'online'),
   isLocal: song.isLocal || false,
   path: song.path || null,
 });

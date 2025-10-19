@@ -4,7 +4,6 @@ import { EachSongCard } from '../Global/EachSongCard';
 import { LoadingComponent } from '../Global/Loading';
 import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
-import { preloadTopTidalSongs } from '../../Utils/TidalMusicHandler';
 import { useTheme } from '@react-navigation/native';
 
 export default function SongDisplay({ data, source = 'saavn' }) {
@@ -14,11 +13,7 @@ export default function SongDisplay({ data, source = 'saavn' }) {
   useEffect(() => {
     setDisplayData(data);
 
-    // Preload the top 3 Tidal songs from the search results.
-    if (source === 'tidal' && data?.data?.results?.length > 0) {
-      console.log('Preloading top 3 Tidal songs from search results.');
-      preloadTopTidalSongs(data.data.results.slice(0, 3));
-    }
+    // Tidal support removed: no preloading will occur.
   }, [data, source]);
 
   const width = Dimensions.get('window').width;
@@ -68,11 +63,10 @@ export default function SongDisplay({ data, source = 'saavn' }) {
               id={item?.id}
               width={width * 0.95}
               title={item?.name || item?.title}
-              artist={source === 'tidal' ? item?.artist : FormatArtist(item?.artists?.primary)}
+              artist={FormatArtist(item?.artists?.primary)}
               url={item?.downloadUrl} // This is used for Saavn downloads
               showNumber={false}
               source={'search'} // Mark as from search for special queue logic
-              tidalUrl={item?.url} // Correctly pass the tidal track URL
               Data={displayData}
               index={displayData.data.results.findIndex(x => x.id === item.id)}
             />

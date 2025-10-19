@@ -40,14 +40,19 @@ class EventRegister {
    * @returns {boolean} True if removed successfully
    */
   removeEventListener(id) {
-    if (id === -1) {
+    if (id === -1 || !id) {
       return false;
     }
 
     for (const eventName in this.listeners) {
       const eventListeners = this.listeners[eventName];
-      if (eventListeners[id]) {
+      if (eventListeners && eventListeners[id]) {
         delete eventListeners[id];
+
+        // Clean up empty event listener objects
+        if (Object.keys(eventListeners).length === 0) {
+          delete this.listeners[eventName];
+        }
         return true;
       }
     }
