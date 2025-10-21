@@ -1,27 +1,23 @@
-import { Dimensions, View, TouchableOpacity, Alert, ToastAndroid } from "react-native";
-import { Heading } from "../Global/Heading";
-import Ionicons from "react-native-vector-icons/Ionicons";
-import { SmallText } from "../Global/SmallText";
-import { Spacer } from "../Global/Spacer";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ToastAndroid, Alert, Dimensions, RefreshControl } from "react-native";
+import FastImage from "react-native-fast-image";
+import { useTheme, useNavigation, useRoute } from "@react-navigation/native";
 import LinearGradient from "react-native-linear-gradient";
-import { useThemeContext } from "../../Context/ThemeContext";
-import { AddPlaylist, PlaySong, PauseSong, getIndexQuality } from "../../MusicPlayerFunctions";
-import { PlayButton } from "../Playlist/PlayButton";
-import { useContext, useState, useEffect } from "react";
-import Context from "../../Context/Context";
-import FormatArtist from "../../Utils/FormatArtists";
-import FormatTitleAndArtist from "../../Utils/FormatTitleAndArtist";
-import TrackPlayer, { State } from "react-native-track-player";
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import AntDesign from "react-native-vector-icons/AntDesign";
-import { StorageManager } from '../../Utils/StorageManager';
-import ReactNativeBlobUtil from "react-native-blob-util";
-import { PermissionsAndroid, Platform } from "react-native";
-import DeviceInfo from "react-native-device-info";
-import RNFS from "react-native-fs";
-import { safeExists, safeDownloadFile, ensureDirectoryExists } from '../../Utils/FileUtils';
-import EventRegister from '../../Utils/EventRegister';
+import Ionicons from "react-native-vector-icons/Ionicons";
+import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import { getAlbumData } from "../../Api/Album";
+import { PlainText } from "../Global/PlainText";
+import { SmallText } from "../Global/SmallText";
+import { Heading } from "../Global/Heading";
+import { EachSongCard } from "../Global/EachSongCard";
 import { DownloadButton } from "../Global/DownloadButton";
+import { AddPlaylist, PlayOneSong } from "../../MusicPlayerFunctions";
+import { truncateText } from "../../Utils/FormatTitleAndArtist";
+import FormatArtist from "../../Utils/FormatArtists";
+import { StorageManager } from '../../Utils/StorageManager';
+import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
+import EventRegister from '../../Utils/EventRegister';
 
 // Circular progress component for download indicator
 const CircularProgress = ({ progress, size = 20, thickness = 2, color }) => {
@@ -298,76 +294,56 @@ export const AlbumDetails = ({name,releaseData,liked,Data}) => {
           }));
           
           try {
-            // Download song
-            const songUrl = song.downloadUrl[quality]?.url;
-            if (!songUrl) {
-              console.error('No URL available for song:', song.name);
-              throw new Error('No download URL available');
-            }
-            
-            const songPath = `${baseDir}/songs/${song.id}.mp3`;
-            
-            // Download with progress tracking
-            const res = await ReactNativeBlobUtil.config({
-              fileCache: false,
-              path: songPath,
-              overwrite: true,
-              indicator: true
-            })
-            .fetch('GET', songUrl)
-            .progress((received, total) => {
-              if (total <= 0) return;
-              const percentage = Math.floor((received / total) * 100);
-              
+            // Prepare song data for unified service
+            const songData = {
+              id: song.id,
+              title: song.name || 'Unknown',
+              artist: song.artists?.primary || 'Unknown',
+              album: name || 'Unknown',
+              downloadUrl: song.downloadUrl,
+              download_url: song.download_url,
+              url: song.url,
+              image: song.image,
+              artwork: song.artwork,
+              duration: song.duration || 0
+            };
+
+            // Use unified download service with progress callback
+            const success = await UnifiedDownloadService.downloadSong(songData, (progress) => {
               // Update progress for this specific song
               setDownloadStatus(prev => ({
                 ...prev,
                 [song.id]: {
                   ...prev[song.id],
-                  progress: percentage
+                  progress: progress
                 }
               }));
             });
-            
-            if (res.info().status !== 200) {
-              throw new Error(`Download failed with status: ${res.info().status}`);
+
+            if (success) {
+              // Mark as downloaded
+              setDownloadStatus(prev => ({
+                ...prev,
+                [song.id]: {
+                  isDownloaded: true,
+                  progress: 100,
+                  isDownloading: false
+                }
+              }));
+            } else {
+              // Mark as failed
+              setDownloadStatus(prev => ({
+                ...prev,
+                [song.id]: {
+                  ...prev[song.id],
+                  isDownloading: false
+                }
+              }));
             }
-            
-            // Download artwork
-            const artworkUrl = song.image?.[2]?.url || song.images?.[2]?.url;
-            if (artworkUrl) {
-              const artworkPath = `${baseDir}/artwork/${song.id}.jpg`;
-              await safeDownloadFile(artworkUrl, artworkPath);
-            }
-            
-            // Save metadata
-            await StorageManager.saveDownloadedSongMetadata(song.id, {
-              id: song.id,
-              title: song.name || 'Unknown',
-              artist: FormatArtist(song.artists?.primary) || 'Unknown',
-              album: name || 'Unknown',
-              url: songUrl,
-              artwork: song.image?.[2]?.url || song.images?.[2]?.url || null,
-              duration: song.duration || 0,
-              downloadedAt: new Date().toISOString()
-            });
-            
-            // Mark as downloaded
-            setDownloadStatus(prev => ({
-              ...prev,
-              [song.id]: {
-                isDownloaded: true,
-                progress: 100,
-                isDownloading: false
-              }
-            }));
-            
+
             // Update overall progress
             completedDownloads++;
             setOverallProgress(Math.floor((completedDownloads / Data.data.songs.length) * 100));
-            
-            // Emit event for download completion
-            EventRegister.emit('download-complete', song.id);
             
           } catch (error) {
             console.error(`Error downloading song ${song.name}:`, error);

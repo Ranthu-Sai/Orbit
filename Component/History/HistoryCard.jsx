@@ -157,9 +157,8 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
         setIsDownloading(true);
         setDownloadProgress(0);
 
-        const downloadService = new UnifiedDownloadService();
-        
-        await downloadService.downloadSong(
+        // Use the static method instead of instantiating the class
+        await UnifiedDownloadService.downloadSong(
           historyItem,
           (progress) => {
             setDownloadProgress(progress);

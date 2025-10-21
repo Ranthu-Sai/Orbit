@@ -12,3 +12,4 @@ export {
   LargeDownloadControl
 } from './DownloadControl';
 export { useDownload } from './useDownload';
+export { useUnifiedDownload } from './useUnifiedDownload';

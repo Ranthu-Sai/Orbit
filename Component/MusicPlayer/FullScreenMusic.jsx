@@ -28,10 +28,7 @@ import {
 
 import Context from "../../Context/Context";
 import useDynamicArtwork from '../../hooks/useDynamicArtwork.js';
-import { StorageManager } from '../../Utils/StorageManager';
-import { requestStoragePermission } from '../../Utils/PermissionManager';
-import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
-import EventRegister from '../../Utils/EventRegister';
+import { useUnifiedDownload } from '../Download/useUnifiedDownload';
 import { DownloadControl } from '../Download/DownloadControl';
 
 export const FullScreenMusic = ({ Index, setIndex }) => {
@@ -41,9 +38,15 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
   const { musicPreviousScreen } = useContext(Context);
   const { getArtworkSourceFromHook } = useDynamicArtwork();
   const [isLyricsActive, setIsLyricsActive] = useState(false);
-  const [isDownloaded, setIsDownloaded] = useState(false);
-  const [downloadInProgress, setDownloadInProgress] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
+
+  // Use the new unified download hook
+  const {
+    isDownloaded,
+    isDownloading,
+    downloadProgress,
+    startDownload,
+    canDownload
+  } = useUnifiedDownload(currentPlaying, false);
 
   // Memoize artwork source to prevent excessive hook calls
   const currentArtworkSource = useMemo(() => {
@@ -72,60 +75,6 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
     error: localTracksError
   } = useLocalTracks({ isOffline });
 
-  // Check download status
-  useEffect(() => {
-    const checkDownloadStatus = async () => {
-      if (currentPlaying?.id) {
-        try {
-          const downloaded = await StorageManager.isSongDownloaded(currentPlaying.id);
-          setIsDownloaded(downloaded);
-        } catch (error) {
-          console.error('Error checking download status:', error);
-          setIsDownloaded(false);
-        }
-      }
-    };
-
-    checkDownloadStatus();
-  }, [currentPlaying?.id]);
-
-  // Listen for download events
-  useEffect(() => {
-    let downloadListener = null;
-    let downloadStartedListener = null;
-
-    try {
-      downloadListener = EventRegister.addEventListener('download-complete', (songId) => {
-        if (songId === currentPlaying?.id) {
-          setIsDownloaded(true);
-          setDownloadInProgress(false);
-          setDownloadProgress(100);
-        }
-      });
-
-      downloadStartedListener = EventRegister.addEventListener('download-started', (songId) => {
-        if (songId === currentPlaying?.id) {
-          setDownloadInProgress(true);
-        }
-      });
-    } catch (error) {
-      console.error('Error setting up download listeners:', error);
-    }
-
-    return () => {
-      try {
-        if (downloadListener !== null) {
-          EventRegister.removeEventListener(downloadListener);
-        }
-        if (downloadStartedListener !== null) {
-          EventRegister.removeEventListener(downloadStartedListener);
-        }
-      } catch (error) {
-        console.error('Error cleaning up download listeners:', error);
-      }
-    };
-  }, [currentPlaying?.id]);
-
   const handleLyricsVisibilityChange = (visible) => {
     setIsLyricsActive(visible);
   };
@@ -135,73 +84,15 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
     handlePlayerClose();
   };
 
-  const handleDownload = async () => {
-    if (isDownloaded) {
-      ToastAndroid.show('Song is already downloaded!', ToastAndroid.SHORT);
-      return;
-    }
-    if (downloadInProgress) {
-      ToastAndroid.show('Download already in progress.', ToastAndroid.SHORT);
-      return;
-    }
-
-    try {
-      const permissionGranted = await requestStoragePermission();
-      if (!permissionGranted) {
-        Alert.alert(
-          'Permission Denied',
-          'Storage permission is required to download songs. Please grant it in your device settings.',
-        );
-        return;
-      }
-
-      setDownloadInProgress(true);
-      setDownloadProgress(0);
-
-      // Prepare song object for unified service
-      const songData = {
-        id: currentPlaying?.id,
-        title: currentPlaying?.title,
-        artist: currentPlaying?.artist,
-        url: currentPlaying?.url,
-        image: currentPlaying?.artwork,
-        artwork: currentPlaying?.artwork,
-        duration: currentPlaying?.duration,
-        language: currentPlaying?.language,
-        artistID: currentPlaying?.artistID,
-        downloadUrl: currentPlaying?.downloadUrl
-      };
-
-      // Use the unified download service with progress callback
-      const success = await UnifiedDownloadService.downloadSong(
-        songData,
-        (progress) => {
-          setDownloadProgress(progress);
-        }
-      );
-
-      if (success) {
-        setIsDownloaded(true);
-        setDownloadProgress(100);
-      }
-
-    } catch (error) {
-      console.error('Download failed:', error);
-      ToastAndroid.show(`Download failed: ${error.message}`, ToastAndroid.LONG);
-    } finally {
-      setDownloadInProgress(false);
-    }
-  };
-
   const renderDownloadControl = () => {
     return (
       <DownloadControl
         isDownloaded={isDownloaded}
-        isDownloading={downloadInProgress}
+        isDownloading={isDownloading}
         downloadProgress={downloadProgress}
-        onDownloadPress={handleDownload}
+        onDownloadPress={startDownload}
         isOffline={isOffline}
-        disabled={!currentPlaying || isOffline}
+        disabled={!canDownload}
         size={28}
       />
     );

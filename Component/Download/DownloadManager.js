@@ -173,8 +173,9 @@ export class DownloadManager {
           if (onProgress) onProgress(percentage);
         });
 
-      if (res.info().status !== 200) {
-        throw new Error(`Download failed with status: ${res.info().status}`);
+      // Fix: Use respInfo.status instead of res.info().status
+      if (res.respInfo.status !== 200) {
+        throw new Error(`Download failed with status: ${res.respInfo.status}`);
       }
 
       return true;
