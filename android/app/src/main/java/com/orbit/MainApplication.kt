@@ -1,6 +1,7 @@
 package com.orbit
 import com.microsoft.codepush.react.CodePush
 import android.app.Application
+import com.orbit.BuildConfig
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost

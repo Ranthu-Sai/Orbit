@@ -18,6 +18,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { analyticsService, AnalyticsEvents } from './Utils/AnalyticsUtils';
 // Import ThemeProvider from ThemeContext
 import { ThemeProvider } from './Context/ThemeContext';
+import { StorageManager } from './Utils/StorageManager';
 // Import theme types
 import { darkTheme } from './Theme/darkTheme';
 
@@ -80,6 +81,11 @@ function App(){
   },[])
   
   useEffect(() => {
+    // Ensure storage directories exist early to avoid ENOENT when accessing files
+    StorageManager.ensureDirectoriesExist().catch(err => {
+      console.warn('Failed to ensure storage directories at startup:', err && err.message ? err.message : err);
+    });
+
     const handleBackPress = () => {
       if (navigationRef.current) {
         try {
