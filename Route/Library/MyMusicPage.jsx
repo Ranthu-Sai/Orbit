@@ -210,47 +210,104 @@ export const MyMusicPage = () => {
       try {
         const RNFS = require('react-native-fs');
 
+        // Enhanced music file scanning with more directories and better filtering
+        const isMusicFile = (filename) => {
+          if (!filename) return false;
+          const ext = filename.toLowerCase().split('.').pop();
+          const supportedFormats = [
+            'mp3', 'm4a', 'wav', 'ogg', 'flac', 'aac', 'opus', 'm4b', 'm4p', 'amr', '3gp'
+          ];
+          return supportedFormats.includes(ext);
+        };
+
         // Define directories to search for music files
         const directories = [
+          // Standard music directories
           RNFS.ExternalStorageDirectoryPath + '/Music',
+          RNFS.ExternalStorageDirectoryPath + '/Media/Music',
+          RNFS.MusicDirectoryPath,
+          RNFS.ExternalDirectoryPath + '/Music',
+          
+          // Messaging apps
+          RNFS.ExternalStorageDirectoryPath + '/WhatsApp/Media/WhatsApp Music',
+          RNFS.ExternalStorageDirectoryPath + '/WhatsApp/Media/WhatsApp Voice Notes',
+          RNFS.ExternalStorageDirectoryPath + '/WhatsApp/Media/WhatsApp Audio',
+          RNFS.ExternalStorageDirectoryPath + '/Telegram/Telegram Audio',
+          RNFS.ExternalStorageDirectoryPath + '/Telegram/Telegram Voice',
+          RNFS.ExternalStorageDirectoryPath + '/Signal/Media/Signal Audio',
+          RNFS.ExternalStorageDirectoryPath + '/Signal/Media/Signal Voice Notes',
+          RNFS.ExternalStorageDirectoryPath + '/Download/Telegram',
+          RNFS.ExternalStorageDirectoryPath + '/Download/WhatsApp',
+          
+          // Voice recordings and system sounds
+          RNFS.ExternalStorageDirectoryPath + '/Recordings',
+          RNFS.ExternalStorageDirectoryPath + '/Voice Recorder',
+          RNFS.ExternalStorageDirectoryPath + '/Voice Recordings',
+          RNFS.ExternalStorageDirectoryPath + '/Sounds',
+          RNFS.ExternalStorageDirectoryPath + '/Notifications',
+          RNFS.ExternalStorageDirectoryPath + '/Alarms',
+          RNFS.ExternalStorageDirectoryPath + '/Ringtones',
+          
+          // Common download locations
           RNFS.ExternalStorageDirectoryPath + '/Download',
-          RNFS.DownloadDirectoryPath, // Direct download directory
-          RNFS.MusicDirectoryPath, // Direct music directory (if available)
-          RNFS.ExternalDirectoryPath + '/Music', // App-specific music directory
-          // Skip DocumentDirectoryPath + '/Music' as it's usually not accessible and causes warnings
+          RNFS.ExternalStorageDirectoryPath + '/Downloads',
+          RNFS.DownloadDirectoryPath,
+          RNFS.ExternalStorageDirectoryPath + '/DCIM',
+          RNFS.ExternalStorageDirectoryPath + '/Pictures',
+          RNFS.ExternalStorageDirectoryPath + '/Documents',
+          
+          // Cloud storage folders
+          RNFS.ExternalStorageDirectoryPath + '/Google Drive',
+          RNFS.ExternalStorageDirectoryPath + '/Dropbox',
+          RNFS.ExternalStorageDirectoryPath + '/OneDrive',
+          
+          // App-specific folders
+          RNFS.ExternalStorageDirectoryPath + '/Pocket Casts',
+          RNFS.ExternalStorageDirectoryPath + '/Podcasts',
+          RNFS.ExternalStorageDirectoryPath + '/Audiobooks',
+          
+          // Hidden folders that might contain audio
+          RNFS.ExternalStorageDirectoryPath + '/.media',
         ].filter(dir => dir && !dir.includes('undefined') && !dir.includes('null') && !dir.includes('/data/user/0/'));
 
-        // Define supported audio file extensions (only well-supported formats)
-        const audioExtensions = ['.mp3', '.m4a', '.wav', '.ogg', '.flac', '.aac'];
-
-        // Exclude problematic file patterns that might cause playback issues
-        const excludePatterns = [
-          'ElevenLabs_', // AI-generated audio files that might have issues
-          '_pvc_', // Specific pattern causing issues
-          '.tmp', // Temporary files
-          '.part' // Partial downloads
-        ];
-
-        // Read all directories concurrently
-        const allFiles = await Promise.all(
-          directories.map(async (dir) => {
-            try {
-              const files = await RNFS.readDir(dir);
-              const audioFiles = files.filter(
-                (file) =>
-                  file.isFile() &&
-                  audioExtensions.some((ext) =>
-                    file.name.toLowerCase().endsWith(ext)
-                  )
-              );
-              return audioFiles;
-            } catch (err) {
-              return []; // Return empty array if directory is inaccessible
+        // Recursive directory scanning
+        const scanDirectory = async (dirPath) => {
+          let results = [];
+          try {
+            const items = await RNFS.readDir(dirPath);
+            for (const item of items) {
+              try {
+                if (item.isDirectory()) {
+                  // Skip some known non-music directories
+                  if (item.name.startsWith('.') || 
+                      ['Android', 'Cache', 'temp', 'thumbnails', 'cache', 'logs'].includes(item.name)) {
+                    continue;
+                  }
+                  // Recursively scan subdirectories
+                  const subResults = await scanDirectory(item.path);
+                  results = [...results, ...subResults];
+                } else if (item.isFile() && isMusicFile(item.name)) {
+                  results.push(item);
+                }
+              } catch (e) {
+                console.warn(`Error processing ${item.path}:`, e);
+              }
             }
+          } catch (error) {
+            console.warn(`Error reading directory ${dirPath}:`, error);
+          }
+          return results;
+        };
+
+        // Scan all directories concurrently with progress feedback
+        const scanPromises = directories.map(dir => 
+          scanDirectory(dir).catch(err => {
+            console.warn(`Error scanning ${dir}:`, err);
+            return [];
           })
         );
 
-        // Convert RNFS files to the same format as MusicFiles, filtering out problematic files
+        const allFiles = await Promise.all(scanPromises);
         const allFilesFlat = allFiles.flat();
 
         // Convert RNFS files to track objects for validation
@@ -516,29 +573,22 @@ export const MyMusicPage = () => {
                   await TrackPlayer.stop();
                 }
               } catch (skipError) {
-                // Stop playback as last resort
                 try {
                   await TrackPlayer.stop();
                 } catch (stopError) {
-                  // Silent error handling
                 }
               }
             }
           }
         } catch (trackError) {
-          // Silent error handling
         }
-
-        // Try to recover by playing the next track
         try {
           await TrackPlayer.skipToNext();
           await TrackPlayer.play();
         } catch (recoveryError) {
-          // Silent error handling
         }
       }
     } catch (error) {
-      // Silent error handling
     }
   });
 
@@ -556,7 +606,6 @@ export const MyMusicPage = () => {
       const prevIndex = (currentIndex - 1 + localMusic.length) % localMusic.length; // Wrap around to the last track
       await loadAndPlayTrack(prevIndex);
     } catch (error) {
-      // Silent error handling
     }
   }, [localMusic]);
 
@@ -573,7 +622,6 @@ export const MyMusicPage = () => {
       const nextIndex = (currentIndex + 1) % localMusic.length; // Wrap around to the first track
       await loadAndPlayTrack(nextIndex);
     } catch (error) {
-      // Silent error handling
     }
   }, [localMusic]);
 
