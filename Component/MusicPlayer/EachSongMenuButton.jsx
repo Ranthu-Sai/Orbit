@@ -338,19 +338,23 @@ export const EachSongMenuButton = ({
       setIsDownloading(true);
       setDownloadProgress(0);
 
-      // Use the unified download service
-      const success = await UnifiedDownloadService.downloadSong(song, (progress) => {
+      // Use the unified download service with source parameter
+      const success = await UnifiedDownloadService.downloadSong({
+        ...song,
+        source: song.source || 'saavn'
+      }, (progress) => {
         setDownloadProgress(progress);
       });
 
       if (success) {
         setIsDownloaded(true);
         setDownloadProgress(100);
+        ToastAndroid.show('Download completed', ToastAndroid.SHORT);
       }
 
     } catch (error) {
       console.error('Download failed:', error);
-      ToastAndroid.show(`Download failed: ${error.message}`, ToastAndroid.SHORT);
+      ToastAndroid.show(`Download failed: ${error.message}`, ToastAndroid.LONG);
     } finally {
       setIsDownloading(false);
     }

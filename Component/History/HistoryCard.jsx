@@ -152,29 +152,48 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
 
   // Download song (only for online songs)
   const downloadSong = async () => {
+    if (!historyItem?.id) {
+      ToastAndroid.show('Invalid song data', ToastAndroid.SHORT);
+      return;
+    }
+
     try {
-      if (historyItem.sourceType === 'online' && historyItem.url) {
-        setIsDownloading(true);
-        setDownloadProgress(0);
-
-        // Use the static method instead of instantiating the class
-        await UnifiedDownloadService.downloadSong(
-          historyItem,
-          (progress) => {
-            setDownloadProgress(progress);
-          }
-        );
-
-        setIsDownloaded(true);
-        setIsDownloading(false);
-        ToastAndroid.show('Download completed', ToastAndroid.SHORT);
+      // Check if already downloaded or downloading
+      if (isDownloaded) {
+        ToastAndroid.show('Song already downloaded', ToastAndroid.SHORT);
+        return;
       }
-      setMenuVisible(false);
-    } catch (error) {
-      console.error('Error downloading song:', error);
-      setIsDownloading(false);
+
+      if (isDownloading) {
+        ToastAndroid.show(`Download in progress: ${downloadProgress}%`, ToastAndroid.SHORT);
+        return;
+      }
+
+      setIsDownloading(true);
       setDownloadProgress(0);
-      ToastAndroid.show('Download failed', ToastAndroid.SHORT);
+      setMenuVisible(false);
+
+      // Use the unified download service
+      const success = await UnifiedDownloadService.downloadSong({
+        ...historyItem,
+        source: historyItem.source || 'saavn'
+      }, (progress) => {
+        setDownloadProgress(progress);
+      });
+
+      if (success) {
+        setIsDownloaded(true);
+        setDownloadProgress(100);
+        ToastAndroid.show('Download completed', ToastAndroid.SHORT);
+      } else {
+        ToastAndroid.show('Download failed', ToastAndroid.SHORT);
+      }
+
+    } catch (error) {
+      console.error('Download failed:', error);
+      ToastAndroid.show(`Download failed: ${error.message}`, ToastAndroid.LONG);
+    } finally {
+      setIsDownloading(false);
     }
   };
 

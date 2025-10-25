@@ -123,7 +123,8 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
         image: Visible.image,
         artwork: Visible.image,
         duration: Visible.duration,
-        language: Visible.language
+        language: Visible.language,
+        source: 'saavn' // Default source for online music
       };
 
       // Use unified download service

@@ -162,7 +162,7 @@ export const DownloadButton = ({
       ToastAndroid.show('Download already in progress', ToastAndroid.SHORT);
       return;
     }
-    
+
     try {
       // For individual songs
       if (individual && songId) {
@@ -171,20 +171,36 @@ export const DownloadButton = ({
           ToastAndroid.show('Invalid song data', ToastAndroid.SHORT);
           return;
         }
-        
+
         // Check if already downloaded
         const isDownloaded = await StorageManager.isSongDownloaded(songId);
         if (isDownloaded) {
           ToastAndroid.show('Song already downloaded', ToastAndroid.SHORT);
           return;
         }
-        
+
         setIsDownloading(true);
-        await downloadSong(song, albumName);
+        const success = await UnifiedDownloadService.downloadSong({
+          ...song,
+          album: albumName,
+          source: song.source || 'saavn'
+        });
+
+        if (success) {
+          setDownloadStatus(prev => ({
+            ...prev,
+            [songId]: {
+              isDownloaded: true,
+              progress: 100,
+              isDownloading: false
+            }
+          }));
+          ToastAndroid.show('Download completed', ToastAndroid.SHORT);
+        }
         setIsDownloading(false);
         return;
       }
-      
+
       // For albums/playlists
       // Check if all songs are already downloaded
       const allDownloaded = Object.values(downloadStatus).every(status => status.isDownloaded);
@@ -192,127 +208,58 @@ export const DownloadButton = ({
         ToastAndroid.show('All songs already downloaded', ToastAndroid.SHORT);
         return;
       }
-      
-      setIsDownloading(true);
-      ToastAndroid.show(`Downloading ${songs.length} songs`, ToastAndroid.SHORT);
 
-      let completedDownloads = 0;
-      
-      // Download songs in parallel (max 3 at a time)
-      const chunks = [];
-      const songsToDownload = [...songs];
-      const chunkSize = 3;
-      
-      while (songsToDownload.length > 0) {
-        chunks.push(songsToDownload.splice(0, chunkSize));
+      setIsDownloading(true);
+      const songsToDownload = songs.filter(song =>
+        !downloadStatus[song.id]?.isDownloaded
+      );
+
+      if (songsToDownload.length === 0) {
+        ToastAndroid.show('All songs already downloaded', ToastAndroid.SHORT);
+        setIsDownloading(false);
+        return;
       }
-      
-      for (const chunk of chunks) {
-        await Promise.all(chunk.map(async (song) => {
-          // Skip already downloaded songs
-          if (!song || !song.id || downloadStatus[song.id]?.isDownloaded) {
-            completedDownloads++;
-            setOverallProgress(Math.floor((completedDownloads / songs.length) * 100));
-            return;
+
+      ToastAndroid.show(`Downloading ${songsToDownload.length} songs`, ToastAndroid.SHORT);
+
+      let successCount = 0;
+      for (let i = 0; i < songsToDownload.length; i++) {
+        const song = songsToDownload[i];
+        setOverallProgress(Math.floor((i / songsToDownload.length) * 100));
+
+        try {
+          const success = await UnifiedDownloadService.downloadSong({
+            ...song,
+            album: albumName,
+            source: song.source || 'saavn'
+          });
+
+          if (success) {
+            successCount++;
+            setDownloadStatus(prev => ({
+              ...prev,
+              [song.id]: {
+                isDownloaded: true,
+                progress: 100,
+                isDownloading: false
+              }
+            }));
           }
-          
-          // Mark song as downloading
-          setDownloadStatus(prev => ({
-            ...prev,
-            [song.id]: {
-              ...prev[song.id],
-              isDownloading: true
-            }
-          }));
-          
-          try {
-            await downloadSong(song, albumName, completedDownloads, songs.length);
-            completedDownloads++;
-            setOverallProgress(Math.floor((completedDownloads / songs.length) * 100));
-          } catch (error) {
-            console.error(`Error downloading song:`, error);
-          }
-        }));
+        } catch (error) {
+          console.error(`Error downloading ${song.title || song.name}:`, error);
+        }
       }
-      
-      ToastAndroid.show('Download complete', ToastAndroid.SHORT);
+
+      if (successCount > 0) {
+        ToastAndroid.show(`Downloaded ${successCount} song${successCount > 1 ? 's' : ''}`, ToastAndroid.SHORT);
+      }
+
     } catch (error) {
-      console.error('Error downloading:', error);
-      Alert.alert('Download Error', 'There was an error downloading');
+      console.error('Download error:', error);
+      ToastAndroid.show('Download failed', ToastAndroid.SHORT);
     } finally {
       setIsDownloading(false);
-    }
-  };
-  
-  // Function to download a single song using unified service
-  const downloadSong = async (song, albumName, completedCount = 0, totalCount = 1) => {
-    try {
-      // Prepare song data for unified service
-      const songData = {
-        id: song.id,
-        title: song.name || song.title || 'Unknown',
-        artist: song.artists?.primary || song.artist || 'Unknown',
-        album: albumName || 'Unknown',
-        downloadUrl: song.downloadUrl,
-        download_url: song.download_url,
-        url: song.url,
-        image: song.image,
-        artwork: song.artwork,
-        duration: song.duration || 0
-      };
-
-      // Use unified download service with progress callback
-      const success = await UnifiedDownloadService.downloadSong(songData, (progress) => {
-        // Update progress for this specific song
-        setDownloadStatus(prev => ({
-          ...prev,
-          [song.id]: {
-            ...prev[song.id],
-            progress: progress
-          }
-        }));
-
-        // For individual song download, update overall progress
-        if (individual || totalCount === 1) {
-          setOverallProgress(progress);
-        }
-      });
-
-      if (success) {
-        // Mark as downloaded
-        setDownloadStatus(prev => ({
-          ...prev,
-          [song.id]: {
-            isDownloaded: true,
-            progress: 100,
-            isDownloading: false
-          }
-        }));
-      } else {
-        // Mark as failed
-        setDownloadStatus(prev => ({
-          ...prev,
-          [song.id]: {
-            ...prev[song.id],
-            isDownloading: false
-          }
-        }));
-      }
-
-      return success;
-    } catch (error) {
-      console.error(`Error downloading song ${song.name}:`, error);
-
-      // Mark as failed
-      setDownloadStatus(prev => ({
-        ...prev,
-        [song.id]: {
-          ...prev[song.id],
-          isDownloading: false
-        }
-      }));
-
-      return false;
+      setOverallProgress(100);
     }
   };
   

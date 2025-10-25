@@ -444,12 +444,6 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
       return;
     }
 
-    // Tidal support removed: inform user and abort download
-    if (source === 'tidal') {
-      ToastAndroid.show('Tidal support has been removed.', ToastAndroid.SHORT);
-      return;
-    }
-
     try {
       const permissionGranted = await requestStoragePermission();
       if (!permissionGranted) {
@@ -472,7 +466,8 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
         artwork: typeof image === 'string' ? image : (image?.uri || safeImageUri),
         duration,
         language,
-        artistID
+        artistID,
+        source: source || 'saavn' // Add source for analytics
       };
 
       // Use the unified download service
@@ -481,7 +476,6 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
       if (success) {
         setIsDownloaded(true);
       }
-
     } catch (error) {
       console.error('Download failed:', error);
       ToastAndroid.show(`Download failed for ${title}: ${error.message}`, ToastAndroid.LONG);
