@@ -2,7 +2,7 @@
   <img src="Images/Logo.jpg" alt="Orbit Logo" width="150" height="150">
 </p>
 
-<h1 align="center">🎵 ORBIT </h1>
+<h1 align="center">🎵 ORBIT 🎵</h1>
 <h3 align="center">Where Music Flows Without Boundaries</h3>
 
 <p align="center">
