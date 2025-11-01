@@ -1,11 +1,10 @@
-import { Dimensions, Text, StyleSheet } from "react-native";
-import { useTheme } from "@react-navigation/native";
+import { Dimensions, StyleSheet } from "react-native";
+import { Text } from 'react-native-paper';
 import { Spacer } from "./Spacer";
 import { useEffect, useState } from "react";
 import { GetFontSizeValue } from "../../LocalStorage/AppSettings";
 
 export const Heading = ({text, style, nospace}) => {
-  const theme = useTheme()
   const width = Dimensions.get('window').width
   const [Size, setSize] = useState(width * 0.055);
   async function getFont(){
@@ -25,13 +24,18 @@ export const Heading = ({text, style, nospace}) => {
   return (
    <>
      {!nospace && <Spacer/>}
-     <Text numberOfLines={2} style={{
-       fontWeight:900,
-       color:theme.colors.text,
-       fontSize:Size,
-       fontFamily:'roboto',
-       ...StyleSheet.flatten(style),
-     }}>{text || ''}</Text>
+     <Text
+       variant="headlineMedium"
+       numberOfLines={2}
+       style={{
+         fontWeight: 900,
+         fontSize: Size,
+         fontFamily: 'roboto',
+         ...StyleSheet.flatten(style),
+       }}
+     >
+       {text || ''}
+     </Text>
      {!nospace && <Spacer/>}
    </>
   );

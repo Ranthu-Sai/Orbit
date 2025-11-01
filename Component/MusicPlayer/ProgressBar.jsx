@@ -1,18 +1,20 @@
-import Slider from "@react-native-community/slider";
 import React, { useState, useEffect } from "react";
-import { Dimensions, View } from "react-native";
+import { Dimensions, View, StyleSheet } from "react-native";
+import Slider from '@react-native-community/slider';
+import { Text, useTheme } from "react-native-paper";
 import { useProgress, useActiveTrack } from "react-native-track-player";
 import { SetProgressSong } from "../../MusicPlayerFunctions";
-import { SmallText } from "../Global/SmallText";
-import { useThemeContext } from "../../Context/ThemeContext"; // Changed to useThemeContext
 
-export const ProgressBar = () => {
-  const { theme, themeMode } = useThemeContext(); // Changed to useThemeContext, added themeMode
-  const width = Dimensions.get("window").width;
-  const { position, duration } = useProgress(); // Get current position and duration
+const ProgressBar = () => {
+  const theme = useTheme();
+  const { position, duration } = useProgress();
   const currentTrack = useActiveTrack();
   const [isSliding, setIsSliding] = useState(false);
   const [sliderValue, setSliderValue] = useState(0);
+  
+  const screenWidth = Dimensions.get('window').width;
+  const horizontalPadding = 14; // Reduced from 16 to make slider wider
+  const sliderWidth = screenWidth - (horizontalPadding * 2); // Full width minus padding
 
   // Update slider value when not sliding
   useEffect(() => {
@@ -68,36 +70,81 @@ export const ProgressBar = () => {
   }, [currentTrack?.id, duration, currentTrack?.duration]);
 
   return (
-    <>
-      <Slider
-        onSlidingStart={() => setIsSliding(true)}
-        onValueChange={(value) => {
-          if (isSliding) {
-            setSliderValue(value);
-          }
-        }}
-        onSlidingComplete={(progress) => {
-          setIsSliding(false);
-          SetProgressSong(progress); // Update track position on slide complete
-        }}
-        style={{ width: width * 0.95, height: 40 }}
-        minimumValue={0}
-        maximumValue={Math.max(accurateDuration, 1)} // Use accurate duration
-        value={isSliding ? sliderValue : Math.min(Math.max(position || 0, 0), accurateDuration)} // Use slider value when sliding
-        minimumTrackTintColor={theme.colors.primary}
-        maximumTrackTintColor={themeMode === 'light' ? '#E0E0E0' : 'rgba(44,44,44,1)'}
-        thumbTintColor={theme.colors.primary}
-      />
-      <View style={{ flexDirection: "row", justifyContent: "space-between", width: "90%" }}>
-        <SmallText
-          text={formatTime(isSliding ? sliderValue : Math.max(position || 0, 0))}
-          style={{ fontSize: 15, color: theme.colors.text }}
-        />
-        <SmallText
-          text={formatTime(accurateDuration)}
-          style={{ fontSize: 15, color: theme.colors.text }}
-        />
+    <View style={styles.container}>
+      <View style={[styles.sliderContainer, { width: sliderWidth }]}>
+        {/* Slider */}
+        <View style={styles.sliderWrapper}>
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={Math.max(accurateDuration, 1)}
+            value={isSliding ? sliderValue : Math.min(Math.max(position || 0, 0), accurateDuration)}
+            onValueChange={(value) => {
+              setIsSliding(true);
+              setSliderValue(value);
+            }}
+            onSlidingComplete={(value) => {
+              setIsSliding(false);
+              SetProgressSong(value);
+            }}
+            minimumTrackTintColor={theme.colors.primary}
+            maximumTrackTintColor={theme.colors.surfaceVariant}
+            thumbTintColor={theme.colors.primary}
+          />
+        </View>
+        
+        {/* Time Stamps */}
+        <View style={styles.timeContainer}>
+          <View style={styles.timeTextWrapper}>
+            <Text variant="bodySmall" style={[styles.timeText, { color: theme.colors.onSurface }]}>
+              {formatTime(isSliding ? sliderValue : Math.max(position || 0, 0))}
+            </Text>
+          </View>
+          <View style={styles.timeTextWrapper}>
+            <Text variant="bodySmall" style={[styles.timeText, { color: theme.colors.onSurface }]}>
+              {formatTime(accurateDuration)}
+            </Text>
+          </View>
+        </View>
       </View>
-    </>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    width: '100%',
+    paddingHorizontal: 12,
+    marginVertical: 8,
+    alignItems: 'center',
+  },
+  sliderContainer: {
+    width: '100%',
+  },
+  timeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 4,
+  },
+  timeTextWrapper: {
+    width: 45, // Reduced from 60 for better spacing
+    alignItems: 'center',
+    marginHorizontal: 6, // Reduced from 12 for better spacing
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  sliderWrapper: {
+    width: '100%',
+  },
+  timeText: {
+    fontSize: 16,  // Increased from 14 to 16
+    opacity: 1,  // More visible
+    fontWeight: '600',  // Bolder
+    letterSpacing: 0.2,  // Slightly more spacing between letters
+  },
+});
+
+export default ProgressBar;

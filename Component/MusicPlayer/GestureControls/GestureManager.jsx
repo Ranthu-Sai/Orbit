@@ -1,6 +1,6 @@
-import React from 'react';
-import { View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import React from "react";
+import { View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 // Import gesture control hooks
 import { useNavigationGestureControl } from './NavigationGestureControl';
@@ -10,17 +10,14 @@ import { useTapToCloseGestureControl } from './TapToCloseGestureControl';
  * GestureManager Component
  * Combines navigation and tap gesture controls
  */
-export const GestureManager = ({
-  children,
-  onClose,
-  style
-}) => {
+export const GestureManager = ({ children, onClose, style }) => {
   // Initialize gesture control hooks
   const navigationControl = useNavigationGestureControl();
   const tapControl = useTapToCloseGestureControl(onClose);
 
   // Create navigation gesture
-  const navigationGesture = navigationControl.createStandaloneNavigationGesture();
+  const navigationGesture =
+    navigationControl.createStandaloneNavigationGesture();
 
   // Create tap gesture
   const tapGesture = tapControl.createStandaloneTapGesture();
@@ -30,9 +27,7 @@ export const GestureManager = ({
 
   return (
     <GestureDetector gesture={combinedGestures}>
-      <View style={style}>
-        {children}
-      </View>
+      <View style={style}>{children}</View>
     </GestureDetector>
   );
 };
@@ -62,15 +57,14 @@ export const SimpleGestureManager = ({
   }
 
   // Combine gestures
-  const combinedGestures = gestures.length > 1
-    ? Gesture.Exclusive(...gestures)
-    : gestures[0] || Gesture.Tap(); // Fallback to empty tap if no gestures
+  const combinedGestures =
+    gestures.length > 1
+      ? Gesture.Exclusive(...gestures)
+      : gestures[0] || Gesture.Tap(); // Fallback to empty tap if no gestures
 
   return (
     <GestureDetector gesture={combinedGestures}>
-      <View style={style}>
-        {children}
-      </View>
+      <View style={style}>{children}</View>
     </GestureDetector>
   );
 };

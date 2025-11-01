@@ -1,13 +1,27 @@
-import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
-import { useTheme } from "@react-navigation/native";
-import { Pressable } from "react-native";
+import { useTheme } from 'react-native-paper';
+import { IconButton } from 'react-native-paper';
 import { PlayNextSong } from "../../MusicPlayerFunctions";
 
-export const NextSongButton = ({size, color}) => {
-  const theme = useTheme()
-  return <Pressable style={{
-    padding:10,
-  }} onPress={()=>{
-         PlayNextSong()
-      }}><FontAwesome6 name={"forward-step"} size={size ? size :15} color={color || theme.colors.text}/></Pressable>
+export const NextSongButton = ({ size = 24, color, style }) => {
+  const theme = useTheme();
+  
+  const handlePress = () => {
+    PlayNextSong().catch(error => {
+      console.log("Error playing next song:", error);
+    });
+  };
+
+  return (
+    <IconButton
+      icon="skip-next"
+      size={size}
+      iconColor={color || theme.colors.onSurface}
+      onPress={handlePress}
+      style={[{
+        margin: 0,
+      }, style]}
+      animated={true}
+      rippleColor={theme.colors.primary}
+    />
+  );
 };

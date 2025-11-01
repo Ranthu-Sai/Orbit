@@ -21,9 +21,11 @@ import { ThemeProvider } from './Context/ThemeContext';
 import { StorageManager } from './Utils/StorageManager';
 // Import theme types
 import { darkTheme } from './Theme/darkTheme';
+import { PaperProvider } from 'react-native-paper';
 
 type ThemeContextType = {
   theme: typeof darkTheme;
+  paperTheme: any;
   themeMode: string;
   colorSchemeName: string;
   colorScheme: any;
@@ -110,14 +112,14 @@ function App(){
     <ContextState>
       <BottomSheetModalProvider>
         <ThemeProvider>
-          {({ theme, isThemeLoaded }: ThemeContextType) => {
+          {({ theme, paperTheme, isThemeLoaded }: ThemeContextType) => {
             // Only render when theme is loaded to prevent flash of wrong theme
             if (!isThemeLoaded) {
               return null; // Or a loading indicator if preferred
             }
-            
+
             return (
-              <>
+              <PaperProvider theme={paperTheme}>
                 <NavigationContainer
                   ref={navigationRef}
                   theme={theme}
@@ -141,7 +143,7 @@ function App(){
               <Stack.Screen name="ArtistPage" component={ArtistPage} />
                   </Stack.Navigator>
                 </NavigationContainer>
-              </>
+              </PaperProvider>
             );
           }}
         </ThemeProvider>

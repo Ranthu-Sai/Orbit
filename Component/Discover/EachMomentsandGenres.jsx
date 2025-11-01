@@ -24,7 +24,7 @@ export const EachMomentsandGenres = ({text, color, showLeftColor, style}) => {
         backgroundColor: color,
         marginRight: 10,
       }} />}
-      <PlainText text={text}/>
+      <PlainText text={text} style={{color: colors.text}}/>
     </Pressable>
   );
 };

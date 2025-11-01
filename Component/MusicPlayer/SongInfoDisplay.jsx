@@ -1,7 +1,31 @@
 import React from "react";
-import { Heading } from "../Global/Heading";
-import { SmallText } from "../Global/SmallText";
+import { StyleSheet, View } from "react-native";
+import { Text, useTheme } from 'react-native-paper';
 import { Spacer } from "../Global/Spacer";
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    width: '100%',
+    marginBottom: 24,
+  },
+  title: {
+    textAlign: 'center',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    fontSize: 22,
+    lineHeight: 28,
+    marginBottom: 4,
+  },
+  artist: {
+    textAlign: 'center',
+    opacity: 0.8,
+    letterSpacing: 0.25,
+    fontSize: 16,
+    lineHeight: 22,
+  },
+});
 
 export const SongInfoDisplay = ({ 
   currentPlaying, 
@@ -9,49 +33,57 @@ export const SongInfoDisplay = ({
   getTextColor,
   style 
 }) => {
+  const theme = useTheme();
+
   const getTitleText = () => {
     if (!currentPlaying?.title) {
       return isOffline ? "Offline Mode" : "No music :(";
     }
-    return currentPlaying.title.length > 18 
-      ? currentPlaying.title.substring(0, 18) + "..." 
-      : currentPlaying.title;
+    return currentPlaying.title;
   };
 
   const getArtistText = () => {
     if (!currentPlaying?.artist) {
       return isOffline ? "Local Music Available" : "Explore now!";
     }
-    return currentPlaying.artist.length > 30
-      ? currentPlaying.artist.substring(0, 30) + "..."
-      : currentPlaying.artist;
+    return currentPlaying.artist;
   };
 
+  const titleText = getTitleText();
+  const artistText = getArtistText();
+
   return (
-    <>
-      <Heading
-        text={getTitleText()}
-        style={{ 
-          textAlign: "center", 
-          paddingHorizontal: 2, 
-          marginBottom: 5, 
-          marginTop: 3, 
-          fontSize: 30, 
-          color: getTextColor('primary'),
-          ...style?.title
-        }}
-        nospace={true}
-      />
-      <SmallText
-        text={getArtistText()}
-        style={{ 
-          textAlign: "center", 
-          fontSize: 15, 
-          color: getTextColor('secondary'),
-          ...style?.artist
-        }}
-      />
-      <Spacer />
-    </>
+    <View style={[styles.container, style?.container]}>
+      <Text
+        variant="headlineSmall"
+        style={[
+          styles.title,
+          { 
+            color: getTextColor('primary'),
+            ...style?.title
+          }
+        ]}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+      >
+        {titleText}
+      </Text>
+      <Spacer height={4} />
+      <Text
+        variant="bodyMedium"
+        style={[
+          styles.artist,
+          { 
+            color: getTextColor('secondary'),
+            ...style?.artist
+          }
+        ]}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+      >
+        {artistText}
+      </Text>
+      <Spacer height={8} />
+    </View>
   );
 };

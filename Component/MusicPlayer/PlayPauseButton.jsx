@@ -1,12 +1,11 @@
-import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
-import { useTheme } from "@react-navigation/native";
-import { ActivityIndicator, Pressable } from "react-native";
-import {  PauseSong, PlaySong } from "../../MusicPlayerFunctions";
-import { usePlaybackState } from "react-native-track-player";
-import { useRef, useCallback } from "react";
+import { useCallback, useRef } from 'react';
+import { ActivityIndicator, View } from 'react-native';
+import { usePlaybackState } from 'react-native-track-player';
+import { IconButton, useTheme } from 'react-native-paper';
+import { PauseSong, PlaySong } from "../../MusicPlayerFunctions";
 
-export const PlayPauseButton = ({isFullScreen, color}) => {
-  const theme = useTheme()
+export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
+  const theme = useTheme();
   const playerState = usePlaybackState();
   const lastActionTimeRef = useRef(0);
   const isProcessingRef = useRef(false);
@@ -53,40 +52,51 @@ export const PlayPauseButton = ({isFullScreen, color}) => {
       }, 300);
     }
   }, []);
+
+  const isPlaying = playerState && (playerState.state === 'playing' || playerState.state === 6);
+  const buttonSize = isFullScreen ? size * 1.5 : size;
+  const iconSize = isFullScreen ? size * 0.8 : size * 0.7;
+
+  // Handle button press
+  const handlePress = () => {
+    if (isPlaying) {
+      debouncedPause();
+    } else {
+      debouncedPlay();
+    }
+  };
+
+  // Show loading indicator when buffering
+  if (playerState?.state === 'buffering') {
+    return (
+      <View style={{
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: buttonSize,
+        height: buttonSize,
+      }}>
+        <ActivityIndicator 
+          size={iconSize} 
+          color={color || theme.colors.onSurface} 
+        />
+      </View>
+    );
+  }
+
   return (
-    <>
-      {!isFullScreen &&  <>
-        {playerState.state !== "playing" && playerState.state !== "buffering" && <Pressable style={{
-          padding:5,
-        }}  onPress={debouncedPlay}><FontAwesome6 name={"play"} size={20} color={color || theme.colors.text}/></Pressable>}
-        {playerState.state === "playing" && <Pressable style={{
-          padding:5,
-        }} onPress={debouncedPause}><FontAwesome6 name={"pause"} size={20} color={color || theme.colors.text}/></Pressable>}
-        {playerState.state === "buffering" && <ActivityIndicator size={"small"} color={color || theme.colors.text}/>}
-      </>}
-      {isFullScreen && <>
-        {playerState.state !== "playing" && playerState.state !== "buffering" && <Pressable onPress={debouncedPlay} style={{
-          backgroundColor:theme.colors.buttonBackground,
-          padding:15,
-          height:60,
-          width:60,
-          borderRadius:1000,
-          alignItems:"center",
-          justifyContent:"center",
-        }}>
-          <FontAwesome6 name={"play"} size={32} color={theme.colors.buttonText}/>
-        </Pressable>}
-        {playerState.state === "playing" &&  <Pressable onPress={debouncedPause} style={{
-          backgroundColor:theme.colors.buttonBackground,
-          padding:15,
-          height:60,
-          width:60,
-          borderRadius:1000,
-          alignItems:"center",
-          justifyContent:"center",
-        }}><FontAwesome6 name={"pause"} size={32} color={theme.colors.buttonText}/></Pressable>}
-        {playerState.state === "buffering" && <ActivityIndicator size={"large"} color={theme.colors.buttonText}/>}
-      </>}
-    </>
+    <IconButton
+      icon={isPlaying ? 'pause' : 'play'}
+      size={buttonSize}
+      iconColor={color || (isFullScreen ? theme.colors.background : theme.colors.onSurface)}
+      onPress={handlePress}
+      style={{
+        margin: 0,
+        backgroundColor: isFullScreen ? theme.colors.onBackground : 'transparent',
+      }}
+      containerColor={isFullScreen ? theme.colors.onBackground : 'transparent'}
+      mode={isFullScreen ? 'contained' : 'text'}
+      animated={true}
+      rippleColor={theme.colors.primary}
+    />
   );
 };

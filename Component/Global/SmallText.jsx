@@ -1,10 +1,8 @@
 import { Text, StyleSheet } from "react-native";
-import { useTheme } from "@react-navigation/native";
 import { useEffect, useState } from "react";
 import { GetFontSizeValue } from "../../LocalStorage/AppSettings";
 
 export const SmallText = ({text, color, style, maxLine, selectable, isArtistName}) => {
-  const theme = useTheme()
   const [Size, setSize] = useState(10);
   async function getFont(){
     const data = await GetFontSizeValue()
@@ -21,12 +19,18 @@ export const SmallText = ({text, color, style, maxLine, selectable, isArtistName
     getFont()
   }, []);
   return (
-    <Text selectable={selectable} numberOfLines={maxLine ? maxLine : 2} style={{
-      color:(!color) ? theme.colors.textSecondary : color,
-      fontSize:Size,
-      fontFamily:'roboto',
-      fontWeight: isArtistName ? '500' : '400',
-      ...StyleSheet.flatten(style),
-    }}>{text || ''}</Text>
+    <Text
+      selectable={selectable}
+      numberOfLines={maxLine ? maxLine : 2}
+      style={{
+        color: (!color) ? undefined : color,
+        fontSize: Size,
+        fontFamily: 'roboto',
+        fontWeight: isArtistName ? '500' : '400',
+        ...StyleSheet.flatten(style),
+      }}
+    >
+      {text || ''}
+    </Text>
   );
 };
