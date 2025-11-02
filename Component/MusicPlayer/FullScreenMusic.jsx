@@ -1,18 +1,9 @@
-import React, { useState, useContext, useMemo, useEffect } from "react";
-import {
-  Dimensions,
-  ImageBackground,
-  View,
-  Pressable,
-  ScrollView,
-  ToastAndroid,
-  Alert,
-} from "react-native";
-import FastImage from "react-native-fast-image";
+import React, { useState, useContext, useMemo } from "react";
+import { Dimensions, ImageBackground, View, StyleSheet, StatusBar } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import Ionicons from "react-native-vector-icons/Ionicons";
 import { useActiveTrack } from "react-native-track-player";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Spacer } from "../Global/Spacer";
 import ProgressBar from "./ProgressBar";
@@ -47,13 +38,84 @@ import {
   Modal,
 } from "react-native-paper";
 
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    alignItems: "center",
+  },
+  gradientContainer: {
+    flex: 1,
+    alignItems: "center",
+    width: "100%",
+  },
+  bottomGradientWrapper: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: Dimensions.get("window").height * 0.7,
+    zIndex: 0,
+  },
+  bottomGradient: {
+    flex: 1,
+  },
+  headerContainer: {
+    width: "100%",
+    padding: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    zIndex: 2,
+  },
+  closeButton: {
+    margin: 0,
+    backgroundColor: "transparent",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    zIndex: 2,
+  },
+  albumSurface: {
+    elevation: 4,
+    borderRadius: 12,
+    overflow: "hidden",
+    marginVertical: 16,
+    backgroundColor: "transparent",
+    zIndex: 2,
+  },
+  contentContainer: {
+    width: "100%",
+    paddingHorizontal: 16,
+    flex: 1,
+    justifyContent: "flex-start",
+    paddingTop: 8,
+    zIndex: 2,
+  },
+  bottomControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+    marginTop: 16,
+    marginHorizontal: 16,
+  },
+  backgroundImage: {
+    flex: 1,
+  },
+  fallbackBackground: {
+    flex: 1,
+  },
+});
+
 export const FullScreenMusic = ({ Index, setIndex }) => {
   const width = Dimensions.get("window").width;
-  const height = Dimensions.get("window").height;
   const currentPlaying = useActiveTrack();
   const { musicPreviousScreen } = useContext(Context);
   const { getArtworkSourceFromHook } = useDynamicArtwork();
   const [isLyricsActive, setIsLyricsActive] = useState(false);
+  const insets = useSafeAreaInsets();
 
   // Use the new unified download hook
   const {
@@ -75,11 +137,17 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
     getArtworkSourceFromHook,
   ]);
 
-  const { getTextColor, getBackgroundOverlay, getGradientColors } =
+  const {
+    getTextColor,
+    getBackgroundOverlay,
+    getGradientColors,
+    getBottomGradientColors,
+  } =
     useThemeManager();
   const { isOffline } = useOffline();
   const { shouldShowTidalFeatures } = useTidalIntegration();
   const { handlePlayerClose } = useNavigationHandler({ musicPreviousScreen });
+  const iconColor = getTextColor("icon");
 
   const { menuVisible, menuPosition, showMenu, closeMenu, getMenuOptions } =
     useFullScreenMusicMenu(currentPlaying, isOffline);
@@ -112,11 +180,127 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
         isOffline={isOffline}
         disabled={!canDownload}
         size={28}
+        iconColor={iconColor}
       />
     );
   };
 
   const paperTheme = useTheme();
+  const hasArtworkBackground = useMemo(() => {
+    if (!currentArtworkSource) {
+      return false;
+    }
+    if (typeof currentArtworkSource === "number") {
+      return true;
+    }
+    return Boolean(currentArtworkSource?.uri);
+  }, [currentArtworkSource]);
+
+  const backgroundBlurRadius = useMemo(
+    () => (isLyricsActive ? 40 : 28),
+    [isLyricsActive]
+  );
+
+  const renderPlayerContent = () => (
+    <View
+      style={[styles.overlay, { backgroundColor: getBackgroundOverlay() }]}
+    >
+      <OfflineBanner />
+      <LinearGradient
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        colors={getGradientColors()}
+        style={styles.gradientContainer}
+      >
+        <View
+          style={[
+            styles.headerContainer,
+            { paddingTop: insets.top + 16 },
+          ]}
+        >
+          <IconButton
+            icon="chevron-down"
+            size={30}
+            onPress={() => setIndex(0)}
+            iconColor={iconColor}
+            style={styles.closeButton}
+          />
+
+          <View style={styles.headerActions}>
+            <LyricsHandler
+              currentPlayingTrack={currentPlaying}
+              isOffline={isOffline}
+              Index={Index}
+              onLyricsVisibilityChange={handleLyricsVisibilityChange}
+              currentArtworkSource={currentArtworkSource}
+              iconColor={iconColor}
+            />
+            <View style={{ width: 8 }} />
+            <FullScreenMusicMenuButton onPress={showMenu} size={25} color={iconColor} />
+          </View>
+        </View>
+
+        <Spacer height={5} />
+
+        <Surface
+          style={[styles.albumSurface, { width: width * 0.85, height: width * 0.85 }]}
+        >
+          <AlbumArtworkDisplay
+            currentPlaying={currentPlaying}
+            artworkSource={currentArtworkSource}
+            onClose={handlePlayerCloseAction}
+          />
+        </Surface>
+
+        <Spacer height={8} />
+
+        <View
+          style={[
+            styles.contentContainer,
+            { minHeight: Dimensions.get("window").height * 0.6 },
+          ]}
+        >
+          <View style={{ marginBottom: 16 }}>
+            <SongInfoDisplay
+              currentPlaying={currentPlaying}
+              isOffline={isOffline}
+              getTextColor={getTextColor}
+            />
+          </View>
+
+          <View style={{ marginBottom: 16 }}>
+            <ProgressBar />
+          </View>
+
+          <View style={{ marginBottom: 16 }}>
+            <PlaybackControls iconColor={iconColor} />
+          </View>
+
+          <View style={styles.bottomControls}>
+            <SleepTimerButton size={25} iconColor={iconColor} />
+
+            {shouldShowTidalFeatures(isOffline) && (
+              <TidalSourceSwitcher
+                currentTrack={currentPlaying}
+                variant="chip"
+                size="small"
+              />
+            )}
+
+            {renderDownloadControl()}
+          </View>
+        </View>
+        <View style={styles.bottomGradientWrapper} pointerEvents="none">
+          <LinearGradient
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            colors={getBottomGradientColors()}
+            style={styles.bottomGradient}
+          />
+        </View>
+      </LinearGradient>
+    </View>
+  );
 
   return (
     <BackButtonHandler
@@ -126,184 +310,58 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
     >
       <Animated.View
         entering={FadeInDown.delay(200)}
-        style={{ 
-          backgroundColor: paperTheme.colors.background, 
+        style={{
+          backgroundColor: paperTheme.colors.background,
           flex: 1,
-          paddingBottom: 24
+          paddingBottom: 24 + insets.bottom,
         }}
       >
+        <StatusBar
+          translucent
+          backgroundColor="transparent"
+          barStyle={paperTheme.dark ? "light-content" : "dark-content"}
+        />
         <View style={{ flex: 1 }}>
-          {/* Background Artwork */}
-          {((currentPlaying &&
-            (currentPlaying.sourceType === "mymusic" ||
-              currentPlaying.isLocal)) ||
-            isOffline) && (
-            <FastImage
-            source={currentArtworkSource}
-            style={{
-              width: width,
-              height: height,
-              position: "absolute",
-              top: 0,
-              left: 0,
-            }}
-            resizeMode={FastImage.resizeMode.cover}
-            key={`dynamic-bg-${JSON.stringify(currentArtworkSource)}`}
-          />
-        )}
+          <LocalTracksErrorBoundary>
+            <LocalTracksList
+              localTracks={localTracks}
+              onTrackPress={playLocalTrack}
+              onClose={closeLocalTracks}
+              visible={showLocalTracks}
+              isLoading={localTracksLoading}
+              error={localTracksError}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 200,
+                paddingTop: 60,
+                paddingHorizontal: 20,
+                backgroundColor: paperTheme.colors.surface,
+              }}
+            />
+          </LocalTracksErrorBoundary>
 
-        <LocalTracksErrorBoundary>
-          <LocalTracksList
-            localTracks={localTracks}
-            onTrackPress={playLocalTrack}
-            onClose={closeLocalTracks}
-            visible={showLocalTracks}
-            isLoading={localTracksLoading}
-            error={localTracksError}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: 200,
-              paddingTop: 60,
-              paddingHorizontal: 20,
-              backgroundColor: paperTheme.colors.surface,
-            }}
-          />
-        </LocalTracksErrorBoundary>
-
-        <ImageBackground
-          source={currentArtworkSource}
-          style={{ flex: 1 }}
-          resizeMode="cover"
-          blurRadius={isLyricsActive ? 25 : 10}
-          key={`bg-${JSON.stringify(currentArtworkSource)}`}
-        >
-          <View style={{ flex: 1, backgroundColor: getBackgroundOverlay() }}>
-            <OfflineBanner />
-            <LinearGradient
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              colors={getGradientColors()}
-              style={{ flex: 1, alignItems: "center" }}
+          {hasArtworkBackground ? (
+            <ImageBackground
+              source={currentArtworkSource}
+              style={styles.backgroundImage}
+              resizeMode="cover"
+              blurRadius={backgroundBlurRadius}
+              key={`bg-${JSON.stringify(currentArtworkSource)}`}
             >
-              {/* Header with back button */}
-              <View
-                style={{
-                  width: "100%",
-                  padding: 16,
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <IconButton
-                  icon="chevron-down"
-                  size={30}
-                  onPress={() => setIndex(0)}
-                  iconColor={paperTheme.colors.onSurface}
-                  style={{
-                    margin: 0,
-                    backgroundColor: 'transparent',
-                  }}
-                />
-
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <LyricsHandler
-                    currentPlayingTrack={currentPlaying}
-                    isOffline={isOffline}
-                    Index={Index}
-                    onLyricsVisibilityChange={handleLyricsVisibilityChange}
-                    currentArtworkSource={currentArtworkSource}
-                  />
-                  <View style={{ width: 8 }} />
-                  <FullScreenMusicMenuButton
-                    onPress={() => showMenu()}
-                    size={25}
-                  />
-                </View>
-              </View>
-
-              <Spacer height={5} />
-
-              {/* Album Artwork */}
-              <Surface
-                style={{
-                  elevation: 4,
-                  borderRadius: 12,
-                  overflow: "hidden",
-                  width: width * 0.8,
-                  height: width * 0.8,
-                  marginVertical: 16,
-                  backgroundColor: "transparent",
-                }}
-              >
-                <AlbumArtworkDisplay
-                  currentPlaying={currentPlaying}
-                  artworkSource={currentArtworkSource}
-                  onClose={handlePlayerCloseAction}
-                />
-              </Surface>
-
-              <Spacer height={8} />
-
-              {/* Song Info */}
-              <View style={{ 
-                width: "100%", 
-                paddingHorizontal: 16, 
-                flex: 1,
-                justifyContent: 'flex-start',
-                paddingTop: 8,
-                minHeight: Dimensions.get('window').height * 0.6
-              }}>
-                <View style={{ marginBottom: 16 }}>
-                  <SongInfoDisplay
-                    currentPlaying={currentPlaying}
-                    isOffline={isOffline}
-                    getTextColor={getTextColor}
-                  />
-                </View>
-
-                {/* Progress Bar */}
-                <View style={{ marginBottom: 16 }}>
-                  <ProgressBar />
-                </View>
-
-                {/* Playback Controls */}
-                <View style={{ marginBottom: 16 }}>
-                  <PlaybackControls />
-                </View>
-
-                {/* Bottom Controls */}
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    paddingHorizontal: 24,
-                    paddingVertical: 8,
-                    marginTop: 16,
-                    marginHorizontal: 16
-                  }}
-                >
-                  <SleepTimerButton size={25} />
-
-                  {shouldShowTidalFeatures(isOffline) && (
-                    <TidalSourceSwitcher
-                      currentTrack={currentPlaying}
-                      variant="chip"
-                      size="small"
-                    />
-                  )}
-
-                  {renderDownloadControl()}
-                </View>
-              </View>
-            </LinearGradient>
-          </View>
-        </ImageBackground>
+              {renderPlayerContent()}
+            </ImageBackground>
+          ) : (
+            <View
+              style={[styles.fallbackBackground, { backgroundColor: paperTheme.colors.surface }]}
+            >
+              {renderPlayerContent()}
+            </View>
+          )}
+        </View>
 
         {/* Three-dot menu modal */}
         <Portal>
@@ -343,7 +401,12 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
             ))}
           </Modal>
         </Portal>
-        </View>
+        <FullScreenMusicMenuModal
+          visible={menuVisible}
+          position={menuPosition}
+          onDismiss={closeMenu}
+          options={getMenuOptions()}
+        />
         <QueueBottomSheet />
       </Animated.View>
     </BackButtonHandler>

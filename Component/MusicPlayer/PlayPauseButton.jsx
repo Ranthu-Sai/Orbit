@@ -69,12 +69,14 @@ export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
   // Show loading indicator when buffering
   if (playerState?.state === 'buffering') {
     return (
-      <View style={{
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: buttonSize,
-        height: buttonSize,
-      }}>
+      <View
+        style={{
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: buttonSize,
+          height: buttonSize,
+        }}
+      >
         <ActivityIndicator 
           size={iconSize} 
           color={color || theme.colors.onSurface} 
@@ -91,12 +93,12 @@ export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
       onPress={handlePress}
       style={{
         margin: 0,
-        backgroundColor: isFullScreen ? theme.colors.onBackground : 'transparent',
+        backgroundColor: color ? 'transparent' : (isFullScreen ? theme.colors.onBackground : 'transparent'),
       }}
-      containerColor={isFullScreen ? theme.colors.onBackground : 'transparent'}
-      mode={isFullScreen ? 'contained' : 'text'}
+      containerColor={color ? 'transparent' : (isFullScreen ? theme.colors.onBackground : 'transparent')}
+      mode={color ? 'text' : (isFullScreen ? 'contained' : 'text')}
       animated={true}
-      rippleColor={theme.colors.primary}
+      rippleColor={theme.dark ? theme.colors.primary : 'rgba(255,255,255,0.3)'}
     />
   );
 };

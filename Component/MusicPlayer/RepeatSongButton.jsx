@@ -13,7 +13,7 @@ import { RepeatMode } from 'react-native-track-player';
 
 import { SetRepeatMode } from "../../MusicPlayerFunctions";
 
-export const RepeatSongButton = ({size}) => {
+export const RepeatSongButton = ({ size, color }) => {
   const theme = useTheme()
   const {Repeat, setRepeat} = useContext(Context)
   function onRepeatPress(){
@@ -30,7 +30,11 @@ export const RepeatSongButton = ({size}) => {
   }
   return (
     <Pressable onPress={onRepeatPress}>
-      <MaterialCommunityIcons name={Repeat} size={size ? size : 15} color={theme.colors.text}/>
+      <MaterialCommunityIcons
+        name={Repeat}
+        size={size ? size : 15}
+        color={Repeat === Repeats.NoRepeat ? (color || theme.colors.text) : theme.colors.primary}
+      />
     </Pressable>
   );
 };

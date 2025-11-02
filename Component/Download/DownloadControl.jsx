@@ -16,15 +16,15 @@ export const DownloadControl = ({
   isOffline = false,
   disabled = false,
   size = 28,
-  style = {}
+  style = {},
+  iconColor,
 }) => {
   const { theme, themeMode } = useThemeContext();
   
-  const iconColor = themeMode === 'light' ? theme.colors.text : '#ffffff';
   const pressedBackgroundColor = themeMode === 'light' ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)';
-  const downloadIconColor = themeMode === 'light' ? 
+  const resolvedDownloadColor = iconColor ?? (themeMode === 'light' ? 
     (isOffline ? "#888888" : theme.colors.text) : 
-    (isOffline ? "#888888" : "#ffffff");
+    (isOffline ? "#888888" : "#ffffff"));
 
   const controlIconStyle = {
     padding: 8,
@@ -78,7 +78,7 @@ export const DownloadControl = ({
       <MaterialIcons 
         name="file-download" 
         size={size} 
-        color={downloadIconColor} 
+        color={resolvedDownloadColor} 
       />
     </Pressable>
   );

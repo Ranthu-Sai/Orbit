@@ -19,7 +19,8 @@ export const LyricsHandler = ({
   currentPlayingTrack, 
   isOffline, 
   onLyricsVisibilityChange, 
-  currentArtworkSource 
+  currentArtworkSource,
+  iconColor,
 }) => {
   const [showDialog, setShowDialog] = useState(false);
   const [lyric, setLyric] = useState(null);
@@ -84,7 +85,7 @@ export const LyricsHandler = ({
 
   return (
     <>
-      <GetLyricsButton onPress={fetchLyrics} />
+      <GetLyricsButton onPress={fetchLyrics} color={iconColor} />
       <ShowLyrics
         ShowDailog={showDialog}
         Loading={isLoading}

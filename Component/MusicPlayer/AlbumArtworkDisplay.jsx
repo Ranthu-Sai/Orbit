@@ -12,7 +12,8 @@ export const AlbumArtworkDisplay = ({
 }) => {
   const width = Dimensions.get("window").width;
   const theme = useTheme();
-  const imageSize = width * 0.8;
+  const imageWidth = width * 0.9;
+  const imageHeight = width * 0.95;
 
   return (
     <GestureManager
@@ -23,8 +24,8 @@ export const AlbumArtworkDisplay = ({
         style={[
           styles.artworkContainer,
           {
-            width: imageSize,
-            height: imageSize,
+            width: imageWidth,
+            height: imageHeight,
             backgroundColor: theme.colors.surfaceVariant,
             elevation: 4,
           },
@@ -35,11 +36,11 @@ export const AlbumArtworkDisplay = ({
           style={[
             styles.artworkImage,
             {
-              width: imageSize,
-              height: imageSize,
+              width: imageWidth,
+              height: imageHeight,
             },
           ]}
-          resizeMode={FastImage.resizeMode.contain}
+          resizeMode={FastImage.resizeMode.cover}
           key={`artwork-${JSON.stringify(artworkSource)}`}
         />
       </Surface>

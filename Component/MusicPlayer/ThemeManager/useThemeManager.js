@@ -16,25 +16,51 @@ export const useThemeManager = () => {
   
   // Theme-aware styling functions
   const getBackgroundOverlay = () => {
-    return themeMode === 'light' 
-      ? 'rgba(255,255,255,0.1)' 
-      : 'rgba(0,0,0,0.44)';
+    return themeMode === 'light'
+      ? 'rgba(255,255,255,0.1)'
+      : 'rgba(0,0,0,0.45)';
   };
 
   const getGradientColors = () => {
-    return themeMode === 'light' 
-      ? ['rgba(255,255,255,0.80)', 'rgba(255,255,255,0.9)', 'rgba(255,255,255,1)']
-      : ['rgba(4,4,4,0.23)', 'rgba(9,9,9,0.47)', 'rgba(0,0,0,0.65)', 'rgba(0,0,0,0.89)', 'rgba(0,0,0,0.9)', 'rgba(0,0,0,1)'];
+    return themeMode === 'light'
+      ? [
+          'rgba(255,255,255,0.08)',
+          'rgba(255,255,255,0.16)',
+          'rgba(255,255,255,0.26)',
+          'rgba(255,255,255,0.4)',
+        ]
+      : [
+          'rgba(0,0,0,0.15)',
+          'rgba(0,0,0,0.32)',
+          'rgba(0,0,0,0.55)',
+          'rgba(0,0,0,0.78)',
+        ];
+  };
+
+  const getBottomGradientColors = () => {
+    return themeMode === 'light'
+      ? [
+          'rgba(0,0,0,0)',
+          'rgba(0,0,0,0.4)',
+          'rgba(0,0,0,0.7)',
+          'rgba(0,0,0,0.95)',
+        ]
+      : [
+          'rgba(0,0,0,0)',
+          'rgba(0,0,0,0.48)',
+          'rgba(0,0,0,0.7)',
+          'rgba(0,0,0,0.9)',
+        ];
   };
 
   const getTextColor = (type = 'primary') => {
     switch (type) {
       case 'primary':
-        return themeMode === 'light' ? theme.colors.text : 'white';
+        return themeMode === 'light' ? '#FFFFFF' : 'white';
       case 'secondary':
-        return themeMode === 'light' ? '#555555' : '#FFFFFF';
+        return themeMode === 'light' ? 'rgba(255,255,255,0.78)' : '#FFFFFF';
       case 'icon':
-        return themeMode === 'light' ? theme.colors.text : theme.colors.icon;
+        return themeMode === 'light' ? '#FFFFFF' : theme.colors.icon;
       default:
         return theme.colors.text;
     }
@@ -58,6 +84,7 @@ export const useThemeManager = () => {
   const getThemeStyles = () => ({
     backgroundOverlay: getBackgroundOverlay(),
     gradientColors: getGradientColors(),
+    bottomGradientColors: getBottomGradientColors(),
     textColors: {
       primary: getTextColor('primary'),
       secondary: getTextColor('secondary'),
@@ -95,6 +122,7 @@ export const useThemeManager = () => {
     themeMode,
     getBackgroundOverlay,
     getGradientColors,
+    getBottomGradientColors,
     getTextColor,
     getPressedBackgroundColor,
     getButtonBackgroundColor,

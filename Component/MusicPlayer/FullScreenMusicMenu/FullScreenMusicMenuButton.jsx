@@ -10,8 +10,9 @@ import { useTheme } from "@react-navigation/native";
  * @param {Function} onPress - Callback function when button is pressed
  * @param {number} size - Size of the icon (default: 25)
  */
-export const FullScreenMusicMenuButton = ({ onPress, size = 25 }) => {
+export const FullScreenMusicMenuButton = ({ onPress, size = 25, color }) => {
   const theme = useTheme();
+  const iconColor = color || theme.colors.text;
 
   return (
     <Pressable
@@ -25,11 +26,7 @@ export const FullScreenMusicMenuButton = ({ onPress, size = 25 }) => {
       })}
       hitSlop={8}
     >
-      <MaterialCommunityIcons 
-        name="dots-vertical" 
-        size={size} 
-        color={theme.colors.text}
-      />
+      <MaterialCommunityIcons name="dots-vertical" size={size} color={iconColor} />
     </Pressable>
   );
 };

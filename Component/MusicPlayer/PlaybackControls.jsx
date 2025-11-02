@@ -42,7 +42,8 @@ export const PlaybackControls = ({
   likeButtonSize = 28,
   navigationButtonSize = 32,
   showLikeButton = true,
-  showRepeatButton = true
+  showRepeatButton = true,
+  iconColor,
 }) => {
   const theme = useTheme();
 
@@ -51,19 +52,19 @@ export const PlaybackControls = ({
       <View style={styles.controlsRow}>
         {showLikeButton && (
           <View style={styles.buttonContainer}>
-            <LikeSongButton size={likeButtonSize} />
+            <LikeSongButton size={likeButtonSize} color={iconColor} />
           </View>
         )}
         
         <View style={[styles.navigationControls, style?.navigationControls]}>
-          <PreviousSongButton size={navigationButtonSize} />
-          <PlayPauseButton isFullScreen={true} size={navigationButtonSize * 1.2} />
-          <NextSongButton size={navigationButtonSize} />
+          <PreviousSongButton size={navigationButtonSize} color={iconColor} />
+          <PlayPauseButton isFullScreen={true} size={navigationButtonSize * 1.2} color={iconColor} />
+          <NextSongButton size={navigationButtonSize} color={iconColor} />
         </View>
         
         {showRepeatButton ? (
           <View style={styles.buttonContainer}>
-            <RepeatSongButton size={likeButtonSize} />
+            <RepeatSongButton size={likeButtonSize} color={iconColor} />
           </View>
         ) : (
           <View style={styles.buttonContainer} />

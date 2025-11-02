@@ -96,12 +96,12 @@ const ProgressBar = () => {
         {/* Time Stamps */}
         <View style={styles.timeContainer}>
           <View style={styles.timeTextWrapper}>
-            <Text variant="bodySmall" style={[styles.timeText, { color: theme.colors.onSurface }]}>
+            <Text variant="bodySmall" style={[styles.timeText, { color: theme.dark ? theme.colors.onSurface : 'white' }]}>
               {formatTime(isSliding ? sliderValue : Math.max(position || 0, 0))}
             </Text>
           </View>
           <View style={styles.timeTextWrapper}>
-            <Text variant="bodySmall" style={[styles.timeText, { color: theme.colors.onSurface }]}>
+            <Text variant="bodySmall" style={[styles.timeText, { color: theme.dark ? theme.colors.onSurface : 'white' }]}>
               {formatTime(accurateDuration)}
             </Text>
           </View>

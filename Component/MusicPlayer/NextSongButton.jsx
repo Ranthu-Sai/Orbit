@@ -21,7 +21,7 @@ export const NextSongButton = ({ size = 24, color, style }) => {
         margin: 0,
       }, style]}
       animated={true}
-      rippleColor={theme.colors.primary}
+      rippleColor={theme.dark ? theme.colors.primary : 'rgba(255,255,255,0.3)'}
     />
   );
 };

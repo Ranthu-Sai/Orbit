@@ -115,7 +115,7 @@ const getStyles = (theme, themeMode) => StyleSheet.create({
   },
 });
 
-export const SleepTimerButton = ({ size = 25 }) => {
+export const SleepTimerButton = ({ size = 25, iconColor }) => {
   const { theme, themeMode } = useThemeContext(); // Added for theme support
   const styles = getStyles(theme, themeMode);
   const playerState = usePlaybackState(); // Track playback state
@@ -310,6 +310,9 @@ export const SleepTimerButton = ({ size = 25 }) => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
+  const resolvedIconColor = iconColor || (themeMode === 'light' ? theme.colors.text : theme.colors.icon);
+  const resolvedLabelColor = iconColor ? iconColor : (themeMode === 'light' ? theme.colors.text : 'white');
+
   return (
     <View style={styles.container}>
       <Pressable
@@ -319,10 +322,17 @@ export const SleepTimerButton = ({ size = 25 }) => {
         <MaterialCommunityIcons
           name={isTimerActive ? (isTimerPaused ? "pause-circle-outline" : "timer-off") : "timer-outline"}
           size={size}
-          color={isTimerActive ? theme.colors.primary : (themeMode === 'light' ? theme.colors.text : theme.colors.icon)}
+          color={isTimerActive ? theme.colors.primary : resolvedIconColor}
         />
+
         {isTimerActive && (
-          <Text style={[styles.remainingTime, isTimerPaused && { color: theme.colors.notification }]}>
+          <Text
+            style={[
+              styles.remainingTime,
+              { color: resolvedLabelColor },
+              isTimerPaused && { color: theme.colors.notification },
+            ]}
+          >
             {formatTime(remainingTime)} {isTimerPaused && ''}
           </Text>
         )}

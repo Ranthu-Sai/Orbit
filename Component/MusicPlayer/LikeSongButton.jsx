@@ -5,7 +5,7 @@ import { DeleteALikedSong, GetLikedSongs, SetLikedSongs } from "../../LocalStora
 import { Pressable } from "react-native";
 import Context from "../../Context/Context";
 
-export const LikeSongButton = memo(function LikeSongButton({size}) {
+export const LikeSongButton = memo(function LikeSongButton({ size, color }) {
   const {currentPlaying} = useContext(Context)
   const theme = useTheme()
   const [Liked, setLiked] = useState(false);
@@ -36,7 +36,11 @@ export const LikeSongButton = memo(function LikeSongButton({size}) {
     <Pressable onPress={()=>{
         LikeASong()
     }}>
-      <AntDesign name={Liked ? "heart" : "hearto"} size={size ? size : 15} color={Liked ? 'rgb(230, 28, 28)' : theme.colors.text}/>
+      <AntDesign
+        name={Liked ? "heart" : "hearto"}
+        size={size ? size : 15}
+        color={Liked ? 'rgb(230, 28, 28)' : (color || theme.colors.text)}
+      />
     </Pressable>
   );
 })

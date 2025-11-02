@@ -3,8 +3,9 @@ import React from "react";
 import { useTheme } from "@react-navigation/native";
 import { Pressable } from "react-native";
 
-export const GetLyricsButton = ({ onPress }) => {
-  const theme = useTheme()
+export const GetLyricsButton = ({ onPress, color }) => {
+  const theme = useTheme();
+  const iconColor = color || theme.colors.text;
   return (
     <Pressable
       onPress={onPress}
@@ -16,7 +17,7 @@ export const GetLyricsButton = ({ onPress }) => {
         backgroundColor: pressed ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
       })}
     >
-      <MaterialIcons name={"lyrics"} size={25} color={theme.colors.text}/>
+      <MaterialIcons name={"lyrics"} size={25} color={iconColor} />
     </Pressable>
   );
 };
