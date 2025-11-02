@@ -28,11 +28,13 @@ export const DownloadProgressIndicator = ({
   
   return (
     <View style={{ 
-      width: size, 
-      height: size, 
+      width: size + (thickness * 2), 
+      height: size + (thickness * 2), 
       justifyContent: 'center', 
       alignItems: 'center',
-      position: 'relative'
+      position: 'relative',
+      overflow: 'hidden',
+      borderRadius: (size + (thickness * 2)) / 2
     }}>
       {/* Background Circle */}
       <View style={{
@@ -41,7 +43,11 @@ export const DownloadProgressIndicator = ({
         borderRadius: size / 2,
         borderWidth: thickness,
         borderColor: backgroundColor,
-        position: 'absolute'
+        position: 'absolute',
+        top: thickness,
+        left: thickness,
+        right: thickness,
+        bottom: thickness
       }} />
       
       {/* Progress Circle using border trick for better performance */}
@@ -50,6 +56,10 @@ export const DownloadProgressIndicator = ({
         height: size,
         borderRadius: size / 2,
         position: 'absolute',
+        top: thickness,
+        left: thickness,
+        right: thickness,
+        bottom: thickness,
         borderWidth: thickness,
         borderTopColor: progress > 12.5 ? progressColor : 'transparent',
         borderRightColor: progress > 37.5 ? progressColor : 'transparent',

@@ -27,22 +27,37 @@ export const DownloadControl = ({
     (isOffline ? "#888888" : "#ffffff"));
 
   const controlIconStyle = {
-    padding: 8,
+    padding: 0,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
     ...style
   };
 
   // Always show checkmark in offline mode or if downloaded
   if (isOffline || isDownloaded) {
     return (
-      <TouchableOpacity 
-        style={[controlIconStyle, { overflow: 'hidden' }]} 
-        disabled={true}
-      >
-        <MaterialIcons name="check-circle" size={size} color="#4CAF50" />
-      </TouchableOpacity>
+      <View style={[controlIconStyle, { 
+        width: size + 16, 
+        height: size + 16,
+        justifyContent: 'center',
+        alignItems: 'center'
+      }]}>
+        <MaterialIcons 
+          name="check-circle" 
+          size={size} 
+          color="#4CAF50"
+          style={{ 
+            width: size,
+            height: size,
+            textAlign: 'center',
+            lineHeight: size,
+            includeFontPadding: false,
+            textAlignVertical: 'center'
+          }}
+        />
+      </View>
     );
   }
   

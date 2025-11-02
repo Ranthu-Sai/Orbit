@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Spacer } from "../Global/Spacer";
 import ProgressBar from "./ProgressBar";
+import { LikeSongButton } from "./LikeSongButton";
 import QueueBottomSheet from "./QueueBottomSheet";
 import { SleepTimerButton } from "./SleepTimer";
 import { LyricsHandler } from "./LyricsHandler";
@@ -60,6 +61,30 @@ const styles = StyleSheet.create({
   },
   bottomGradient: {
     flex: 1,
+  },
+  iconContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4, // Reduced gap between icons
+  },
+  iconWrapper: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: 0,
+    padding: 0,
+  },
+  iconButton: {
+    margin: 0,
+    padding: 0,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Adjust vertical alignment for the icons
+    transform: [{ translateY: 1 }],
   },
   headerContainer: {
     width: "100%",
@@ -263,24 +288,47 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
           ]}
         >
           <View style={{ marginBottom: 8 }}>
-            <SongInfoDisplay
-              currentPlaying={currentPlaying}
-              isOffline={isOffline}
-              getTextColor={getTextColor}
-            />
+            <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+              <View style={{ flex: 1 }}>
+                <SongInfoDisplay
+                  currentPlaying={currentPlaying}
+                  isOffline={isOffline}
+                  getTextColor={getTextColor}
+                />
+              </View>
+              <View style={styles.iconContainer}>
+                <View style={[styles.iconWrapper, { transform: [{ translateY: 1 }] }]}>
+                  <View style={styles.iconButton}>
+                    <LikeSongButton size={24} color={iconColor} />
+                  </View>
+                </View>
+                <View style={[styles.iconWrapper, { transform: [{ translateY: -5 }] }]}>
+                  <View style={styles.iconButton}>
+                    <SleepTimerButton size={24} iconColor={iconColor} />
+                  </View>
+                </View>
+                <View style={[styles.iconWrapper, { marginRight: 0, transform: [{ translateY: 1 }] }]}>
+                  <View style={styles.iconButton}>
+                    {renderDownloadControl()}
+                  </View>
+                </View>
+              </View>
+            </View>
           </View>
 
           <View style={{ marginBottom: 12 }}>
             <ProgressBar />
           </View>
 
-          <View style={{ marginBottom: 16 }}>
-            <PlaybackControls iconColor={iconColor} />
+          <View style={{ marginTop: 24, marginBottom: 16 }}>
+            <PlaybackControls
+              iconColor={iconColor}
+              navigationButtonSize={36}
+              showLikeButton={false}
+            />
           </View>
 
           <View style={styles.bottomControls}>
-            <SleepTimerButton size={25} iconColor={iconColor} />
-
             {shouldShowTidalFeatures(isOffline) && (
               <TidalSourceSwitcher
                 currentTrack={currentPlaying}
@@ -288,8 +336,6 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
                 size="small"
               />
             )}
-
-            {renderDownloadControl()}
           </View>
         </View>
         <View style={styles.bottomGradientWrapper} pointerEvents="none">
