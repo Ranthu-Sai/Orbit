@@ -47,13 +47,15 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     width: "100%",
+    justifyContent: 'space-between',
+    paddingBottom: 0,
   },
   bottomGradientWrapper: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    height: Dimensions.get("window").height * 0.7,
+    height: Dimensions.get("window").height * 0.6,
     zIndex: 0,
   },
   bottomGradient: {
@@ -243,7 +245,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
         <Spacer height={5} />
 
         <Surface
-          style={[styles.albumSurface, { width: width * 0.85, height: width * 0.85 }]}
+          style={[styles.albumSurface, { width: width * 0.9, height: width * 0.9 }]}
         >
           <AlbumArtworkDisplay
             currentPlaying={currentPlaying}
@@ -257,10 +259,10 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
         <View
           style={[
             styles.contentContainer,
-            { minHeight: Dimensions.get("window").height * 0.6 },
+            { minHeight: Dimensions.get("window").height * 0.55 },
           ]}
         >
-          <View style={{ marginBottom: 16 }}>
+          <View style={{ marginBottom: 8 }}>
             <SongInfoDisplay
               currentPlaying={currentPlaying}
               isOffline={isOffline}
@@ -268,7 +270,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
             />
           </View>
 
-          <View style={{ marginBottom: 16 }}>
+          <View style={{ marginBottom: 12 }}>
             <ProgressBar />
           </View>
 
@@ -313,7 +315,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
         style={{
           backgroundColor: paperTheme.colors.background,
           flex: 1,
-          paddingBottom: 24 + insets.bottom,
+          paddingBottom: 0,
         }}
       >
         <StatusBar
@@ -407,7 +409,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
           onDismiss={closeMenu}
           options={getMenuOptions()}
         />
-        <QueueBottomSheet />
+        {/* <QueueBottomSheet /> */}
       </Animated.View>
     </BackButtonHandler>
   );

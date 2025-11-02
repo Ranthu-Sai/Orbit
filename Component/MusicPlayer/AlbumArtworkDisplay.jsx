@@ -1,5 +1,5 @@
 import React from "react";
-import { Dimensions, StyleSheet } from "react-native";
+import { View, Dimensions, StyleSheet } from "react-native";
 import FastImage from "react-native-fast-image";
 import { GestureManager } from './GestureControls';
 import { Surface, useTheme } from 'react-native-paper';
@@ -12,55 +12,57 @@ export const AlbumArtworkDisplay = ({
 }) => {
   const width = Dimensions.get("window").width;
   const theme = useTheme();
-  const imageWidth = width * 0.9;
-  const imageHeight = width * 0.95;
+  const imageWidth = width * 0.92;
+  const imageHeight = width * 0.98;
 
   return (
     <GestureManager
       onClose={onClose}
       style={[styles.container, { ...style }]}
     >
-      <Surface
-        style={[
-          styles.artworkContainer,
-          {
-            width: imageWidth,
-            height: imageHeight,
-            backgroundColor: theme.colors.surfaceVariant,
-            elevation: 4,
-          },
-        ]}
-      >
-        <FastImage
-          source={artworkSource}
+      <View style={styles.artworkWrapper}>
+        <Surface
           style={[
-            styles.artworkImage,
+            styles.artworkContainer,
             {
               width: imageWidth,
-              height: imageHeight,
+              aspectRatio: 1, // Ensure square aspect ratio
+              backgroundColor: theme.colors.surfaceVariant,
+              elevation: 4,
             },
           ]}
-          resizeMode={FastImage.resizeMode.cover}
-          key={`artwork-${JSON.stringify(artworkSource)}`}
-        />
-      </Surface>
+        >
+          <FastImage
+            source={artworkSource}
+            style={styles.artworkImage}
+            resizeMode={FastImage.resizeMode.contain}
+            key={`artwork-${JSON.stringify(artworkSource)}`}
+          />
+        </Surface>
+      </View>
     </GestureManager>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  artworkWrapper: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   artworkContainer: {
-    borderRadius: 12,
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
+    borderRadius: 8,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   artworkImage: {
-    borderRadius: 8,
+    width: '100%',
+    height: '100%',
   },
 });
