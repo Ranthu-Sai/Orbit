@@ -41,27 +41,30 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
   
   // Calculate responsive dimensions based on screen size
   const responsiveStyles = useMemo(() => {
-    // Base width is ~30% of screen width with some minimum size
-    const cardWidth = Math.max(150, width * 0.3);
-    // Height maintains aspect ratio plus text area with more space for text
-    const cardHeight = cardWidth * 1.3; // Reduced from 1.45 to make cards more compact
-    // Image height is square
-    const imageHeight = cardWidth;
+    // Match album card width (42% of screen width with minimum 180px)
+    const cardWidth = Math.max(180, width * 0.42);
+    // Keep aspect ratio similar to before
+    const cardHeight = cardWidth * 1.2;
+    // Slightly reduced image height
+    const imageHeight = cardWidth * 0.9;
     
     return {
       container: {
         width: cardWidth,
         height: cardHeight,
+        marginRight: 4, // Reduced right margin for tighter grid
+        marginBottom: 0, // Removed bottom margin
       },
       image: {
         height: imageHeight,
         width: "100%",
       },
       textContainer: {
-        height: cardHeight - imageHeight,
-        marginTop: 4,
-        paddingTop: 8, // Reduced from 8
-        // paddingBottom: 4, // Reduced from 6
+        minHeight: 40, // Set a minimum height for the text container
+        marginTop: 0,
+        paddingTop: 2,
+        paddingBottom: 2,
+        justifyContent: 'center', // Center content vertically
       }
     };
   }, [width]);
@@ -187,25 +190,37 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
         backgroundColor: 'transparent', // Ensure no background color is applied
       }}>
         <View style={{
-          width:"85%",
+          width: "100%",
+          flex: 1,
+          justifyContent: 'flex-start',
+          paddingRight: 5,
         }}>
           <PlainText 
-            text={truncateText(name, 24)} 
+            text={name}
             style={{
-              marginBottom: 1, // Reduced from 3 for less space between title and subtitle
-              fontWeight: 'bold', // Make title bold for better visibility
+              marginTop: 4,  // Added top margin
+              marginBottom: 2,
+              fontWeight: 'bold',
+              lineHeight: 19,
+              maxHeight: 38,
+              overflow: 'hidden',
+              fontSize: 16,
             }}
-            numberOfLine={2} // Allow two lines for title
+            numberOfLines={2}
+            ellipsizeMode="tail"
           />
           <SmallText 
-            text={truncateText(follower, 28)} 
+            text={follower}
             style={{
-              opacity: 0.8, // Better contrast for follower text
+              opacity: 0.8,
+              marginTop: 0,
+              lineHeight: 14,
+              fontSize: 12,
             }}
-            maxLine={1} // Only one line for follower count
+            numberOfLines={1}
+            ellipsizeMode="tail"
           />
         </View>
-        <FontAwesome5 name={"play"} size={15} color={theme.colors.primary}/>
       </SpaceBetween>
     </Pressable>
   );

@@ -19,8 +19,8 @@ export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, 
   
   // Calculate responsive dimensions based on screen size
   const responsiveStyles = useMemo(() => {
-    // Base width is ~40% of screen width with some minimum size
-    const cardWidth = Math.max(170, width * 0.4);
+    // Base width is ~42% of screen width with some minimum size
+    const cardWidth = Math.max(180, width * 0.42);
     // Height maintains aspect ratio (roughly square)
     const cardHeight = cardWidth;
     
@@ -29,7 +29,7 @@ export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, 
         width: cardWidth,
         height: cardHeight,
         borderRadius: 10,
-        marginRight: 10,
+        marginRight: 8, // Increased to 8px right margin
       },
       image: {
         height: "100%",

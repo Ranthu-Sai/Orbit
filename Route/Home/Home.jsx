@@ -154,17 +154,19 @@ export const Home = () => {
             <RouteHeading showSearch={true} showSettings={true}/>
 
             <DisplayTopGenres/>
-            <PaddingConatiner>
+            <View style={{ paddingHorizontal: 13 }}>
               <HorizontalScrollSongs id={getChartId(0)}/>
+            </View>
+            <View style={{ paddingHorizontal: 13 }}>
               <Heading text={"Recommended"}/>
-            </PaddingConatiner>
+            </View>
             <FlatList
               horizontal={true}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{
-                paddingLeft: 15,
-                paddingRight: 10,
-                gap: 20,
+                paddingLeft: 10, // Reduced from 15
+                paddingRight: 5, // Reduced from 10
+                gap: 2, // Reduced from 20
               }}
               data={shuffledPlaylists}
               keyExtractor={(item, index) => `playlist-${item.id}-${index}`}
@@ -192,16 +194,16 @@ export const Home = () => {
                 />
               )}
             />
-            <PaddingConatiner>
+            <View style={{ paddingHorizontal: 13 }}>
               <Heading text={"Trending Albums"}/>
-            </PaddingConatiner>
+            </View>
             <FlatList
               horizontal={true}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{
-                paddingLeft: 15,
-                paddingRight: 10,
-                gap: 20,
+                paddingLeft: 10, // Reduced from 15
+                paddingRight: 5, // Reduced from 10
+                gap: 2, // Reduced from 20
               }}
               data={shuffledAlbums}
               keyExtractor={(item, index) => `album-${item.id}-${index}`}
@@ -226,21 +228,24 @@ export const Home = () => {
                 />
               )}
             />
-            <PaddingConatiner>
+            <View style={{ paddingHorizontal: 13, marginTop: 8 }}>
               <HorizontalScrollSongs id={getChartId(1)}/>
-            {offline && (
-              <PaddingConatiner>
-                <Text style={{
-                  color: '#666',
-                  textAlign: 'center',
-                  marginTop: 10,
-                  marginBottom: 10
+              {offline && (
+                <View style={{
+                  paddingHorizontal: 13,
+                  marginTop: 8
                 }}>
-                  You're offline. Some content may not be available.
-                </Text>
-              </PaddingConatiner>
-            )}
-            </PaddingConatiner>
+                  <Text style={{
+                    color: '#666',
+                    textAlign: 'center',
+                    marginTop: 10,
+                    marginBottom: 10
+                  }}>
+                    You're offline. Some content may not be available.
+                  </Text>
+                </View>
+              )}
+            </View>
             <PaddingConatiner>
               <Heading text={"Top Charts"}/>
             </PaddingConatiner>
