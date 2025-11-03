@@ -1,18 +1,29 @@
-import { View } from "react-native"
-import FastImage from 'react-native-fast-image'
-export const LoadingComponent = ({loading,height}) => {
+import { View, ActivityIndicator } from "react-native"
+import { useTheme } from '@react-navigation/native';
+
+export const LoadingComponent = ({ loading, height }) => {
+  const { colors } = useTheme();
+  
   return (
-      <>
-        {loading && <View style={{
-          alignItems:"center",
-          justifyContent:"center",
-          height:height ? height : "100%",
+    <>
+      {loading && (
+        <View style={{
+          alignItems: "center",
+          justifyContent: "center",
+          height: height || "100%",
         }}>
-          <FastImage source={require("../../Images/loading.gif")} style={{
-            height:80,
-            width:80,
-          }}/>
-        </View>}
-      </>
+          <ActivityIndicator 
+            size="large" 
+            color={colors.primary} 
+            style={{
+              height: 80,
+              width: 80,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          />
+        </View>
+      )}
+    </>
   );
 };
