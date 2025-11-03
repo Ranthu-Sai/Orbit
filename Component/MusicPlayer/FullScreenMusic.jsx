@@ -412,48 +412,11 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
         </View>
 
         {/* Three-dot menu modal */}
-        <Portal>
-          <Modal
-            visible={menuVisible}
-            onDismiss={closeMenu}
-            contentContainerStyle={{
-              backgroundColor: paperTheme.colors.surface,
-              padding: 20,
-              margin: 20,
-              borderRadius: 8,
-              position: "absolute",
-              right: menuPosition?.right || 0,
-              top: menuPosition?.top || 0,
-              minWidth: 200,
-            }}
-          >
-            {getMenuOptions().map((option, index) => (
-              <Surface
-                key={index}
-                style={{
-                  marginVertical: 4,
-                  borderRadius: 4,
-                  overflow: "hidden",
-                }}
-              >
-                <IconButton
-                  icon={option.icon}
-                  onPress={() => {
-                    option.onPress();
-                    closeMenu();
-                  }}
-                >
-                  {option.title}
-                </IconButton>
-              </Surface>
-            ))}
-          </Modal>
-        </Portal>
         <FullScreenMusicMenuModal
           visible={menuVisible}
           position={menuPosition}
-          onDismiss={closeMenu}
-          options={getMenuOptions()}
+          onClose={closeMenu}
+          menuOptions={getMenuOptions()}
         />
         {/* <QueueBottomSheet /> */}
       </Animated.View>
