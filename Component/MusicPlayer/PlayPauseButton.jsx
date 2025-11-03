@@ -107,7 +107,7 @@ export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
           width: buttonSize,
           height: buttonSize,
           borderRadius: buttonSize / 2,
-          backgroundColor: theme.colors.primary,
+          backgroundColor: 'rgba(200, 200, 200, 0.3)', // Light gray with some transparency
           opacity: opacityAnim,
           transform: [{ scale: scaleAnim }]
         }}
@@ -125,38 +125,38 @@ export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
     width: buttonSize,
     height: buttonSize,
     borderRadius: buttonSize / 2,
-    backgroundColor: '#ffffff', // White background
+    backgroundColor: isFullScreen ? '#ffffff' : 'transparent', // White background only for full screen
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    elevation: isFullScreen ? 4 : 0,
+    shadowColor: isFullScreen ? '#000' : 'transparent',
+    shadowOffset: { width: 0, height: isFullScreen ? 2 : 0 },
+    shadowOpacity: isFullScreen ? 0.25 : 0,
+    shadowRadius: isFullScreen ? 3.84 : 0,
   };
 
   return (
     <Pressable 
       onPress={handlePress}
-      style={{
+      style={({pressed}) => ({
         width: buttonSize,
         height: buttonSize,
         borderRadius: buttonSize / 2,
-        backgroundColor: '#ffffff',
+        backgroundColor: pressed ? 'rgba(200, 200, 200, 0.3)' : (isFullScreen ? '#ffffff' : 'transparent'),
         justifyContent: 'center',
         alignItems: 'center',
-        elevation: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-      }}
+        elevation: isFullScreen ? 4 : 0,
+        shadowColor: isFullScreen ? '#000' : 'transparent',
+        shadowOffset: { width: 0, height: isFullScreen ? 2 : 0 },
+        shadowOpacity: isFullScreen ? 0.25 : 0,
+        shadowRadius: isFullScreen ? 3.84 : 0,
+      })}
     >
       <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
         <Icon
           name={isPlaying ? 'pause' : 'play'}
           size={iconSize}
-          color="#000000"
+          color={isFullScreen ? "#000000" : (color || theme.colors.primary)}
         />
       </Animated.View>
     </Pressable>

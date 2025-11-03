@@ -7,6 +7,7 @@ import { GestureDetector, Gesture, GestureHandlerRootView } from "react-native-g
 import { PlayPauseButton } from "./PlayPauseButton";
 import { NextSongButton } from "./NextSongButton";
 import { PreviousSongButton } from "./PreviousSongButton";
+import { LikeSongButton } from "./LikeSongButton";
 import FastImage from "react-native-fast-image";
 import { useActiveTrack, useProgress } from "react-native-track-player";
 import { PlayNextSong, PlayPreviousSong } from "../../MusicPlayerFunctions";
@@ -360,38 +361,59 @@ export const MinimizedMusic = memo(({setIndex, color}) => {
                   : getHighQualityArtwork(currentPlaying?.artwork, currentPlaying)
               }
               style={{
-                height: (size *  0.1) - 30,
-                width: (size *  0.1) - 30,
-                borderRadius: 10,
+                height: (size * 0.09) - 25,
+                width: (size * 0.09) - 25,
+                borderRadius: 8,
+                marginRight: 6,
+                alignSelf: 'center',
               }}
             />
             <View style={{
-              flex:1,
-              height:(size *  0.1) - 30,
-              alignItems:"flex-start",
-              justifyContent:"center",
-              paddingHorizontal:10,
+              flex: 1,
+              height: (size * 0.1) - 25,
+              justifyContent: 'center',
+              paddingRight: 2,
+              minWidth: 0,
+              marginLeft: 2,
             }}>
-              <PlainText 
-                text={currentPlaying?.title?.length > 18 ? currentPlaying.title.substring(0, 18) + '...' : currentPlaying?.title ?? "No music :("}
-                style={{ color: colors.text }}               
-              />
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <PlainText 
+                  text={currentPlaying?.title ?? "No music :("}
+                  style={{ 
+                    color: colors.text,
+                    fontSize: 13,
+                    flexShrink: 1,
+                  }}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                />
+              </View>
               <SmallText 
                 text={currentPlaying?.artist?.length > 20 ? currentPlaying.artist.substring(0, 20) + '...' : currentPlaying?.artist ?? "Explore now!"} 
                 maxLine={1}
-                style={{ color: colors.textSecondary }}
+                style={{ 
+                  color: colors.textSecondary,
+                  fontSize: 10,
+                  marginTop: 1,
+                  includeFontPadding: false
+                }}
               />
             </View>
           </View>
         </GestureDetector>
-        <View style={{gap:20,flexDirection:"row", alignItems:"center"}}>
-          <Pressable onPress={isOffline ? playPreviousOfflineSong : PlayPreviousSong}>
-            <PreviousSongButton color={colors.icon}/>
-          </Pressable>
-          <PlayPauseButton isplaying={false} color={colors.icon}/>
-          <Pressable onPress={isOffline ? playNextOfflineSong : PlayNextSong}>
-            <NextSongButton color={colors.icon}/>
-          </Pressable>
+        <View style={{flexDirection:"row", alignItems:"center"}}>
+          <View style={{marginRight: 0}}>
+            <LikeSongButton size={20} color={colors.icon} />
+          </View>
+          <View style={{flexDirection: "row", gap: 10, alignItems: "center"}}>
+            <Pressable onPress={isOffline ? playPreviousOfflineSong : PlayPreviousSong}>
+              <PreviousSongButton color={colors.icon}/>
+            </Pressable>
+            <PlayPauseButton isplaying={false} color={colors.icon}/>
+            <Pressable onPress={isOffline ? playNextOfflineSong : PlayNextSong}>
+              <NextSongButton color={colors.icon}/>
+            </Pressable>
+          </View>
         </View>
       </Animated.View>
       <View style={{height:2, width:`${TotalCompletedInpercent()}%`, backgroundColor:colors.primary}}/>

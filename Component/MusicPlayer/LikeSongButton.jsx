@@ -1,46 +1,97 @@
 import { useTheme } from "@react-navigation/native";
 import AntDesign from "react-native-vector-icons/AntDesign";
-import { memo, useContext, useEffect, useState } from "react";
+import { memo, useContext, useEffect, useState, useRef, useCallback } from "react";
 import { DeleteALikedSong, GetLikedSongs, SetLikedSongs } from "../../LocalStorage/StoreLikedSongs";
-import { Pressable } from "react-native";
+import { Pressable, Animated } from "react-native";
 import Context from "../../Context/Context";
 
-export const LikeSongButton = memo(function LikeSongButton({ size, color }) {
-  const {currentPlaying} = useContext(Context)
-  const theme = useTheme()
+export const LikeSongButton = memo(function LikeSongButton({ size = 24, color }) {
+  const { currentPlaying } = useContext(Context);
+  const theme = useTheme();
   const [Liked, setLiked] = useState(false);
-  async function getIsLiked(){
-    const LikedSongs = await GetLikedSongs()
-    if (LikedSongs.songs[currentPlaying.id]) {
-      setLiked(true)
-    } else {
-      setLiked(false)
-    }
-  }
-  async function LikeASong(){
-    const LikedSongs = await GetLikedSongs()
-    if (!LikedSongs.songs[currentPlaying.id]) {
-      if (currentPlaying.title && currentPlaying.artist && currentPlaying.image && currentPlaying.id && currentPlaying.downloadUrl && currentPlaying.duration ){
-        setLiked(true)
-        await  SetLikedSongs(currentPlaying?.title,currentPlaying?.artist,currentPlaying?.image,currentPlaying?.id,currentPlaying?.downloadUrl,currentPlaying?.duration,currentPlaying?.language)
-      }
-    } else {
-      setLiked(false)
-      await DeleteALikedSong(currentPlaying.id)
-    }
-  }
-  useEffect(() => {
-    getIsLiked()
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const isProcessingRef = useRef(false);
+  
+  const getIsLiked = useCallback(async () => {
+    if (!currentPlaying?.id) return;
+    const LikedSongs = await GetLikedSongs();
+    setLiked(!!LikedSongs.songs[currentPlaying.id]);
   }, [currentPlaying]);
+  
+  const handlePress = useCallback(async () => {
+    if (isProcessingRef.current || !currentPlaying?.id) return;
+    
+    // Button press animation
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.9,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 3,
+        useNativeDriver: true,
+      })
+    ]).start();
+    
+    isProcessingRef.current = true;
+    
+    try {
+      const LikedSongs = await GetLikedSongs();
+      if (!LikedSongs.songs[currentPlaying.id]) {
+        if (currentPlaying.title && currentPlaying.artist && currentPlaying.image && 
+            currentPlaying.id && currentPlaying.downloadUrl && currentPlaying.duration) {
+          await SetLikedSongs(
+            currentPlaying.title,
+            currentPlaying.artist,
+            currentPlaying.image,
+            currentPlaying.id,
+            currentPlaying.downloadUrl,
+            currentPlaying.duration,
+            currentPlaying.language
+          );
+          setLiked(true);
+        }
+      } else {
+        await DeleteALikedSong(currentPlaying.id);
+        setLiked(false);
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+    } finally {
+      setTimeout(() => {
+        isProcessingRef.current = false;
+      }, 300);
+    }
+  }, [currentPlaying, scaleAnim]);
+  
+  useEffect(() => {
+    getIsLiked();
+  }, [currentPlaying, getIsLiked]);
+  
+  const buttonSize = 44; // Match the size of other player controls
+  const iconSize = size || 20;
+  
   return (
-    <Pressable onPress={()=>{
-        LikeASong()
-    }}>
-      <AntDesign
-        name={Liked ? "heart" : "hearto"}
-        size={size ? size : 15}
-        color={Liked ? 'rgb(230, 28, 28)' : (color || theme.colors.text)}
-      />
+    <Pressable 
+      onPress={handlePress}
+      style={({ pressed }) => ({
+        width: buttonSize,
+        height: buttonSize,
+        borderRadius: buttonSize / 2,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: pressed ? 'rgba(200, 200, 200, 0.3)' : 'transparent',
+      })}
+    >
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <AntDesign
+          name={Liked ? "heart" : "hearto"}
+          size={iconSize}
+          color={Liked ? 'rgb(230, 28, 28)' : (color || theme.colors.text)}
+        />
+      </Animated.View>
     </Pressable>
   );
-})
+});

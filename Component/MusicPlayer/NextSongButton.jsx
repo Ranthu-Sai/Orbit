@@ -1,7 +1,7 @@
 import React, { useRef, useCallback } from 'react';
-import { Animated, StyleSheet } from 'react-native';
+import { Animated, Pressable } from 'react-native';
 import { useTheme } from 'react-native-paper';
-import { IconButton } from 'react-native-paper';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { PlayNextSong } from "../../MusicPlayerFunctions";
 
 export const NextSongButton = ({ size = 28, color, style }) => {
@@ -15,7 +15,7 @@ export const NextSongButton = ({ size = 28, color, style }) => {
     // Button press animation
     Animated.sequence([
       Animated.timing(scaleAnim, {
-        toValue: 0.85,
+        toValue: 0.9,
         duration: 100,
         useNativeDriver: true,
       }),
@@ -39,40 +39,28 @@ export const NextSongButton = ({ size = 28, color, style }) => {
       });
   }, [scaleAnim]);
 
-  const iconColor = color || (theme.dark ? '#ffffff' : '#000000');
-  
+  const buttonSize = 44; // Fixed size for the button container
+  const iconSize = size || 24;
+
   return (
-    <Animated.View style={[
-      styles.buttonContainer, 
-      { transform: [{ scale: scaleAnim }] },
-      style
-    ]}>
-      <IconButton
-        icon="skip-next"
-        size={size}
-        iconColor={iconColor}
-        onPress={handlePress}
-        style={styles.button}
-        animated={true}
-        rippleColor="rgba(0, 0, 0, 0.1)"
-      />
-    </Animated.View>
+    <Pressable
+      onPress={handlePress}
+      style={({ pressed }) => ({
+        width: buttonSize,
+        height: buttonSize,
+        borderRadius: buttonSize / 2,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: pressed ? 'rgba(200, 200, 200, 0.3)' : 'transparent',
+      })}
+    >
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <Icon
+          name="skip-next"
+          size={iconSize}
+          color={color || theme.colors.onSurface}
+        />
+      </Animated.View>
+    </Pressable>
   );
 };
-
-const styles = StyleSheet.create({
-  buttonContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  button: {
-    margin: 0,
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});
