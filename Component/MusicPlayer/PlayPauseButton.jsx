@@ -114,7 +114,7 @@ export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
       >
         <ActivityIndicator 
           size={iconSize * 0.7} 
-          color={theme.colors.onPrimary}
+          color={theme.dark ? '#FFFFFF' : '#000000'}
         />
       </Animated.View>
     );
