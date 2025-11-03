@@ -209,17 +209,6 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
             numberOfLines={2}
             ellipsizeMode="tail"
           />
-          <SmallText 
-            text={follower}
-            style={{
-              opacity: 0.8,
-              marginTop: 0,
-              lineHeight: 14,
-              fontSize: 12,
-            }}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          />
         </View>
       </SpaceBetween>
     </Pressable>
