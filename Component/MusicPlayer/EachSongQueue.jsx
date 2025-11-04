@@ -3,7 +3,7 @@ import { TouchableOpacity as Pressable } from "react-native";
 import FastImage from "react-native-fast-image";
 import { PlainText } from "../Global/PlainText";
 import { SmallText } from "../Global/SmallText";
-import { memo, useState, useRef } from "react";
+import { memo, useState, useRef, useEffect} from "react";
 import { useActiveTrack, usePlaybackState } from "react-native-track-player";
 import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
@@ -14,6 +14,7 @@ import { useThemeManager } from "./ThemeManager/useThemeManager";
 import { useDownload } from "../Download/useDownload";
 import { DownloadControl } from "../Download/DownloadControl";
 import TrackPlayer from "react-native-track-player";
+import { GetLikedSongs, SetLikedSongs, DeleteALikedSong } from "../../LocalStorage/StoreLikedSongs";
 
 // Get screen dimensions for responsive layout
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -35,6 +36,24 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
     startDownload,
     canDownload
   } = useDownload(songData || { id, title, artist, artwork }, false);
+
+  // Liked songs state
+  const [isLiked, setIsLiked] = useState(false);
+  const [likedSongs, setLikedSongs] = useState({ songs: {}, count: 0 });
+
+  // Check if song is liked on mount
+  useEffect(() => {
+    const checkIfLiked = async () => {
+      try {
+        const likedData = await GetLikedSongs();
+        setLikedSongs(likedData);
+        setIsLiked(!!likedData.songs[id]);
+      } catch (error) {
+        console.error('Error checking if song is liked:', error);
+      }
+    };
+    checkIfLiked();
+  }, [id]);
 
   // Check if this is the currently playing track
   const isCurrentTrack = id === currentPlaying?.id;
@@ -205,6 +224,46 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
     }
   };
 
+  // Handle swipe like action
+  const handleSwipeLike = async () => {
+    try {
+      // Close the swipeable first
+      swipeableRef.current?.close();
+
+      // Add haptic feedback if available
+      if (global.HapticFeedback) {
+        global.HapticFeedback.impactHeavy();
+      }
+
+      if (isLiked) {
+        // Unlike the song
+        await DeleteALikedSong(id);
+        setIsLiked(false);
+        ToastAndroid.show('Removed from liked songs', ToastAndroid.SHORT);
+      } else {
+        // Like the song
+        await SetLikedSongs(
+          title,
+          artist,
+          artwork,
+          id,
+          songData?.url || '',
+          songData?.duration || 0,
+          songData?.language || 'Unknown'
+        );
+        setIsLiked(true);
+        ToastAndroid.show('Added to liked songs', ToastAndroid.SHORT);
+      }
+
+      // Refresh liked songs data
+      const updatedLikedData = await GetLikedSongs();
+      setLikedSongs(updatedLikedData);
+    } catch (error) {
+      console.error('Error toggling like status:', error);
+      ToastAndroid.show('Failed to update liked status', ToastAndroid.SHORT);
+    }
+  };
+
   // Render left swipe action (delete) with smooth animation
   const renderLeftActions = (progress, dragX) => {
     // Animate the action button appearance
@@ -239,6 +298,48 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
         >
           <MaterialCommunityIcons
             name="delete-outline"
+            size={24}
+            color="white"
+          />
+        </Animated.View>
+      </Pressable>
+    );
+  };
+
+  // Render right swipe action (like/unlike) with smooth animation
+  const renderRightActions = (progress, dragX) => {
+    // Animate the action button appearance
+    const scale = dragX.interpolate({
+      inputRange: [-80, 0],
+      outputRange: [1, 0.8],
+      extrapolate: 'clamp',
+    });
+
+    const opacity = dragX.interpolate({
+      inputRange: [-80, -40, 0],
+      outputRange: [1, 0.5, 0],
+      extrapolate: 'clamp',
+    });
+
+    return (
+      <Pressable
+        style={{
+          width: 80,
+          height: '100%',
+          backgroundColor: '#4CAF50', // Light green color for like
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+        onPress={handleSwipeLike}
+      >
+        <Animated.View
+          style={{
+            transform: [{ scale }],
+            opacity,
+          }}
+        >
+          <MaterialCommunityIcons
+            name={isLiked ? "heart" : "heart-outline"}
             size={24}
             color="white"
           />
@@ -476,20 +577,25 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
     );
   }
 
-  // Default mode: Enable swipe delete functionality
+  // Default mode: Enable swipe delete and like functionality
   return (
     <Swipeable
       ref={swipeableRef}
       renderLeftActions={renderLeftActions}
+      renderRightActions={renderRightActions}
       onSwipeableOpen={(direction) => {
         if (direction === 'left') {
           handleSwipeDelete();
+        } else if (direction === 'right') {
+          handleSwipeLike();
         }
       }}
-      leftThreshold={50} // Threshold for triggering action (50px)
+      leftThreshold={50} // Threshold for triggering delete action (50px)
+      rightThreshold={50} // Threshold for triggering like action (50px)
       friction={2} // Smooth friction for natural feel
       overshootFriction={8} // Elastic overshoot for bounce effect
       overshootLeft={false} // Disable overshoot to the left
+      overshootRight={false} // Disable overshoot to the right
     >
       {renderMainContent()}
     </Swipeable>
