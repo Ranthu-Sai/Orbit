@@ -18,9 +18,9 @@ export const RenderTopCharts = ({playlist}) => {
     }
   }
   return (
-    <View style={{flexDirection: 'row', marginHorizontal: -6}}>
+    <View style={{flexDirection: 'row', marginHorizontal: -8}}>
       {data.map((item, index) => (
-        <View key={index} style={{marginRight: 6, flex: 1, paddingHorizontal: 1}}>
+        <View key={index} style={{marginRight: 4, flex: 1}}>
           {item.map((e, i) => (
             <EachPlaylistCard 
               image={e.image[2].link} 
@@ -29,7 +29,7 @@ export const RenderTopCharts = ({playlist}) => {
               key={e.id} 
               id={e.id}
               MainContainerStyle={{
-                marginVertical: 2,
+                marginVertical: 1,
               }}
             />
           ))}
