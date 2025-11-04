@@ -480,7 +480,7 @@ const QueueRenderSongs = memo(() => {
     };
   }, [currentPlaying, isDragging, isOffline]);
 
-  // Function to handle removing track from queue
+  // Function to handle removing track from queue (used by swipe gesture)
   const handleRemoveFromQueue = async (displayIndex, trackId) => {
     operationInProgressRef.current = true;
     try {

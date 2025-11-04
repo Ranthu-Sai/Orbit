@@ -1,12 +1,13 @@
-import { Pressable, View, Dimensions, ToastAndroid } from "react-native";
+import { Pressable, View, Dimensions, ToastAndroid, Animated } from "react-native";
 import FastImage from "react-native-fast-image";
 import { PlainText } from "../Global/PlainText";
 import { SmallText } from "../Global/SmallText";
-import { memo, useState } from "react";
+import { memo, useState, useRef } from "react";
 import { useActiveTrack, usePlaybackState } from "react-native-track-player";
 import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
+import { Swipeable } from "react-native-gesture-handler";
 import { useThemeContext } from "../../Context/ThemeContext";
 import { useThemeManager } from "./ThemeManager/useThemeManager";
 import { useDownload } from "../Download/useDownload";
@@ -21,6 +22,7 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
   const currentPlaying = useActiveTrack();
   const { theme, themeMode } = useThemeContext();
   const { getOpacityColor } = useThemeManager();
+  const swipeableRef = useRef(null);
 
   // No longer need menu state since we're using direct trash icon
 
@@ -132,8 +134,8 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
     return text.length > limit ? text.substring(0, limit) + '...' : text;
   };
   
-  // Calculate max text width based on screen size (accounting for download button and three-dot menu)
-  const maxTextWidth = SCREEN_WIDTH - 140; // 48px for image + 12px gap + download button + three-dot menu + padding
+  // Calculate max text width based on screen size (no longer need space for trash icon)
+  const maxTextWidth = SCREEN_WIDTH - 100; // 48px for image + 12px gap + download button + padding
   
   // Handle long press with immediate feedback
   const handleLongPress = () => {
@@ -172,14 +174,18 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
     }
   };
 
-  // Handle direct remove from queue (no menu needed)
-  const handleDirectRemove = () => {
-    handleRemoveFromQueue();
-  };
-
-  // Handle remove from queue
-  const handleRemoveFromQueue = async () => {
+  // Handle swipe delete action
+  const handleSwipeDelete = async () => {
     try {
+      // Close the swipeable first
+      swipeableRef.current?.close();
+
+      // Add haptic feedback if available
+      if (global.HapticFeedback) {
+        global.HapticFeedback.impactHeavy();
+      }
+
+      // Call the remove function
       if (typeof onRemoveFromQueue === 'function') {
         await onRemoveFromQueue(index, id);
         ToastAndroid.show('Removed from queue', ToastAndroid.SHORT);
@@ -196,6 +202,48 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
       console.error('Error removing from queue:', error);
       ToastAndroid.show('Failed to remove from queue', ToastAndroid.SHORT);
     }
+  };
+
+  // Render left swipe action (delete) with smooth animation
+  const renderLeftActions = (progress, dragX) => {
+    // Animate the action button appearance
+    const scale = dragX.interpolate({
+      inputRange: [0, 80],
+      outputRange: [0.8, 1],
+      extrapolate: 'clamp',
+    });
+
+    const opacity = dragX.interpolate({
+      inputRange: [0, 40, 80],
+      outputRange: [0, 0.5, 1],
+      extrapolate: 'clamp',
+    });
+
+    return (
+      <Pressable
+        style={{
+          width: 80,
+          height: '100%',
+          backgroundColor: '#FF3B30', // iOS red color for delete
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+        onPress={handleSwipeDelete}
+      >
+        <Animated.View
+          style={{
+            transform: [{ scale }],
+            opacity,
+          }}
+        >
+          <MaterialCommunityIcons
+            name="delete-outline"
+            size={24}
+            color="white"
+          />
+        </Animated.View>
+      </Pressable>
+    );
   };
 
 
@@ -225,7 +273,8 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
     return themeMode === 'light' ? "#000" : "#000";
   };
 
-  return (
+  // Create the main content component
+  const renderMainContent = () => (
     <Pressable
       onPress={handlePress}
       {...dragHandlers}
@@ -267,9 +316,9 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
           opacity: 1, // No opacity change - keep it clean
         }}
       />
-      
+
       {/* Song info */}
-      <View style={{ 
+      <View style={{
         flex: 1,
         width: maxTextWidth,
         justifyContent: 'center',
@@ -299,7 +348,7 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
           maxLine={1}
         />
       </View>
-      
+
       {/* Download button */}
       <View style={{ marginRight: 8 }}>
         <DownloadControl
@@ -313,30 +362,24 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
           style={{ padding: 6 }}
         />
       </View>
-
-      {/* Trash icon for removing from queue */}
-      <Pressable
-        onPress={handleDirectRemove}
-        {...(typeof drag === 'function' ? dragHandlers : {})}
-        style={{
-          width: 36,
-          height: 48,
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 8,
-          backgroundColor: 'transparent', // Keep trash icon area clean
-          borderRadius: 4,
-        }}
-      >
-        <MaterialCommunityIcons
-          name="delete-outline"
-          size={20}
-          color={theme.colors.text}
-          style={{ opacity: 0.8 }}
-        />
-      </Pressable>
-
-
     </Pressable>
+  );
+
+  return (
+    <Swipeable
+      ref={swipeableRef}
+      renderLeftActions={renderLeftActions}
+      onSwipeableOpen={(direction) => {
+        if (direction === 'left') {
+          handleSwipeDelete();
+        }
+      }}
+      leftThreshold={50} // Threshold for triggering action (50px)
+      friction={2} // Smooth friction for natural feel
+      overshootFriction={8} // Elastic overshoot for bounce effect
+      overshootLeft={false} // Disable overshoot to the left
+    >
+      {renderMainContent()}
+    </Swipeable>
   );
 });
