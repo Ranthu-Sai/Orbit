@@ -168,6 +168,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
   const { getArtworkSourceFromHook } = useDynamicArtwork();
   const [isLyricsActive, setIsLyricsActive] = useState(false);
   const [isInfoModalVisible, setIsInfoModalVisible] = useState(false);
+  const [queueIndex, setQueueIndex] = useState(-1);
   const insets = useSafeAreaInsets();
 
   // Use the new unified download hook
@@ -227,6 +228,14 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
   const handlePlayerCloseAction = () => {
     setIndex(0);
     handlePlayerClose();
+  };
+
+  const handleQueueToggle = () => {
+    setQueueIndex(queueIndex === -1 ? 1 : -1);
+  };
+
+  const handleQueueChange = (index) => {
+    setQueueIndex(index);
   };
 
   const renderDownloadControl = () => {
@@ -386,7 +395,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
               icon="menu"
               size={24}
               iconColor={iconColor}
-              onPress={() => {}}
+              onPress={handleQueueToggle}
               style={{ margin: 0 }}
               rippleColor="rgba(255, 255, 255, 0.2)"
             />
@@ -395,16 +404,16 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
         
         {/* Info icon on bottom left */}
         <View style={styles.infoBarContainer}>
-              <View style={styles.barsButton}>
-                <IconButton
-                  icon="information-outline"
-                  size={24}
-                  iconColor={iconColor}
+          <View style={styles.barsButton}>
+            <IconButton
+              icon="information-outline"
+              size={24}
+              iconColor={iconColor}
                   onPress={() => setIsInfoModalVisible(true)}
-                  style={{ margin: 0 }}
-                  rippleColor="rgba(255, 255, 255, 0.2)"
-                />
-              </View>
+              style={{ margin: 0 }}
+              rippleColor="rgba(255, 255, 255, 0.2)"
+            />
+          </View>
         </View>
       </LinearGradient>
     </View>
@@ -478,11 +487,16 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
           onClose={closeMenu}
           menuOptions={getMenuOptions()}
         />
-        {/* <QueueBottomSheet /> */}
         <SongInfoModal 
-          visible={isInfoModalVisible} 
-          onDismiss={() => setIsInfoModalVisible(false)} 
-          track={currentPlaying} 
+        visible={isInfoModalVisible}
+        onDismiss={() => setIsInfoModalVisible(false)}
+        track={currentPlaying}
+        />
+
+        <QueueBottomSheet
+          index={queueIndex}
+          onChange={handleQueueChange}
+          enablePanDownToClose={true}
         />
       </Animated.View>
     </BackButtonHandler>
