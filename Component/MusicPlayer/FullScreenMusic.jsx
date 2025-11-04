@@ -4,6 +4,9 @@ import LinearGradient from "react-native-linear-gradient";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useActiveTrack } from "react-native-track-player";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTheme } from "react-native-paper";
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import SongInfoModal from './SongInfoModal';
 
 import { Spacer } from "../Global/Spacer";
 import ProgressBar from "./ProgressBar";
@@ -32,7 +35,6 @@ import { useUnifiedDownload } from "../Download/useUnifiedDownload";
 import { DownloadControl } from "../Download/DownloadControl";
 
 import {
-  useTheme,
   Surface,
   IconButton,
   Portal,
@@ -127,6 +129,29 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginTop: 16,
     marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  bottomBarContainer: {
+    position: 'absolute',
+    right: 20,
+    zIndex: 10,
+    // Positioned very close to the bottom
+    bottom: '2%', // Position 2% from bottom for better placement
+  },
+  infoBarContainer: {
+    position: 'absolute',
+    left: 20,
+    zIndex: 10,
+    // Match the same position as the menu icon
+    bottom: '2%',
+  },
+  barsButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   backgroundImage: {
     flex: 1,
@@ -142,6 +167,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
   const { musicPreviousScreen } = useContext(Context);
   const { getArtworkSourceFromHook } = useDynamicArtwork();
   const [isLyricsActive, setIsLyricsActive] = useState(false);
+  const [isInfoModalVisible, setIsInfoModalVisible] = useState(false);
   const insets = useSafeAreaInsets();
 
   // Use the new unified download hook
@@ -176,7 +202,13 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
   const { handlePlayerClose } = useNavigationHandler({ musicPreviousScreen });
   const iconColor = getTextColor("icon");
 
-  const { menuVisible, menuPosition, showMenu, closeMenu, getMenuOptions } =
+  const {
+    menuVisible,
+    menuPosition,
+    showMenu,
+    closeMenu,
+    getMenuOptions,
+  } =
     useFullScreenMusicMenu(currentPlaying, isOffline);
 
   const {
@@ -346,6 +378,34 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
             style={styles.bottomGradient}
           />
         </View>
+        
+        {/* Bottom bar with icons */}
+        <View style={styles.bottomBarContainer}>
+          <View style={styles.barsButton}>
+            <IconButton
+              icon="menu"
+              size={24}
+              iconColor={iconColor}
+              onPress={() => {}}
+              style={{ margin: 0 }}
+              rippleColor="rgba(255, 255, 255, 0.2)"
+            />
+          </View>
+        </View>
+        
+        {/* Info icon on bottom left */}
+        <View style={styles.infoBarContainer}>
+              <View style={styles.barsButton}>
+                <IconButton
+                  icon="information-outline"
+                  size={24}
+                  iconColor={iconColor}
+                  onPress={() => setIsInfoModalVisible(true)}
+                  style={{ margin: 0 }}
+                  rippleColor="rgba(255, 255, 255, 0.2)"
+                />
+              </View>
+        </View>
       </LinearGradient>
     </View>
   );
@@ -419,6 +479,11 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
           menuOptions={getMenuOptions()}
         />
         {/* <QueueBottomSheet /> */}
+        <SongInfoModal 
+          visible={isInfoModalVisible} 
+          onDismiss={() => setIsInfoModalVisible(false)} 
+          track={currentPlaying} 
+        />
       </Animated.View>
     </BackButtonHandler>
   );

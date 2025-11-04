@@ -27,13 +27,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 24,  // Increased from 16 to add more space between buttons
+    gap: 24,  // Space between buttons
     position: 'absolute',
     left: 40,  // Align with side buttons
     right: 40, // Align with side buttons
     top: 0,
     bottom: 0,
     zIndex: 1,
+  },
+  navigationButton: {
+    width: 48,  // Slightly increased width for next/previous buttons
+    height: 48, // Slightly increased height for next/previous buttons
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sideButton: {
     width: 32,  // Reduced from 40
@@ -74,9 +80,13 @@ export const PlaybackControls = ({
         
         {/* Navigation Controls - Center */}
         <View style={styles.navigationControls}>
-          <PreviousSongButton size={navigationButtonSize} color={iconColor} />
-          <PlayPauseButton isFullScreen={true} size={navigationButtonSize * 1} color={iconColor} />
-          <NextSongButton size={navigationButtonSize} color={iconColor} />
+          <View style={styles.navigationButton}>
+            <PreviousSongButton size={navigationButtonSize * 1.2} color={iconColor} />
+          </View>
+          <PlayPauseButton isFullScreen={true} size={navigationButtonSize} color={iconColor} />
+          <View style={styles.navigationButton}>
+            <NextSongButton size={navigationButtonSize * 1.2} color={iconColor} />
+          </View>
         </View>
         
         {/* Repeat Button - Right Side */}

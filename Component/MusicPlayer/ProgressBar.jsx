@@ -87,9 +87,9 @@ const ProgressBar = () => {
               setIsSliding(false);
               SetProgressSong(value);
             }}
-            minimumTrackTintColor={theme.colors.primary}
-            maximumTrackTintColor={theme.colors.surfaceVariant}
-            thumbTintColor={theme.colors.primary}
+            minimumTrackTintColor="white"
+            maximumTrackTintColor="rgba(255, 255, 255, 0.3)"
+            thumbTintColor="white"
           />
         </View>
         

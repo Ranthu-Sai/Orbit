@@ -10,10 +10,35 @@ import { useThemeContext } from "../../Context/ThemeContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const QueueBottomSheet = () => {
+/**
+ * Reusable QueueBottomSheet component with configurable visibility
+ * @param {Object} props
+ * @param {boolean} props.visible - Controls whether the bottom sheet is visible
+ * @param {Function} props.onClose - Callback when bottom sheet should be closed
+ * @param {Function} props.onVisibleChange - Callback when visibility changes
+ */
+export const QueueBottomSheet = ({
+  visible = false,
+  onClose,
+  onVisibleChange,
+  style
+}) => {
   const { theme, themeMode } = useThemeContext();
   const bottomSheetRef = useRef(null);
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(visible ? 1 : 0);
+
+  // Update index when visibility changes
+  useEffect(() => {
+    const newIndex = visible ? 1 : 0;
+    setIndex(newIndex);
+    onVisibleChange?.(visible);
+    
+    if (visible && bottomSheetRef.current) {
+      bottomSheetRef.current.snapToIndex(1);
+    } else if (!visible && bottomSheetRef.current) {
+      bottomSheetRef.current.snapToIndex(0);
+    }
+  }, [visible, onVisibleChange]);
 
   // Theme-aware colors
   const getBackgroundColor = () => {
@@ -33,27 +58,37 @@ const QueueBottomSheet = () => {
   // Handle bottom sheet index change
   const handleSheetChange = useCallback((index) => {
     setIndex(index);
-  }, []);
+    // Close when user drags down to first position
+    if (index === 0) {
+      onClose?.();
+    }
+  }, [onClose]);
   
+  // Don't render if not visible
+  if (!visible) return null;
+
   return (
     <BottomSheet
-      index={0}
+      index={index}
       onChange={handleSheetChange}
-      enablePanDownToClose={false}
+      enablePanDownToClose={true}
       animateOnMount={false}
-      snapPoints={[40, '50%']}
+      snapPoints={[0, '50%']}
       ref={bottomSheetRef}
-      style={{
-        backgroundColor: getBackgroundColor(),
-        shadowColor: getShadowColor(),
-        shadowOffset: {
-          width: 0,
-          height: -3,
+      style={[
+        {
+          backgroundColor: getBackgroundColor(),
+          shadowColor: getShadowColor(),
+          shadowOffset: {
+            width: 0,
+            height: -3,
+          },
+          shadowOpacity: 0.27,
+          shadowRadius: 4.65,
+          elevation: 6,
         },
-        shadowOpacity: 0.27,
-        shadowRadius: 4.65,
-        elevation: 6,
-      }}
+        style
+      ]}
       handleComponent={() => (
         <View style={[styles.handleContainer, { backgroundColor: getBackgroundColor() }]}>
           <Octicons name={"chevron-down"} size={40} color={getTextColor()} />
@@ -67,7 +102,7 @@ const QueueBottomSheet = () => {
           />
         </View>
       )}
-      enableContentPanningGesture={false}
+      enableContentPanningGesture={true}
       enableHandlePanningGesture={true}
       backgroundStyle={{
         backgroundColor: "transparent",
