@@ -48,7 +48,7 @@ const getHighQualityArtwork = (artworkUrl) => {
   }
 };
 
-const QueueRenderSongs = memo(() => {
+const QueueRenderSongs = memo(({ reorderMode = false }) => {
   // Context and state
   const { Queue } = useContext(Context);
   const { theme, themeMode } = useThemeContext();
@@ -1047,30 +1047,34 @@ const QueueRenderSongs = memo(() => {
     );
   }
 
-  // Use a simple FlatList if there's only one item to avoid drag errors
-  if (upcomingQueue.length === 1) {
+  const renderFlatListItem = ({ item, index }) => {
+    // Enhance the item with high-quality artwork
+    const enhancedItem = enhanceTrackWithHighQualityArtwork(item);
+
+    return (
+      <EachSongQueue
+        title={enhancedItem.title}
+        artist={enhancedItem.artist}
+        id={enhancedItem.id}
+        index={index}
+        artwork={enhancedItem.artwork}
+        isActive={false}
+        onPress={() => handleTrackSelect(enhancedItem, index)}
+        songData={enhancedItem}
+        onRemoveFromQueue={handleRemoveFromQueue}
+        reorderMode={reorderMode}
+      />
+    );
+  };
+
+  // When reorder mode is disabled, use a simple list so drag gestures don't activate
+  // Also handle the single-item case with the same list to avoid drag errors
+  if (!reorderMode || upcomingQueue.length === 1) {
     return (
       <BottomSheetFlatList
         data={upcomingQueue}
         keyExtractor={(item, index) => `${item.id || 'track'}-${index}`}
-        renderItem={({ item, index }) => {
-          // Enhance the item with high-quality artwork
-          const enhancedItem = enhanceTrackWithHighQualityArtwork(item);
-
-          return (
-            <EachSongQueue
-              title={enhancedItem.title}
-              artist={enhancedItem.artist}
-              id={enhancedItem.id}
-              index={index}
-              artwork={enhancedItem.artwork}
-              isActive={false}
-              onPress={() => handleTrackSelect(enhancedItem, index)}
-              songData={enhancedItem}
-              onRemoveFromQueue={handleRemoveFromQueue}
-            />
-          );
-        }}
+        renderItem={renderFlatListItem}
         contentContainerStyle={{ 
           paddingBottom: 100,
           paddingTop: 8,
@@ -1107,7 +1111,7 @@ const QueueRenderSongs = memo(() => {
       renderItem={({ item, index, drag, isActive }) => {
         // Enhance the item with high-quality artwork
         const enhancedItem = enhanceTrackWithHighQualityArtwork(item);
-        
+
         return (
           <ScaleDecorator activeScale={1.0}>
             <EachSongQueue
@@ -1121,6 +1125,7 @@ const QueueRenderSongs = memo(() => {
               onPress={() => handleTrackSelect(enhancedItem, index)}
               songData={enhancedItem}
               onRemoveFromQueue={handleRemoveFromQueue}
+              reorderMode={reorderMode}
             />
           </ScaleDecorator>
         );

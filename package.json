@@ -27,6 +27,7 @@
     "jiosavan": "^1.0.4",
     "js-sha256": "^0.11.1",
     "lodash": "^4.17.21",
+    "lucide-react-native": "^0.552.0",
     "nativewind": "^4.2.1",
     "react": "18.2.0",
     "react-native": "0.73.4",

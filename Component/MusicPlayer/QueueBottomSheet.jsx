@@ -4,7 +4,8 @@ import QueueRenderSongs from "./QueueRenderSongs";
 import { PlainText } from "../Global/PlainText";
 import { SmallText } from "../Global/SmallText";
 import { View, StyleSheet, Dimensions, Text, ActivityIndicator } from "react-native";
-import Octicons from "react-native-vector-icons/Octicons";
+import { TouchableOpacity as Pressable } from "react-native";
+import { Minus, ListPlus, ListX } from 'lucide-react-native';
 import Svg, { Circle } from "react-native-svg";
 import { useThemeContext } from "../../Context/ThemeContext";
 
@@ -13,6 +14,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
   const { theme, themeMode } = useThemeContext();
   const bottomSheetRef = useRef(null);
+  const [reorderMode, setReorderMode] = useState(false);
 
   // Theme-aware colors
   const getBackgroundColor = () => {
@@ -61,19 +63,33 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
       }}
       handleComponent={() => (
         <View style={[styles.handleContainer, { backgroundColor: getBackgroundColor() }]}>
-          <Octicons name={"chevron-down"} size={40} color={getTextColor()} />
-          <PlainText
-            text={"Queue"}
-            style={[styles.headerText, { color: getTextColor() }]}
-          />
+          <View style={styles.minusIconContainer}>
+            <Minus size={24} color={getTextColor()} />
+          </View>
+          <View style={styles.headerRow}>
+            <PlainText
+              text={"Queue"}
+              style={[styles.headerText, { color: getTextColor() }]}
+            />
+            <Pressable
+              onPress={() => setReorderMode(!reorderMode)}
+              style={styles.reorderToggle}
+            >
+              {reorderMode ? (
+                <ListX size={20} color={getTextColor()} />
+              ) : (
+                <ListPlus size={20} color={getTextColor()} />
+              )}
+            </Pressable>
+          </View>
           <SmallText
-            text={"Press and hold a song to reorder"}
+            text={reorderMode ? "Drag songs to reorder" : "Swipe left to delete"}
             style={[styles.subHeaderText, { color: getTextColor() }]}
           />
         </View>
       )}
     >
-      <QueueRenderSongs/>
+      <QueueRenderSongs reorderMode={reorderMode}/>
     </BottomSheet>
   );
 };
@@ -147,15 +163,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "transparent",
-    height: 75,
+    height: 90,
     width: SCREEN_WIDTH,
     paddingVertical: 5,
+  },
+  minusIconContainer: {
+    marginBottom: 1, // Reduced from 2 to 1
+    transform: [{ scaleY: 2.5 }, { scaleX: 1.2 }], // Increased Y scale for boldness, added X scale for width
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center', // Center the header content
+    width: '100%',
+    paddingHorizontal: 20,
+    position: 'relative', // For absolute positioning of the reorder button
   },
   headerText: {
     fontWeight: 'bold',
     fontSize: 18,
-    marginTop: -3,
+    marginTop: -5, // Reduced from -3 to -5 to bring text closer to icon
     // Color will be applied dynamically via theme
+  },
+  reorderToggle: {
+    padding: 4,
+    borderRadius: 4,
+    position: 'absolute',
+    right: 20, // Position on the right side
   },
   subHeaderText: {
     fontSize: 12,

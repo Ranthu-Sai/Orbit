@@ -1,4 +1,5 @@
-import { Pressable, View, Dimensions, ToastAndroid, Animated } from "react-native";
+import { View, Dimensions, ToastAndroid, Animated } from "react-native";
+import { TouchableOpacity as Pressable } from "react-native";
 import FastImage from "react-native-fast-image";
 import { PlainText } from "../Global/PlainText";
 import { SmallText } from "../Global/SmallText";
@@ -17,7 +18,7 @@ import TrackPlayer from "react-native-track-player";
 // Get screen dimensions for responsive layout
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export const EachSongQueue = memo(function EachSongQueue({ title, artist, index, artwork, id, drag, isActive, onPress, songData, onRemoveFromQueue }) {
+export const EachSongQueue = memo(function EachSongQueue({ title, artist, index, artwork, id, drag, isActive, onPress, songData, onRemoveFromQueue, reorderMode = false }) {
   const playerState = usePlaybackState();
   const currentPlaying = useActiveTrack();
   const { theme, themeMode } = useThemeContext();
@@ -365,6 +366,117 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
     </Pressable>
   );
 
+  // Conditionally render based on reorder mode
+  if (reorderMode) {
+    // Reorder mode: Enable drag functionality, disable swipe
+    return (
+      <Pressable
+        onPress={handlePress}
+        {...dragHandlers}
+        android_ripple={{ color: getRippleColor() }}
+        style={{
+          flexDirection: 'row',
+          alignItems: "center",
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+          marginVertical: 2,
+          width: SCREEN_WIDTH,
+          backgroundColor: isActive
+            ? getActiveBackgroundColor()
+            : isCurrentTrack
+              ? getCurrentTrackBackgroundColor()
+              : 'transparent',
+          borderRadius: 8,
+          // Clean, simple drag styling like reference image
+          ...(isActive && {
+            elevation: 1, // Minimal elevation
+            shadowColor: '#000',
+            shadowOffset: {
+              width: 0,
+              height: 1,
+            },
+            shadowOpacity: 0.1, // Very light shadow
+            shadowRadius: 1,
+          }),
+        }}
+      >
+        {/* Song image - clean and simple */}
+        <FastImage
+          source={getImageSource()}
+          style={{
+            height: 48,
+            width: 48,
+            borderRadius: 8,
+            marginRight: 12,
+            opacity: 1, // No opacity change - keep it clean
+          }}
+        />
+
+        {/* Song info */}
+        <View style={{
+          flex: 1,
+          width: maxTextWidth,
+          justifyContent: 'center',
+        }}>
+          <PlainText
+            text={truncateText(formatText(title), 20)}
+            style={{
+              width: maxTextWidth,
+              fontWeight: isCurrentTrack ? '700' : '600',
+              color: isCurrentTrack
+                ? (theme.colors.playingColor || theme.colors.primary)
+                : theme.colors.text,
+              fontSize: 15,
+              lineHeight: 20,
+            }}
+            numberOfLine={1}
+          />
+          <SmallText
+            text={truncateText(formatText(artist), 20)}
+            style={{
+              width: maxTextWidth,
+              opacity: 0.8,
+              marginTop: 2,
+              fontWeight: '500',
+              color: theme.colors.text,
+            }}
+            maxLine={1}
+          />
+        </View>
+
+        {/* Download button */}
+        <View style={{ marginRight: 8 }}>
+          <DownloadControl
+            isDownloaded={isDownloaded}
+            isDownloading={isDownloading}
+            downloadProgress={downloadProgress}
+            onDownloadPress={startDownload}
+            isOffline={false}
+            disabled={!canDownload}
+            size={20}
+            style={{ padding: 6 }}
+          />
+        </View>
+
+        {/* Drag handle indicator */}
+        <View style={{
+          width: 24,
+          height: 24,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <MaterialCommunityIcons
+            name="drag-vertical"
+            size={16}
+            color={theme.colors.text}
+            style={{ opacity: 0.6 }}
+          />
+        </View>
+      </Pressable>
+    );
+  }
+
+  // Default mode: Enable swipe delete functionality
   return (
     <Swipeable
       ref={swipeableRef}
