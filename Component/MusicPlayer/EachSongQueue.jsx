@@ -5,8 +5,6 @@ import { PlainText } from "../Global/PlainText";
 import { SmallText } from "../Global/SmallText";
 import { memo, useState, useRef, useEffect} from "react";
 import { useActiveTrack, usePlaybackState } from "react-native-track-player";
-import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
-import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { Swipeable } from "react-native-gesture-handler";
 import { useThemeContext } from "../../Context/ThemeContext";
@@ -26,9 +24,6 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
   const { getOpacityColor } = useThemeManager();
   const swipeableRef = useRef(null);
 
-  // No longer need menu state since we're using direct trash icon
-
-  // Download functionality
   const {
     isDownloaded,
     isDownloading,
@@ -346,21 +341,13 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
         </Animated.View>
       </Pressable>
     );
+
   };
-
-
   
   // Theme-aware colors
   const getRippleColor = () => {
     return themeMode === 'light'
       ? 'rgba(0, 0, 0, 0.05)'
-      : 'rgba(255, 255, 255, 0.05)';
-  };
-
-  const getActiveBackgroundColor = () => {
-    // Uniform gray background for all dragged items - consistent like image 2
-    return themeMode === 'light'
-      ? 'rgba(0, 0, 0, 0.1)' // Consistent gray for all items
       : 'rgba(255, 255, 255, 0.15)'; // Consistent light gray for all items
   };
 
