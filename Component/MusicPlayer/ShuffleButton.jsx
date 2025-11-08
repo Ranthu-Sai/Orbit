@@ -35,9 +35,9 @@ export const ShuffleButton = ({ size = 24, color, style }) => {
     try {
       setIsShuffling(true);
       
-      // Get current track and queue
-      const currentTrack = await TrackPlayer.getTrack(await TrackPlayer.getCurrentTrack());
-      if (!currentTrack) {
+      // Get current track index and queue
+      const currentTrackIndex = await TrackPlayer.getCurrentTrack();
+      if (currentTrackIndex === null || currentTrackIndex === undefined) {
         ToastAndroid.show('No track is currently playing', ToastAndroid.SHORT);
         return;
       }
@@ -48,13 +48,9 @@ export const ShuffleButton = ({ size = 24, color, style }) => {
         return;
       }
       
-      // Get current playback state
-      const currentState = await TrackPlayer.getState();
-      const isPlaying = currentState === TrackPlayer.STATE_PLAYING;
-      const currentPosition = await TrackPlayer.getPosition();
-      
-      // Create a new queue with the current track first, followed by shuffled tracks
-      const remainingTracks = queue.filter(track => track.id !== currentTrack.id);
+      // Get current track and remaining tracks
+      const currentTrack = queue[currentTrackIndex];
+      const remainingTracks = queue.filter((_, index) => index !== currentTrackIndex);
       
       // Fisher-Yates shuffle algorithm
       for (let i = remainingTracks.length - 1; i > 0; i--) {
@@ -62,27 +58,25 @@ export const ShuffleButton = ({ size = 24, color, style }) => {
         [remainingTracks[i], remainingTracks[j]] = [remainingTracks[j], remainingTracks[i]];
       }
       
-      // Create new queue with current track first, then shuffled tracks
-      const newQueue = [currentTrack, ...remainingTracks];
-      
       try {
-        // Update the queue without affecting playback
-        await TrackPlayer.reset();
-        await TrackPlayer.add(newQueue);
+        // Remove all tracks after the current track
+        const tracksToRemove = queue.slice(currentTrackIndex + 1).map((_, index) => {
+          return currentTrackIndex + 1 + index;
+        });
         
-        // Skip to the current track in the new queue
-        await TrackPlayer.skip(0);
-        await TrackPlayer.seekTo(currentPosition);
+        if (tracksToRemove.length > 0) {
+          await TrackPlayer.remove(tracksToRemove);
+        }
         
-        // Restore playback state if it was playing
-        if (isPlaying) {
-          await TrackPlayer.play();
+        // Add shuffled tracks back one by one
+        for (let i = 0; i < remainingTracks.length; i++) {
+          await TrackPlayer.add(remainingTracks[i]);
         }
         
         setIsShuffled(true);
         ToastAndroid.show('Queue shuffled', ToastAndroid.SHORT);
-      } catch (error) {
-        console.error('Error updating queue:', error);
+      } catch (updateError) {
+        console.error('Error updating queue:', updateError);
         ToastAndroid.show('Failed to shuffle queue', ToastAndroid.SHORT);
       }
     } catch (error) {
@@ -129,24 +123,34 @@ export const ShuffleButton = ({ size = 24, color, style }) => {
   const activeColor = color || theme.colors.primary || '#4169E1';
 
   return (
-    <TouchableOpacity 
-      onPress={toggleShuffle} 
-      style={[{
-        width: size + 16,
-        height: size + 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-      }, style]}
+    <TouchableOpacity
+      onPress={toggleShuffle}
+      style={[
+        {
+          width: size * 1.5,
+          height: size * 1.5,
+          borderRadius: size * 0.75,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        style,
+      ]}
       activeOpacity={0.7}
       disabled={isShuffling}
     >
       {isShuffling ? (
-        <ActivityIndicator size={size} color={activeColor} />
+        <ActivityIndicator
+          size={size * 0.8}
+          color={theme.colors.primary}
+        />
       ) : (
-        <MaterialIcons 
-          name={isShuffled ? 'shuffle-on' : 'shuffle'} 
-          size={size} 
-          color={isShuffled ? activeColor : iconColor}
+        <MaterialIcons
+          name="shuffle"
+          size={size}
+          color={isShuffled ? theme.colors.primary : (color || theme.colors.text)}
+          style={{
+            opacity: isShuffled ? 1 : 0.7,
+          }}
         />
       )}
     </TouchableOpacity>

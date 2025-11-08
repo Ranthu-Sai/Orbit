@@ -16,7 +16,6 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
   const { theme, themeMode } = useThemeContext();
   const bottomSheetRef = useRef(null);
   const [reorderMode, setReorderMode] = useState(false);
-  const [isShuffling, setIsShuffling] = useState(false);
 
   // Theme-aware colors
   const getBackgroundColor = () => {
@@ -77,96 +76,13 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
             </View>
             <View style={styles.headerRight}>
               <Pressable
-                onPress={async () => {
-                  try {
-                    setIsShuffling(true);
-                    
-                    // Get current playback state
-                    const currentState = await TrackPlayer.getState();
-                    const isPlaying = currentState === TrackPlayer.STATE_PLAYING;
-                    const currentPosition = await TrackPlayer.getPosition();
-                    const currentTrack = await TrackPlayer.getTrack(await TrackPlayer.getCurrentTrack());
-                    
-                    if (!currentTrack) {
-                      ToastAndroid.show('No track is currently playing', ToastAndroid.SHORT);
-                      return;
-                    }
-                    
-                    // Get current queue
-                    const queue = await TrackPlayer.getQueue();
-                    
-                    if (queue.length <= 1) {
-                      ToastAndroid.show('Not enough songs to shuffle', ToastAndroid.SHORT);
-                      return;
-                    }
-                    
-                    // Create a new queue with the current track first, followed by shuffled tracks
-                    const remainingTracks = queue.filter(track => track.id !== currentTrack.id);
-                    
-                    // Fisher-Yates shuffle algorithm
-                    for (let i = remainingTracks.length - 1; i > 0; i--) {
-                      const j = Math.floor(Math.random() * (i + 1));
-                      [remainingTracks[i], remainingTracks[j]] = [remainingTracks[j], remainingTracks[i]];
-                    }
-                    
-                    // Create new queue with current track first, then shuffled tracks
-                    const newQueue = [currentTrack, ...remainingTracks];
-                    
-                    // Temporarily pause playback if it's playing
-                    if (isPlaying) {
-                      await TrackPlayer.pause();
-                    }
-                    
-                    try {
-                      // Get the current track's ID and position
-                      const currentTrackId = currentTrack.id;
-                      
-                      // Update the queue
-                      await TrackPlayer.reset();
-                      await TrackPlayer.add(newQueue);
-                      
-                      // Find the new index of the current track in the shuffled queue
-                      const newIndex = newQueue.findIndex(track => track.id === currentTrackId);
-                      
-                      if (newIndex >= 0) {
-                        // Skip to the current track in the new queue
-                        await TrackPlayer.skip(newIndex);
-                        // Restore the exact position
-                        await TrackPlayer.seekTo(currentPosition);
-                        
-                        // Restore playback state without any delay
-                        if (isPlaying) {
-                          // Use a small delay to ensure the track is ready
-                          setTimeout(async () => {
-                            await TrackPlayer.play();
-                          }, 50);
-                        }
-                      }
-                      
-                      ToastAndroid.show('Queue shuffled', ToastAndroid.SHORT);
-                    } catch (error) {
-                      console.error('Error updating queue:', error);
-                      ToastAndroid.show('Error updating queue', ToastAndroid.SHORT);
-                      // If there was an error, try to restore playback
-                      if (isPlaying) {
-                        await TrackPlayer.play().catch(console.error);
-                      }
-                    }
-                  } catch (error) {
-                    console.error('Error in shuffle operation:', error);
-                    ToastAndroid.show('Failed to shuffle queue', ToastAndroid.SHORT);
-                  } finally {
-                    setIsShuffling(false);
-                  }
-                }}
                 style={[styles.actionButton, { marginRight: 10 }]}
-                disabled={isShuffling}
               >
-                {isShuffling ? (
-                  <ActivityIndicator size={20} color={getTextColor()} />
-                ) : (
-                  <Shuffle size={20} color={getTextColor()} />
-                )}
+                <Shuffle 
+                  size={20} 
+                  color={getTextColor()}
+                  fill={'transparent'}
+                />
               </Pressable>
               <Pressable
                 onPress={() => setReorderMode(!reorderMode)}

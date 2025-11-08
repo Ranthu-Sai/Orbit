@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import { Dimensions, View, StyleSheet } from "react-native";
 import Slider from '@react-native-community/slider';
 import { Text, useTheme } from "react-native-paper";
-import { useProgress, useActiveTrack } from "react-native-track-player";
+import { useProgress, useActiveTrack, usePlaybackState } from "react-native-track-player";
 import { SetProgressSong } from "../../MusicPlayerFunctions";
+import TrackPlayer from 'react-native-track-player';
 
 const ProgressBar = () => {
   const theme = useTheme();
@@ -11,6 +12,8 @@ const ProgressBar = () => {
   const currentTrack = useActiveTrack();
   const [isSliding, setIsSliding] = useState(false);
   const [sliderValue, setSliderValue] = useState(0);
+  const [wasPlaying, setWasPlaying] = useState(false);
+  const playbackState = usePlaybackState();
   
   const screenWidth = Dimensions.get('window').width;
   const horizontalPadding = 14; // Reduced from 16 to make slider wider
@@ -83,9 +86,31 @@ const ProgressBar = () => {
               setIsSliding(true);
               setSliderValue(value);
             }}
-            onSlidingComplete={(value) => {
-              setIsSliding(false);
-              SetProgressSong(value);
+            onSlidingStart={() => {
+              setWasPlaying(playbackState === TrackPlayer.STATE_PLAYING);
+              setIsSliding(true);
+            }}
+            onSlidingComplete={async (value) => {
+              try {
+                // Update the slider value immediately for better UX
+                setSliderValue(value);
+                
+                // Seek to the new position
+                await TrackPlayer.seekTo(value);
+                
+                // If it was playing before seeking, ensure it continues playing
+                if (wasPlaying) {
+                  await TrackPlayer.play();
+                }
+                
+                // Update the state after a small delay to ensure smooth transition
+                setTimeout(() => {
+                  setIsSliding(false);
+                }, 100);
+              } catch (error) {
+                console.error('Error during seek:', error);
+                setIsSliding(false);
+              }
             }}
             minimumTrackTintColor="white"
             maximumTrackTintColor="rgba(255, 255, 255, 0.3)"
