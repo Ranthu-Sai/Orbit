@@ -1,17 +1,93 @@
-import React, { useCallback, useContext, useEffect, useRef } from "react";
+import React, { useCallback, useContext, useEffect, useRef, useState, useMemo } from "react";
 import { BackHandler, StyleSheet, Text } from "react-native";
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import { MinimizedMusic } from "./MinimizedMusic";
 import { FullScreenMusic } from "./FullScreenMusic";
 import Context from "../../Context/Context";
 import { useNavigation, useTheme } from "@react-navigation/native";
+import { useActiveTrack, usePlaybackState } from "react-native-track-player";
+import TrackPlayer, { Event } from "react-native-track-player";
 
-const BottomSheetMusic = ({ color }) => {
+const BottomSheetMusic = React.memo(({ color }) => {
   const bottomSheetRef = useRef(null);
   const { Index, setIndex, previousScreen, musicPreviousScreen } =
     useContext(Context);
   const navigation = useNavigation();
   const { colors } = useTheme();
+  const currentPlaying = useActiveTrack();
+  const playbackState = usePlaybackState();
+  const [hasQueue, setHasQueue] = useState(false);
+  const [isMusicActive, setIsMusicActive] = useState(false);
+
+  // Memoized functions to prevent re-renders
+  const handleSheetChanges = useCallback((index) => {
+    if (index < 0) {
+      setIndex(0);
+    } else {
+      setIndex(index);
+    }
+  }, [setIndex]);
+
+  const updateIndex = useCallback((index) => {
+    setIndex(index);
+  }, [setIndex]);
+
+  // Direct event listener for instant response
+  useEffect(() => {
+    const eventListener = TrackPlayer.addEventListener(Event.PlaybackState, (event) => {
+      // Instant response to any playback state change
+      if (event.state === 'playing' || event.state === 'paused') {
+        setIsMusicActive(true);
+        setHasQueue(true);
+      } else if (event.state === 'stopped' || event.state === 'none') {
+        // Only hide if no active track
+        if (!currentPlaying) {
+          setIsMusicActive(false);
+        }
+      }
+    });
+
+    // Also listen for track changes
+    const trackListener = TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, (event) => {
+      if (event.track) {
+        setIsMusicActive(true);
+        setHasQueue(true);
+      }
+    });
+
+    return () => {
+      eventListener.remove();
+      trackListener.remove();
+    };
+  }, [currentPlaying]);
+
+  // Fast queue check
+  useEffect(() => {
+    const checkQueue = async () => {
+      try {
+        const queue = await TrackPlayer.getQueue();
+        setHasQueue(queue && queue.length > 0);
+      } catch (error) {
+        setHasQueue(false);
+      }
+    };
+
+    checkQueue();
+  }, []);
+
+  // Instant response to playback state
+  useEffect(() => {
+    if (playbackState?.state === 'playing' || playbackState?.state === 'paused') {
+      setIsMusicActive(true);
+    }
+  }, [playbackState?.state]);
+
+  // Memoized visibility calculation - computed only when dependencies change
+  const shouldShowPlayer = useMemo(() => {
+    return currentPlaying || hasQueue || isMusicActive ||
+      (playbackState?.state === 'playing' || playbackState?.state === 'paused') ||
+      Index === 1;
+  }, [currentPlaying, hasQueue, isMusicActive, playbackState?.state, Index]);
 
   // Function to specifically navigate to MyMusicPage
   const navigateToMyMusicPage = useCallback(() => {
@@ -228,50 +304,47 @@ const BottomSheetMusic = ({ color }) => {
     };
   }, [Index, navigation, setIndex, musicPreviousScreen]);
 
-  const handleSheetChanges = useCallback((index) => {
-    if (index < 0) {
-      setIndex(0);
-    } else {
-      setIndex(index);
-    }
-  }, []);
+  // Pre-define the component structure for instant rendering
+  if (!shouldShowPlayer) {
+    return null;
+  }
 
-  const updateIndex = useCallback((index) => {
-    setIndex(index);
-  }, []);
-
+  // Ultra-fast render with optimized JSX
   return (
-      <BottomSheet
-        enableContentPanningGesture={false}
-         detached={false}
-         enableOverDrag={false}
-         handleIndicatorStyle={{
-        height:0,
-        width:0,
-        position:"absolute",
-        backgroundColor:"rgba(0,0,0,0)",
+    <BottomSheet
+      enableContentPanningGesture={false}
+      detached={false}
+      enableOverDrag={false}
+      handleIndicatorStyle={{
+        height: 0,
+        width: 0,
+        position: "absolute",
+        backgroundColor: "rgba(0,0,0,0)",
       }}
-        backgroundStyle={{
-          backgroundColor: color || colors.musicPlayerBg,
-        }}
-        // handleComponent={props => <MinimizedMusic  setIndex={updateIndex} color={color}/>}
-        handleHeight={5}
-        handleStyle={{
-          position:"absolute",
-        }}
-        snapPoints={[155, '100%']}
-        ref={bottomSheetRef}
-         index={Index}
-        onChange={handleSheetChanges}>
-        <BottomSheetView  style={{
+      backgroundStyle={{
+        backgroundColor: color || colors.musicPlayerBg,
+      }}
+      handleHeight={5}
+      handleStyle={{
+        position: "absolute",
+      }}
+      snapPoints={[155, '100%']}
+      ref={bottomSheetRef}
+      index={Index}
+      onChange={handleSheetChanges}
+    >
+      <BottomSheetView
+        style={{
           ...styles.contentContainer,
           backgroundColor: color || colors.musicPlayerBg,
         }}
       >
-        {Index !== 1 && (
-          <MinimizedMusic setIndex={updateIndex} color={colors.musicPlayerBg} />
-        )}
-        {Index === 1 && (
+        {Index !== 1 ? (
+          <MinimizedMusic
+            setIndex={updateIndex}
+            color={colors.musicPlayerBg}
+          />
+        ) : (
           <FullScreenMusic
             color={color || colors.musicPlayerBg}
             Index={Index}
@@ -281,7 +354,7 @@ const BottomSheetMusic = ({ color }) => {
       </BottomSheetView>
     </BottomSheet>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
