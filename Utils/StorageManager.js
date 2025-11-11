@@ -397,6 +397,72 @@ const clearLocalMusicCache = async () => {
   }
 };
 
+/**
+ * Scans the downloads directory for existing song files and updates metadata
+ * This helps when users reinstall the app but their downloaded songs are still in storage
+ * @returns {Promise<Array>} - Array of found songs with metadata
+ */
+const scanForExistingDownloads = async () => {
+  try {
+    const downloadsDir = await getDownloadsDirectory();
+    const allMetadata = await getAllDownloadedSongsMetadata();
+    const files = await RNFS.readDir(downloadsDir);
+    const foundSongs = [];
+
+    // Process each file in the downloads directory
+    for (const file of files) {
+      try {
+        // Skip non-mp3 files
+        if (!file.name.endsWith('.mp3')) continue;
+
+        // Extract song ID from filename (format: "songtitle - songid.mp3")
+        const match = file.name.match(/(.+?) - (.+?)\.mp3$/i);
+        if (!match) continue;
+
+        const [, title, songId] = match;
+        const filePath = file.path;
+
+        // Skip if we already have this song in metadata
+        if (allMetadata[songId]) continue;
+
+        // Create metadata for the found song
+        const metadata = {
+          id: songId,
+          title: title,
+          artist: 'Unknown Artist',
+          album: 'Unknown Album',
+          url: `file://${filePath}`,
+          localSongPath: filePath,
+          isDownloaded: true,
+          downloadedAt: new Date(file.mtime || Date.now()).toISOString()
+        };
+
+        // Add to metadata
+        allMetadata[songId] = metadata;
+        foundSongs.push(metadata);
+
+        console.log(`Found existing download: ${title} (${songId})`);
+      } catch (error) {
+        console.warn(`Error processing file ${file.name}:`, error);
+      }
+    }
+
+    // Save updated metadata if we found any songs
+    if (foundSongs.length > 0) {
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
+        JSON.stringify(allMetadata)
+      );
+      console.log(`Updated metadata with ${foundSongs.length} existing downloads`);
+    }
+
+    return foundSongs;
+  } catch (error) {
+    console.error('Error scanning for existing downloads:', error);
+    return [];
+  }
+};
+
 export const StorageManager = {
   ensureDirectoriesExist,
   getSongPath,
@@ -411,4 +477,5 @@ export const StorageManager = {
   saveLocalMusicCache,
   getLocalMusicCache,
   clearLocalMusicCache,
+  scanForExistingDownloads,
 };
