@@ -1,9 +1,9 @@
 import { Heading } from "../../Component/Global/Heading";
 import { MainWrapper } from "../../Layout/MainWrapper";
 import { PaddingConatiner } from "../../Layout/PaddingConatiner";
-import { Pressable, ScrollView, Switch, ToastAndroid, View, Modal } from "react-native";
-import { PlainText } from "../../Component/Global/PlainText";
-import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import { ScrollView, ToastAndroid, View } from "react-native";
+import { List, Switch, Card, Text, Divider } from "react-native-paper";
+import { Dropdown } from "react-native-paper-dropdown";
 
 
 import {
@@ -33,10 +33,6 @@ export const SettingsPage = ({navigation}) => {
   const [Download, setDownload] = useState("");
   const [themePreference, setThemePreference] = useState("");
   const [colorScheme, setColorScheme] = useState("");
-  // const [tidalEnabled, setTidalEnabled] = useState(false);
-
-  
-
   
   const FontSize = [
     { value: 'Small' },
@@ -82,12 +78,6 @@ export const SettingsPage = ({navigation}) => {
     setColorScheme(data);
   }
 
-  // async function GetTidalEnabledPreference(){
-  //   const data = await GetTidalEnabled();
-  //   setTidalEnabled(data);
-  // }
-  
-  
 
   async function SetDownLoad({ value }){
     await SetDownloadPath(value);
@@ -139,16 +129,6 @@ export const SettingsPage = ({navigation}) => {
     );
   }
 
-  // async function handleTidalToggle() {
-  //   const newValue = !tidalEnabled;
-  //   setTidalEnabled(newValue);
-  //   await SetTidalEnabled(newValue);
-  //   ToastAndroid.showWithGravity(
-  //     `Tidal ${newValue ? 'enabled' : 'disabled'}. You can now ${newValue ? 'switch between Saavn and Tidal' : 'only use Saavn'} for music.`,
-  //     ToastAndroid.LONG,
-  //     ToastAndroid.CENTER,
-  //   );
-  // }
   
   useEffect(() => {
     GetFontSize();
@@ -163,210 +143,142 @@ export const SettingsPage = ({navigation}) => {
   return (
     <MainWrapper>
       <PaddingConatiner>
-        <Heading text={"SETTINGS"}/>
-        <ScrollView>
-          <EachSettingsButton text={"Change Name"} OnPress={()=>{
-            navigation.navigate("ChangeName");
-          }}/>
-          <EachSettingsButton text={"Select Languages"} OnPress={()=>{
-            navigation.navigate("SelectLanguages");
-          }}/>
-          <EachDropDownWithLabel data={FontSize} text={"Font size"} placeholder={Font} OnChange={SetFont}/>
-          <EachDropDownWithLabel data={PlaybackQuality} text={"Playback quality"} placeholder={Playback} OnChange={SetPlayBack}/>
-          <EachDropDownWithLabel data={DownloadPath} text={"Download Path"} placeholder={Download} OnChange={SetDownLoad}/>
-          <ThemeToggle themeMode={themePreference} onToggle={handleThemeToggle}/>
-          <EachDropDownWithLabel data={getColorSchemeOptions()} text={"Color Scheme"} placeholder={colorScheme} OnChange={handleColorSchemeChange}/>
-          {/* <TidalToggle tidalEnabled={tidalEnabled} onToggle={handleTidalToggle}/> */}
+        <Text variant="headlineMedium" style={{ textAlign: 'center', marginBottom: 20, color: colors.text }}>
+          SETTINGS
+        </Text>
+        <ScrollView style={{ marginBottom: 52 }}>
+          <Card style={{ marginBottom: 16 }}>
+            <Card.Content>
+              <List.Section>
+                <List.Subheader style={{ color: colors.text }}>Account</List.Subheader>
+                <List.Item
+                  title="Change Name"
+                  titleStyle={{ color: colors.text }}
+                  left={() => <List.Icon icon="account-edit" color={colors.primary} />}
+                  right={() => <List.Icon icon="chevron-right" color={colors.text} />}
+                  onPress={() => navigation.navigate("ChangeName")}
+                />
+                <List.Item
+                  title="Select Languages"
+                  titleStyle={{ color: colors.text }}
+                  left={() => <List.Icon icon="translate" color={colors.primary} />}
+                  right={() => <List.Icon icon="chevron-right" color={colors.text} />}
+                  onPress={() => navigation.navigate("SelectLanguages")}
+                />
+              </List.Section>
+            </Card.Content>
+          </Card>
 
+          <Card style={{ marginBottom: 16 }}>
+            <Card.Content>
+              <List.Section>
+                <List.Subheader style={{ color: colors.text }}>Preferences</List.Subheader>
+                <DropDownMenu
+                  title="Font Size"
+                  icon="format-size"
+                  data={FontSize}
+                  selectedValue={Font}
+                  onSelect={SetFont}
+                />
+                <DropDownMenu
+                  title="Playback Quality"
+                  icon="volume-high"
+                  data={PlaybackQuality}
+                  selectedValue={Playback}
+                  onSelect={SetPlayBack}
+                />
+                <DropDownMenu
+                  title="Download Path"
+                  icon="folder-download"
+                  data={DownloadPath}
+                  selectedValue={Download}
+                  onSelect={SetDownLoad}
+                />
+                <DropDownMenu
+                  title="Color Scheme"
+                  icon="palette"
+                  data={getColorSchemeOptions()}
+                  selectedValue={colorScheme}
+                  onSelect={handleColorSchemeChange}
+                />
+              </List.Section>
+            </Card.Content>
+          </Card>
 
+          <Card style={{ marginBottom: 16 }}>
+            <Card.Content>
+              <List.Section>
+                <List.Subheader style={{ color: colors.text }}>Appearance</List.Subheader>
+                <List.Item
+                  title="Dark Mode"
+                  titleStyle={{ color: colors.text }}
+                  left={() => <List.Icon icon={themePreference === 'dark' ? 'moon-waning-crescent' : 'white-balance-sunny'} color={colors.primary} />}
+                  right={() => (
+                    <Switch
+                      value={themePreference === 'dark'}
+                      onValueChange={handleThemeToggle}
+                      color={colors.primary}
+                    />
+                  )}
+                />
+              </List.Section>
+            </Card.Content>
+          </Card>
 
-          <SmallText text={"*Note: If you change font size, change name, select languages, theme, or colors, please restart the app to see all changes."}/>
+          <Card style={{ marginBottom: 16 }}>
+            <Card.Content>
+              <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.7 }}>
+                *Note: If you change font size, change name, select languages, theme, or colors, please restart the app to see all changes.
+              </Text>
+            </Card.Content>
+          </Card>
         </ScrollView>
       </PaddingConatiner>
-
-
     </MainWrapper>
   );
 }
 
-function EachSettingsButton({text, OnPress}) {
+
+function DropDownMenu({ title, icon, data, selectedValue, onSelect }) {
   const { colors } = useTheme();
-  return (
-    <Pressable onPress={OnPress} style={{
-      backgroundColor: colors.settingsButtonBg,
-      padding: 20,
-      borderRadius: 10,
-      flexDirection: "row",
-      justifyContent: "space-between",
-      marginBottom: 10,
-    }}>
-      <PlainText text={text} style={{ color: colors.text }}/>
-      <PlainText text={"→"} style={{ color: colors.text }}/>
-    </Pressable>
-  );
-}
 
-function ThemeToggle({themeMode, onToggle}) {
-  const { colors } = useTheme();
-  return (
-    <Pressable style={{
-      backgroundColor: colors.settingsButtonBg,
-      padding: 20,
-      borderRadius: 10,
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 10,
-    }}>
-      <PlainText text={"App Theme"} style={{ color: colors.text }}/>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <PlainText text={themeMode === 'light' ? 'Light' : 'Dark'} style={{ color: colors.text }}/>
-        <Switch
-          trackColor={{ false: '#767577', true: colors.primary }}
-          thumbColor={themeMode === 'light' ? '#f5dd4b' : '#f4f3f4'}
-          ios_backgroundColor="#3e3e3e"
-          onValueChange={onToggle}
-          value={themeMode === 'light'}
-          style={{ marginLeft: 10 }}
-        />
-      </View>
-    </Pressable>
-  );
-}
+  const options = data.map((item, index) => ({
+    label: item.value,
+    value: item.value,
+  }));
 
-// function TidalToggle({tidalEnabled, onToggle}) {
-//   const { colors } = useTheme();
-//   return (
-//     <Pressable style={{
-//       backgroundColor: colors.settingsButtonBg,
-//       padding: 20,
-//       borderRadius: 10,
-//       flexDirection: "row",
-//       justifyContent: "space-between",
-//       alignItems: "center",
-//       marginBottom: 10,
-//     }}>
-//       <View>
-//         <PlainText text={"Tidal (FLAC Quality)"} style={{ color: colors.text }}/>
-//         <SmallText text={"Enable high-quality music from Tidal"} style={{ color: colors.text, opacity: 0.7, marginTop: 2 }}/>
-//       </View>
-//       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-//         <PlainText text={tidalEnabled ? 'On' : 'Off'} style={{ color: colors.text }}/>
-//         <Switch
-//           trackColor={{ false: '#767577', true: colors.primary }}
-//           thumbColor={tidalEnabled ? '#f5dd4b' : '#f4f3f4'}
-//           ios_backgroundColor="#3e3e3e"
-//           onValueChange={onToggle}
-//           value={tidalEnabled}
-//           style={{ marginLeft: 10 }}
-//         />
-//       </View>
-//     </Pressable>
-//   );
-// }
-
-function EachDropDownWithLabel({data, text, placeholder, OnChange}){
-  const { colors } = useTheme();
-  const [isOpen, setIsOpen] = useState(false);
-  const [selectedValue, setSelectedValue] = useState(placeholder);
-
-  const handleSelect = (item) => {
-    setSelectedValue(item.value);
-    setIsOpen(false);
-    OnChange(item);
+  const handleSelect = (value) => {
+    const selectedItem = data.find(item => item.value === value);
+    if (selectedItem) {
+      onSelect(selectedItem);
+    }
   };
 
   return (
-    <View style={{
-      backgroundColor: colors.settingsButtonBg,
-      padding: 20,
-      borderRadius: 10,
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 10,
-      zIndex: isOpen ? 1000 : 1,
-    }}>
-      <PlainText text={text} style={{ color: colors.text }}/>
-
-      <View style={{ position: 'relative' }}>
-        <Pressable
-          onPress={() => setIsOpen(!isOpen)}
-          style={{
-            width: 120,
-            backgroundColor: colors.dropdownBg || colors.settingsButtonBg,
-            borderRadius: 5,
-            padding: 10,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            borderWidth: 1,
-            borderColor: colors.border || colors.text + '20',
-          }}
-        >
-          <PlainText
-            text={selectedValue || placeholder}
+    <List.Item
+      title={title}
+      titleStyle={{ color: colors.text }}
+      left={() => <List.Icon icon={icon} color={colors.primary} />}
+      right={() => (
+        <View style={{ marginLeft: 20 }}>
+          <Dropdown
+            options={options}
+            value={selectedValue}
+            onSelect={handleSelect}
+            placeholder="Select option"
+            mode="outlined"
             style={{
-              color: colors.text,
-              fontSize: 14,
-              flex: 1,
+              width: 120,
+              backgroundColor: 'transparent',
             }}
+            menuContentStyle={{
+              backgroundColor: colors.card || colors.background,
+            }}
+            textColor={colors.text}
+            activeColor={colors.primary}
           />
-          <MaterialIcons
-            name={isOpen ? "keyboard-arrow-up" : "keyboard-arrow-down"}
-            size={20}
-            color={colors.text}
-          />
-        </Pressable>
-
-        {isOpen && (
-          <Modal
-            transparent={true}
-            visible={isOpen}
-            onRequestClose={() => setIsOpen(false)}
-          >
-            <Pressable
-              style={{
-                flex: 1,
-                backgroundColor: 'rgba(0,0,0,0.5)',
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-              onPress={() => setIsOpen(false)}
-            >
-              <View style={{
-                backgroundColor: colors.dropdownBg || colors.settingsButtonBg,
-                borderRadius: 10,
-                padding: 10,
-                minWidth: 150,
-                maxHeight: 300,
-              }}>
-                <ScrollView>
-                  {data.map((item, index) => (
-                    <Pressable
-                      key={index}
-                      onPress={() => handleSelect(item)}
-                      style={{
-                        padding: 15,
-                        borderRadius: 5,
-                        backgroundColor: selectedValue === item.value ? colors.primary + '20' : 'transparent',
-                      }}
-                    >
-                      <PlainText
-                        text={item.value}
-                        style={{
-                          color: colors.dropdownText || colors.text,
-                          textAlign: 'center',
-                        }}
-                      />
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </View>
-            </Pressable>
-          </Modal>
-        )}
-      </View>
-    </View>
+        </View>
+      )}
+    />
   );
 }

@@ -9087,7 +9087,14 @@ react-native-modal@^13.0.1:
     prop-types "^15.6.2"
     react-native-animatable "1.3.3"
 
-react-native-paper@^5.14.5:
+react-native-paper-dropdown@^2.3.1:
+  version "2.3.1"
+  resolved "https://registry.npmjs.org/react-native-paper-dropdown/-/react-native-paper-dropdown-2.3.1.tgz"
+  integrity sha512-IvcHTucAV5+fiX2IVMiVdBDKT6KHxycW0o9QzZe7bpmeZWmuCajHDnwG3OSBGlXhUxrrM3TC0/HJZHwORWGgQg==
+  dependencies:
+    react-native-paper "^5.12.3"
+
+react-native-paper@^5.12.3, react-native-paper@^5.14.5:
   version "5.14.5"
   resolved "https://registry.npmjs.org/react-native-paper/-/react-native-paper-5.14.5.tgz"
   integrity sha512-eaIH5bUQjJ/mYm4AkI6caaiyc7BcHDwX6CqNDi6RIxfxfWxROsHpll1oBuwn/cFvknvA8uEAkqLk/vzVihI3AQ==
