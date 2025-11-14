@@ -84,26 +84,9 @@ function App(){
   
   useEffect(() => {
     // Ensure storage directories exist early to avoid ENOENT when accessing files
-    const initializeStorage = async () => {
-      try {
-        await StorageManager.ensureDirectoriesExist();
-        
-        // Scan for existing downloads in the background
-        StorageManager.scanForExistingDownloads()
-          .then(foundSongs => {
-            if (foundSongs.length > 0) {
-              console.log(`Found ${foundSongs.length} existing downloads`);
-            }
-          })
-          .catch(err => {
-            console.warn('Error scanning for existing downloads:', err);
-          });
-      } catch (err) {
-        console.warn('Failed to initialize storage at startup:', err && err.message ? err.message : err);
-      }
-    };
-    
-    initializeStorage();
+    StorageManager.ensureDirectoriesExist().catch(err => {
+      console.warn('Failed to ensure storage directories at startup:', err && err.message ? err.message : err);
+    });
 
     const handleBackPress = () => {
       if (navigationRef.current) {
