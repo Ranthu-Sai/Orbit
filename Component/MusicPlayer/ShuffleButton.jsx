@@ -118,9 +118,8 @@ export const ShuffleButton = ({ size = 24, color, style }) => {
     }
   }, [isShuffled, shuffleQueue]);
 
-  // Use theme color if no color is provided
-  const iconColor = color || (theme.dark ? '#ffffff' : '#000000');
-  const activeColor = color || theme.colors.primary || '#4169E1';
+  // Use theme's primary color for active state, or fallback to provided color or theme text color
+  const activeColor = theme.colors.primary;
 
   return (
     <TouchableOpacity
@@ -141,13 +140,13 @@ export const ShuffleButton = ({ size = 24, color, style }) => {
       {isShuffling ? (
         <ActivityIndicator
           size={size * 0.8}
-          color={theme.colors.primary}
+          color={activeColor}
         />
       ) : (
         <MaterialIcons
           name="shuffle"
           size={size}
-          color={isShuffled ? theme.colors.primary : (color || theme.colors.text)}
+          color={isShuffled ? activeColor : (color || theme.colors.text)}
           style={{
             opacity: isShuffled ? 1 : 0.7,
           }}
