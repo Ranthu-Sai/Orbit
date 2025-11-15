@@ -3,11 +3,13 @@ import { darkTheme } from '../Theme/darkTheme';
 import { lightTheme } from '../Theme/lightTheme';
 import { PaperDarkTheme } from '../Theme/paperDarkTheme';
 import { PaperLightTheme } from '../Theme/paperLightTheme';
-import { 
-  GetThemePreference, 
-  SetThemePreference, 
-  GetColorScheme, 
-  SetColorScheme
+import {
+  GetThemePreference,
+  SetThemePreference,
+  GetColorScheme,
+  SetColorScheme,
+  GetFontSizeValue,
+  SetFontSizeValue
 } from '../LocalStorage/AppSettings';
 import { getColorScheme, DEFAULT_COLOR_SCHEME } from '../Theme/colorSchemes';
 
@@ -21,10 +23,14 @@ export const ThemeProvider = ({ children }) => {
   const [themeMode, setThemeMode] = useState('dark');
   const [colorSchemeName, setColorSchemeName] = useState(DEFAULT_COLOR_SCHEME);
   const [colorScheme, setColorScheme] = useState(getColorScheme(DEFAULT_COLOR_SCHEME));
+  const [fontSize, setFontSize] = useState('Medium');
   const [isThemeLoaded, setIsThemeLoaded] = useState(false);
 
-  // Apply color scheme to theme
-  const applyColorSchemeToTheme = (baseTheme, paperBaseTheme, scheme) => {
+  // Apply color scheme and font size to theme
+  const applySettingsToTheme = (baseTheme, paperBaseTheme, scheme, fontSizeValue) => {
+    // Calculate font size multiplier based on setting
+    const fontSizeMultiplier = fontSizeValue === 'Small' ? 0.8 : fontSizeValue === 'Large' ? 1.2 : 1.0;
+
     // Apply to navigation theme
     const navigationTheme = {
       ...baseTheme,
@@ -34,7 +40,9 @@ export const ThemeProvider = ({ children }) => {
         tabBarActive: scheme.tabActive,
         notification: scheme.accent,
         textActive: scheme.textActive,
-        playingColor: scheme.accent
+        playingColor: scheme.accent,
+        fontSize: baseTheme.colors.fontSize * fontSizeMultiplier,
+        headingSize: baseTheme.colors.headingSize * fontSizeMultiplier
       }
     };
 
@@ -56,7 +64,7 @@ export const ThemeProvider = ({ children }) => {
     return { navigationTheme, paperTheme };
   };
 
-  // Load the saved theme preference and color scheme on component mount
+  // Load the saved theme preference, color scheme, and font size on component mount
   useEffect(() => {
     const loadPreferences = async () => {
       try {
@@ -70,10 +78,14 @@ export const ThemeProvider = ({ children }) => {
         const scheme = getColorScheme(savedColorScheme);
         setColorScheme(scheme);
 
-        // Apply theme with appropriate colors
+        // Load font size
+        const savedFontSize = await GetFontSizeValue();
+        setFontSize(savedFontSize);
+
+        // Apply theme with appropriate colors and font size
         const baseTheme = savedTheme === 'light' ? lightTheme : darkTheme;
         const paperBaseTheme = savedTheme === 'light' ? PaperLightTheme : PaperDarkTheme;
-        const { navigationTheme, paperTheme } = applyColorSchemeToTheme(baseTheme, paperBaseTheme, scheme);
+        const { navigationTheme, paperTheme } = applySettingsToTheme(baseTheme, paperBaseTheme, scheme, savedFontSize);
 
         setTheme(navigationTheme);
         setPaperTheme(paperTheme);
@@ -81,14 +93,15 @@ export const ThemeProvider = ({ children }) => {
         setIsThemeLoaded(true);
       } catch (error) {
         console.error('Error loading preferences:', error);
-        // Default to dark theme with default color scheme if there's an error
+        // Default to dark theme with default color scheme and medium font if there's an error
         const defaultScheme = getColorScheme(DEFAULT_COLOR_SCHEME);
-        const { navigationTheme, paperTheme } = applyColorSchemeToTheme(darkTheme, PaperDarkTheme, defaultScheme);
+        const { navigationTheme, paperTheme } = applySettingsToTheme(darkTheme, PaperDarkTheme, defaultScheme, 'Medium');
         setTheme(navigationTheme);
         setPaperTheme(paperTheme);
         setThemeMode('dark');
         setColorSchemeName(DEFAULT_COLOR_SCHEME);
         setColorScheme(defaultScheme);
+        setFontSize('Medium');
         setIsThemeLoaded(true);
       }
     };
@@ -101,7 +114,7 @@ export const ThemeProvider = ({ children }) => {
     const newThemeMode = themeMode === 'dark' ? 'light' : 'dark';
     const baseTheme = newThemeMode === 'dark' ? darkTheme : lightTheme;
     const paperBaseTheme = newThemeMode === 'dark' ? PaperDarkTheme : PaperLightTheme;
-    const { navigationTheme, paperTheme } = applyColorSchemeToTheme(baseTheme, paperBaseTheme, colorScheme);
+    const { navigationTheme, paperTheme } = applySettingsToTheme(baseTheme, paperBaseTheme, colorScheme, fontSize);
 
     setThemeMode(newThemeMode);
     setTheme(navigationTheme);
@@ -116,7 +129,7 @@ export const ThemeProvider = ({ children }) => {
     const scheme = getColorScheme(newSchemeName);
     const baseTheme = themeMode === 'dark' ? darkTheme : lightTheme;
     const paperBaseTheme = themeMode === 'dark' ? PaperDarkTheme : PaperLightTheme;
-    const { navigationTheme, paperTheme } = applyColorSchemeToTheme(baseTheme, paperBaseTheme, scheme);
+    const { navigationTheme, paperTheme } = applySettingsToTheme(baseTheme, paperBaseTheme, scheme, fontSize);
 
     setColorSchemeName(newSchemeName);
     setColorScheme(scheme);
@@ -125,6 +138,20 @@ export const ThemeProvider = ({ children }) => {
 
     // Save the color scheme preference
     await SetColorScheme(newSchemeName);
+  };
+
+  // Change font size
+  const changeFontSize = async (newFontSize) => {
+    const baseTheme = themeMode === 'dark' ? darkTheme : lightTheme;
+    const paperBaseTheme = themeMode === 'dark' ? PaperDarkTheme : PaperLightTheme;
+    const { navigationTheme, paperTheme } = applySettingsToTheme(baseTheme, paperBaseTheme, colorScheme, newFontSize);
+
+    setFontSize(newFontSize);
+    setTheme(navigationTheme);
+    setPaperTheme(paperTheme);
+
+    // Save the font size preference
+    await SetFontSizeValue(newFontSize);
   };
   
 
@@ -136,8 +163,10 @@ export const ThemeProvider = ({ children }) => {
     themeMode,
     colorSchemeName,
     colorScheme,
+    fontSize,
     toggleTheme,
     changeColorScheme,
+    changeFontSize,
     isThemeLoaded
   };
 

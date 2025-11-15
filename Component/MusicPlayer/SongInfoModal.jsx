@@ -211,22 +211,32 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
     );
   };
 
+  // Get the current playing quality from the track object
+  const getCurrentPlayingQuality = useMemo(() => {
+    return track?.currentPlayingQuality || null;
+  }, [track?.currentPlayingQuality]);
+
   const renderChips = (title, icon, chips) => {
    if (!chips || chips.length === 0) return null;
 
     return (
       <InfoSection title={title} icon={icon}>
         <View style={styles.chipGroup}>
-          {chips.map((chip, index) => (
-            <Chip
-              key={`${title}-${chip}-${index}`}
-              mode={chip.highlight ? 'flat' : 'outlined'}
-              style={[styles.chip, chip.highlight && { backgroundColor: theme.colors.primary }]}
-              textStyle={{ color: chip.highlight ? theme.colors.onPrimary : theme.colors.onSurfaceVariant }}
-            >
-              {chip.label}
-            </Chip>
-          ))}
+          {chips.map((chip, index) => {
+            // Check if this chip represents the currently playing quality
+            const isCurrentlyPlaying = chip.label === getCurrentPlayingQuality;
+
+            return (
+              <Chip
+                key={`${title}-${chip}-${index}`}
+                mode={isCurrentlyPlaying ? 'flat' : 'outlined'}
+                style={[styles.chip, isCurrentlyPlaying && { backgroundColor: theme.colors.primary }]}
+                textStyle={{ color: isCurrentlyPlaying ? theme.colors.onPrimary : theme.colors.onSurfaceVariant }}
+              >
+                {chip.label}
+              </Chip>
+            );
+          })}
         </View>
       </InfoSection>
     );
@@ -339,9 +349,8 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
                 {renderChips(
                   'Available qualities',
                   'high-quality',
-                  songDetails.availableQualities?.map((quality, index, arr) => ({
+                  songDetails.availableQualities?.map((quality) => ({
                     label: quality,
-                    highlight: index === arr.length - 1,
                   }))
                 )}
               </>

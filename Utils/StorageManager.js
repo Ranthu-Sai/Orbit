@@ -9,32 +9,53 @@ const getBaseDir = async () => {
   try {
     const downloadPref = await GetDownloadPath(); // 'Music' or 'Download'
     let publicDir;
+    let actualPathUsed = downloadPref; // Track what path we're actually using
 
     if (Platform.OS === 'android') {
       const musicDir = RNFS.MusicDirectoryPath;
       const downloadDir = RNFS.DownloadDirectoryPath;
 
+      console.log('StorageManager: Available paths:', {
+        musicDir: musicDir,
+        downloadDir: downloadDir,
+        externalDir: RNFS.ExternalDirectoryPath,
+        documentDir: RNFS.DocumentDirectoryPath
+      });
+
       if (downloadPref === 'Music' && musicDir) {
         publicDir = musicDir;
+        console.log('StorageManager: Using Music directory for downloads');
+      } else if (downloadPref === 'Music' && !musicDir) {
+        console.warn('StorageManager: Music directory not available, falling back to Downloads');
+        publicDir = downloadDir || RNFS.ExternalDirectoryPath || RNFS.DocumentDirectoryPath;
+        actualPathUsed = 'Downloads (fallback)';
       } else if (downloadDir) {
         publicDir = downloadDir;
+        console.log('StorageManager: Using Downloads directory');
       } else {
-        console.warn(`Preferred directory '${downloadPref}' not available. Falling back.`);
+        console.warn(`StorageManager: Preferred directory '${downloadPref}' not available. Falling back.`);
         publicDir = RNFS.ExternalDirectoryPath || RNFS.DocumentDirectoryPath;
+        actualPathUsed = 'External/Fallback';
       }
     } else {
       publicDir = RNFS.DocumentDirectoryPath;
+      console.log('StorageManager: Using iOS/Documents directory');
     }
 
     if (!publicDir) {
-      console.error('Could not determine any valid storage directory. Falling back to app-specific documents directory.');
+      console.error('StorageManager: Could not determine any valid storage directory. Falling back to app-specific documents directory.');
       publicDir = RNFS.DocumentDirectoryPath;
+      actualPathUsed = 'App Documents (fallback)';
     }
 
-    return `${publicDir}/orbit`;
+    const finalPath = `${publicDir}/orbit`;
+    console.log(`StorageManager: Final download path: ${finalPath} (requested: ${downloadPref}, actual: ${actualPathUsed})`);
+    return finalPath;
   } catch (error) {
-    console.error('Error determining base directory:', error);
-    return `${RNFS.DocumentDirectoryPath}/orbit_music`;
+    console.error('StorageManager: Error determining base directory:', error);
+    const fallbackPath = `${RNFS.DocumentDirectoryPath}/orbit_music`;
+    console.log(`StorageManager: Using emergency fallback: ${fallbackPath}`);
+    return fallbackPath;
   }
 };
 
@@ -397,6 +418,35 @@ const clearLocalMusicCache = async () => {
   }
 };
 
+// Updates directories when download path changes
+const updateDownloadPathDirectories = async () => {
+  try {
+    await ensureDirectoriesExist();
+    console.log('Download path directories updated');
+  } catch (error) {
+    console.error('Error updating download path directories:', error);
+  }
+};
+
+// Gets information about the current download path
+const getDownloadPathInfo = async () => {
+  try {
+    const downloadPref = await GetDownloadPath();
+    const baseDir = await getBaseDir();
+    const songsDir = `${baseDir}/songs`;
+
+    return {
+      requestedPath: downloadPref,
+      actualBasePath: baseDir,
+      songsPath: songsDir,
+      artworkPath: `${baseDir}/artwork`
+    };
+  } catch (error) {
+    console.error('Error getting download path info:', error);
+    return null;
+  }
+};
+
 export const StorageManager = {
   ensureDirectoriesExist,
   getSongPath,
@@ -411,4 +461,6 @@ export const StorageManager = {
   saveLocalMusicCache,
   getLocalMusicCache,
   clearLocalMusicCache,
+  updateDownloadPathDirectories,
+  getDownloadPathInfo,
 };

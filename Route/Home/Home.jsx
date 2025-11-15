@@ -43,18 +43,7 @@ export const Home = () => {
   const [refreshing, setRefreshing] = useState(false);
   const { width } = Dimensions.get('window');
   const [Data, setData] = useState({ data: { charts: [], playlists: [], trending: { albums: [] } } });
-  const [chartIndices, setChartIndices] = useState([0, 1, 2, 3]); // Dynamic chart indices
-
-  // Get random chart indices
-  const randomizeCharts = useCallback((charts) => {
-    if (!charts || charts.length === 0) return;
-    
-    // Create a shuffled array of indices
-    const indices = Array.from({ length: charts.length }, (_, i) => i);
-    setChartIndices(shuffleArray(indices).slice(0, 4)); // Take the first 4 shuffled indices
-    
-    console.log('Randomized chart indices:', chartIndices);
-  }, []);
+  // Remove randomization - we want to show all charts
 
   async function fetchHomePageData(forceRefresh = false) {
     try {
@@ -72,8 +61,6 @@ export const Home = () => {
         if (cachedData) {
           const parsedData = JSON.parse(cachedData);
           setData(parsedData);
-          // Randomize chart indices with the cached data
-          randomizeCharts(parsedData?.data?.charts);
         }
       }
 
@@ -81,10 +68,7 @@ export const Home = () => {
         const Languages = await GetLanguageValue();
         const data = await getHomePageData(Languages);
         setData(data);
-        
-        // Randomize chart indices with the new data
-        randomizeCharts(data?.data?.charts);
-        
+
         // Cache the new data
         await AsyncStorage.setItem('homePageData', JSON.stringify(data));
       }
@@ -108,21 +92,13 @@ export const Home = () => {
   }, []);
 
   // Shuffle playlists and albums for more variety
-  const shuffledPlaylists = useMemo(() => 
+  const shuffledPlaylists = useMemo(() =>
     shuffleArray(Data?.data?.playlists || []),
   [Data?.data?.playlists]);
-  
-  const shuffledAlbums = useMemo(() => 
+
+  const shuffledAlbums = useMemo(() =>
     shuffleArray(Data?.data?.trending?.albums || []),
   [Data?.data?.trending?.albums]);
-
-  // Get a chart ID safely
-  const getChartId = (index) => {
-    if (!Data?.data?.charts || !chartIndices || chartIndices.length <= index) {
-      return null;
-    }
-    return Data?.data?.charts[chartIndices[index]]?.id;
-  };
 
   return (
     <MainWrapper>
@@ -154,9 +130,14 @@ export const Home = () => {
             <RouteHeading showSearch={true} showSettings={true}/>
 
             <DisplayTopGenres/>
-            <View style={{ paddingHorizontal: 13 }}>
-              <HorizontalScrollSongs id={getChartId(0)}/>
-            </View>
+
+            {/* Render all charts from API */}
+            {Data?.data?.charts?.map((chart, index) => (
+              <View key={`chart-${chart.id}-${index}`} style={{ paddingHorizontal: 13 }}>
+                <HorizontalScrollSongs id={chart.id}/>
+              </View>
+            ))}
+
             <View style={{ paddingHorizontal: 13 }}>
               <Heading text={"Recommended"}/>
             </View>
@@ -171,11 +152,11 @@ export const Home = () => {
               data={shuffledPlaylists}
               keyExtractor={(item, index) => `playlist-${item.id}-${index}`}
               ListEmptyComponent={() => (
-                <View style={{ 
-                  width: width - 30, 
-                  height: 250, 
-                  justifyContent: 'center', 
-                  alignItems: 'center' 
+                <View style={{
+                  width: width - 30,
+                  height: 250,
+                  justifyContent: 'center',
+                  alignItems: 'center'
                 }}>
                   <Text style={{ color: 'white', fontSize: 16 }}>No playlists available</Text>
                 </View>
@@ -208,11 +189,11 @@ export const Home = () => {
               data={shuffledAlbums}
               keyExtractor={(item, index) => `album-${item.id}-${index}`}
               ListEmptyComponent={() => (
-                <View style={{ 
-                  width: width - 30, 
-                  height: 220, 
-                  justifyContent: 'center', 
-                  alignItems: 'center' 
+                <View style={{
+                  width: width - 30,
+                  height: 220,
+                  justifyContent: 'center',
+                  alignItems: 'center'
                 }}>
                   <Text style={{ color: 'white', fontSize: 16 }}>No albums available</Text>
                 </View>
@@ -228,43 +209,35 @@ export const Home = () => {
                 />
               )}
             />
-            <View style={{ paddingHorizontal: 13, marginTop: 8 }}>
-              <HorizontalScrollSongs id={getChartId(1)}/>
-              {offline && (
-                <View style={{
-                  paddingHorizontal: 13,
-                  marginTop: 8
+
+            {offline && (
+              <View style={{
+                paddingHorizontal: 13,
+                marginTop: 8
+              }}>
+                <Text style={{
+                  color: '#666',
+                  textAlign: 'center',
+                  marginTop: 10,
+                  marginBottom: 10
                 }}>
-                  <Text style={{
-                    color: '#666',
-                    textAlign: 'center',
-                    marginTop: 10,
-                    marginBottom: 10
-                  }}>
-                    You're offline. Some content may not be available.
-                  </Text>
-                </View>
-              )}
-            </View>
+                  You're offline. Some content may not be available.
+                </Text>
+              </View>
+            )}
             <PaddingConatiner>
               <Heading text={"Top Charts"}/>
             </PaddingConatiner>
-            <FlatList 
-              horizontal={true} 
-              showsHorizontalScrollIndicator={false} 
+            <FlatList
+              horizontal={true}
+              showsHorizontalScrollIndicator={false}
               contentContainerStyle={{
                 paddingLeft:13,
-              }}  
-              data={[1]} 
+              }}
+              data={[1]}
               renderItem={()=><RenderTopCharts playlist={Data.data.charts}/>}
               keyExtractor={() => 'top-charts'}
             />
-            <PaddingConatiner>
-              <HorizontalScrollSongs id={getChartId(2)}/>
-            </PaddingConatiner>
-            <PaddingConatiner>
-              <HorizontalScrollSongs id={getChartId(3)}/>
-            </PaddingConatiner>
           </ScrollView>
           <TopHeader showHeader={showHeader}/>
         </View>
@@ -272,4 +245,3 @@ export const Home = () => {
     </MainWrapper>
   );
 };
-

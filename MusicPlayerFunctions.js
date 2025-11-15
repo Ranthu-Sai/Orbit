@@ -94,19 +94,52 @@ async function PlayOneSong(song) {
       await setupPlayer();
     }
 
+    // Get the appropriate URL based on playback quality setting
+    let playbackUrl = song.url;
+
+    // If song has multiple quality URLs, select based on setting
+    if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
+      const qualityIndex = await getIndexQuality();
+      if (song.downloadUrl[qualityIndex]?.url) {
+        playbackUrl = song.downloadUrl[qualityIndex].url;
+      } else {
+        // Fallback to any available URL
+        for (let i = song.downloadUrl.length - 1; i >= 0; i--) {
+          if (song.downloadUrl[i]?.url) {
+            playbackUrl = song.downloadUrl[i].url;
+            break;
+          }
+        }
+      }
+    } else if (song.download_url && Array.isArray(song.download_url)) {
+      // Alternative format
+      const qualityIndex = await getIndexQuality();
+      if (song.download_url[qualityIndex]?.url) {
+        playbackUrl = song.download_url[qualityIndex].url;
+      } else {
+        // Fallback to any available URL
+        for (let i = song.download_url.length - 1; i >= 0; i--) {
+          if (song.download_url[i]?.url) {
+            playbackUrl = song.download_url[i].url;
+            break;
+          }
+        }
+      }
+    }
+
     // Validate song URL
-    if (!song.url || typeof song.url !== 'string') {
+    if (!playbackUrl || typeof playbackUrl !== 'string') {
       console.error('PlayOneSong: Invalid or missing song URL', song);
       ToastAndroid.show('Cannot play song - invalid URL', ToastAndroid.SHORT);
       return;
     }
 
     // Check if the song is a local file (has a path or isLocalMusic property)
-    const isLocalFile = song.isLocalMusic || song.path || song.url.startsWith('file://');
+    const isLocalFile = song.isLocalMusic || song.path || playbackUrl.startsWith('file://');
 
     // If it's a local file, make sure the URL starts with file://
-    if (isLocalFile && !song.url.startsWith('file://') && song.path) {
-      song.url = `file://${song.path}`;
+    if (isLocalFile && !playbackUrl.startsWith('file://') && song.path) {
+      playbackUrl = `file://${song.path}`;
     }
 
     // Check network availability for non-local files
@@ -122,8 +155,19 @@ async function PlayOneSong(song) {
     // Start tracking this song in history
     await historyManager.startTracking(song);
 
+    // Create a copy of the song with the selected playback URL and quality info
+    const qualityIndex = await getIndexQuality();
+    const qualityNames = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
+    const currentQuality = qualityNames[qualityIndex] || 'Unknown';
+
+    const songForPlayback = {
+      ...song,
+      url: playbackUrl,
+      currentPlayingQuality: currentQuality
+    };
+
     await TrackPlayer.reset();
-    await TrackPlayer.add([song]);
+    await TrackPlayer.add([songForPlayback]);
     await TrackPlayer.play();
   } catch (error) {
     console.error('Error playing song:', error);
@@ -147,8 +191,51 @@ async function AddPlaylist (songs){
       }));
     }
 
+    // Apply playback quality setting to all songs
+    const qualityIndex = await getIndexQuality();
+    const qualityNames = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
+    const currentQuality = qualityNames[qualityIndex] || 'Unknown';
+
+    const processedSongs = songs.map(song => {
+      let playbackUrl = song.url;
+
+      // Select appropriate quality URL
+      if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
+        if (song.downloadUrl[qualityIndex]?.url) {
+          playbackUrl = song.downloadUrl[qualityIndex].url;
+        } else {
+          // Fallback to any available URL
+          for (let i = song.downloadUrl.length - 1; i >= 0; i--) {
+            if (song.downloadUrl[i]?.url) {
+              playbackUrl = song.downloadUrl[i].url;
+              break;
+            }
+          }
+        }
+      } else if (song.download_url && Array.isArray(song.download_url)) {
+        // Alternative format
+        if (song.download_url[qualityIndex]?.url) {
+          playbackUrl = song.download_url[qualityIndex].url;
+        } else {
+          // Fallback to any available URL
+          for (let i = song.download_url.length - 1; i >= 0; i--) {
+            if (song.download_url[i]?.url) {
+              playbackUrl = song.download_url[i].url;
+              break;
+            }
+          }
+        }
+      }
+
+      return {
+        ...song,
+        url: playbackUrl,
+        currentPlayingQuality: currentQuality
+      };
+    });
+
     await TrackPlayer.reset();
-    await TrackPlayer.add(songs);
+    await TrackPlayer.add(processedSongs);
     await TrackPlayer.play();
   } catch (error) {
     console.error('Error in AddPlaylist:', error);
@@ -156,7 +243,50 @@ async function AddPlaylist (songs){
 }
 
 async function AddSongsToQueue(songs){
-  await TrackPlayer.add(songs);
+  // Apply playback quality setting to songs being added to queue
+  const qualityIndex = await getIndexQuality();
+  const qualityNames = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
+  const currentQuality = qualityNames[qualityIndex] || 'Unknown';
+
+  const processedSongs = songs.map(song => {
+    let playbackUrl = song.url;
+
+    // Select appropriate quality URL
+    if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
+      if (song.downloadUrl[qualityIndex]?.url) {
+        playbackUrl = song.downloadUrl[qualityIndex].url;
+      } else {
+        // Fallback to any available URL
+        for (let i = song.downloadUrl.length - 1; i >= 0; i--) {
+          if (song.downloadUrl[i]?.url) {
+            playbackUrl = song.downloadUrl[i].url;
+            break;
+          }
+        }
+      }
+    } else if (song.download_url && Array.isArray(song.download_url)) {
+      // Alternative format
+      if (song.download_url[qualityIndex]?.url) {
+        playbackUrl = song.download_url[qualityIndex].url;
+      } else {
+        // Fallback to any available URL
+        for (let i = song.download_url.length - 1; i >= 0; i--) {
+          if (song.download_url[i]?.url) {
+            playbackUrl = song.download_url[i].url;
+            break;
+          }
+        }
+      }
+    }
+
+    return {
+      ...song,
+      url: playbackUrl,
+      currentPlayingQuality: currentQuality
+    };
+  });
+
+  await TrackPlayer.add(processedSongs);
 }
 async function PlaySong(){
   await TrackPlayer.play();
