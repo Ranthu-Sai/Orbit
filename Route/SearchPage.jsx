@@ -2,7 +2,7 @@ import { MainWrapper } from "../Layout/MainWrapper";
 import Tabs from "../Component/Global/Tabs/Tabs";
 import { useEffect, useState, useCallback } from "react";
 import { getSearchSongData, getSearchArtistData } from "../Api/Songs";
-import { View, TouchableOpacity, TextInput, Pressable, Dimensions, FlatList, StyleSheet, Text } from "react-native";
+import { View, TouchableOpacity, TextInput, Pressable, Dimensions, FlatList, StyleSheet, Text, Modal } from "react-native";
 import SongDisplay from "../Component/SearchPage/SongDisplay";
 import { LoadingComponent } from "../Component/Global/Loading";
 import { getSearchPlaylistData } from "../Api/Playlist";
@@ -12,13 +12,14 @@ import AlbumsDisplay from "../Component/SearchPage/AlbumDisplay";
 import ArtistDisplay from "../Component/SearchPage/ArtistDisplay";
 import { Spacer } from "../Component/Global/Spacer";
 import { useTheme } from "@react-navigation/native";
-import Entypo from "react-native-vector-icons/Entypo";
+import { GitFork } from 'lucide-react-native';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Divider } from 'react-native-paper';
 import SwipeableHistoryItem from '../Component/SearchPage/SwipeableHistoryItem';
 
 const SEARCH_HISTORY_KEY = '@search_history';
 const MAX_HISTORY_ITEMS = 20;
+const SELECTED_SOURCE_KEY = '@selected_search_source';
 
 export const SearchPage = ({navigation}) => {
   const { colors } = useTheme();
@@ -29,7 +30,8 @@ export const SearchPage = ({navigation}) => {
   const [Loading, setLoading] = useState(false);
   const [Data, setData] = useState({ data: { results: [] } });
   const [searchHistory, setSearchHistory] = useState([]);
-  const [selectedSource] = useState('saavn');
+  const [selectedSource, setSelectedSource] = useState('saavn');
+  const [modalVisible, setModalVisible] = useState(false);
   const limit = 20;
 
   async function fetchSearchData(text){
@@ -71,7 +73,7 @@ export const SearchPage = ({navigation}) => {
     } else {
       setData({ data: { results: [] } });
     }
-  }, [SearchText, ActiveTab]);
+  }, [SearchText, ActiveTab, selectedSource]);
 
   // Load search history on mount
   useEffect(() => {
@@ -87,6 +89,31 @@ export const SearchPage = ({navigation}) => {
     };
     loadSearchHistory();
   }, []);
+
+  // Load selected source on mount
+  useEffect(() => {
+    const loadSelectedSource = async () => {
+      try {
+        const source = await AsyncStorage.getItem(SELECTED_SOURCE_KEY);
+        if (source) {
+          setSelectedSource(source);
+        }
+      } catch (error) {
+        console.error('Error loading selected source:', error);
+      }
+    };
+    loadSelectedSource();
+  }, []);
+
+  // Save selected source
+  const saveSelectedSource = async (source) => {
+    try {
+      await AsyncStorage.setItem(SELECTED_SOURCE_KEY, source);
+      setSelectedSource(source);
+    } catch (error) {
+      console.error('Error saving selected source:', error);
+    }
+  };
 
   // Save search query to history
   const saveToHistory = useCallback(async (query) => {
@@ -219,21 +246,13 @@ export const SearchPage = ({navigation}) => {
           />
         </View>
 
-        <Pressable 
-          onPress={() => { 
-            if (query) {
-              setQuery('');
-              setSearchText('');
-            } else {
-              navigation.goBack();
-            }
-          }} 
+        <Pressable
+          onPress={() => setModalVisible(true)}
           style={[styles.clearButton, { backgroundColor: colors.card }]}
         >
-          <Entypo 
-            name="cross" 
-            size={20} 
-            color={colors.text} 
+          <GitFork
+            size={20}
+            color={colors.text}
           />
         </Pressable>
       </View>
@@ -253,6 +272,45 @@ export const SearchPage = ({navigation}) => {
           {ActiveTab === 3 && <ArtistDisplay data={Data} limit={limit} Searchtext={SearchText} />}
         </View>
       )}
+
+      {/* Source Selection Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setModalVisible(false)}
+        >
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Select Music Source</Text>
+
+            <TouchableOpacity
+              style={[styles.sourceOption, selectedSource === 'saavn' && styles.selectedOption]}
+              onPress={() => {
+                saveSelectedSource('saavn');
+                setModalVisible(false);
+              }}
+            >
+              <Text style={[styles.sourceText, { color: colors.text }]}>JioSaavn</Text>
+              {selectedSource === 'saavn' && <Text style={[styles.checkmark, { color: colors.primary }]}>✓</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.sourceOption, selectedSource === 'ytmusic' && styles.selectedOption]}
+              onPress={() => {
+                saveSelectedSource('ytmusic');
+                setModalVisible(false);
+              }}
+            >
+              <Text style={[styles.sourceText, { color: colors.text }]}>YTMusic</Text>
+              {selectedSource === 'ytmusic' && <Text style={[styles.checkmark, { color: colors.primary }]}>✓</Text>}
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
     </MainWrapper>
   );
 };
@@ -292,6 +350,43 @@ const styles = StyleSheet.create({
   },
   historyList: {
     paddingBottom: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    borderRadius: 10,
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  sourceOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    padding: 15,
+    borderRadius: 8,
+    marginVertical: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  selectedOption: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  sourceText: {
+    fontSize: 16,
+  },
+  checkmark: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
 

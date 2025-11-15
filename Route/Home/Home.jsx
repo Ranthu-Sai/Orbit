@@ -43,14 +43,25 @@ export const Home = () => {
   const [refreshing, setRefreshing] = useState(false);
   const { width } = Dimensions.get('window');
   const [Data, setData] = useState({ data: { charts: [], playlists: [], trending: { albums: [] } } });
-  // Remove randomization - we want to show all charts
+  const [chartIndices, setChartIndices] = useState([0, 1, 2, 3]); // Dynamic chart indices
+
+  // Get random chart indices
+  const randomizeCharts = useCallback((charts) => {
+    if (!charts || charts.length === 0) return;
+
+    // Create a shuffled array of indices
+    const indices = Array.from({ length: charts.length }, (_, i) => i);
+    setChartIndices(shuffleArray(indices).slice(0, 4)); // Take the first 4 shuffled indices
+
+    console.log('Randomized chart indices:', chartIndices);
+  }, []);
 
   async function fetchHomePageData(forceRefresh = false) {
     try {
       if (!forceRefresh) {
         setLoading(true);
       }
-      
+
       const networkState = await NetInfo.fetch();
       setIsConnected(!networkState.isConnected);
       setOffline(!networkState.isConnected);
@@ -61,6 +72,8 @@ export const Home = () => {
         if (cachedData) {
           const parsedData = JSON.parse(cachedData);
           setData(parsedData);
+          // Randomize chart indices with the cached data
+          randomizeCharts(parsedData?.data?.charts);
         }
       }
 
@@ -68,6 +81,9 @@ export const Home = () => {
         const Languages = await GetLanguageValue();
         const data = await getHomePageData(Languages);
         setData(data);
+
+        // Randomize chart indices with the new data
+        randomizeCharts(data?.data?.charts);
 
         // Cache the new data
         await AsyncStorage.setItem('homePageData', JSON.stringify(data));
@@ -100,20 +116,28 @@ export const Home = () => {
     shuffleArray(Data?.data?.trending?.albums || []),
   [Data?.data?.trending?.albums]);
 
+  // Get a chart ID safely
+  const getChartId = (index) => {
+    if (!Data?.data?.charts || !chartIndices || chartIndices.length <= index) {
+      return null;
+    }
+    return Data?.data?.charts[chartIndices[index]]?.id;
+  };
+
   return (
     <MainWrapper>
       <LoadingComponent loading={Loading}/>
       {
         !Loading &&  <View>
-          <ScrollView 
-            style={{zIndex:-1}} 
+          <ScrollView
+            style={{zIndex:-1}}
             onScroll={(e)=>{
               if (e.nativeEvent.contentOffset.y > 200 && !showHeader){
                 setShowHeader(true)
               } else if (e.nativeEvent.contentOffset.y < 200 && showHeader) {
                 setShowHeader(false)
               }
-            }} 
+            }}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -122,7 +146,7 @@ export const Home = () => {
                 tintColor={'#1DB954'}
               />
             }
-            showsVerticalScrollIndicator={false} 
+            showsVerticalScrollIndicator={false}
             contentContainerStyle={{
               paddingBottom:90,
             }}
@@ -130,14 +154,9 @@ export const Home = () => {
             <RouteHeading showSearch={true} showSettings={true}/>
 
             <DisplayTopGenres/>
-
-            {/* Render all charts from API */}
-            {Data?.data?.charts?.map((chart, index) => (
-              <View key={`chart-${chart.id}-${index}`} style={{ paddingHorizontal: 13 }}>
-                <HorizontalScrollSongs id={chart.id}/>
-              </View>
-            ))}
-
+            <View style={{ paddingHorizontal: 13 }}>
+              <HorizontalScrollSongs id={getChartId(0)}/>
+            </View>
             <View style={{ paddingHorizontal: 13 }}>
               <Heading text={"Recommended"}/>
             </View>
@@ -210,21 +229,24 @@ export const Home = () => {
               )}
             />
 
-            {offline && (
-              <View style={{
-                paddingHorizontal: 13,
-                marginTop: 8
-              }}>
-                <Text style={{
-                  color: '#666',
-                  textAlign: 'center',
-                  marginTop: 10,
-                  marginBottom: 10
+            <View style={{ paddingHorizontal: 13, marginTop: 8 }}>
+              <HorizontalScrollSongs id={getChartId(1)}/>
+              {offline && (
+                <View style={{
+                  paddingHorizontal: 13,
+                  marginTop: 8
                 }}>
-                  You're offline. Some content may not be available.
-                </Text>
-              </View>
-            )}
+                  <Text style={{
+                    color: '#666',
+                    textAlign: 'center',
+                    marginTop: 10,
+                    marginBottom: 10
+                  }}>
+                    You're offline. Some content may not be available.
+                  </Text>
+                </View>
+              )}
+            </View>
             <PaddingConatiner>
               <Heading text={"Top Charts"}/>
             </PaddingConatiner>
@@ -238,6 +260,12 @@ export const Home = () => {
               renderItem={()=><RenderTopCharts playlist={Data.data.charts}/>}
               keyExtractor={() => 'top-charts'}
             />
+            <PaddingConatiner>
+              <HorizontalScrollSongs id={getChartId(2)}/>
+            </PaddingConatiner>
+            <PaddingConatiner>
+              <HorizontalScrollSongs id={getChartId(3)}/>
+            </PaddingConatiner>
           </ScrollView>
           <TopHeader showHeader={showHeader}/>
         </View>
