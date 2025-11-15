@@ -70,13 +70,31 @@ export default function PlaylistDisplay({data, limit, Searchtext}) {
             if(item.item.LoadingComponent === true){
               return <LoadingComponent loading={Loading} height={100}/>
             } else {
+              // Safely extract image URL with fallbacks for different data formats
+              let imageUrl = '';
+              if (item.item?.image) {
+                if (Array.isArray(item.item.image) && item.item.image.length > 2) {
+                  // Handle object array format (YTMusic)
+                  if (item.item.image[2]?.link) {
+                    imageUrl = item.item.image[2].link;
+                  } else if (item.item.image[2]?.url) {
+                    imageUrl = item.item.image[2].url;
+                  } else if (item.item.image[0]?.url) {
+                    imageUrl = item.item.image[0].url;
+                  }
+                } else {
+                  // Handle direct URL string format (Saavn fallback)
+                  imageUrl = item.item.image;
+                }
+              }
+
               return (
                 <EachPlaylistCard
-                  name={truncateText(item.item.name, 30)}
-                  follower={truncateText("Total " + item.item.songCount + " Songs", 30)}
+                  name={truncateText(item.item?.name, 30)}
+                  follower={truncateText("Total " + (item.item?.songCount || 0) + " Songs", 30)}
                   key={item.index}
-                  image={item.item.image[2].link}
-                  id={item.item.id}
+                  image={imageUrl}
+                  id={item.item?.id}
                   source="Search"
                   searchText={Searchtext}
                   MainContainerStyle={{

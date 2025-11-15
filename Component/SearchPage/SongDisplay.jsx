@@ -55,7 +55,7 @@ export default function SongDisplay({ data, source = 'saavn' }) {
         renderItem={({ item }) => {
           if (!item || !item.id) return null; // Render nothing if item is invalid
           return (
-            <EachSongCard
+        <EachSongCard
               artistID={item?.primaryArtistsId || item?.primary_artists_id}
               language={item?.language}
               duration={item?.duration}
@@ -64,9 +64,9 @@ export default function SongDisplay({ data, source = 'saavn' }) {
               width={width * 0.95}
               title={item?.name || item?.title}
               artist={FormatArtist(item?.artists?.primary)}
-              url={item?.downloadUrl} // This is used for Saavn downloads
+              url={item?.downloadUrl} // This is used for Saavn downloads, YTMusic doesn't have downloads yet
               showNumber={false}
-              source={'search'} // Mark as from search for special queue logic
+              source={source === 'ytmusic' ? 'ytmusic' : 'search'} // Mark YTMusic songs appropriately
               Data={displayData}
               index={displayData.data.results.findIndex(x => x.id === item.id)}
             />

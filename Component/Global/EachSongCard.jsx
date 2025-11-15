@@ -263,6 +263,9 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
       if (source === 'tidal') {
         ToastAndroid.show('Tidal support has been removed.', ToastAndroid.SHORT);
         return;
+      } else if (source === 'ytmusic') {
+        ToastAndroid.show('YouTube Music streaming is not yet implemented.', ToastAndroid.SHORT);
+        return;
       } else {
         // Handle Saavn songs (existing logic)
         const quality = await getIndexQuality()
@@ -435,6 +438,11 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
   }
 
   const handleDownload = async () => {
+    if (source === 'ytmusic') {
+      ToastAndroid.show('YouTube Music songs cannot be downloaded yet.', ToastAndroid.SHORT);
+      return;
+    }
+
     if (isDownloaded) {
       ToastAndroid.show('Song is already downloaded!', ToastAndroid.SHORT);
       return;

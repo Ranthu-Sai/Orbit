@@ -2,6 +2,9 @@ import { MainWrapper } from "../Layout/MainWrapper";
 import Tabs from "../Component/Global/Tabs/Tabs";
 import { useEffect, useState, useCallback } from "react";
 import { getSearchSongData, getSearchArtistData } from "../Api/Songs";
+import {
+  getYTMusicSearchSongData
+} from "../Api/YTMusic";
 import { View, TouchableOpacity, TextInput, Pressable, Dimensions, FlatList, StyleSheet, Text, Modal } from "react-native";
 import SongDisplay from "../Component/SearchPage/SongDisplay";
 import { LoadingComponent } from "../Component/Global/Loading";
@@ -44,14 +47,24 @@ export const SearchPage = ({navigation}) => {
       setLoading(true);
       let data = null;
 
-      if (ActiveTab === 0) {
-        data = await getSearchSongData(text, 1, limit);
-      } else if (ActiveTab === 1) {
-        data = await getSearchPlaylistData(text, 1, limit);
-      } else if (ActiveTab === 2) {
-        data = await getSearchAlbumData(text, 1, limit);
-      } else if (ActiveTab === 3) {
-        data = await getSearchArtistData(text, 1, limit);
+      // For YTMusic, always search songs since no other categories are supported
+      if (selectedSource === 'ytmusic') {
+        data = await getYTMusicSearchSongData(text, 1, limit);
+      } else {
+        // Saavn logic
+        if (ActiveTab === 0) {
+          // Songs
+          data = await getSearchSongData(text, 1, limit);
+        } else if (ActiveTab === 1) {
+          // Playlists - Always use Saavn API
+          data = await getSearchPlaylistData(text, 1, limit);
+        } else if (ActiveTab === 2) {
+          // Albums - Always use Saavn API
+          data = await getSearchAlbumData(text, 1, limit);
+        } else if (ActiveTab === 3) {
+          // Artists
+          data = await getSearchArtistData(text, 1, limit);
+        }
       }
 
       if (data && data.success !== false) {
@@ -71,6 +84,7 @@ export const SearchPage = ({navigation}) => {
     if (SearchText) {
       fetchSearchData(SearchText);
     } else {
+      // Clear data when no search text, regardless of tab/source switch
       setData({ data: { results: [] } });
     }
   }, [SearchText, ActiveTab, selectedSource]);
@@ -110,6 +124,8 @@ export const SearchPage = ({navigation}) => {
     try {
       await AsyncStorage.setItem(SELECTED_SOURCE_KEY, source);
       setSelectedSource(source);
+      // Clear data when switching sources to avoid incompatible data structures
+      setData({ data: { results: [] } });
     } catch (error) {
       console.error('Error saving selected source:', error);
     }
@@ -257,7 +273,9 @@ export const SearchPage = ({navigation}) => {
         </Pressable>
       </View>
 
-      <Tabs tabs={["Songs", "Playlists", "Albums", "Artists"]} setState={setActiveTab} state={ActiveTab} />
+      {selectedSource === 'saavn' && (
+        <Tabs tabs={["Songs", "Playlists", "Albums", "Artists"]} setState={setActiveTab} state={ActiveTab} />
+      )}
       <Spacer height={15} />
       
       {!SearchText && searchHistory.length > 0 ? (
@@ -266,10 +284,18 @@ export const SearchPage = ({navigation}) => {
         <LoadingComponent loading={Loading} />
       ) : (
         <View style={{ flex: 1, paddingHorizontal: 10 }}>
-          {ActiveTab === 0 && <SongDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />}
-          {ActiveTab === 1 && <PlaylistDisplay data={Data} limit={limit} Searchtext={SearchText} />}
-          {ActiveTab === 2 && <AlbumsDisplay data={Data} limit={limit} Searchtext={SearchText} />}
-          {ActiveTab === 3 && <ArtistDisplay data={Data} limit={limit} Searchtext={SearchText} />}
+          {selectedSource === 'ytmusic' ? (
+            // YTMusic only supports Songs (no tabs shown)
+            <SongDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />
+          ) : (
+            // Saavn supports all categories
+            <>
+              {ActiveTab === 0 && <SongDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />}
+              {ActiveTab === 1 && <PlaylistDisplay data={Data} limit={limit} Searchtext={SearchText} />}
+              {ActiveTab === 2 && <AlbumsDisplay data={Data} limit={limit} Searchtext={SearchText} />}
+              {ActiveTab === 3 && <ArtistDisplay data={Data} limit={limit} Searchtext={SearchText} />}
+            </>
+          )}
         </View>
       )}
 
@@ -389,4 +415,3 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
-

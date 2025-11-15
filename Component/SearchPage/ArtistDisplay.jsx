@@ -156,12 +156,28 @@ export default function ArtistDisplay({data, limit, Searchtext}) {
         data={Data?.data?.results ?? []}
         ListFooterComponent={() => Loading ? <LoadingComponent loading={Loading} height={100}/> : null}
         renderItem={(item)=>{
+          // Safely extract image URL with fallbacks for different data formats
+          let imageUrl = '';
+          if (item.item?.image) {
+            if (Array.isArray(item.item.image) && item.item.image.length > 0) {
+              // Handle object array format (YTMusic/Saavn)
+              if (item.item.image[2]?.url) {
+                imageUrl = item.item.image[2].url;
+              } else if (item.item.image[0]?.url) {
+                imageUrl = item.item.image[0].url;
+              }
+            } else if (typeof item.item.image === 'string') {
+              // Handle direct URL string format
+              imageUrl = item.item.image;
+            }
+          }
+
           return <EachArtistCardGrid
             id={item.item?.id}
             name={item.item?.name}
             role={item.item?.role}
-            image={item?.item?.image[2]?.url ?? item?.item?.image[0]?.url ?? ""}
-            followerCount={item.item?.followerCount}
+            image={imageUrl}
+            followerCount={item.item?.followerCount || item.item?.follower_count || 0}
             source="saavn"
             searchText={Searchtext}
             mainContainerStyle={{

@@ -76,17 +76,33 @@ export default function AlbumsDisplay({data, limit, Searchtext}) {
             if(item.item.LoadingComponent === true){
               return <LoadingComponent loading={Loading} height={100}/>
             } else {
+              // Safely extract image URL with fallbacks for different data formats
+              let imageUrl = '';
+              if (item.item?.image) {
+                if (Array.isArray(item.item.image) && item.item.image.length > 2) {
+                  // Handle object array format (YTMusic)
+                  if (item.item.image[2]?.url) {
+                    imageUrl = item.item.image[2].url;
+                  } else if (item.item.image[0]?.url) {
+                    imageUrl = item.item.image[0].url;
+                  }
+                } else if (typeof item.item.image === 'string') {
+                  // Handle direct URL string format (Saavn)
+                  imageUrl = item.item.image;
+                }
+              }
+
               return (
-                <EachAlbumCard 
-                  Search={true} 
+                <EachAlbumCard
+                  Search={true}
                   mainContainerStyle={{
                     width: width * 0.46,
                     height: width * 0.66,
                     margin: 0,
-                  }} 
-                  image={item?.item?.image[2]?.url ?? ""} 
-                  artists={FormatArtist(item.item?.artists?.primary)} 
-                  name={item?.item?.name ?? ""} 
+                  }}
+                  image={imageUrl}
+                  artists={FormatArtist(item.item?.artists?.primary)}
+                  name={item?.item?.name ?? ""}
                   id={item?.item?.id ?? ""}
                   source="Search"
                   searchText={Searchtext}
