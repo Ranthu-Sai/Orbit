@@ -16,7 +16,7 @@ import Octicons from 'react-native-vector-icons/Octicons';
 import { requestStoragePermission } from '../../Utils/PermissionManager';
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
 
-export const EachSongCard = memo(function EachSongCard({title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', tidalUrl, truncateTitle = false}) {
+export const EachSongCard = memo(function EachSongCard({title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', tidalUrl, truncateTitle = false, onDeleteComplete}) {
   const theme = useTheme();
   const { colors } = theme;
   const width1 = Dimensions.get("window").width;
@@ -492,6 +492,26 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
     }
   };
 
+  const handleDelete = async (songId, songTitle) => {
+    try {
+      // Delete using StorageManager
+      await StorageManager.removeDownloadedSongMetadata(songId);
+
+      // Update local state
+      setIsDownloaded(false);
+
+      // Notify parent component that deletion is complete
+      if (onDeleteComplete) {
+        onDeleteComplete(songId);
+      }
+
+      ToastAndroid.show('Song deleted', ToastAndroid.SHORT);
+    } catch (error) {
+      console.error('Delete failed:', error);
+      ToastAndroid.show(`Delete failed: ${error.message}`, ToastAndroid.LONG);
+    }
+  };
+
   return (
     <>
       <View
@@ -591,6 +611,7 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
             size={isFromAlbum ? 36 : 32}
             marginRight={isFromAlbum ? 0 : 0}
             isDownloaded={isDownloaded}
+            onDelete={handleDelete}
           />
         </View>
       </View>

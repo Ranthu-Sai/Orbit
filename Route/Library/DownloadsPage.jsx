@@ -112,6 +112,7 @@ export const DownloadsPage = () => {
               showNumber={false}
               allSongs={downloads}
               downloadUrl={item.downloadUrl}
+              onDeleteComplete={() => loadDownloadedSongs()}
             />
           )}
           refreshControl={

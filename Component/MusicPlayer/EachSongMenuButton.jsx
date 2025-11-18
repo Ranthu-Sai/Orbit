@@ -55,16 +55,17 @@ const CircularProgress = ({ progress, size = 30, thickness = 2, color = '#1DB954
   );
 };
 
-export const EachSongMenuButton = ({ 
-  song, 
-  size = 18, 
-  hitSlopSize = 18, 
-  paddingSize = 4, 
-  minWidth = 28, 
-  marginRight = 10, 
-  isFromAlbum = false, 
+export const EachSongMenuButton = ({
+  song,
+  size = 18,
+  hitSlopSize = 18,
+  paddingSize = 4,
+  minWidth = 28,
+  marginRight = 10,
+  isFromAlbum = false,
   isFromPlaylist = false,
-  isDownloaded: propIsDownloaded = null // Accept isDownloaded as a prop
+  isDownloaded: propIsDownloaded = null, // Accept isDownloaded as a prop
+  onDelete // Add delete callback prop
 }) => {
   const { dark, colors } = useTheme();
   const buttonRef = useRef(null);
@@ -360,6 +361,35 @@ export const EachSongMenuButton = ({
     }
   };
 
+  const deleteSong = async () => {
+    closeMenu();
+    if (!song?.id) {
+      ToastAndroid.show('Invalid song data', ToastAndroid.SHORT);
+      return;
+    }
+
+    try {
+      // Check if song is actually downloaded
+      if (!isDownloaded) {
+        ToastAndroid.show('Song is not downloaded', ToastAndroid.SHORT);
+        return;
+      }
+
+      // Call the delete callback if provided
+      if (onDelete) {
+        await onDelete(song.id, song.title);
+      } else {
+        // Fallback: directly delete using StorageManager
+        await StorageManager.removeDownloadedSongMetadata(song.id);
+        setIsDownloaded(false);
+        ToastAndroid.show('Song deleted', ToastAndroid.SHORT);
+      }
+    } catch (error) {
+      console.error('Delete failed:', error);
+      ToastAndroid.show(`Delete failed: ${error.message}`, ToastAndroid.LONG);
+    }
+  };
+
   // Helper function to get highest quality URL from an array of URL objects
   const getHighestQualityUrl = (urlData) => {
     try {
@@ -483,6 +513,13 @@ export const EachSongMenuButton = ({
             <TouchableOpacity style={styles.menuItem} onPress={downloadSong}>
               <Octicons name="download" size={24} color={colors.text} />
               <Text style={[styles.menuText, { color: colors.text }]}>Download</Text>
+            </TouchableOpacity>
+          )}
+
+          {isDownloaded && (
+            <TouchableOpacity style={styles.menuItem} onPress={deleteSong}>
+              <MaterialCommunityIcons name="delete-outline" size={24} color={colors.text} />
+              <Text style={[styles.menuText, { color: colors.text }]}>Delete</Text>
             </TouchableOpacity>
           )}
         </View>
