@@ -15,6 +15,7 @@ import { TopHeader } from "../../Component/Home/TopHeader";
 import { DisplayTopGenres } from "../../Component/Home/DisplayTopGenres";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import { YTMusicHomeSection } from '../../Component/Home/YTMusicHomeSection';
 
 // Add a utility function to truncate text
 const truncateText = (text, limit = 30) => {
@@ -228,6 +229,9 @@ export const Home = () => {
                 />
               )}
             />
+
+            {/* YouTube Music Home Section */}
+            <YTMusicHomeSection />
 
             <View style={{ paddingHorizontal: 13, marginTop: 8 }}>
               <HorizontalScrollSongs id={getChartId(1)}/>

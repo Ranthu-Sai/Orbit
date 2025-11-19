@@ -1,5 +1,6 @@
 import axios from "axios";
 import { getCachedData, CACHE_GROUPS } from './CacheManager';
+import PythonBridgeService from '../Utils/PythonBridgeService';
 
 const YTMUSIC_API_BASE = "https://ytmusic-api-rest.onrender.com";
 
@@ -434,9 +435,111 @@ async function getYTMusicSearchPlaylistData(searchText, page = 1, limit = 20) {
   }
 }
 
+// Get YTMusic home feed data using the new Python bridge
+async function getYTMusicHomeFeed(limit = 10) {
+  try {
+    // For now, return mock data since Chaquopy is commented out
+    // When Chaquopy is added, uncomment this:
+    // const homeData = await PythonBridgeService.getHomeFeed(limit);
+
+    const mockHomeFeed = {
+      sections: [
+        {
+          sectionTitle: "Trending Now",
+          items: [
+            {
+              type: "playlist",
+              id: "RDCLAK5uy_lFU4w1zMGnJCbMxPpUhSxQuGHAncSjENk",
+              title: "Billboard Hot 100",
+              artists: ["Billboard Music"],
+              thumbnails: [
+                { url: "https://img.youtube.com/vi/hTWKbfoikeg/hqdefault.jpg" }
+              ]
+            },
+            {
+              type: "album",
+              id: "MPREb_midnights_taylor",
+              title: "Midnights",
+              artists: ["Taylor Swift"],
+              thumbnails: [
+                { url: "https://img.youtube.com/vi/xfZaUCw7 archaic/hqdefault.jpg" }
+              ]
+            }
+          ]
+        },
+        {
+          sectionTitle: "Popular Playlists",
+          items: [
+            {
+              type: "playlist",
+              id: "RDCLAK5uy_sample_playlist",
+              title: "Today's Hits",
+              artists: ["Spotify"],
+              thumbnails: [
+                { url: "https://img.youtube.com/vi/JGwWNGJdvx8/hqdefault.jpg" }
+              ]
+            },
+            {
+              type: "album",
+              id: "MPREb_folklore_taylor",
+              title: "Folklore",
+              artists: ["Taylor Swift"],
+              thumbnails: [
+                { url: "https://img.youtube.com/vi/xfZaUCw7archaic/hqdefault.jpg" }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+
+    console.log('YTMusic Home Feed - Mock Data (Chaquopy not active yet)');
+    return mockHomeFeed;
+
+  } catch (error) {
+    console.error('Error fetching YTMusic home feed:', error);
+    return { sections: [] };
+  }
+}
+
+// Transform YTMusic home feed data to Orbit format
+function transformYTMusicHomeToOrbit(homeData) {
+  const playlists = [];
+  const albums = [];
+
+  if (!homeData?.sections) return { playlists: [], albums: [] };
+
+  homeData.sections.forEach(section => {
+    section.items?.forEach(item => {
+      if (item.type === 'playlist') {
+        playlists.push(transformYTToSaavnPlaylist({
+          id: item.id,
+          title: item.title,
+          description: item.artists?.join(", ") || section.sectionTitle,
+          thumbnails: item.thumbnails || [{ url: "https://via.placeholder.com/300" }],
+          count: 50, // Mock count
+          author: item.artists?.[0] || "YouTube Music"
+        }));
+      } else if (item.type === 'album') {
+        albums.push(transformYTToSaavnAlbum({
+          id: item.id,
+          title: item.title,
+          artists: item.artists?.map(name => ({ name })) || [{ name: "Various Artists" }],
+          thumbnails: item.thumbnails || [{ url: "https://via.placeholder.com/300" }],
+          year: new Date().getFullYear().toString()
+        }));
+      }
+    });
+  });
+
+  return { playlists, albums };
+}
+
 export {
   getYTMusicSearchSongData,
   getYTMusicSearchArtistData,
   getYTMusicSearchAlbumData,
-  getYTMusicSearchPlaylistData
+  getYTMusicSearchPlaylistData,
+  getYTMusicHomeFeed,
+  transformYTMusicHomeToOrbit
 };

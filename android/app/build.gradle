@@ -80,6 +80,7 @@ android {
         versionName "3.0.0"
         multiDexEnabled true
     }
+
     signingConfigs {
         debug {
             storeFile file('debug.keystore')
