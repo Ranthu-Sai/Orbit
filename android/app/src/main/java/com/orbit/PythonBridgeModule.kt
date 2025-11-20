@@ -1,8 +1,8 @@
 package com.orbit
 
 import android.util.Log
-// import com.chaquo.python.Python
-// import com.chaquo.python.android.AndroidPlatform
+import com.chaquo.python.Python
+import com.chaquo.python.android.AndroidPlatform
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 
@@ -27,11 +27,10 @@ class PythonBridgeModule(reactContext: ReactApplicationContext) : ReactContextBa
         try {
             if (!pythonInitialized) {
                 // Initialize Python if not already done
-                // Uncomment when Chaquopy is properly configured:
-                // if (!Python.isStarted()) {
-                //     Python.start(AndroidPlatform(reactApplicationContext))
-                // }
-                Log.i(TAG, "Python bridge would be initialized (Chaquopy not yet configured)")
+                if (!Python.isStarted()) {
+                    Python.start(AndroidPlatform(reactApplicationContext))
+                }
+                Log.i(TAG, "Python bridge initialized successfully")
                 pythonInitialized = true
                 promise.resolve(true)
             } else {
@@ -49,10 +48,8 @@ class PythonBridgeModule(reactContext: ReactApplicationContext) : ReactContextBa
         // Run Python calls on background thread to avoid blocking UI
         Thread {
             try {
-                Log.i(TAG, "Python function would be called: $functionName")
+                Log.i(TAG, "Calling Python function: $functionName")
 
-                // Uncomment when Chaquopy is properly configured:
-                /*
                 // Ensure Python is initialized
                 if (!pythonInitialized) {
                     initializePythonInThread()
@@ -71,16 +68,6 @@ class PythonBridgeModule(reactContext: ReactApplicationContext) : ReactContextBa
 
                 // Resolve with the JSON string result
                 promise.resolve(result.toString())
-                */
-
-                // For now, return a placeholder response
-                val placeholderResponse = """{
-                    "function": "$functionName",
-                    "status": "chaquopy_not_configured",
-                    "message": "ChaquoPython integration not yet set up. Use test_http_server.py for testing.",
-                    "params": "${params.toHashMap()}"
-                }"""
-                promise.resolve(placeholderResponse)
 
             } catch (e: Exception) {
                 Log.e(TAG, "Python function call failed: $functionName", e)
@@ -95,8 +82,6 @@ class PythonBridgeModule(reactContext: ReactApplicationContext) : ReactContextBa
     fun getCacheStats(promise: Promise) {
         Thread {
             try {
-                // Uncomment when Chaquopy is properly configured:
-                /*
                 if (!pythonInitialized) {
                     initializePythonInThread()
                 }
@@ -112,14 +97,6 @@ class PythonBridgeModule(reactContext: ReactApplicationContext) : ReactContextBa
                 )
 
                 promise.resolve(stats)
-                */
-
-                // Placeholder response
-                val stats = mapOf(
-                    "status" to "chaquopy_not_configured",
-                    "message" to "Use test_http_server.py for endpoint testing"
-                )
-                promise.resolve(stats)
 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to get cache stats", e)
@@ -132,8 +109,6 @@ class PythonBridgeModule(reactContext: ReactApplicationContext) : ReactContextBa
     fun clearPythonCache(promise: Promise) {
         Thread {
             try {
-                // Uncomment when Chaquopy is properly configured:
-                /*
                 if (!pythonInitialized) {
                     initializePythonInThread()
                 }
@@ -146,14 +121,6 @@ class PythonBridgeModule(reactContext: ReactApplicationContext) : ReactContextBa
 
                 Log.i(TAG, "Python cache cleared")
                 promise.resolve(result.toString())
-                */
-
-                // Placeholder response
-                val placeholderResponse = """{
-                    "status": "chaquopy_not_configured",
-                    "message": "Cache clearing not available until Chaquopy is set up"
-                }"""
-                promise.resolve(placeholderResponse)
 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to clear Python cache", e)

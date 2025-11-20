@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
-import { View, Text, ScrollView, Dimensions } from "react-native";
+import { View, Text, ScrollView, Dimensions, FlatList } from "react-native";
 import { Heading } from "../Global/Heading";
-import { EachSongCard } from "../Global/EachSongCard";
-import { getYTMusicHomeFeed, transformYTMusicHomeToOrbit } from "../../Api/YTMusic";
+import { EachPlaylistCard } from "../Global/EachPlaylistCard";
+import { EachAlbumCard } from "../Global/EachAlbumCard";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Spacer } from "../Global/Spacer";
 
@@ -15,7 +15,7 @@ const truncateText = (text, limit = 30) => {
 };
 
 export const YTMusicHomeSection = () => {
-  const [ytMusicSongs, setYtMusicSongs] = useState([]);
+  const [ytMusicItems, setYtMusicItems] = useState([]); // Changed from ytMusicSongs to ytMusicItems
   const [loading, setLoading] = useState(true);
   const [hasData, setHasData] = useState(false);
 
@@ -30,7 +30,7 @@ export const YTMusicHomeSection = () => {
           const parsed = JSON.parse(cached);
           console.log('YTMusic Home - Using cached data:', parsed);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setYtMusicSongs(parsed);
+            setYtMusicItems(parsed);
             setHasData(true);
             if (!forceRefresh) setLoading(false);
             return;
@@ -38,109 +38,55 @@ export const YTMusicHomeSection = () => {
         }
       }
 
-      // Fetch fresh data from actual YTMusic API
-      console.log('YTMusic Home - Fetching fresh data from actual API...');
+      // Fetch fresh data from REST API server
+      console.log('YTMusic Home - Fetching fresh data from REST API...');
 
-      let songsArray = [];
+      let itemsArray = [];
 
-      try {
-        const response = await fetch('http://localhost:8080/test/get_home?limit=10');
+      const response = await fetch('http://localhost:5000/api/homefeed?limit=10');
+      const homeData = await response.json();
+      console.log('YTMusic Home - Raw API response:', JSON.stringify(homeData, null, 2));
 
-        if (response.ok) {
-          const homeData = await response.json();
-          console.log('YTMusic Home - Raw API response:', homeData);
-          songsArray = Array.isArray(homeData) ? homeData : [];
-        } else {
-          console.log('HTTP server not available, using mock data');
-          // Use some mock data for testing when server isn't running
-          songsArray = [
-            {
-              videoId: "dQw4w9WgXcQ",
-              title: "Rick Astley - Never Gonna Give You Up",
-              artists: [{ name: "Rick Astley" }],
-              thumbnails: [
-                { url: "https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg", height: 180, width: 320 }
-              ],
-              views: "1.5B",
-              album: { name: "Whenever You Need Somebody" }
-            },
-            {
-              videoId: "JGwWNGJdvx8",
-              title: "Billie Eilish - bad guy",
-              artists: [{ name: "Billie Eilish" }],
-              thumbnails: [
-                { url: "https://img.youtube.com/vi/JGwWNGJdvx8/mqdefault.jpg", height: 180, width: 320 }
-              ],
-              views: "2.1B",
-              album: { name: "WHEN WE ALL FALL ASLEEP, WHERE DO WE GO?" }
-            },
-            {
-              videoId: "hTWKbfoikeg",
-              title: "The Weeknd - Blinding Lights",
-              artists: [{ name: "The Weeknd" }],
-              thumbnails: [
-                { url: "https://img.youtube.com/vi/hTWKbfoikeg/mqdefault.jpg", height: 180, width: 320 }
-              ],
-              views: "4.2B",
-              album: { name: "After Hours" }
-            },
-            {
-              videoId: "fJ9rUzIMcZQ",
-              title: "Daft Punk - Harder, Better, Faster, Stronger",
-              artists: [{ name: "Daft Punk" }],
-              thumbnails: [
-                { url: "https://img.youtube.com/vi/fJ9rUzIMcZQ/mqdefault.jpg", height: 180, width: 320 }
-              ],
-              views: "820M",
-              album: { name: "Discovery" }
-            }
-          ];
-        }
+      // Handle the REST API response structure
+      if (homeData.data && homeData.data.feed) {
+        // REST API returns {status: "success", data: {feed: [...]}}
+        for (const section of homeData.data.feed) {
+          console.log(`Processing section: ${section.sectionTitle}, items: ${section.items?.length || 0}`);
 
-        // Set songs directly (API returns array of songs)
-        setYtMusicSongs(songsArray);
-        setHasData(songsArray.length > 0);
+          if (section.items && Array.isArray(section.items)) {
+            // Filter playlists and albums (not songs)
+            const sectionItems = section.items
+              .filter(item => {
+                console.log(`  Item: ${item.title}, type: ${item.type}`);
+                return item.type === 'playlist' || item.type === 'album';
+              })
+              .map(item => ({
+                ...item,
+                sectionTitle: section.sectionTitle,
+                // Use id as primary identifier
+                downloadUrl: item.id
+              }));
 
-        // Cache the data
-        await AsyncStorage.setItem('ytmusic_home_section', JSON.stringify(songsArray));
+            itemsArray.push(...sectionItems);
 
-      } catch (error) {
-        console.log('Network request failed, using fallback mock data');
-
-        // Fallback mock data when network completely fails
-        songsArray = [
-          {
-            videoId: "dQw4w9WgXcQ",
-            title: "Classic Hit - Never Gonna Give You Up",
-            artists: [{ name: "Rick Astley" }],
-            thumbnails: [
-              { url: "https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg", height: 180, width: 320 }
-            ],
-            views: "1B+",
-            album: { name: "Classic Album" }
-          },
-          {
-            videoId: "JGwWNGJdvx8",
-            title: "Modern Hit - bad guy",
-            artists: [{ name: "Billie Eilish" }],
-            thumbnails: [
-              { url: "https://img.youtube.com/vi/JGwWNGJdvx8/mqdefault.jpg", height: 180, width: 320 }
-            ],
-            views: "2B+",
-            album: { name: "Modern Album" }
+            console.log(`Added ${sectionItems.length} items from section: ${section.sectionTitle}`);
           }
-        ];
-
-        setYtMusicSongs(songsArray);
-        setHasData(songsArray.length > 0);
-        await AsyncStorage.setItem('ytmusic_home_section', JSON.stringify(songsArray));
+        }
       }
+
+      console.log(`YTMusic Home - Total items collected: ${itemsArray.length}`);
+
+      setYtMusicItems(itemsArray);
+      setHasData(itemsArray.length > 0);
+
+      // Cache the data
+      await AsyncStorage.setItem('ytmusic_home_section', JSON.stringify(itemsArray));
 
     } catch (error) {
       console.error('Error fetching YTMusic home data:', error);
 
       // Set empty array on error to prevent undefined
-      setYtMusicSongs([]);
+      setYtMusicItems([]);
       setHasData(false);
 
       // Keep existing data if available - don't reset to undefined
@@ -154,55 +100,64 @@ export const YTMusicHomeSection = () => {
     fetchYTMusicHomeData();
   }, []);
 
-  // Process YTMusic songs to match app format
-  const processedSongs = useMemo(() => {
-    console.log('Processing songs:', ytMusicSongs);
+  // Process YTMusic items (playlists/albums) to match app format
+  const processedItems = useMemo(() => {
+    console.log('Processing YT Music items:', ytMusicItems);
 
-    if (!Array.isArray(ytMusicSongs) || ytMusicSongs.length === 0) {
-      console.log('No songs to process, returning empty array');
+    if (!Array.isArray(ytMusicItems) || ytMusicItems.length === 0) {
+      console.log('No items to process, returning empty array');
       return [];
     }
 
-    const processed = ytMusicSongs.slice(0, 8).map(song => {
-      console.log('Processing song:', song.title || 'unknown');
+    const processed = ytMusicItems.map(item => {
+      console.log('Processing item:', item.title || 'unknown', `(type: ${item.type})`);
+
+      // Get the best thumbnail (largest available)
+      const bestThumbnail = item.thumbnails?.reduce((best, current) =>
+        (current.height > (best?.height || 0)) ? current : best
+      );
+
       return {
-        id: song.videoId || song.id || `yt_${Math.random()}`,
-        name: song.title || "Unknown Title",
-        title: song.title || "Unknown Title",
-        subtitle: song.artists?.map(artist => artist.name).join(", ") || "YouTube Music",
-        image: song.thumbnails?.map(thumb => ({
+        id: item.id || `yt_${Math.random()}`,
+        name: item.title || "Unknown Title",
+        title: item.title || "Unknown Title",
+        subtitle: item.type === 'playlist' ? 'YouTube Music Playlist' : (item.year ? `Album • ${item.year}` : 'Album'),
+        image: item.thumbnails?.map(thumb => ({
           url: thumb.url,
-          quality: thumb.height === 60 ? "50x50" : thumb.height === 120 ? "150x150" : "500x500"
-        })) || [],
-        artist: song.artists?.[0]?.name || "YouTube Music",
-        artists: {
-          primary: song.artists || []
-        },
-        duration: "0:00", // YTMusic doesn't provide duration
+          link: thumb.url, // Add link property for compatibility
+          quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500"
+        })) || [{
+          url: "https://via.placeholder.com/150",
+          link: "https://via.placeholder.com/150",
+          quality: "150x150"
+        }],
+        artist: "YouTube Music",
+        artists: "YouTube Music",
+        duration: "0:00",
         language: "unknown",
-        album: song.album?.name || "",
-        downloadUrl: song.videoId || "",
-        primaryArtists: song.artists?.[0]?.name || "YouTube Music",
+        album: "",
+        downloadUrl: item.id,
+        primaryArtists: "YouTube Music",
         playlists: [],
-        explicit: song.isExplicit ? 1 : 0,
-        views: song.views || "0"
+        explicit: 0,
+        views: "0",
+        type: item.type, // playlist or album
+        thumbnailUrl: bestThumbnail?.url || item.thumbnails?.[0]?.url || 'https://via.placeholder.com/150'
       };
     });
 
-    console.log('Processed songs count:', processed.length);
+    console.log('Processed items count:', processed.length);
     return processed;
-  }, [ytMusicSongs]);
+  }, [ytMusicItems]);
 
-  // Split songs into two groups for 2-row layout
-  const getSongGroups = useMemo(() => {
-    if (!processedSongs || processedSongs.length === 0) {
-      return { firstGroup: [], secondGroup: [] };
-    }
-    return {
-      firstGroup: processedSongs.slice(0, 4),
-      secondGroup: processedSongs.slice(4, 8)
-    };
-  }, [processedSongs]);
+  // Separate playlists and albums
+  const playlists = useMemo(() => {
+    return processedItems.filter(item => item.type === 'playlist');
+  }, [processedItems]);
+
+  const albums = useMemo(() => {
+    return processedItems.filter(item => item.type === 'album');
+  }, [processedItems]);
 
   // Always show the section if we have data or are loading for the first time
   const shouldShowSection = hasData || loading;
@@ -211,8 +166,10 @@ export const YTMusicHomeSection = () => {
     loading,
     hasData,
     shouldShowSection,
-    songsCount: ytMusicSongs.length,
-    processedSongsCount: processedSongs.length
+    itemsCount: ytMusicItems.length,
+    processedItemsCount: processedItems.length,
+    playlistsCount: playlists.length,
+    albumsCount: albums.length
   });
 
   // Show section even if no data yet, but don't render content
@@ -261,59 +218,53 @@ export const YTMusicHomeSection = () => {
               fontSize: 12,
               lineHeight: 16
             }}>
-              Popular songs trending on YouTube Music
+              Popular playlists and albums from YouTube Music
             </Text>
           </View>
 
-          {/* YTMusic Trending Songs Section */}
-          {(processedSongs.length > 0 || loading) && (
+          {/* YTMusic Playlists Section */}
+          {(playlists.length > 0 || (loading && playlists.length === 0)) && (
             <>
               <Spacer />
               <Spacer />
-              <Heading text={loading ? "Loading..." : "🔥 Trending Songs"} nospace={true} />
+              <Heading text={loading ? "Loading..." : "🎵 YouTube Music Playlists"} nospace={true} />
               <Spacer />
 
-              {!loading && processedSongs.length > 0 && (
-                <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
-                  <View>
-                    {getSongGroups.firstGroup.map((song, i) => (
-                      <View key={`yt-first-${song.id}-${i}`} style={{ marginBottom: 1, marginVertical: 0 }}>
-                        <EachSongCard
-                          index={i}
-                          artist={truncateText(song.artists.primary?.map(a => a.name).join(", ") || song.artist, 30)}
-                          language={song.language}
-                          image={song.image[2]?.url || song.image[1]?.url || song.image[0]?.url || ''}
-                          id={song.id}
-                          width={width * 0.80}
-                          title={truncateText(song.name, 30)}
-                          url={song.downloadUrl}
-                          titleandartistwidth={width * 0.5}
-                          showNumber={false}
-                          source="YTMusic"
-                        />
-                      </View>
-                    ))}
-                  </View>
-                  <View>
-                    {getSongGroups.secondGroup.map((song, i) => (
-                      <View key={`yt-second-${song.id}-${i}`} style={{ marginBottom: 1, marginVertical: 0 }}>
-                        <EachSongCard
-                          index={i + 4}
-                          artist={truncateText(song.artists.primary?.map(a => a.name).join(", ") || song.artist, 30)}
-                          language={song.language}
-                          image={song.image[2]?.url || song.image[1]?.url || song.image[0]?.url || ''}
-                          id={song.id}
-                          width={width * 0.80}
-                          title={truncateText(song.name, 30)}
-                          url={song.downloadUrl}
-                          titleandartistwidth={width * 0.5}
-                          showNumber={false}
-                          source="YTMusic"
-                        />
-                      </View>
-                    ))}
-                  </View>
-                </ScrollView>
+              {!loading && playlists.length > 0 && (
+                <FlatList
+                  horizontal={true}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{
+                    paddingLeft: 10,
+                    paddingRight: 5,
+                    gap: 2,
+                  }}
+                  data={playlists}
+                  keyExtractor={(item, index) => `yt-playlist-${item.id}-${index}`}
+                  ListEmptyComponent={() => (
+                    <View style={{
+                      width: width - 30,
+                      height: 250,
+                      justifyContent: 'center',
+                      alignItems: 'center'
+                    }}>
+                      <Text style={{ color: 'white', fontSize: 16 }}>No playlists available</Text>
+                    </View>
+                  )}
+                  renderItem={({ item, index }) => (
+                    <EachPlaylistCard
+                      name={truncateText(item.name, 30)}
+                      follower={truncateText(item.subtitle, 30)}
+                      key={index}
+                      image={item.image?.[2]?.link || item.image?.[1]?.link || item.image?.[0]?.link || item.thumbnailUrl}
+                      id={item.id}
+                      source="YTMusic"
+                      MainContainerStyle={{
+                        marginHorizontal: 4,
+                      }}
+                    />
+                  )}
+                />
               )}
 
               {loading && (
@@ -326,15 +277,74 @@ export const YTMusicHomeSection = () => {
                     textAlign: 'center',
                     marginTop: 20
                   }}>
-                    Loading trending songs from YouTube Music...
+                    Loading playlists from YouTube Music...
                   </Text>
                 </View>
               )}
             </>
           )}
 
-          {/* Show empty state if no songs and not loading */}
-          {(!loading && processedSongs.length === 0) && (
+          {/* YTMusic Albums Section */}
+          {(albums.length > 0 || (loading && albums.length === 0)) && (
+            <>
+              <Spacer />
+              <Spacer />
+              <Heading text={loading ? "Loading..." : "💿 YouTube Music Albums"} nospace={true} />
+              <Spacer />
+
+              {!loading && albums.length > 0 && (
+                <FlatList
+                  horizontal={true}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{
+                    paddingLeft: 10,
+                    paddingRight: 5,
+                    gap: 2,
+                  }}
+                  data={albums}
+                  keyExtractor={(item, index) => `yt-album-${item.id}-${index}`}
+                  ListEmptyComponent={() => (
+                    <View style={{
+                      width: width - 30,
+                      height: 220,
+                      justifyContent: 'center',
+                      alignItems: 'center'
+                    }}>
+                      <Text style={{ color: 'white', fontSize: 16 }}>No albums available</Text>
+                    </View>
+                  )}
+                  renderItem={({ item, index }) => (
+                    <EachAlbumCard
+                      image={item.image?.[2]?.link || item.image?.[1]?.link || item.image?.[0]?.link || item.thumbnailUrl}
+                      artists={item.artists || "YouTube Music"}
+                      key={index}
+                      name={truncateText(item.name, 30)}
+                      id={item.id}
+                      source="YTMusic"
+                    />
+                  )}
+                />
+              )}
+
+              {loading && (
+                <View style={{
+                  height: 280,
+                }}>
+                  <Text style={{
+                    color: '#666',
+                    fontSize: 14,
+                    textAlign: 'center',
+                    marginTop: 20
+                  }}>
+                    Loading albums from YouTube Music...
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
+
+          {/* Show empty state if no content and not loading */}
+          {(!loading && playlists.length === 0 && albums.length === 0) && (
             <View style={{
               paddingHorizontal: 13,
               marginTop: 8,
@@ -346,7 +356,7 @@ export const YTMusicHomeSection = () => {
                 textAlign: 'center',
                 marginVertical: 10
               }}>
-                No trending songs available from YouTube Music
+                No playlists or albums available from YouTube Music
               </Text>
             </View>
           )}

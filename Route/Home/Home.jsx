@@ -9,6 +9,7 @@ import { RenderTopCharts } from "../../Component/Home/RenderTopCharts";
 import { LoadingComponent } from "../../Component/Global/Loading";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { getHomePageData } from "../../Api/HomePage";
+import { getYTMusicHomeFeed } from "../../Api/YTMusic";
 import { EachPlaylistCard } from "../../Component/Global/EachPlaylistCard";
 import { GetLanguageValue } from "../../LocalStorage/Languages";
 import { TopHeader } from "../../Component/Home/TopHeader";
@@ -39,6 +40,7 @@ export const Home = () => {
   const [Language, setLanguage] = useState('english');
   const [Loading, setLoading] = useState(true);
   const [homeData, setHomeData] = useState({});
+  const [homefeedData, setHomefeedData] = useState({ playlists: [], albums: [] });
   const [isConnected, setIsConnected] = useState(true);
   const [offline, setOffline] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -76,18 +78,37 @@ export const Home = () => {
           // Randomize chart indices with the cached data
           randomizeCharts(parsedData?.data?.charts);
         }
+
+        // Try to load cached homefeed data
+        const cachedHomefeed = await AsyncStorage.getItem('homefeedData');
+        if (cachedHomefeed) {
+          const parsedHomefeed = JSON.parse(cachedHomefeed);
+          setHomefeedData(parsedHomefeed.data || { playlists: [], albums: [] });
+        }
       }
 
       if (networkState.isConnected) {
+        // Fetch both homepage data and homefeed data simultaneously
         const Languages = await GetLanguageValue();
-        const data = await getHomePageData(Languages);
-        setData(data);
+        const [data, homefeedResult] = await Promise.allSettled([
+          getHomePageData(Languages),
+          getYTMusicHomeFeed(15) // Get 15 sections of homefeed
+        ]);
 
-        // Randomize chart indices with the new data
-        randomizeCharts(data?.data?.charts);
+        if (data.status === 'fulfilled') {
+          setData(data.value);
+          // Randomize chart indices with the new data
+          randomizeCharts(data.value?.data?.charts);
+          // Cache the new data
+          await AsyncStorage.setItem('homePageData', JSON.stringify(data.value));
+        }
 
-        // Cache the new data
-        await AsyncStorage.setItem('homePageData', JSON.stringify(data));
+        if (homefeedResult.status === 'fulfilled') {
+          setHomefeedData(homefeedResult.value?.data || { playlists: [], albums: [] });
+          // Cache the homefeed data
+          await AsyncStorage.setItem('homefeedData', JSON.stringify(homefeedResult.value));
+          console.log('Homefeed data loaded:', homefeedResult.value?.data);
+        }
       }
     } catch (e) {
       console.log('Error fetching data:', e);
@@ -97,7 +118,7 @@ export const Home = () => {
       setRefreshing(false);
     }
   }
-  
+
   // Pull to refresh handler
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -108,14 +129,19 @@ export const Home = () => {
     fetchHomePageData();
   }, []);
 
-  // Shuffle playlists and albums for more variety
-  const shuffledPlaylists = useMemo(() =>
-    shuffleArray(Data?.data?.playlists || []),
-  [Data?.data?.playlists]);
+  // Combine playlists from both sources
+  const allPlaylists = useMemo(() => {
+    const regularPlaylists = Data?.data?.playlists || [];
+    const homefeedPlaylists = homefeedData?.playlists || [];
+    return shuffleArray([...regularPlaylists, ...homefeedPlaylists]).slice(0, 20);
+  }, [Data?.data?.playlists, homefeedData?.playlists]);
 
-  const shuffledAlbums = useMemo(() =>
-    shuffleArray(Data?.data?.trending?.albums || []),
-  [Data?.data?.trending?.albums]);
+  // Combine albums from both sources
+  const allAlbums = useMemo(() => {
+    const regularAlbums = Data?.data?.trending?.albums || [];
+    const homefeedAlbums = homefeedData?.albums || [];
+    return shuffleArray([...regularAlbums, ...homefeedAlbums]).slice(0, 20);
+  }, [Data?.data?.trending?.albums, homefeedData?.albums]);
 
   // Get a chart ID safely
   const getChartId = (index) => {
@@ -159,7 +185,7 @@ export const Home = () => {
               <HorizontalScrollSongs id={getChartId(0)}/>
             </View>
             <View style={{ paddingHorizontal: 13 }}>
-              <Heading text={"Recommended"}/>
+              <Heading text={"Recommended Playlists"}/>
             </View>
             <FlatList
               horizontal={true}
@@ -169,7 +195,7 @@ export const Home = () => {
                 paddingRight: 5, // Reduced from 10
                 gap: 2, // Reduced from 20
               }}
-              data={shuffledPlaylists}
+              data={allPlaylists}
               keyExtractor={(item, index) => `playlist-${item.id}-${index}`}
               ListEmptyComponent={() => (
                 <View style={{
@@ -183,10 +209,10 @@ export const Home = () => {
               )}
               renderItem={({ item, index }) => (
                 <EachPlaylistCard
-                  name={truncateText(item.title, 30)}
-                  follower={truncateText(item.subtitle, 30)}
+                  name={truncateText(item.title || item.name, 30)}
+                  follower={truncateText(item.subtitle || item.artists, 30)}
                   key={index}
-                  image={item.image[2].link}
+                  image={item.image?.[2]?.link || item.image?.[2]?.url}
                   id={item.id}
                   source="Home"
                   MainContainerStyle={{
@@ -206,7 +232,7 @@ export const Home = () => {
                 paddingRight: 5, // Reduced from 10
                 gap: 2, // Reduced from 20
               }}
-              data={shuffledAlbums}
+              data={allAlbums}
               keyExtractor={(item, index) => `album-${item.id}-${index}`}
               ListEmptyComponent={() => (
                 <View style={{
@@ -220,10 +246,10 @@ export const Home = () => {
               )}
               renderItem={({ item, index }) => (
                 <EachAlbumCard
-                  image={item.image[2].link}
-                  artists={truncateText(item.artists, 30)}
+                  image={item.image?.[2]?.link || item.image?.[2]?.url}
+                  artists={truncateText(item.artists || item.artist, 30)}
                   key={index}
-                  name={truncateText(item.name, 30)}
+                  name={truncateText(item.name || item.title, 30)}
                   id={item.id}
                   source="Home"
                 />
