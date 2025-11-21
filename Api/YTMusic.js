@@ -441,7 +441,10 @@ async function getYTMusicHomeFeed(limit = 10) {
 
   const fetchFunction = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/homefeed', {
+      // Using localhost after adb reverse port forwarding
+      const apiBaseURL = 'http://localhost:5001';
+      
+      const response = await axios.get(`${apiBaseURL}/api/homefeed`, {
         params: {
           limit: limit
         },

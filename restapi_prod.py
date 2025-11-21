@@ -331,5 +331,10 @@ def api_playlist_detail(playlist_id):
 if __name__ == '__main__':
     # For local testing only; in production, use WSGI server
     host = os.getenv('HOST', '0.0.0.0')
-    port = int(os.getenv('PORT', 5000))
+    port = int(os.getenv('PORT', 5001))  # Changed to 5001 to avoid conflict with app.py
+    print(f"YTMusic REST API server starting on {host}:{port}")
+    print("Available endpoints:")
+    print("  GET /api/homefeed - Get YouTube Music home feed")
+    print("  GET /api/search - Search YouTube Music")
+    print("  GET /health - Health check")
     app.run(host=host, port=port, debug=False)

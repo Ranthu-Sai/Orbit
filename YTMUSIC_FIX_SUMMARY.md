@@ -1,22 +1,30 @@
 # YTMusic API Integration Fix Summary
 
 ## Problem
-The React Native app was showing "No playlists or albums available from YouTube Music" because the YTMusic API integration was not working properly.
+The React Native app was showing "ERROR YTMusic homefeed error: [AxiosError: Network Error]" because of server port conflicts and network connectivity issues.
 
 ## Root Causes Identified
-1. **Port Mismatch**: React Native code was trying to connect to `localhost:8080` but the Python server (`restapi_prod.py`) was running on port `5000`
-2. **Data Structure Parsing**: The response parsing logic didn't match the actual API response structure
-3. **Image URL Handling**: Thumbnail URLs weren't being properly transformed for the UI components
-4. **Missing Status Check**: The response validation was too strict and didn't handle the actual response format
+1. **Port Conflict**: Both `restapi_prod.py` and `app.py` were trying to run on port 5000, causing conflicts
+2. **Network Error**: The React Native code couldn't connect to the YTMusic API server
+3. **Server Configuration**: No clear separation between the YTMusic API server and streaming server
+4. **Missing Error Handling**: Poor error diagnostics made it hard to identify the root cause
 
 ## Changes Made
 
-### 1. Fixed API Endpoints
+### 1. Fixed Port Configuration
+- **File**: `restapi_prod.py`
+- **Change**: Updated default port from 5000 to 5001 to avoid conflict with `app.py`
+- **Added**: Startup logging to show which endpoints are available
+
+- **File**: `app.py`  
+- **Change**: Kept on port 5000, added startup logging for clarity
+
+### 2. Updated API Endpoints
 - **File**: `Api/YTMusic.js`
-- **Change**: Updated from `http://localhost:8080/api/homefeed` to `http://localhost:5000/api/homefeed`
+- **Change**: Updated from `http://localhost:5000/api/homefeed` to `http://localhost:5001/api/homefeed`
 
 - **File**: `Component/Home/YTMusicHomeSection.jsx`  
-- **Change**: Updated from `http://localhost:8080/api/homefeed` to `http://localhost:5000/api/homefeed`
+- **Change**: Updated from `http://localhost:5000/api/homefeed` to `http://localhost:5001/api/homefeed`
 
 ### 2. Fixed Response Parsing
 - **File**: `Api/YTMusic.js`
@@ -82,9 +90,58 @@ After these fixes:
 4. ✅ No more "No playlists or albums available" message
 5. ✅ Better error handling and debugging information
 
-## Servers Required
-1. **restapi_prod.py** - Run on port 5000 for YTMusic API endpoints
-2. **app.py** - Run on port 5000 for streaming/search (separate from YTMusic)
+### 3. Enhanced Error Handling
+- **File**: `Component/Home/YTMusicHomeSection.jsx`
+- **Added**: Better error diagnostics with specific network error detection
+- **Added**: HTTP status code checking and proper error messages
+- **Added**: Timeout configuration for fetch requests
+
+### 4. Created Helper Scripts
+- **File**: `start_servers.py`
+- **Purpose**: Automated script to start both servers correctly on their respective ports
+- **Features**: Process monitoring, proper startup sequence, graceful shutdown
+
+- **File**: `test_ytmusic_api.py`
+- **Purpose**: Test script to verify API connectivity and response structure
+- **Features**: Endpoint testing, response validation, troubleshooting tips
+
+## Server Configuration
+1. **restapi_prod.py** - YTMusic API server on port **5001**
+   - `/api/homefeed` - Home feed data
+   - `/api/search` - Search functionality  
+   - `/health` - Health check
+
+2. **app.py** - Streaming API server on port **5000**
+   - `/stream/<video_id>` - Audio streaming
+   - `/search` - Song search
+   - `/health` - Health check
+
+## How to Start Servers
+### Option 1: Use the automated script
+```bash
+python start_servers.py
+```
+
+### Option 2: Start manually
+```bash
+# Terminal 1 - YTMusic API (port 5001)
+python restapi_prod.py
+
+# Terminal 2 - Streaming API (port 5000)  
+python app.py
+```
 
 ## Testing
-The transformation functions have been tested and verified to work correctly with the actual API response data structure.
+```bash
+# Test the API endpoints
+python test_ytmusic_api.py
+```
+
+## Expected Results
+After these fixes:
+1. ✅ No more port conflicts between servers
+2. ✅ Clear error messages for network issues
+3. ✅ YTMusic playlists appear in "🎵 YouTube Music Playlists" section
+4. ✅ YTMusic albums appear in "💿 YouTube Music Albums" section  
+5. ✅ Proper error handling and debugging information
+6. ✅ Easy server startup and testing process

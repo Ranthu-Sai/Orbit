@@ -203,4 +203,10 @@ def health_check():
     })
 
 if __name__ == "__main__":
+    print("YTMusic Streaming API server starting on 0.0.0.0:5000")
+    print("Available endpoints:")
+    print("  POST /searchandstream - Search and get stream URL")
+    print("  POST /search - Search only")
+    print("  GET /stream/<video_id> - Get stream by video ID")
+    print("  GET /health - Health check")
     app.run(host="0.0.0.0", port=5000)

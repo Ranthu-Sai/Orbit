@@ -157,16 +157,8 @@ android {
             universalApk true  // If true, also generate a universal APK
         }
     }
-
-    // Chaquopy Python source configuration
-    sourceSets {
-        main {
-            python {
-                srcDir "src/main/python"
-            }
-        }
-    }
 }
+
 
 dependencies {
     // Exclude react-native-volume-control from project
