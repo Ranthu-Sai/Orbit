@@ -20,14 +20,22 @@ export const settingsConfig = {
     { label: 'Music', value: 'Music' },
     { label: 'Downloads', value: 'Downloads' }
   ],
-  
+
+  // Music source options
+  musicSources: [
+    { label: 'Ytmusic', value: 'Ytmusic' },
+    { label: 'Savaan', value: 'Savaan' },
+    { label: 'Tidal', value: 'Tidal' }
+  ],
+
   // Default values
   defaults: {
     fontSize: 'Medium',
     playbackQuality: '320kbps',
     downloadPath: 'Downloads',
     themePreference: 'dark',
-    colorScheme: 'default'
+    colorScheme: 'default',
+    musicSource: 'Ytmusic'
   }
 };
 

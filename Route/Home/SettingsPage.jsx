@@ -10,11 +10,13 @@ import {
   GetPlaybackQuality,
   GetThemePreference,
   GetColorScheme,
+  GetMusicSource,
   SetDownloadPath,
   SetFontSizeValue,
   SetPlaybackQuality,
   SetThemePreference,
   SetColorScheme,
+  SetMusicSource,
 } from "../../LocalStorage/AppSettings";
 import { useEffect, useState } from "react";
 import { useTheme } from "@react-navigation/native";
@@ -31,16 +33,18 @@ export const SettingsPage = ({navigation}) => {
   const [download, setDownload] = useState(settingsConfig.defaults.downloadPath);
   const [themePreference, setThemePreference] = useState(settingsConfig.defaults.themePreference);
   const [colorScheme, setColorScheme] = useState(settingsConfig.defaults.colorScheme);
+  const [musicSource, setMusicSource] = useState(settingsConfig.defaults.musicSource);
   const [downloadPathInfo, setDownloadPathInfo] = useState(null);
   
   async function loadSettings() {
     try {
-      const [fontSize, playbackQuality, downloadPath, themePref, colorSchemePref] = await Promise.all([
+      const [fontSize, playbackQuality, downloadPath, themePref, colorSchemePref, musicSourcePref] = await Promise.all([
         GetFontSizeValue(),
         GetPlaybackQuality(),
         GetDownloadPath(),
         GetThemePreference(),
-        GetColorScheme()
+        GetColorScheme(),
+        GetMusicSource()
       ]);
 
       setFont(fontSize || settingsConfig.defaults.fontSize);
@@ -48,6 +52,7 @@ export const SettingsPage = ({navigation}) => {
       setDownload(downloadPath || settingsConfig.defaults.downloadPath);
       setThemePreference(themePref || settingsConfig.defaults.themePreference);
       setColorScheme(colorSchemePref || settingsConfig.defaults.colorScheme);
+      setMusicSource(musicSourcePref || settingsConfig.defaults.musicSource);
 
       // Load download path information
       const pathInfo = await StorageManager.getDownloadPathInfo();
@@ -60,6 +65,7 @@ export const SettingsPage = ({navigation}) => {
       setDownload(settingsConfig.defaults.downloadPath);
       setThemePreference(settingsConfig.defaults.themePreference);
       setColorScheme(settingsConfig.defaults.colorScheme);
+      setMusicSource(settingsConfig.defaults.musicSource);
     }
   }
 
@@ -165,6 +171,25 @@ export const SettingsPage = ({navigation}) => {
     }
   }
 
+  async function handleMusicSourceChange(value) {
+    try {
+      await SetMusicSource(value);
+      setMusicSource(value);
+      ToastAndroid.showWithGravity(
+        `Music source changed to ${value}`,
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+    } catch (error) {
+      console.error('Error updating music source:', error);
+      ToastAndroid.showWithGravity(
+        'Failed to update music source',
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+    }
+  }
+
   
   useEffect(() => {
     loadSettings();
@@ -237,6 +262,13 @@ export const SettingsPage = ({navigation}) => {
             data={getColorSchemeOptions()}
             selectedValue={colorScheme}
             onSelect={handleColorSchemeChange}
+          />
+          <DropDownMenu
+            title="Music Source"
+            icon="music"
+            data={settingsConfig.musicSources}
+            selectedValue={musicSource}
+            onSelect={handleMusicSourceChange}
           />
 
           <View style={{ padding: 16 }}>

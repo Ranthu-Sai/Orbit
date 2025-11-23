@@ -234,6 +234,30 @@ async function SetTidalEnabled(enabled){
   }
 }
 
+// Get music source preference
+async function GetMusicSource(){
+  try {
+    const value = await AsyncStorage.getItem('MusicSource');
+    if (value !== null) {
+      return value
+    } else {
+      return 'Ytmusic' // Default music source
+    }
+  } catch (e) {
+    console.log("Music source read error");
+    return 'Ytmusic' // Fallback to Ytmusic
+  }
+}
+
+// Set music source preference
+async function SetMusicSource(musicSource){
+  try {
+    await AsyncStorage.setItem('MusicSource', musicSource);
+  } catch (e) {
+    console.log("Music source save error");
+  }
+}
+
 export {
   GetFontSizeValue,
   SetFontSizeValue,
@@ -254,5 +278,7 @@ export {
   GetCustomColorsEnabled,
   SetCustomColorsEnabled,
   GetTidalEnabled,
-  SetTidalEnabled
+  SetTidalEnabled,
+  GetMusicSource,
+  SetMusicSource
 }
