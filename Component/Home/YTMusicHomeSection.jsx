@@ -297,14 +297,23 @@ export const YTMusicHomeSection = () => {
     return processed;
   }, [ytMusicItems]);
 
-  // Separate playlists and albums
-  const playlists = useMemo(() => {
-    return processedItems.filter(item => item.type === 'playlist');
+  // Group items by section title
+  const sectionsByTitle = useMemo(() => {
+    const sections = {};
+    processedItems.forEach(item => {
+      const sectionTitle = item.sectionTitle || 'Other';
+      if (!sections[sectionTitle]) {
+        sections[sectionTitle] = [];
+      }
+      sections[sectionTitle].push(item);
+    });
+    return sections;
   }, [processedItems]);
 
-  const albums = useMemo(() => {
-    return processedItems.filter(item => item.type === 'album');
-  }, [processedItems]);
+  // Get section titles in order
+  const sectionTitles = useMemo(() => {
+    return Object.keys(sectionsByTitle);
+  }, [sectionsByTitle]);
 
   // Always show the section if we have data or are loading for the first time
   const shouldShowSection = hasData || loading;
@@ -315,8 +324,8 @@ export const YTMusicHomeSection = () => {
     shouldShowSection,
     itemsCount: ytMusicItems.length,
     processedItemsCount: processedItems.length,
-    playlistsCount: playlists.length,
-    albumsCount: albums.length
+    sectionsCount: sectionTitles.length,
+    sectionTitles: sectionTitles
   });
 
   // Show section even if no data yet, but don't render content
@@ -324,174 +333,122 @@ export const YTMusicHomeSection = () => {
     <View>
       {shouldShowSection && (
         <>
-          {/* YTMusic Brand Header */}
-          <View style={{
-            paddingHorizontal: 13,
-            marginTop: 16,
-            marginBottom: 8
-          }}>
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: 4
-            }}>
-              <View style={{
-                width: 20,
-                height: 20,
-                backgroundColor: '#FF0000',
-                borderRadius: 4,
-                justifyContent: 'center',
-                alignItems: 'center',
-                marginRight: 8
-              }}>
-                <Text style={{
-                  color: 'white',
-                  fontSize: 10,
-                  fontWeight: 'bold'
-                }}>
-                  YT
-                </Text>
+          {/* Render each section separately */}
+          {sectionTitles.map((sectionTitle, sectionIndex) => {
+            const sectionItems = sectionsByTitle[sectionTitle];
+            const playlistsInSection = sectionItems.filter(item => item.type === 'playlist');
+            const albumsInSection = sectionItems.filter(item => item.type === 'album');
+
+            return (
+              <View key={`section-${sectionIndex}`}>
+                {/* Section Header */}
+                <Spacer />
+                <Spacer />
+                <Heading text={loading ? "Loading..." : sectionTitle} nospace={true} />
+                <Spacer />
+
+                {/* Playlists in this section */}
+                {playlistsInSection.length > 0 && (
+                  <>
+                    {!loading && (
+                      <FlatList
+                        horizontal={true}
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{
+                          paddingLeft: 10,
+                          paddingRight: 5,
+                          gap: 2,
+                        }}
+                        data={playlistsInSection}
+                        keyExtractor={(item, index) => `yt-playlist-${sectionTitle}-${item.id}-${index}`}
+                        ListEmptyComponent={() => (
+                          <View style={{
+                            width: width - 30,
+                            height: 250,
+                            justifyContent: 'center',
+                            alignItems: 'center'
+                          }}>
+                            <Text style={{ color: 'white', fontSize: 16 }}>No playlists available</Text>
+                          </View>
+                        )}
+                        renderItem={({ item, index }) => (
+                          <EachPlaylistCard
+                            name={truncateText(item.name, 30)}
+                            follower={truncateText(item.subtitle, 30)}
+                            key={index}
+                            image={item.image?.[2]?.link || item.image?.[1]?.link || item.image?.[0]?.link || item.thumbnailUrl}
+                            id={item.id}
+                            source="YTMusic"
+                            MainContainerStyle={{
+                              marginHorizontal: 4,
+                            }}
+                          />
+                        )}
+                      />
+                    )}
+                  </>
+                )}
+
+                {/* Albums in this section */}
+                {albumsInSection.length > 0 && (
+                  <>
+                    {!loading && (
+                      <FlatList
+                        horizontal={true}
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{
+                          paddingLeft: 10,
+                          paddingRight: 5,
+                          gap: 2,
+                        }}
+                        data={albumsInSection}
+                        keyExtractor={(item, index) => `yt-album-${sectionTitle}-${item.id}-${index}`}
+                        ListEmptyComponent={() => (
+                          <View style={{
+                            width: width - 30,
+                            height: 220,
+                            justifyContent: 'center',
+                            alignItems: 'center'
+                          }}>
+                            <Text style={{ color: 'white', fontSize: 16 }}>No albums available</Text>
+                          </View>
+                        )}
+                        renderItem={({ item, index }) => (
+                          <EachAlbumCard
+                            image={item.image?.[2]?.link || item.image?.[1]?.link || item.image?.[0]?.link || item.thumbnailUrl}
+                            artists={item.artists || "YouTube Music"}
+                            key={index}
+                            name={truncateText(item.name, 30)}
+                            id={item.id}
+                            source="YTMusic"
+                          />
+                        )}
+                      />
+                    )}
+                  </>
+                )}
+
+                {/* Loading state for this section */}
+                {loading && (
+                  <View style={{
+                    height: 280,
+                  }}>
+                    <Text style={{
+                      color: '#666',
+                      fontSize: 14,
+                      textAlign: 'center',
+                      marginTop: 20
+                    }}>
+                      Loading content from YouTube Music...
+                    </Text>
+                  </View>
+                )}
               </View>
-              <Text style={{
-                color: '#FF0000',
-                fontSize: 18,
-                fontWeight: 'bold'
-              }}>
-                YouTube Music
-              </Text>
-            </View>
-            <Text style={{
-              color: '#666',
-              fontSize: 12,
-              lineHeight: 16
-            }}>
-              Popular playlists and albums from YouTube Music
-            </Text>
-          </View>
-
-          {/* YTMusic Playlists Section */}
-          {(playlists.length > 0 || (loading && playlists.length === 0)) && (
-            <>
-              <Spacer />
-              <Spacer />
-              <Heading text={loading ? "Loading..." : "🎵 YouTube Music Playlists"} nospace={true} />
-              <Spacer />
-
-              {!loading && playlists.length > 0 && (
-                <FlatList
-                  horizontal={true}
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{
-                    paddingLeft: 10,
-                    paddingRight: 5,
-                    gap: 2,
-                  }}
-                  data={playlists}
-                  keyExtractor={(item, index) => `yt-playlist-${item.id}-${index}`}
-                  ListEmptyComponent={() => (
-                    <View style={{
-                      width: width - 30,
-                      height: 250,
-                      justifyContent: 'center',
-                      alignItems: 'center'
-                    }}>
-                      <Text style={{ color: 'white', fontSize: 16 }}>No playlists available</Text>
-                    </View>
-                  )}
-                  renderItem={({ item, index }) => (
-                    <EachPlaylistCard
-                      name={truncateText(item.name, 30)}
-                      follower={truncateText(item.subtitle, 30)}
-                      key={index}
-                      image={item.image?.[2]?.link || item.image?.[1]?.link || item.image?.[0]?.link || item.thumbnailUrl}
-                      id={item.id}
-                      source="YTMusic"
-                      MainContainerStyle={{
-                        marginHorizontal: 4,
-                      }}
-                    />
-                  )}
-                />
-              )}
-
-              {loading && (
-                <View style={{
-                  height: 280,
-                }}>
-                  <Text style={{
-                    color: '#666',
-                    fontSize: 14,
-                    textAlign: 'center',
-                    marginTop: 20
-                  }}>
-                    Loading playlists from YouTube Music...
-                  </Text>
-                </View>
-              )}
-            </>
-          )}
-
-          {/* YTMusic Albums Section */}
-          {(albums.length > 0 || (loading && albums.length === 0)) && (
-            <>
-              <Spacer />
-              <Spacer />
-              <Heading text={loading ? "Loading..." : "💿 YouTube Music Albums"} nospace={true} />
-              <Spacer />
-
-              {!loading && albums.length > 0 && (
-                <FlatList
-                  horizontal={true}
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{
-                    paddingLeft: 10,
-                    paddingRight: 5,
-                    gap: 2,
-                  }}
-                  data={albums}
-                  keyExtractor={(item, index) => `yt-album-${item.id}-${index}`}
-                  ListEmptyComponent={() => (
-                    <View style={{
-                      width: width - 30,
-                      height: 220,
-                      justifyContent: 'center',
-                      alignItems: 'center'
-                    }}>
-                      <Text style={{ color: 'white', fontSize: 16 }}>No albums available</Text>
-                    </View>
-                  )}
-                  renderItem={({ item, index }) => (
-                    <EachAlbumCard
-                      image={item.image?.[2]?.link || item.image?.[1]?.link || item.image?.[0]?.link || item.thumbnailUrl}
-                      artists={item.artists || "YouTube Music"}
-                      key={index}
-                      name={truncateText(item.name, 30)}
-                      id={item.id}
-                      source="YTMusic"
-                    />
-                  )}
-                />
-              )}
-
-              {loading && (
-                <View style={{
-                  height: 280,
-                }}>
-                  <Text style={{
-                    color: '#666',
-                    fontSize: 14,
-                    textAlign: 'center',
-                    marginTop: 20
-                  }}>
-                    Loading albums from YouTube Music...
-                  </Text>
-                </View>
-              )}
-            </>
-          )}
+            );
+          })}
 
           {/* Show empty state if no content and not loading */}
-          {(!loading && playlists.length === 0 && albums.length === 0) && (
+          {(!loading && sectionTitles.length === 0) && (
             <View style={{
               paddingHorizontal: 13,
               marginTop: 8,
@@ -503,7 +460,7 @@ export const YTMusicHomeSection = () => {
                 textAlign: 'center',
                 marginVertical: 10
               }}>
-                No playlists or albums available from YouTube Music
+                No content available from YouTube Music
               </Text>
             </View>
           )}
