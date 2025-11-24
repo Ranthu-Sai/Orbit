@@ -1,11 +1,52 @@
 import axios from "axios";
 import { getCachedData, CACHE_GROUPS } from './CacheManager';
+import { getYTMusicAlbumData } from './YTMusic';
 
 async function getAlbumData(id) {
   // Create a cache key for the album
   const cacheKey = `album_${id}`;
-  
-  // Define the fetch function that will be called if cache miss
+
+  // Check if this is a YouTube Music album ID (various YouTube album ID patterns)
+  const isYouTubeAlbum = id && (
+    id.startsWith('MPREb_') || // YouTube Music album IDs
+    id.includes('youtube') ||
+    id.includes('youtu.be') ||
+    id.length > 20 // YouTube IDs are typically long
+  );
+
+  // If it's a YouTube Music album, use the YTMusic API
+  if (isYouTubeAlbum) {
+    console.log(`Detected YouTube Music album ID: ${id}, using YTMusic API`);
+    try {
+      const ytResult = await getYTMusicAlbumData(id);
+      console.log(`YTMusic album API result for ${id}:`, {
+        success: ytResult?.success,
+        hasData: !!ytResult?.data,
+        status: ytResult?.status,
+        message: ytResult?.message,
+        songCount: ytResult?.data?.songCount || 0
+      });
+
+      if (ytResult && ytResult.success && ytResult.data) {
+        // Transform YTMusic response to match expected format
+        return {
+          status: "SUCCESS",
+          message: ytResult.message || "Album loaded successfully",
+          data: ytResult.data,
+          success: true
+        };
+      } else {
+        console.log(`YTMusic API failed for album ${id}, result:`, ytResult);
+        // Fall through to JioSaavn API as fallback
+      }
+    } catch (ytError) {
+      console.log(`YTMusic API error for album ${id}:`, ytError.message);
+      console.log(`Full error:`, ytError);
+      // Fall through to JioSaavn API as fallback
+    }
+  }
+
+  // Define the fetch function that will be called if cache miss (JioSaavn API)
   const fetchFunction = async () => {
     let config = {
       method: 'get',
@@ -13,7 +54,7 @@ async function getAlbumData(id) {
       url: "https://jiosavan-api-with-playlist.vercel.app/api/albums?id=" + id,
       headers: { },
     };
-    
+
     try {
       const response = await axios.request(config);
       return response.data;
@@ -22,10 +63,10 @@ async function getAlbumData(id) {
       throw error;
     }
   };
-  
+
   // Use cache manager with 60 minute expiration for album data
   try {
-    console.log(`Fetching album data for ID: ${id}`);
+    console.log(`Fetching album data for ID: ${id} using JioSaavn API`);
     return await getCachedData(cacheKey, fetchFunction, 60, CACHE_GROUPS.ALBUMS);
   } catch (error) {
     // If there's a storage error, try fetching directly without caching
@@ -40,7 +81,7 @@ async function getAlbumData(id) {
         throw fetchError;
       }
     }
-    
+
     console.error(`Error getting album data for ID ${id}:`, error);
     throw error;
   }

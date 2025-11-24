@@ -118,9 +118,15 @@ def api_homefeed():
     sections = yt.get_home(limit=limit)
     feed = []
     for sec in sections:
+        # Skip None sections to prevent TypeError
+        if sec is None:
+            continue
         items = sec.get("contents", [])
         mapped = []
         for it in items:
+            # Skip None items to prevent TypeError
+            if it is None:
+                continue
             if "videoId" in it:
                 t = "song"
             elif "playlistId" in it:

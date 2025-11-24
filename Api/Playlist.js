@@ -1,21 +1,55 @@
 import axios from "axios";
 import { getCachedData, CACHE_GROUPS, isOfflineMode } from './CacheManager';
+import { getYTMusicPlaylistData } from './YTMusic';
 
 async function getPlaylistData(id) {
   // Create a cache key for the playlist
   const cacheKey = `playlist_${id}`;
-  
+
+  // Check if this is a YouTube Music playlist ID (various YouTube playlist ID patterns)
+  const isYouTubePlaylist = id && (
+    id.startsWith('PL') || // Standard playlist
+    id.startsWith('RD') || // Mix/Recommended playlist
+    id.startsWith('VL') || // Video list
+    id.includes('youtube') ||
+    id.includes('youtu.be') ||
+    id.length > 20 // YouTube IDs are typically long
+  );
+
+  // If it's a YouTube Music playlist, use the YTMusic API
+  if (isYouTubePlaylist) {
+    console.log(`Detected YouTube Music playlist ID: ${id}, using YTMusic API`);
+    try {
+      const ytResult = await getYTMusicPlaylistData(id);
+      if (ytResult && ytResult.success && ytResult.data) {
+        // Transform YTMusic response to match expected format
+        return {
+          status: "SUCCESS",
+          message: ytResult.message || "Playlist loaded successfully",
+          data: ytResult.data,
+          success: true
+        };
+      } else {
+        console.log(`YTMusic API failed for playlist ${id}, falling back to JioSaavn`);
+        // Fall through to JioSaavn API as fallback
+      }
+    } catch (ytError) {
+      console.log(`YTMusic API error for playlist ${id}:`, ytError.message);
+      // Fall through to JioSaavn API as fallback
+    }
+  }
+
   // Check if we're offline before doing anything
   if (isOfflineMode()) {
     console.log(`Device is offline - looking for cached playlist ${id}`);
-    
+
     try {
       // Try to get the cached data directly (getCachedData handles this but just to be safe)
       const result = await getCachedData(cacheKey, null, 30, CACHE_GROUPS.PLAYLISTS);
       if (result && !result.error) {
         return result;
       }
-      
+
       // Return a standardized offline response without error
       return {
         success: false,
@@ -31,8 +65,8 @@ async function getPlaylistData(id) {
       };
     }
   }
-  
-  // Define the fetch function that will be called if cache miss
+
+  // Define the fetch function that will be called if cache miss (JioSaavn API)
   const fetchFunction = async () => {
     let config = {
       method: 'get',
@@ -41,7 +75,7 @@ async function getPlaylistData(id) {
       headers: { },
       timeout: 10000 // Add timeout to prevent hanging requests
     };
-    
+
     try {
       const response = await axios.request(config);
       return response.data;
@@ -56,10 +90,10 @@ async function getPlaylistData(id) {
       };
     }
   };
-  
+
   // Use cache manager with 30 minute expiration for playlist data
   try {
-    console.log(`Fetching playlist data for ID: ${id}`);
+    console.log(`Fetching playlist data for ID: ${id} using JioSaavn API`);
     return await getCachedData(cacheKey, fetchFunction, 30, CACHE_GROUPS.PLAYLISTS);
   } catch (error) {
     // Don't throw error, return error object

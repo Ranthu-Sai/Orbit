@@ -547,10 +547,270 @@ async function getYTMusicHomeFeed(limit = 10) {
 }
 
 
+async function getYTMusicPlaylistData(playlistId) {
+  const cacheKey = `ytmusic_playlist_${playlistId}`;
+
+  const fetchFunction = async () => {
+    try {
+      // Using computer IP address for physical device/emulator access
+      const apiBaseURL = 'http://10.72.51.82:5001';
+
+      // Use the correct endpoint format: /api/playlist/<playlist_id>
+      const response = await axios.get(`${apiBaseURL}/api/playlist/${playlistId}`, {
+        timeout: 15000
+      });
+
+      if (response.data && response.data.data) {
+        const playlistData = response.data.data;
+
+        // Transform the tracks data to match Saavn format
+        const transformedSongs = [];
+        if (playlistData.tracks && Array.isArray(playlistData.tracks)) {
+          playlistData.tracks.forEach(song => {
+            // Transform song data to Saavn format
+            const transformedSong = {
+              id: song.id,
+              name: song.title,
+              title: song.title,
+              subtitle: song.artists?.map(artist => artist.name).join(", ") || "Unknown Artist",
+              type: "song",
+              image: song.thumbnails?.map(thumb => ({
+                url: thumb.url,
+                quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500"
+              })) || [{
+                url: "https://via.placeholder.com/150",
+                quality: "150x150"
+              }],
+              artist: song.artists?.[0]?.name || "Unknown Artist",
+              artists: {
+                primary: song.artists || []
+              },
+              duration: 0, // YouTube API doesn't provide duration in playlist response
+              language: "unknown",
+              year: "",
+              albumId: "",
+              album: "",
+              label: "",
+              url: "",
+              copyright: "",
+              primaryArtists: song.artists?.map(artist => artist.name).join(", ") || "Unknown Artist",
+              singers: "",
+              composer: "",
+              lyricist: "",
+              producer: "",
+              genre: "",
+              playCount: 0,
+              explicitContent: 0,
+              downloadUrl: song.id
+            };
+            transformedSongs.push(transformedSong);
+          });
+        }
+
+        // Transform the playlist metadata
+        const transformedPlaylist = {
+          id: playlistData.playlist.id,
+          name: playlistData.playlist.title,
+          title: playlistData.playlist.title,
+          subtitle: `YouTube Music Playlist • ${transformedSongs.length} songs`,
+          type: "playlist",
+          image: playlistData.playlist.thumbnails?.map(thumb => ({
+            quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500",
+            url: thumb.url,
+            link: thumb.url
+          })) || [{
+            quality: "150x150",
+            url: "https://via.placeholder.com/150",
+            link: "https://via.placeholder.com/150"
+          }],
+          url: playlistData.playlist.id,
+          songCount: transformedSongs.length,
+          createdBy: "YouTube Music",
+          songs: transformedSongs,
+          duration: 0,
+          description: "",
+          explicit: false,
+          artists: "YouTube Music",
+          follower: `${transformedSongs.length} songs`
+        };
+
+        return {
+          status: "SUCCESS",
+          message: `Loaded playlist with ${transformedSongs.length} songs`,
+          data: transformedPlaylist,
+          success: true
+        };
+      }
+
+      return {
+        status: "FAILED",
+        message: "No playlist data found",
+        data: null,
+        success: false
+      };
+    } catch (error) {
+      console.error('YTMusic playlist fetch error:', error);
+      return {
+        status: "FAILED",
+        message: error.message || "Failed to fetch YTMusic playlist",
+        data: null,
+        success: false
+      };
+    }
+  };
+
+  try {
+    return await getCachedData(cacheKey, fetchFunction, 30, CACHE_GROUPS.PLAYLISTS); // Cache for 30 minutes
+  } catch (error) {
+    console.error(`Error getting YTMusic playlist data for ID ${playlistId}:`, error);
+    return {
+      success: false,
+      data: null,
+      error: error.message || 'Network or Cache Error'
+    };
+  }
+}
+
+async function getYTMusicAlbumData(albumId) {
+  const cacheKey = `ytmusic_album_${albumId}`;
+
+  const fetchFunction = async () => {
+    try {
+      // Using computer IP address for physical device/emulator access
+      const apiBaseURL = 'http://10.72.51.82:5001';
+
+      // Use the correct endpoint format: /api/album/<album_id>
+      const response = await axios.get(`${apiBaseURL}/api/album/${albumId}`, {
+        timeout: 15000
+      });
+
+      if (response.data && response.data.data) {
+        const albumData = response.data.data;
+
+        // Transform the tracks data to match Saavn format
+        const transformedSongs = [];
+        if (albumData.tracks && Array.isArray(albumData.tracks)) {
+          albumData.tracks.forEach(song => {
+            // Transform song data to Saavn format
+            const transformedSong = {
+              id: song.id,
+              name: song.title,
+              title: song.title,
+              subtitle: song.artists?.map(artist => artist.name).join(", ") || "Unknown Artist",
+              type: "song",
+              image: song.thumbnails?.map(thumb => ({
+                url: thumb.url,
+                quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500"
+              })) || [{
+                url: "https://via.placeholder.com/150",
+                quality: "150x150"
+              }],
+              artist: song.artists?.[0]?.name || "Unknown Artist",
+              artists: {
+                primary: song.artists || []
+              },
+              duration: 0, // YouTube API doesn't provide duration in album response
+              language: "unknown",
+              year: albumData.album?.year || "",
+              albumId: albumData.album?.id || albumId,
+              album: albumData.album?.title || "",
+              label: "",
+              url: "",
+              copyright: "",
+              primaryArtists: song.artists?.map(artist => artist.name).join(", ") || "Unknown Artist",
+              singers: "",
+              composer: "",
+              lyricist: "",
+              producer: "",
+              genre: "",
+              playCount: 0,
+              explicitContent: 0,
+              downloadUrl: song.id
+            };
+            transformedSongs.push(transformedSong);
+          });
+        }
+
+        // Transform the album metadata
+        const transformedAlbum = {
+          id: albumData.album?.id || albumId,
+          name: albumData.album?.title || "Unknown Album",
+          title: albumData.album?.title || "Unknown Album",
+          subtitle: albumData.album?.year ? `Album • ${albumData.album.year}` : "Album",
+          type: "album",
+          image: albumData.album?.thumbnails?.map(thumb => ({
+            quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500",
+            url: thumb.url,
+            link: thumb.url
+          })) || [{
+            quality: "150x150",
+            url: "https://via.placeholder.com/150",
+            link: "https://via.placeholder.com/150"
+          }],
+          artist: "Various Artists", // YouTube albums don't specify a single artist
+          artistId: "",
+          artists: "Various Artists",
+          url: albumData.album?.id || albumId,
+          duration: 0,
+          explicit: false,
+          language: "unknown",
+          playCount: 0,
+          year: albumData.album?.year || "",
+          songs: transformedSongs,
+          songCount: transformedSongs.length,
+          description: "",
+          label: "",
+          copyright: "",
+          primaryArtists: "Various Artists",
+          primaryArtistsId: "",
+          albumid: albumData.album?.id || albumId,
+          releaseDate: "",
+          songCountText: `${transformedSongs.length} songs`
+        };
+
+        return {
+          status: "SUCCESS",
+          message: `Loaded album with ${transformedSongs.length} songs`,
+          data: transformedAlbum,
+          success: true
+        };
+      }
+
+      return {
+        status: "FAILED",
+        message: "No album data found",
+        data: null,
+        success: false
+      };
+    } catch (error) {
+      console.error('YTMusic album fetch error:', error);
+      return {
+        status: "FAILED",
+        message: error.message || "Failed to fetch YTMusic album",
+        data: null,
+        success: false
+      };
+    }
+  };
+
+  try {
+    return await getCachedData(cacheKey, fetchFunction, 60, CACHE_GROUPS.ALBUMS); // Cache for 60 minutes
+  } catch (error) {
+    console.error(`Error getting YTMusic album data for ID ${albumId}:`, error);
+    return {
+      success: false,
+      data: null,
+      error: error.message || 'Network or Cache Error'
+    };
+  }
+}
+
 export {
   getYTMusicSearchSongData,
   getYTMusicSearchArtistData,
   getYTMusicSearchAlbumData,
   getYTMusicSearchPlaylistData,
-  getYTMusicHomeFeed
+  getYTMusicHomeFeed,
+  getYTMusicPlaylistData,
+  getYTMusicAlbumData
 };
