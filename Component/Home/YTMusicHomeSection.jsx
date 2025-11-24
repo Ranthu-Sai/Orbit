@@ -52,9 +52,9 @@ export const YTMusicHomeSection = () => {
 
   // Get the correct API base URL for React Native
   const getAPIBaseURL = () => {
-    // Using localhost after adb reverse port forwarding
-    // This works for both Android (after adb reverse) and iOS
-    return 'http://localhost:5001';
+    // Using computer IP address for physical device/emulator access
+    // This works for both Android and iOS physical devices
+    return 'http://10.72.51.82:5001';
   };
 
   // Debug function to test API directly

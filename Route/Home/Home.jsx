@@ -35,6 +35,34 @@ const shuffleArray = (array) => {
   return newArray;
 };
 
+// Helper function to get image URL from different data structures
+const getImageUrl = (imageData) => {
+  if (!imageData) return null;
+
+  // Handle YTMusic data structure (array of objects with url/link)
+  if (Array.isArray(imageData)) {
+    // Try to get the best quality image (usually index 2 or highest quality)
+    const bestImage = imageData.find(img => img.quality === "500x500") ||
+                     imageData[2] ||
+                     imageData[1] ||
+                     imageData[0];
+
+    return bestImage?.link || bestImage?.url || null;
+  }
+
+  // Handle regular data structure (direct URL string)
+  if (typeof imageData === 'string') {
+    return imageData;
+  }
+
+  // Handle object with direct url property
+  if (typeof imageData === 'object' && imageData.url) {
+    return imageData.url;
+  }
+
+  return null;
+};
+
 export const Home = () => {
   const [showHeader, setShowHeader] = useState(true);
   const [Language, setLanguage] = useState('english');
@@ -212,7 +240,7 @@ export const Home = () => {
                   name={truncateText(item.title || item.name, 30)}
                   follower={truncateText(item.subtitle || item.artists, 30)}
                   key={index}
-                  image={item.image?.[2]?.link || item.image?.[2]?.url}
+                  image={getImageUrl(item.image)}
                   id={item.id}
                   source="Home"
                   MainContainerStyle={{
@@ -246,7 +274,7 @@ export const Home = () => {
               )}
               renderItem={({ item, index }) => (
                 <EachAlbumCard
-                  image={item.image?.[2]?.link || item.image?.[2]?.url}
+                  image={getImageUrl(item.image)}
                   artists={truncateText(item.artists || item.artist, 30)}
                   key={index}
                   name={truncateText(item.name || item.title, 30)}

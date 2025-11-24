@@ -2,7 +2,7 @@ import axios from "axios";
 import { getCachedData, CACHE_GROUPS } from './CacheManager';
 import PythonBridgeService from '../Utils/PythonBridgeService';
 
-const YTMUSIC_API_BASE = "https://ytmusic-api-rest.onrender.com";
+const YTMUSIC_API_BASE = "";
 
 // Helper function to transform YTMusic song data to Saavn format
 function transformYTToSaavnSong(song) {
@@ -441,8 +441,8 @@ async function getYTMusicHomeFeed(limit = 10) {
 
   const fetchFunction = async () => {
     try {
-      // Using localhost after adb reverse port forwarding
-      const apiBaseURL = 'http://localhost:5001';
+      // Using computer IP address for physical device/emulator access
+      const apiBaseURL = 'http://10.72.51.82:5001';
       
       const response = await axios.get(`${apiBaseURL}/api/homefeed`, {
         params: {
@@ -535,7 +535,7 @@ async function getYTMusicHomeFeed(limit = 10) {
   };
 
   try {
-    return await getCachedData(cacheKey, fetchFunction, 10, CACHE_GROUPS.HOME); // Cache for 10 minutes
+    return await getCachedData(cacheKey, fetchFunction, 7200, CACHE_GROUPS.HOME); // Cache for 2 hours (7200 seconds)
   } catch (error) {
     console.error('Error getting YTMusic homefeed data:', error);
     return {

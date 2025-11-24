@@ -1,7 +1,6 @@
 import { MainWrapper } from "../Layout/MainWrapper";
 import Animated, { useAnimatedRef} from "react-native-reanimated";
 import { PlaylistTopHeader } from "../Component/Playlist/PlaylistTopHeader";
-
 import { View, BackHandler, Pressable, ActivityIndicator, StyleSheet, Dimensions, Text } from "react-native";
 import { EachSongCard } from "../Component/Global/EachSongCard";
 import { useEffect, useState, useCallback } from "react";
