@@ -62,7 +62,13 @@ class PythonBridgeModule(reactContext: ReactApplicationContext) : ReactContextBa
                 val hashMapParams = params.toHashMap()
 
                 // Call the Python function
-                val result = module.callAttr("call_function", functionName, hashMapParams)
+                // Python signature: call_function(func_name, params=None)
+                // Convert HashMap to Python dict properly by iterating entries
+                val pyDict = py.builtins.callAttr("dict")
+                hashMapParams.forEach { (key, value) ->
+                    pyDict.callAttr("__setitem__", key, value)
+                }
+                val result = module.callAttr("call_function", functionName, pyDict)
 
                 Log.i(TAG, "Python function call completed: $functionName")
 
@@ -131,13 +137,10 @@ class PythonBridgeModule(reactContext: ReactApplicationContext) : ReactContextBa
 
     private fun initializePythonInThread() {
         try {
-            // Uncomment when Chaquopy is properly configured:
-            /*
             if (!Python.isStarted()) {
                 Python.start(AndroidPlatform(reactApplicationContext))
             }
             pythonInitialized = true
-            */
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize Python in thread", e)
             throw e

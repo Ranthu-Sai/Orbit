@@ -4,6 +4,7 @@ import { GetPlaybackQuality } from "./LocalStorage/AppSettings";
 import NetInfo from "@react-native-community/netinfo";
 import { ToastAndroid } from "react-native";
 import historyManager from "./Utils/HistoryManager";
+import PythonBridgeService from "./Utils/PythonBridgeService";
 
 let isPlayerInitialized = false;
 
@@ -96,32 +97,64 @@ async function PlayOneSong(song) {
 
     // Get the appropriate URL based on playback quality setting
     let playbackUrl = song.url;
+    let updatedSong = { ...song };
 
-    // If song has multiple quality URLs, select based on setting
-    if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
-      const qualityIndex = await getIndexQuality();
-      if (song.downloadUrl[qualityIndex]?.url) {
-        playbackUrl = song.downloadUrl[qualityIndex].url;
-      } else {
-        // Fallback to any available URL
-        for (let i = song.downloadUrl.length - 1; i >= 0; i--) {
-          if (song.downloadUrl[i]?.url) {
-            playbackUrl = song.downloadUrl[i].url;
-            break;
+    // Check if this is a YouTube song (has videoId/id that looks like YouTube video ID)
+    const isYouTubeSong = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
+
+    if (isYouTubeSong) {
+      try {
+        console.log('Fetching YouTube stream for video ID:', song.id);
+        const streamData = await PythonBridgeService.getStreamUrl(song.id);
+
+        if (streamData && streamData.url) {
+          playbackUrl = streamData.url;
+          // Update song with stream data
+          updatedSong = {
+            ...updatedSong,
+            url: streamData.url,
+            artwork: streamData.thumbnail || updatedSong.artwork,
+            duration: streamData.duration || updatedSong.duration,
+            title: streamData.title || updatedSong.title,
+          };
+          console.log('YouTube stream URL fetched successfully');
+        } else {
+          console.error('Failed to get YouTube stream URL');
+          ToastAndroid.show('Failed to load YouTube stream', ToastAndroid.SHORT);
+          return;
+        }
+      } catch (error) {
+        console.error('Error fetching YouTube stream:', error);
+        ToastAndroid.show('Error loading YouTube stream', ToastAndroid.SHORT);
+        return;
+      }
+    } else {
+      // If song has multiple quality URLs, select based on setting
+      if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
+        const qualityIndex = await getIndexQuality();
+        if (song.downloadUrl[qualityIndex]?.url) {
+          playbackUrl = song.downloadUrl[qualityIndex].url;
+        } else {
+          // Fallback to any available URL
+          for (let i = song.downloadUrl.length - 1; i >= 0; i--) {
+            if (song.downloadUrl[i]?.url) {
+              playbackUrl = song.downloadUrl[i].url;
+              break;
+            }
           }
         }
-      }
-    } else if (song.download_url && Array.isArray(song.download_url)) {
-      // Alternative format
-      const qualityIndex = await getIndexQuality();
-      if (song.download_url[qualityIndex]?.url) {
-        playbackUrl = song.download_url[qualityIndex].url;
-      } else {
-        // Fallback to any available URL
-        for (let i = song.download_url.length - 1; i >= 0; i--) {
-          if (song.download_url[i]?.url) {
-            playbackUrl = song.download_url[i].url;
-            break;
+      } else if (song.download_url && Array.isArray(song.download_url)) {
+        // Alternative format
+        const qualityIndex = await getIndexQuality();
+        if (song.download_url[qualityIndex]?.url) {
+          playbackUrl = song.download_url[qualityIndex].url;
+        } else {
+          // Fallback to any available URL
+          for (let i = song.download_url.length - 1; i >= 0; i--) {
+            if (song.download_url[i]?.url) {
+              playbackUrl = song.download_url[i].url;
+              break;
+            }
           }
         }
       }
@@ -161,7 +194,7 @@ async function PlayOneSong(song) {
     const currentQuality = qualityNames[qualityIndex] || 'Unknown';
 
     const songForPlayback = {
-      ...song,
+      ...updatedSong,
       url: playbackUrl,
       currentPlayingQuality: currentQuality
     };
@@ -196,9 +229,114 @@ async function AddPlaylist (songs){
     const qualityNames = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
     const currentQuality = qualityNames[qualityIndex] || 'Unknown';
 
-    const processedSongs = songs.map(song => {
+    const processedSongs = await Promise.all(songs.map(async (song) => {
       let playbackUrl = song.url;
+      let updatedSong = { ...song };
 
+      // Check if this is a YouTube song
+      const isYouTubeSong = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
+
+      if (isYouTubeSong) {
+        try {
+          console.log('Fetching YouTube stream for playlist song:', song.id);
+          const streamData = await PythonBridgeService.getStreamUrl(song.id);
+
+          if (streamData && streamData.url) {
+            playbackUrl = streamData.url;
+            updatedSong = {
+              ...updatedSong,
+              url: streamData.url,
+              artwork: streamData.thumbnail || updatedSong.artwork,
+              duration: streamData.duration || updatedSong.duration,
+              title: streamData.title || updatedSong.title,
+            };
+          } else {
+            console.warn('Failed to get YouTube stream URL for playlist song, using original');
+          }
+        } catch (error) {
+          console.error('Error fetching YouTube stream for playlist song:', error);
+          // Continue with original URL
+        }
+      } else {
+        // Select appropriate quality URL
+        if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
+          if (song.downloadUrl[qualityIndex]?.url) {
+            playbackUrl = song.downloadUrl[qualityIndex].url;
+          } else {
+            // Fallback to any available URL
+            for (let i = song.downloadUrl.length - 1; i >= 0; i--) {
+              if (song.downloadUrl[i]?.url) {
+                playbackUrl = song.downloadUrl[i].url;
+                break;
+              }
+            }
+          }
+        } else if (song.download_url && Array.isArray(song.download_url)) {
+          // Alternative format
+          if (song.download_url[qualityIndex]?.url) {
+            playbackUrl = song.download_url[qualityIndex].url;
+          } else {
+            // Fallback to any available URL
+            for (let i = song.download_url.length - 1; i >= 0; i--) {
+              if (song.download_url[i]?.url) {
+                playbackUrl = song.download_url[i].url;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      return {
+        ...updatedSong,
+        url: playbackUrl,
+        currentPlayingQuality: currentQuality
+      };
+    }));
+
+    await TrackPlayer.reset();
+    await TrackPlayer.add(processedSongs);
+    await TrackPlayer.play();
+  } catch (error) {
+    console.error('Error in AddPlaylist:', error);
+  }
+}
+
+async function AddSongsToQueue(songs){
+  // Apply playback quality setting to songs being added to queue
+  const qualityIndex = await getIndexQuality();
+  const qualityNames = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
+  const currentQuality = qualityNames[qualityIndex] || 'Unknown';
+
+  const processedSongs = await Promise.all(songs.map(async (song) => {
+    let playbackUrl = song.url;
+    let updatedSong = { ...song };
+
+    // Check if this is a YouTube song
+    const isYouTubeSong = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
+
+    if (isYouTubeSong) {
+      try {
+        console.log('Fetching YouTube stream for playlist song:', song.id);
+        const streamData = await PythonBridgeService.getStreamUrl(song.id);
+
+        if (streamData && streamData.url) {
+          playbackUrl = streamData.url;
+          updatedSong = {
+            ...updatedSong,
+            url: streamData.url,
+            artwork: streamData.thumbnail || updatedSong.artwork,
+            duration: streamData.duration || updatedSong.duration,
+            title: streamData.title || updatedSong.title,
+          };
+        } else {
+          console.warn('Failed to get YouTube stream URL for playlist song, using original');
+        }
+      } catch (error) {
+        console.error('Error fetching YouTube stream for playlist song:', error);
+        // Continue with original URL
+      }
+    } else {
       // Select appropriate quality URL
       if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
         if (song.downloadUrl[qualityIndex]?.url) {
@@ -226,65 +364,14 @@ async function AddPlaylist (songs){
           }
         }
       }
-
-      return {
-        ...song,
-        url: playbackUrl,
-        currentPlayingQuality: currentQuality
-      };
-    });
-
-    await TrackPlayer.reset();
-    await TrackPlayer.add(processedSongs);
-    await TrackPlayer.play();
-  } catch (error) {
-    console.error('Error in AddPlaylist:', error);
-  }
-}
-
-async function AddSongsToQueue(songs){
-  // Apply playback quality setting to songs being added to queue
-  const qualityIndex = await getIndexQuality();
-  const qualityNames = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
-  const currentQuality = qualityNames[qualityIndex] || 'Unknown';
-
-  const processedSongs = songs.map(song => {
-    let playbackUrl = song.url;
-
-    // Select appropriate quality URL
-    if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
-      if (song.downloadUrl[qualityIndex]?.url) {
-        playbackUrl = song.downloadUrl[qualityIndex].url;
-      } else {
-        // Fallback to any available URL
-        for (let i = song.downloadUrl.length - 1; i >= 0; i--) {
-          if (song.downloadUrl[i]?.url) {
-            playbackUrl = song.downloadUrl[i].url;
-            break;
-          }
-        }
-      }
-    } else if (song.download_url && Array.isArray(song.download_url)) {
-      // Alternative format
-      if (song.download_url[qualityIndex]?.url) {
-        playbackUrl = song.download_url[qualityIndex].url;
-      } else {
-        // Fallback to any available URL
-        for (let i = song.download_url.length - 1; i >= 0; i--) {
-          if (song.download_url[i]?.url) {
-            playbackUrl = song.download_url[i].url;
-            break;
-          }
-        }
-      }
     }
 
     return {
-      ...song,
+      ...updatedSong,
       url: playbackUrl,
       currentPlayingQuality: currentQuality
     };
-  });
+  }));
 
   await TrackPlayer.add(processedSongs);
 }

@@ -5,6 +5,7 @@ import { EachPlaylistCard } from "../Global/EachPlaylistCard";
 import { EachAlbumCard } from "../Global/EachAlbumCard";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Spacer } from "../Global/Spacer";
+import PythonBridgeService from "../../Utils/PythonBridgeService";
 
 const { width } = Dimensions.get('window');
 
@@ -50,30 +51,20 @@ export const YTMusicHomeSection = () => {
     }
   };
 
-  // Get the correct API base URL for React Native
-  const getAPIBaseURL = () => {
-    // Using computer IP address for physical device/emulator access
-    // This works for both Android and iOS physical devices
-    return 'http://10.72.51.82:5001';
-  };
-
-  // Debug function to test API directly
-  const testAPIDirectly = async () => {
+  // Initialize Python bridge
+  const initializePythonBridge = async () => {
     try {
-      const apiURL = getAPIBaseURL();
-      console.log('🧪 Testing API directly at:', apiURL);
-      const response = await fetch(`${apiURL}/api/homefeed?limit=5`);
-      const data = await response.json();
-      console.log('🧪 Direct API test result:', {
-        status: data.status,
-        sectionsCount: data.data?.feed?.length || 0,
-        firstSection: data.data?.feed?.[0]?.sectionTitle || 'none'
-      });
-      return data;
+      const success = await PythonBridgeService.initialize();
+      if (success) {
+        console.log('✅ Python Bridge initialized successfully');
+        return true;
+      } else {
+        console.error('❌ Python Bridge initialization failed');
+        return false;
+      }
     } catch (error) {
-      console.error('🧪 Direct API test failed:', error.message);
-      console.error('💡 If on physical device, update API URL to your computer IP address');
-      return null;
+      console.error('❌ Python Bridge initialization error:', error);
+      return false;
     }
   };
 
@@ -81,88 +72,81 @@ export const YTMusicHomeSection = () => {
     try {
       if (!forceRefresh) setLoading(true);
 
-      // Force clear ALL possible cache keys
-      const possibleCacheKeys = [
-        'ytmusic_home_section',
-        'ytmusic_homefeed',
-        'yt_music_home',
-        'ytmusic_data',
-        'homefeed_data'
-      ];
+      // Clear local cache if forcing refresh
+      if (forceRefresh) {
+        const possibleCacheKeys = [
+          'ytmusic_home_section',
+          'ytmusic_homefeed',
+          'yt_music_home',
+          'ytmusic_data',
+          'homefeed_data'
+        ];
 
-      for (const key of possibleCacheKeys) {
-        await AsyncStorage.removeItem(key);
+        for (const key of possibleCacheKeys) {
+          await AsyncStorage.removeItem(key);
+        }
+        console.log('🧹 YTMusic Home - Cleared local cache keys');
       }
-      console.log('🧹 YTMusic Home - Cleared ALL cache keys, forcing fresh API call...');
 
-      // Fetch fresh data from REST API server
-      const apiURL = getAPIBaseURL();
-      console.log('🌐 YTMusic Home - Making API call to:', `${apiURL}/api/homefeed`);
+      console.log('🌐 YTMusic Home - Fetching data using Python bridge...');
+
+      // Fetch data using Python bridge
+      const homeData = await PythonBridgeService.getHomeFeed(15, forceRefresh);
+
+      console.log('📊 YTMusic Home - Python Response Summary:', {
+        sectionsCount: Array.isArray(homeData) ? homeData.length : 0,
+        firstSectionTitle: Array.isArray(homeData) && homeData[0]?.title ? homeData[0].title : 'none'
+      });
 
       let itemsArray = [];
 
-      const response = await fetch(`${apiURL}/api/homefeed?limit=10`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        timeout: 15000,
-      });
+      // Process the YTMusic API response (direct from Python)
+      if (Array.isArray(homeData) && homeData.length > 0) {
+        console.log(`YTMusic Home - Processing ${homeData.length} sections from Python API`);
 
-      console.log('📡 YTMusic Home - API Response Status:', response.status, response.statusText);
+        for (const section of homeData) {
+          const sectionTitle = section.title || 'Unknown Section';
+          console.log(`Processing section: "${sectionTitle}", contents: ${section.contents?.length || 0}`);
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const homeData = await response.json();
-      console.log('📊 YTMusic Home - API Response Summary:', {
-        status: homeData.status,
-        sectionsCount: homeData.data?.feed?.length || 0,
-        firstSectionTitle: homeData.data?.feed?.[0]?.sectionTitle || 'none'
-      });
-
-      // Only log full response if it's small
-      if (JSON.stringify(homeData).length < 1000) {
-        console.log('YTMusic Home - Raw API response:', JSON.stringify(homeData, null, 2));
-      }
-
-      // Handle the REST API response structure
-      if (homeData.status === 'success' && homeData.data && homeData.data.feed) {
-        console.log(`YTMusic Home - Processing ${homeData.data.feed.length} sections from API`);
-
-        for (const section of homeData.data.feed) {
-          console.log(`Processing section: "${section.sectionTitle}", items: ${section.items?.length || 0}`);
-
-          if (section.items && Array.isArray(section.items)) {
+          if (section.contents && Array.isArray(section.contents)) {
             // Filter playlists and albums (not songs)
-            const sectionItems = section.items
+            const sectionItems = section.contents
               .filter(item => {
-                const isPlaylistOrAlbum = item.type === 'playlist' || item.type === 'album';
-                console.log(`  Item: "${item.title}", type: ${item.type}, include: ${isPlaylistOrAlbum}`);
-                return isPlaylistOrAlbum;
+                // YTMusic API uses different type indicators
+                const isPlaylist = item.type === 'playlist' || item.playlistId;
+                const isAlbum = item.type === 'album' || item.album;
+                const include = isPlaylist || isAlbum;
+                console.log(`  Item: "${item.title}", type: ${item.type}, playlistId: ${!!item.playlistId}, album: ${!!item.album}, include: ${include}`);
+                return include;
               })
-              .map(item => ({
-                ...item,
-                sectionTitle: section.sectionTitle,
-                // Use id as primary identifier
-                downloadUrl: item.id
-              }));
+              .map(item => {
+                // Normalize the item structure
+                const normalizedItem = {
+                  id: item.playlistId || item.browseId || item.videoId || `yt_${Math.random()}`,
+                  title: item.title || 'Unknown Title',
+                  type: item.playlistId ? 'playlist' : 'album',
+                  thumbnails: item.thumbnails || item.thumbnail || [],
+                  artists: item.artists || [],
+                  year: item.year,
+                  sectionTitle: sectionTitle,
+                  downloadUrl: item.playlistId || item.browseId || item.videoId
+                };
+                return normalizedItem;
+              });
 
             if (sectionItems.length > 0) {
               itemsArray.push(...sectionItems);
-              console.log(`✅ Added ${sectionItems.length} items from section: "${section.sectionTitle}"`);
+              console.log(`✅ Added ${sectionItems.length} items from section: "${sectionTitle}"`);
             } else {
-              console.log(`⚠️  No playlists/albums found in section: "${section.sectionTitle}"`);
+              console.log(`⚠️  No playlists/albums found in section: "${sectionTitle}"`);
             }
           }
         }
       } else {
-        console.error('YTMusic Home - Invalid API response structure:', {
-          status: homeData.status,
-          hasData: !!homeData.data,
-          hasFeed: !!(homeData.data && homeData.data.feed)
+        console.error('YTMusic Home - Invalid Python response structure:', {
+          isArray: Array.isArray(homeData),
+          length: homeData?.length || 0,
+          type: typeof homeData
         });
       }
 
@@ -172,41 +156,33 @@ export const YTMusicHomeSection = () => {
       if (itemsArray.length > 0) {
         setYtMusicItems(itemsArray);
         setHasData(true);
-        setLoading(false); // ✅ FIX: Set loading to false after data is loaded
+        setLoading(false);
 
-        // Cache the data
+        // Cache the data locally
         await AsyncStorage.setItem('ytmusic_home_section', JSON.stringify(itemsArray));
         console.log('✅ YTMusic data cached successfully');
         console.log('🎉 YTMusic content ready to display!');
       } else {
-        console.log('⚠️  No playlists or albums found in API response');
+        console.log('⚠️  No playlists or albums found in Python response');
         setYtMusicItems([]);
         setHasData(false);
-        setLoading(false); // Set loading to false even if no data
+        setLoading(false);
       }
 
     } catch (error) {
       console.error('YTMusic homefeed error:', error);
 
       // Provide more detailed error information
-      if (error.name === 'TypeError' && error.message.includes('Network request failed')) {
-        console.error('Network Error Details:', {
-          message: 'Cannot connect to YTMusic API server',
-          suggestion: 'Make sure restapi_prod.py is running on port 5001',
-          command: 'python restapi_prod.py'
-        });
-      } else if (error.message.includes('HTTP')) {
-        console.error('HTTP Error Details:', {
-          error: error.message,
-          suggestion: 'Check if the API server is responding correctly'
+      if (error.message.includes('Python') || error.message.includes('ModuleNotFoundError')) {
+        console.error('Python Error Details:', {
+          message: error.message,
+          suggestion: 'Check if Python dependencies are installed and Python bridge is working'
         });
       }
 
       // Set empty array on error to prevent undefined
       setYtMusicItems([]);
       setHasData(false);
-
-      // Keep existing data if available - don't reset to undefined
     } finally {
       // Always set loading to false when done, regardless of forceRefresh
       setLoading(false);
@@ -221,17 +197,17 @@ export const YTMusicHomeSection = () => {
       // Step 1: Reset all caches
       await resetAllCaches();
 
-      // Step 2: Test API connection
-      console.log('🧪 Testing API connection...');
-      const testResult = await testAPIDirectly();
+      // Step 2: Initialize Python bridge
+      console.log('🔧 Initializing Python bridge...');
+      const bridgeReady = await initializePythonBridge();
 
-      if (testResult && testResult.status === 'success') {
-        console.log('✅ API test successful, proceeding with data fetch...');
+      if (bridgeReady) {
+        console.log('✅ Python bridge ready, proceeding with data fetch...');
         // Step 3: Fetch fresh data
         await fetchYTMusicHomeData(true);
       } else {
-        console.error('❌ API test failed, cannot fetch YTMusic data');
-        console.log('💡 Make sure restapi_prod.py is running on port 5001');
+        console.error('❌ Python bridge initialization failed, cannot fetch YTMusic data');
+        console.log('💡 Check Python dependencies and bridge setup');
       }
     };
 
@@ -261,8 +237,8 @@ export const YTMusicHomeSection = () => {
         link: thumb.url, // Add link property for compatibility
         quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500"
       })) || [{
-        url: "https://via.placeholder.com/150",
-        link: "https://via.placeholder.com/150",
+        url: bestThumbnail?.url || "https://via.placeholder.com/150",
+        link: bestThumbnail?.url || "https://via.placeholder.com/150",
         quality: "150x150"
       }];
 
@@ -273,14 +249,16 @@ export const YTMusicHomeSection = () => {
         subtitle: item.type === 'playlist'
           ? `YouTube Music Playlist • ${item.sectionTitle || 'Curated'}`
           : (item.year ? `Album • ${item.year}` : `Album • ${item.sectionTitle || 'YouTube Music'}`),
+        artist: item.artists?.[0]?.name || "YouTube Music",
+        artists: item.artists?.map(a => a.name).join(', ') || "YouTube Music",
         image: imageArray,
-        artist: "YouTube Music",
-        artists: "YouTube Music",
+        artist: item.artists?.[0]?.name || "YouTube Music",
+        artists: item.artists?.[0]?.name || "YouTube Music",
         duration: "0:00",
         language: "unknown",
         album: "",
         downloadUrl: item.id,
-        primaryArtists: "YouTube Music",
+        primaryArtists: item.artists?.[0]?.name || "YouTube Music",
         playlists: [],
         explicit: 0,
         views: "0",

@@ -510,19 +510,20 @@ export const Playlist = ({route}) => {
               const downloadUrlData = e?.downloadUrl || e?.download_url;
             
               return (
-                <EachSongCard 
-                  isFromPlaylist={true} 
-                  Data={Data} 
-                  index={i}  
-                  artist={formattedArtist} 
-                  language={e?.language} 
-                  artistID={e?.artist_id || e?.primary_artists_id} 
-                  key={i} 
-                  duration={e?.duration} 
-                  image={imageUrl} 
-                  id={e?.id} 
+                <EachSongCard
+                  isFromPlaylist={true}
+                  Data={Data}
+                  index={i}
+                  artist={formattedArtist}
+                  language={e?.language}
+                  artistID={e?.artist_id || e?.primary_artists_id}
+                  key={i}
+                  duration={e?.duration}
+                  image={imageUrl}
+                  id={e?.id}
                   url={downloadUrlData}
                   title={truncateText(e?.song || e?.name, 22)} // Update to 22 chars to match other truncations
+                  source={e?.source || 'saavn'}
                   style={styles.songCard}
                   showNumber={true} // Explicitly show numbers in playlist view
                 />

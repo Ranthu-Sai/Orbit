@@ -15,6 +15,7 @@ import EventRegister from '../../Utils/EventRegister';
 import Octicons from 'react-native-vector-icons/Octicons';
 import { requestStoragePermission } from '../../Utils/PermissionManager';
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
+import PythonBridgeService from '../../Utils/PythonBridgeService';
 
 export const EachSongCard = memo(function EachSongCard({title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', tidalUrl, truncateTitle = false, onDeleteComplete}) {
   const theme = useTheme();
@@ -264,7 +265,52 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
         ToastAndroid.show('Tidal support has been removed.', ToastAndroid.SHORT);
         return;
       } else if (source === 'ytmusic') {
-        ToastAndroid.show('YouTube Music streaming is not yet implemented.', ToastAndroid.SHORT);
+        // Handle YTMusic songs using Python bridge
+        try {
+          // Ensure Python bridge is initialized
+          const isInitialized = await PythonBridgeService.initialize();
+          if (!isInitialized) {
+            ToastAndroid.show('YouTube Music service not available.', ToastAndroid.SHORT);
+            return;
+          }
+
+          // Get stream URL from Python bridge
+          const streamResult = await PythonBridgeService.getStreamUrl(id);
+
+          if (streamResult && streamResult.url) {
+            const song = {
+              url: streamResult.url,
+              title: formatText(title),
+              artist: formatText(artist),
+              artwork: streamResult.thumbnail || safeImageUri,
+              image: streamResult.thumbnail || safeImageUri,
+              duration: streamResult.duration || duration,
+              id,
+              language,
+              artistID,
+              downloadUrl: id, // Store video ID for downloads
+              // Preserve additional metadata
+              ...(Data?.data?.results?.[index] && {
+                year: Data.data.results[index].year,
+                playCount: Data.data.results[index].playCount,
+                label: Data.data.results[index].label,
+                copyright: Data.data.results[index].copyright,
+                hasLyrics: Data.data.results[index].hasLyrics,
+                album: Data.data.results[index].album,
+                artists: Data.data.results[index].artists,
+                releaseDate: Data.data.results[index].releaseDate,
+                explicitContent: Data.data.results[index].explicitContent
+              })
+            };
+            PlayOneSong(song);
+          } else {
+            console.error('No stream URL returned from Python bridge:', streamResult);
+            ToastAndroid.show('Failed to get YouTube Music stream URL.', ToastAndroid.SHORT);
+          }
+        } catch (error) {
+          console.error('YTMusic streaming error:', error);
+          ToastAndroid.show('YouTube Music streaming failed.', ToastAndroid.SHORT);
+        }
         return;
       } else {
         // Handle Saavn songs (existing logic)

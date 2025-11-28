@@ -1,5 +1,6 @@
 import os
 import logging
+import tempfile
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from ytmusicapi import YTMusic
@@ -20,7 +21,21 @@ def log_request_info():
     logger.info(f'{request.method} {request.url} - {request.remote_addr}')
 
 # Public instance: default region/location; you may optionally create new instance per-request with region/lang
-yt_public = YTMusic(language='en', location='IN')
+# Initialize without browser for server environments
+yt_public = None
+
+def get_yt_public():
+    global yt_public
+    if yt_public is None:
+        try:
+            # Try to create YTMusic instance without browser for server environments
+            yt_public = YTMusic(language='en', location='IN')
+            logger.info("Public YTMusic instance created successfully")
+        except Exception as e:
+            logger.error(f"Failed to create public YTMusic instance: {e}")
+            # Don't raise here, let individual requests handle their own instances
+            yt_public = None
+    return yt_public
 
 # Simple in-memory cache (for single-instance deployment; consider Redis for multi-instance)
 _CACHE = {}
@@ -114,31 +129,52 @@ def api_homefeed():
     cached = _cache_get(key)
     if cached:
         return jsonify({"status":"success","data":{"feed":cached}})
-    yt = YTMusic(language=lang, location=region)
-    sections = yt.get_home(limit=limit)
-    feed = []
-    for sec in sections:
-        # Skip None sections to prevent TypeError
-        if sec is None:
-            continue
-        items = sec.get("contents", [])
-        mapped = []
-        for it in items:
-            # Skip None items to prevent TypeError
-            if it is None:
+    try:
+        # Create YTMusic instance without browser for server environments
+        yt = YTMusic(language=lang, location=region)
+        try:
+            sections = yt.get_home(limit=limit)
+        except Exception as yt_error:
+            logger.error(f"yt.get_home() failed: {str(yt_error)}")
+            sections = []  # Use empty list as fallback
+
+        # Ensure sections is a list, handle None or unexpected types
+        if sections is None:
+            logger.warning("yt.get_home() returned None, using empty list")
+            sections = []
+        elif not isinstance(sections, list):
+            logger.warning(f"yt.get_home() returned {type(sections)}, expected list, using empty list")
+            sections = []
+
+        feed = []
+        for sec in sections:
+            # Skip None sections to prevent TypeError
+            if sec is None or not isinstance(sec, dict):
                 continue
-            if "videoId" in it:
-                t = "song"
-            elif "playlistId" in it:
-                t = "playlist"
-            elif "browseId" in it:
-                t = "album"  # or artist – heuristic
-            else:
-                t = "unknown"
-            mapped.append(_normalize_item(it, t))
-        feed.append({"sectionTitle": sec.get("title"), "items": _dedupe(mapped)})
-    _cache_set(key, feed)
-    return jsonify({"status":"success","data":{"feed":feed}})
+            items = sec.get("contents", [])
+            # Handle case where contents is None
+            if items is None:
+                items = []
+            mapped = []
+            for it in items:
+                # Skip None items to prevent TypeError
+                if it is None or not isinstance(it, dict):
+                    continue
+                if "videoId" in it:
+                    t = "song"
+                elif "playlistId" in it:
+                    t = "playlist"
+                elif "browseId" in it:
+                    t = "album"  # or artist – heuristic
+                else:
+                    t = "unknown"
+                mapped.append(_normalize_item(it, t))
+            feed.append({"sectionTitle": sec.get("title"), "items": _dedupe(mapped)})
+        _cache_set(key, feed)
+        return jsonify({"status":"success","data":{"feed":feed}})
+    except Exception as e:
+        logger.error(f"api_homefeed failed: {str(e)}")
+        return jsonify({"status":"error","message":f"api_homefeed failed: {str(e)}"}), 500
 
 @app.route('/api/search/suggestions', methods=['GET'])
 def api_search_suggestions():

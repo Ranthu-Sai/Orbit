@@ -441,74 +441,91 @@ async function getYTMusicHomeFeed(limit = 10) {
 
   const fetchFunction = async () => {
     try {
-      // Using computer IP address for physical device/emulator access
-      const apiBaseURL = 'http://10.72.51.82:5001';
-      
-      const response = await axios.get(`${apiBaseURL}/api/homefeed`, {
-        params: {
-          limit: limit
-        },
-        timeout: 15000
-      });
+      // Use Python bridge for production (calls android/app/src/main/python/youtube_api.py)
+      console.log('🌐 YTMusic Home - Using Python bridge for homefeed...');
 
-      if (response.data && response.data.data && response.data.data.feed) {
-        // Transform the homefeed data to extract playlists and albums
-        const feedSections = response.data.data.feed;
+      const homeFeedData = await PythonBridgeService.getHomeFeed(limit);
 
-        // Extract playlists and albums from all sections
-        const playlists = [];
-        const albums = [];
+      if (homeFeedData && typeof homeFeedData === 'string') {
+        // Parse the JSON string returned by Python
+        const parsedData = JSON.parse(homeFeedData);
 
-        console.log('Processing YTMusic homefeed sections:', feedSections.length);
+        if (parsedData && Array.isArray(parsedData)) {
+          // Transform the homefeed data to extract playlists and albums
+          const feedSections = parsedData;
 
-        feedSections.forEach((section, sectionIndex) => {
-          console.log(`Section ${sectionIndex}: ${section.sectionTitle}, items: ${section.items?.length || 0}`);
-          
-          if (section.items && Array.isArray(section.items)) {
-            section.items.forEach((item, itemIndex) => {
-              console.log(`  Item ${itemIndex}: type=${item.type}, id=${item.id}, title=${item.title}`);
-              
-              if (item.type === 'playlist') {
-                // Transform playlist data
-                const transformedPlaylist = transformYTToSaavnPlaylist(item);
-                playlists.push(transformedPlaylist);
-                console.log('    Added playlist:', transformedPlaylist.title);
-              } else if (item.type === 'album') {
-                // Transform album data
-                const transformedAlbum = transformYTToSaavnAlbum(item);
-                albums.push(transformedAlbum);
-                console.log('    Added album:', transformedAlbum.title);
-              }
-            });
+          // Extract playlists and albums from all sections
+          const playlists = [];
+          const albums = [];
+
+          console.log('Processing YTMusic homefeed sections:', feedSections.length);
+
+          feedSections.forEach((section, sectionIndex) => {
+            console.log(`Section ${sectionIndex}: ${section.title}, items: ${section.contents?.length || 0}`);
+
+            if (section.contents && Array.isArray(section.contents)) {
+              section.contents.forEach((item, itemIndex) => {
+                console.log(`  Item ${itemIndex}: type=${item.videoId ? 'song' : item.playlistId ? 'playlist' : item.browseId ? 'album' : 'unknown'}, id=${item.videoId || item.playlistId || item.browseId || item.id}, title=${item.title}`);
+
+                // Determine item type based on available properties
+                let itemType = 'unknown';
+                if (item.playlistId) {
+                  itemType = 'playlist';
+                } else if (item.browseId) {
+                  itemType = 'album';
+                }
+
+                if (itemType === 'playlist') {
+                  // Transform playlist data
+                  const transformedPlaylist = transformYTToSaavnPlaylist({
+                    id: item.playlistId,
+                    title: item.title,
+                    thumbnails: item.thumbnails || []
+                  });
+                  playlists.push(transformedPlaylist);
+                  console.log('    Added playlist:', transformedPlaylist.title);
+                } else if (itemType === 'album') {
+                  // Transform album data
+                  const transformedAlbum = transformYTToSaavnAlbum({
+                    id: item.browseId,
+                    title: item.title,
+                    thumbnails: item.thumbnails || [],
+                    year: item.year || ''
+                  });
+                  albums.push(transformedAlbum);
+                  console.log('    Added album:', transformedAlbum.title);
+                }
+              });
+            }
+          });
+
+          console.log(`YTMusic homefeed processed: ${playlists.length} playlists, ${albums.length} albums`);
+
+          // Log sample data for debugging
+          if (playlists.length > 0) {
+            console.log('Sample playlist:', JSON.stringify(playlists[0], null, 2));
           }
-        });
+          if (albums.length > 0) {
+            console.log('Sample album:', JSON.stringify(albums[0], null, 2));
+          }
 
-        console.log(`YTMusic homefeed processed: ${playlists.length} playlists, ${albums.length} albums`);
-        
-        // Log sample data for debugging
-        if (playlists.length > 0) {
-          console.log('Sample playlist:', JSON.stringify(playlists[0], null, 2));
+          const finalPlaylists = playlists.slice(0, 20);
+          const finalAlbums = albums.slice(0, 20);
+
+          return {
+            status: "SUCCESS",
+            message: `Found ${finalPlaylists.length} playlists and ${finalAlbums.length} albums`,
+            data: {
+              playlists: finalPlaylists,
+              albums: finalAlbums,
+              feed: feedSections // Store the full feed for future use
+            },
+            success: true
+          };
         }
-        if (albums.length > 0) {
-          console.log('Sample album:', JSON.stringify(albums[0], null, 2));
-        }
-
-        const finalPlaylists = playlists.slice(0, 20);
-        const finalAlbums = albums.slice(0, 20);
-
-        return {
-          status: "SUCCESS",
-          message: `Found ${finalPlaylists.length} playlists and ${finalAlbums.length} albums`,
-          data: {
-            playlists: finalPlaylists,
-            albums: finalAlbums,
-            feed: feedSections // Store the full feed for future use
-          },
-          success: true
-        };
       }
 
-      console.log('YTMusic homefeed: No valid data structure found in response');
+      console.log('YTMusic homefeed: No valid data from Python bridge');
       return {
         status: "SUCCESS",
         message: "No data available",
@@ -574,6 +591,7 @@ async function getYTMusicPlaylistData(playlistId) {
               title: song.title,
               subtitle: song.artists?.map(artist => artist.name).join(", ") || "Unknown Artist",
               type: "song",
+              source: "ytmusic", // Mark as YTMusic song
               image: song.thumbnails?.map(thumb => ({
                 url: thumb.url,
                 quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500"
@@ -698,6 +716,7 @@ async function getYTMusicAlbumData(albumId) {
               title: song.title,
               subtitle: song.artists?.map(artist => artist.name).join(", ") || "Unknown Artist",
               type: "song",
+              source: "ytmusic", // Mark as YTMusic song
               image: song.thumbnails?.map(thumb => ({
                 url: thumb.url,
                 quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500"

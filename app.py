@@ -1,3 +1,5 @@
+import os
+import tempfile
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from ytmusicapi import YTMusic
@@ -12,10 +14,19 @@ logger = logging.getLogger(__name__)
 
 
 try:
-    ytmusic = YTMusic(language='en', location='IN')
+    # Use temporary directory for database in environments where home directory is not accessible
+    import tempfile
+    auth_file_path = os.path.join(tempfile.gettempdir(), 'ytmusic_auth.db')
+    ytmusic = YTMusic(language='en', location='IN', auth_file=auth_file_path)
 except Exception as e:
     logger.error(f"YTMusic initialization failed: {str(e)}")
-    ytmusic = None
+    # Fallback: try without auth_file parameter
+    try:
+        ytmusic = YTMusic(language='en', location='IN')
+        logger.info("YTMusic initialized with default auth")
+    except Exception as e2:
+        logger.error(f"YTMusic initialization failed even with fallback: {str(e2)}")
+        ytmusic = None
 
 def yt_search(song_name, artist_name=""):
     if not ytmusic:

@@ -283,22 +283,23 @@ export const Album = ({route}) => {
             gap: 0, // No gap between song cards
           }}>
             {Data?.data?.songs?.map((e,i)=>
-              <EachSongCard 
-                isFromPlaylist={true} 
+              <EachSongCard
+                isFromPlaylist={true}
                 isFromAlbum={true}
-                Data={Data} 
-                index={i} 
-                artist={FormatArtist(e?.artists?.primary)} 
-                language={e?.language} 
-                playlist={true} 
-                artistID={e?.primary_artists_id} 
-                key={i} 
-                duration={e?.duration} 
+                Data={Data}
+                index={i}
+                artist={FormatArtist(e?.artists?.primary)}
+                language={e?.language}
+                playlist={true}
+                artistID={e?.primary_artists_id}
+                key={i}
+                duration={e?.duration}
                 image={getValidImageUrl(e?.image?.[2]?.url || e?.images?.[2]?.url)}
-                id={e?.id} 
-                width={"100%"} 
-                title={e?.name}  
-                url={e?.downloadUrl} 
+                id={e?.id}
+                width={"100%"}
+                title={e?.name}
+                url={e?.downloadUrl}
+                source={e?.source || 'saavn'}
                 style={{
                   marginBottom: 0, // Remove bottom margin
                   borderRadius: 0, // Remove border radius
