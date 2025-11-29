@@ -395,6 +395,72 @@ except Exception as e:
     logger.error(f"Cache initialization failed during module load: {e}")
     _cache_initialized = False
 
+def get_playlist(playlist_id):
+    """Get playlist details and tracks"""
+    cache_key = _get_cache_key("playlist", playlist_id=playlist_id)
+
+    # Try cache first
+    cached = _get_cached_result(cache_key)
+    if cached:
+        logger.info(f"Returning cached playlist for: {playlist_id}")
+        return json.dumps(cached)
+
+    try:
+        logger.info(f"Getting playlist for: {playlist_id}")
+        ytmusic = get_ytmusic_session()
+        
+        # Handle database/operational errors specifically
+        try:
+            playlist_data = ytmusic.get_playlist(playlist_id, limit=None)
+        except Exception as db_error:
+            if "unable to open database file" in str(db_error).lower() or "operationalerror" in str(db_error).lower():
+                logger.error(f"Database access error in get_playlist: {db_error}")
+                # Return empty playlist to prevent app crash
+                playlist_data = {"playlist": {}, "tracks": []}
+            else:
+                raise db_error
+
+        # Cache the result
+        _set_cached_result(cache_key, playlist_data)
+        return json.dumps(playlist_data)
+
+    except Exception as e:
+        logger.error(f"Playlist error for {playlist_id}: {e}")
+        return json.dumps({"error": str(e), "playlist": {}, "tracks": []})
+
+def get_album(album_id):
+    """Get album details and tracks"""
+    cache_key = _get_cache_key("album", album_id=album_id)
+
+    # Try cache first
+    cached = _get_cached_result(cache_key)
+    if cached:
+        logger.info(f"Returning cached album for: {album_id}")
+        return json.dumps(cached)
+
+    try:
+        logger.info(f"Getting album for: {album_id}")
+        ytmusic = get_ytmusic_session()
+        
+        # Handle database/operational errors specifically
+        try:
+            album_data = ytmusic.get_album(album_id)
+        except Exception as db_error:
+            if "unable to open database file" in str(db_error).lower() or "operationalerror" in str(db_error).lower():
+                logger.error(f"Database access error in get_album: {db_error}")
+                # Return empty album to prevent app crash
+                album_data = {"album": {}, "tracks": []}
+            else:
+                raise db_error
+
+        # Cache the result
+        _set_cached_result(cache_key, album_data)
+        return json.dumps(album_data)
+
+    except Exception as e:
+        logger.error(f"Album error for {album_id}: {e}")
+        return json.dumps({"error": str(e), "album": {}, "tracks": []})
+
 def get_video_info(video_id):
     """Get detailed video information using pytubefix"""
     try:
@@ -564,6 +630,10 @@ def call_function(func_name, params=None):
             return get_charts(params.get('country', 'IN'))
         elif func_name == "search_and_stream":
             return search_and_stream(params.get('song_name', ''), params.get('artist_name', ''))
+        elif func_name == "get_playlist":
+            return get_playlist(params.get('playlist_id', ''))
+        elif func_name == "get_album":
+            return get_album(params.get('album_id', ''))
         elif func_name == "get_video_info":
             return get_video_info(params.get('video_id', ''))
         elif func_name == "get_adaptive_streams":

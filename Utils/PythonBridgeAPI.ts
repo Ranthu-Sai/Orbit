@@ -255,6 +255,20 @@ export class PythonBridgeAPI {
   }
 
   /**
+   * Get playlist details and tracks
+   */
+  static async getPlaylist(playlistId: string): Promise<any> {
+    return this.callPythonFunction('get_playlist', { playlist_id: playlistId });
+  }
+
+  /**
+   * Get album details and tracks
+   */
+  static async getAlbum(albumId: string): Promise<any> {
+    return this.callPythonFunction('get_album', { album_id: albumId });
+  }
+
+  /**
    * Clear Python cache
    */
   static async clearCache(): Promise<PythonBridgeResult> {

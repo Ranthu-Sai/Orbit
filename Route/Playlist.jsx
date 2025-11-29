@@ -498,13 +498,31 @@ export const Playlist = ({route}) => {
           />
 
           <View style={[styles.songsContainer, { backgroundColor: theme.dark ? 'rgb(16,16,16)' : '#FFFFFF' }]}>
-            {Data?.data?.songs?.map((e, i) => {
+            {Data?.data?.songs?.slice(0, 100).map((e, i) => {
               // Process artist data to avoid [object Object] display
               const artistData = e?.artists || e?.primary_artists;
               const formattedArtist = formatArtistData(artistData);
               
-              // Get proper image URL
-              const imageUrl = getValidImageUrl(ensureStringUrl(e?.image?.[2]?.url || e?.images?.[2]?.url));
+              // Get proper image URL - handle both array and direct URL formats
+              let imageUrl = '';
+              if (e?.image) {
+                if (Array.isArray(e.image)) {
+                  // If it's an array, get the highest quality (last item or index 2)
+                  const imageItem = e.image[2] || e.image[e.image.length - 1] || e.image[0];
+                  imageUrl = imageItem?.url || imageItem?.link || '';
+                } else if (typeof e.image === 'string') {
+                  imageUrl = e.image;
+                }
+              }
+              
+              // Fallback to images property if image is not available
+              if (!imageUrl && e?.images && Array.isArray(e.images)) {
+                const imageItem = e.images[2] || e.images[e.images.length - 1] || e.images[0];
+                imageUrl = imageItem?.url || imageItem?.link || '';
+              }
+              
+              // Final validation
+              imageUrl = getValidImageUrl(imageUrl);
               
               // Get download URL properly for menu options
               const downloadUrlData = e?.downloadUrl || e?.download_url;
@@ -517,7 +535,7 @@ export const Playlist = ({route}) => {
                   artist={formattedArtist}
                   language={e?.language}
                   artistID={e?.artist_id || e?.primary_artists_id}
-                  key={i}
+                  key={`song-${i}-${e?.id}`}
                   duration={e?.duration}
                   image={imageUrl}
                   id={e?.id}
@@ -529,6 +547,13 @@ export const Playlist = ({route}) => {
                 />
               );
             })}
+            {Data?.data?.songs?.length > 100 && (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <Text style={{ color: theme.colors.text, opacity: 0.6 }}>
+                  Showing first 100 songs of {Data.data.songs.length}
+                </Text>
+              </View>
+            )}
             {/* Add view to hide the "No music" player at bottom */}
             <View style={styles.bottomSpacer} />
           </View>

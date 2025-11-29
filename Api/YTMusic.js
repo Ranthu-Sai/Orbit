@@ -1,8 +1,5 @@
-import axios from "axios";
 import { getCachedData, CACHE_GROUPS } from './CacheManager';
 import PythonBridgeService from '../Utils/PythonBridgeService';
-
-const YTMUSIC_API_BASE = "";
 
 // Helper function to transform YTMusic song data to Saavn format
 function transformYTToSaavnSong(song) {
@@ -64,19 +61,22 @@ function transformYTToSaavnArtist(artist) {
     });
   }
 
+  // Handle both 'browseId' and 'id' field names
+  const artistId = artist.browseId || artist.id;
+
   return {
-    id: artist.id,
-    name: artist.name,
-    title: artist.name,
-    subtitle: `${artist.type} • ${artist.drawName || artist.category || "Artist"}`,
+    id: artistId,
+    name: artist.artist || artist.name,
+    title: artist.artist || artist.name,
+    subtitle: `${artist.type || "Artist"} • ${artist.subscribers || ""}`,
     type: "artist",
     image: imageArray.length > 0 ? imageArray : [{
       url: "https://via.placeholder.com/150",
       quality: "150x150"
     }],
-    url: artist.id,
+    url: artistId,
     role: "",
-    artistId: artist.id,
+    artistId: artistId,
     followerCount: 0,
     follower_count: 0,
     fan_count: 0,
@@ -99,16 +99,21 @@ function transformYTToSaavnAlbum(album) {
   const imageArray = [];
   if (album.thumbnails && Array.isArray(album.thumbnails)) {
     album.thumbnails.forEach((thumbnail) => {
+      const imageUrl = thumbnail.link || thumbnail.url;
       imageArray.push({
-        url: thumbnail.url,
-        link: thumbnail.url, // Add link property for compatibility
+        url: imageUrl,
+        link: imageUrl, // Add link property for compatibility
         quality: thumbnail.height <= 226 ? "150x150" : "500x500"
       });
     });
   }
 
+  // Handle both 'browseId' and 'id' field names
+  const albumId = album.browseId || album.id;
+  const artistName = album.artists?.[0]?.name || "Various Artists";
+
   return {
-    id: album.id,
+    id: albumId,
     name: album.title,
     title: album.title,
     subtitle: album.year ? `Album • ${album.year}` : "Album",
@@ -118,12 +123,12 @@ function transformYTToSaavnAlbum(album) {
       link: "https://via.placeholder.com/150",
       quality: "150x150"
     }],
-    artist: "Various Artists",
-    artistId: "",
-    artists: "Various Artists",
-    url: album.id,
+    artist: artistName,
+    artistId: album.artists?.[0]?.id || "",
+    artists: artistName,
+    url: albumId,
     duration: 0,
-    explicit: false,
+    explicit: album.isExplicit || false,
     language: "unknown",
     playCount: 0,
     year: album.year || "",
@@ -138,33 +143,38 @@ function transformYTToSaavnPlaylist(playlist) {
   const imageArray = [];
   if (playlist.thumbnails && Array.isArray(playlist.thumbnails)) {
     playlist.thumbnails.forEach((thumbnail, index) => {
+      const imageUrl = thumbnail.link || thumbnail.url;
       imageArray.push({
         quality: thumbnail.height <= 192 ? "50x50" : thumbnail.height <= 226 ? "150x150" : "500x500",
-        url: thumbnail.url,
-        link: thumbnail.url // This is what EachPlaylistCard expects
+        url: imageUrl,
+        link: imageUrl // This is what EachPlaylistCard expects
       });
     });
   }
 
+  // Handle both 'browseId' and 'id' field names
+  const playlistId = playlist.browseId || playlist.id;
+  const author = playlist.author || "YouTube Music";
+
   return {
-    id: playlist.id,
+    id: playlistId,
     name: playlist.title,
     title: playlist.title,
-    subtitle: "YouTube Music Playlist",
+    subtitle: `${author} • ${playlist.itemCount || playlist.count || 0} songs`,
     type: "playlist",
     image: imageArray.length > 0 ? imageArray : [{
       quality: "150x150",
       url: "https://via.placeholder.com/150",
       link: "https://via.placeholder.com/150"
     }],
-    url: playlist.id,
-    songCount: 0,
-    createdBy: "YouTube Music",
+    url: playlistId,
+    songCount: playlist.itemCount || playlist.count || 0,
+    createdBy: author,
     songs: [],
     duration: 0,
     description: "",
     explicit: false,
-    artists: "YouTube Music" // Add artists property for compatibility
+    artists: author // Add artists property for compatibility
   };
 }
 
@@ -374,18 +384,15 @@ async function getYTMusicSearchPlaylistData(searchText, page = 1, limit = 20) {
 
   const fetchFunction = async () => {
     try {
-      // Remove spaces from search query for YTMusic API
-      const apiQuery = searchText.replace(/\s+/g, '');
-      const response = await axios.get(`${YTMUSIC_API_BASE}/api/search`, {
-        params: {
-          query: apiQuery,
-          filter: "playlists"
-        },
-        timeout: 10000
-      });
+      console.log(`🌐 YTMusic Search Playlists - Using Python bridge for query: ${searchText}`);
 
-      if (response.data?.data?.results) {
-        const transformedResults = response.data.data.results.map(transformYTToSaavnPlaylist);
+      // Use Python bridge for production
+      const searchResults = await PythonBridgeService.search(searchText, 'playlists', limit);
+
+      if (searchResults && Array.isArray(searchResults)) {
+        const transformedResults = searchResults.map(transformYTToSaavnPlaylist);
+
+        console.log(`✅ YTMusic Search Playlists - Found ${transformedResults.length} playlists for: ${searchText}`);
 
         return {
           status: "SUCCESS",
@@ -399,6 +406,7 @@ async function getYTMusicSearchPlaylistData(searchText, page = 1, limit = 20) {
         };
       }
 
+      console.log('YTMusic Search Playlists - No results found');
       return {
         status: "SUCCESS",
         message: "",
@@ -569,45 +577,65 @@ async function getYTMusicPlaylistData(playlistId) {
 
   const fetchFunction = async () => {
     try {
-      // Using computer IP address for physical device/emulator access
-      const apiBaseURL = 'http://10.72.51.82:5001';
+      console.log(`🌐 YTMusic Playlist - Using Python bridge for playlist: ${playlistId}`);
 
-      // Use the correct endpoint format: /api/playlist/<playlist_id>
-      const response = await axios.get(`${apiBaseURL}/api/playlist/${playlistId}`, {
-        timeout: 15000
-      });
+      // Use Python bridge for production
+      const playlistData = await PythonBridgeService.getPlaylist(playlistId);
 
-      if (response.data && response.data.data) {
-        const playlistData = response.data.data;
-
+      if (playlistData && !playlistData.error) {
         // Transform the tracks data to match Saavn format
         const transformedSongs = [];
         if (playlistData.tracks && Array.isArray(playlistData.tracks)) {
-          playlistData.tracks.forEach(song => {
+          // Limit processing to avoid excessive callbacks
+          const tracksToProcess = playlistData.tracks.slice(0, 500); // Limit to 500 songs max
+
+          for (const song of tracksToProcess) {
+            // Skip null/invalid songs
+            if (!song || !song.title) {
+              continue;
+            }
+
+            // Get the best quality thumbnail
+            let thumbnailUrl = "https://via.placeholder.com/150";
+            if (song.thumbnails && Array.isArray(song.thumbnails) && song.thumbnails.length > 0) {
+              // Get highest quality thumbnail (last one is usually highest)
+              const bestThumb = song.thumbnails[song.thumbnails.length - 1];
+              thumbnailUrl = bestThumb?.url || thumbnailUrl;
+            }
+
             // Transform song data to Saavn format
             const transformedSong = {
-              id: song.id,
+              id: song.videoId || song.id,
               name: song.title,
               title: song.title,
               subtitle: song.artists?.map(artist => artist.name).join(", ") || "Unknown Artist",
               type: "song",
               source: "ytmusic", // Mark as YTMusic song
+              // Use array format with url property for compatibility
               image: song.thumbnails?.map(thumb => ({
                 url: thumb.url,
                 quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500"
               })) || [{
-                url: "https://via.placeholder.com/150",
+                url: thumbnailUrl,
+                quality: "150x150"
+              }],
+              // Also add direct image URL for components that expect it
+              images: song.thumbnails?.map(thumb => ({
+                url: thumb.url,
+                quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500"
+              })) || [{
+                url: thumbnailUrl,
                 quality: "150x150"
               }],
               artist: song.artists?.[0]?.name || "Unknown Artist",
               artists: {
                 primary: song.artists || []
               },
-              duration: 0, // YouTube API doesn't provide duration in playlist response
+              duration: song.duration || 0,
               language: "unknown",
               year: "",
               albumId: "",
-              album: "",
+              album: song.album?.name || "",
               label: "",
               url: "",
               copyright: "",
@@ -619,38 +647,43 @@ async function getYTMusicPlaylistData(playlistId) {
               genre: "",
               playCount: 0,
               explicitContent: 0,
-              downloadUrl: song.id
+              downloadUrl: song.videoId || song.id
             };
             transformedSongs.push(transformedSong);
-          });
+          }
         }
 
         // Transform the playlist metadata
         const transformedPlaylist = {
-          id: playlistData.playlist.id,
-          name: playlistData.playlist.title,
-          title: playlistData.playlist.title,
+          id: playlistData.id || playlistId,
+          name: playlistData.title || "Playlist",
+          title: playlistData.title || "Playlist",
           subtitle: `YouTube Music Playlist • ${transformedSongs.length} songs`,
           type: "playlist",
-          image: playlistData.playlist.thumbnails?.map(thumb => ({
-            quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500",
-            url: thumb.url,
-            link: thumb.url
-          })) || [{
+          image: playlistData.thumbnails?.map(thumb => {
+            const imageUrl = thumb.link || thumb.url;
+            return {
+              quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500",
+              url: imageUrl,
+              link: imageUrl
+            };
+          }) || [{
             quality: "150x150",
             url: "https://via.placeholder.com/150",
             link: "https://via.placeholder.com/150"
           }],
-          url: playlistData.playlist.id,
+          url: playlistData.id || playlistId,
           songCount: transformedSongs.length,
-          createdBy: "YouTube Music",
+          createdBy: playlistData.author || "YouTube Music",
           songs: transformedSongs,
-          duration: 0,
-          description: "",
+          duration: playlistData.duration || 0,
+          description: playlistData.description || "",
           explicit: false,
           artists: "YouTube Music",
           follower: `${transformedSongs.length} songs`
         };
+
+        console.log(`✅ YTMusic Playlist - Loaded ${transformedSongs.length} songs from playlist: ${transformedPlaylist.name}`);
 
         return {
           status: "SUCCESS",
@@ -660,9 +693,10 @@ async function getYTMusicPlaylistData(playlistId) {
         };
       }
 
+      console.log('YTMusic Playlist - No valid data from Python bridge');
       return {
         status: "FAILED",
-        message: "No playlist data found",
+        message: playlistData?.error || "No playlist data found",
         data: null,
         success: false
       };
@@ -694,45 +728,71 @@ async function getYTMusicAlbumData(albumId) {
 
   const fetchFunction = async () => {
     try {
-      // Using computer IP address for physical device/emulator access
-      const apiBaseURL = 'http://10.72.51.82:5001';
+      console.log(`🌐 YTMusic Album - Using Python bridge for album: ${albumId}`);
 
-      // Use the correct endpoint format: /api/album/<album_id>
-      const response = await axios.get(`${apiBaseURL}/api/album/${albumId}`, {
-        timeout: 15000
-      });
+      // Use Python bridge for production
+      const albumData = await PythonBridgeService.getAlbum(albumId);
 
-      if (response.data && response.data.data) {
-        const albumData = response.data.data;
-
+      if (albumData && !albumData.error) {
         // Transform the tracks data to match Saavn format
         const transformedSongs = [];
         if (albumData.tracks && Array.isArray(albumData.tracks)) {
-          albumData.tracks.forEach(song => {
+          // Limit processing to avoid excessive callbacks
+          const tracksToProcess = albumData.tracks.slice(0, 500); // Limit to 500 songs max
+
+          for (const song of tracksToProcess) {
+            // Skip null/invalid songs
+            if (!song || !song.title) {
+              continue;
+            }
+
+            // Get the best quality thumbnail
+            let thumbnails = song.thumbnails;
+            if (!thumbnails || !Array.isArray(thumbnails) || thumbnails.length === 0) {
+              // Fallback to album thumbnails if song thumbnails are missing
+              thumbnails = albumData.thumbnails;
+            }
+
+            let thumbnailUrl = "https://via.placeholder.com/150";
+            if (thumbnails && Array.isArray(thumbnails) && thumbnails.length > 0) {
+              // Get highest quality thumbnail (last one is usually highest)
+              const bestThumb = thumbnails[thumbnails.length - 1];
+              thumbnailUrl = bestThumb?.url || bestThumb?.link || thumbnailUrl;
+            }
+
             // Transform song data to Saavn format
             const transformedSong = {
-              id: song.id,
+              id: song.videoId || song.id,
               name: song.title,
               title: song.title,
               subtitle: song.artists?.map(artist => artist.name).join(", ") || "Unknown Artist",
               type: "song",
               source: "ytmusic", // Mark as YTMusic song
-              image: song.thumbnails?.map(thumb => ({
-                url: thumb.url,
+              // Use array format with url property for compatibility
+              image: thumbnails?.map(thumb => ({
+                url: thumb.url || thumb.link,
                 quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500"
               })) || [{
-                url: "https://via.placeholder.com/150",
+                url: thumbnailUrl,
+                quality: "150x150"
+              }],
+              // Also add direct image URL for components that expect it
+              images: thumbnails?.map(thumb => ({
+                url: thumb.url || thumb.link,
+                quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500"
+              })) || [{
+                url: thumbnailUrl,
                 quality: "150x150"
               }],
               artist: song.artists?.[0]?.name || "Unknown Artist",
               artists: {
                 primary: song.artists || []
               },
-              duration: 0, // YouTube API doesn't provide duration in album response
+              duration: song.duration || 0,
               language: "unknown",
-              year: albumData.album?.year || "",
-              albumId: albumData.album?.id || albumId,
-              album: albumData.album?.title || "",
+              year: albumData.year || "",
+              albumId: albumData.browseId || albumId,
+              album: albumData.title || "",
               label: "",
               url: "",
               copyright: "",
@@ -744,48 +804,53 @@ async function getYTMusicAlbumData(albumId) {
               genre: "",
               playCount: 0,
               explicitContent: 0,
-              downloadUrl: song.id
+              downloadUrl: song.videoId || song.id
             };
             transformedSongs.push(transformedSong);
-          });
+          }
         }
 
         // Transform the album metadata
         const transformedAlbum = {
-          id: albumData.album?.id || albumId,
-          name: albumData.album?.title || "Unknown Album",
-          title: albumData.album?.title || "Unknown Album",
-          subtitle: albumData.album?.year ? `Album • ${albumData.album.year}` : "Album",
+          id: albumData.browseId || albumId,
+          name: albumData.title || "Unknown Album",
+          title: albumData.title || "Unknown Album",
+          subtitle: albumData.year ? `Album • ${albumData.year}` : "Album",
           type: "album",
-          image: albumData.album?.thumbnails?.map(thumb => ({
-            quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500",
-            url: thumb.url,
-            link: thumb.url
-          })) || [{
+          image: albumData.thumbnails?.map(thumb => {
+            const imageUrl = thumb.link || thumb.url;
+            return {
+              quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500",
+              url: imageUrl,
+              link: imageUrl
+            };
+          }) || [{
             quality: "150x150",
             url: "https://via.placeholder.com/150",
             link: "https://via.placeholder.com/150"
           }],
-          artist: "Various Artists", // YouTube albums don't specify a single artist
-          artistId: "",
-          artists: "Various Artists",
-          url: albumData.album?.id || albumId,
-          duration: 0,
+          artist: albumData.artists?.[0]?.name || "Various Artists",
+          artistId: albumData.artists?.[0]?.id || "",
+          artists: albumData.artists?.map(a => a.name).join(", ") || "Various Artists",
+          url: albumData.browseId || albumId,
+          duration: albumData.duration || 0,
           explicit: false,
           language: "unknown",
           playCount: 0,
-          year: albumData.album?.year || "",
+          year: albumData.year || "",
           songs: transformedSongs,
           songCount: transformedSongs.length,
-          description: "",
+          description: albumData.description || "",
           label: "",
           copyright: "",
-          primaryArtists: "Various Artists",
-          primaryArtistsId: "",
-          albumid: albumData.album?.id || albumId,
+          primaryArtists: albumData.artists?.map(a => a.name).join(", ") || "Various Artists",
+          primaryArtistsId: albumData.artists?.[0]?.id || "",
+          albumid: albumData.browseId || albumId,
           releaseDate: "",
           songCountText: `${transformedSongs.length} songs`
         };
+
+        console.log(`✅ YTMusic Album - Loaded ${transformedSongs.length} songs from album: ${transformedAlbum.name}`);
 
         return {
           status: "SUCCESS",
@@ -795,9 +860,10 @@ async function getYTMusicAlbumData(albumId) {
         };
       }
 
+      console.log('YTMusic Album - No valid data from Python bridge');
       return {
         status: "FAILED",
-        message: "No album data found",
+        message: albumData?.error || "No album data found",
         data: null,
         success: false
       };

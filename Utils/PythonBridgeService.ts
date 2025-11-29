@@ -333,6 +333,52 @@ export class PythonBridgeService {
   }
 
   /**
+   * Get playlist details and tracks with caching
+   */
+  static async getPlaylist(playlistId: string, forceFresh: boolean = false) {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    const cacheKey = `python_playlist_${playlistId}`;
+
+    if (!forceFresh) {
+      const cached = await this.getCachedResult(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    console.log(`Getting playlist: ${playlistId}`);
+    const playlist = await PythonBridgeAPI.getPlaylist(playlistId);
+    await this.setCachedResult(cacheKey, playlist, 'homeFeed'); // Use homeFeed cache duration
+    return playlist;
+  }
+
+  /**
+   * Get album details and tracks with caching
+   */
+  static async getAlbum(albumId: string, forceFresh: boolean = false) {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    const cacheKey = `python_album_${albumId}`;
+
+    if (!forceFresh) {
+      const cached = await this.getCachedResult(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    console.log(`Getting album: ${albumId}`);
+    const album = await PythonBridgeAPI.getAlbum(albumId);
+    await this.setCachedResult(cacheKey, album, 'homeFeed'); // Use homeFeed cache duration
+    return album;
+  }
+
+  /**
    * Get cache statistics
    */
   static async getCacheStats() {

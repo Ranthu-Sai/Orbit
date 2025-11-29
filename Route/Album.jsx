@@ -282,31 +282,61 @@ export const Album = ({route}) => {
             backgroundColor: theme.dark ? 'rgb(16,16,16)' : '#FFFFFF', // Solid background in dark mode
             gap: 0, // No gap between song cards
           }}>
-            {Data?.data?.songs?.map((e,i)=>
-              <EachSongCard
-                isFromPlaylist={true}
-                isFromAlbum={true}
-                Data={Data}
-                index={i}
-                artist={FormatArtist(e?.artists?.primary)}
-                language={e?.language}
-                playlist={true}
-                artistID={e?.primary_artists_id}
-                key={i}
-                duration={e?.duration}
-                image={getValidImageUrl(e?.image?.[2]?.url || e?.images?.[2]?.url)}
-                id={e?.id}
-                width={"100%"}
-                title={e?.name}
-                url={e?.downloadUrl}
-                source={e?.source || 'saavn'}
-                style={{
-                  marginBottom: 0, // Remove bottom margin
-                  borderRadius: 0, // Remove border radius
-                  marginRight: 0
-                }}
-                showNumber={true} // Explicitly show numbers in album view
-              />
+            {Data?.data?.songs?.slice(0, 100).map((e,i)=> {
+              // Get proper image URL - handle both array and direct URL formats
+              let imageUrl = '';
+              if (e?.image) {
+                if (Array.isArray(e.image)) {
+                  // If it's an array, get the highest quality (last item or index 2)
+                  const imageItem = e.image[2] || e.image[e.image.length - 1] || e.image[0];
+                  imageUrl = imageItem?.url || imageItem?.link || '';
+                } else if (typeof e.image === 'string') {
+                  imageUrl = e.image;
+                }
+              }
+              
+              // Fallback to images property if image is not available
+              if (!imageUrl && e?.images && Array.isArray(e.images)) {
+                const imageItem = e.images[2] || e.images[e.images.length - 1] || e.images[0];
+                imageUrl = imageItem?.url || imageItem?.link || '';
+              }
+              
+              // Final validation
+              imageUrl = getValidImageUrl(imageUrl);
+              
+              return (
+                <EachSongCard
+                  isFromPlaylist={true}
+                  isFromAlbum={true}
+                  Data={Data}
+                  index={i}
+                  artist={FormatArtist(e?.artists?.primary)}
+                  language={e?.language}
+                  playlist={true}
+                  artistID={e?.primary_artists_id}
+                  key={`album-song-${i}-${e?.id}`}
+                  duration={e?.duration}
+                  image={imageUrl}
+                  id={e?.id}
+                  width={"100%"}
+                  title={e?.name}
+                  url={e?.downloadUrl}
+                  source={e?.source || 'saavn'}
+                  style={{
+                    marginBottom: 0, // Remove bottom margin
+                    borderRadius: 0, // Remove border radius
+                    marginRight: 0
+                  }}
+                  showNumber={true} // Explicitly show numbers in album view
+                />
+              );
+            })}
+            {Data?.data?.songs?.length > 100 && (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <Text style={{ color: theme.colors.text, opacity: 0.6 }}>
+                  Showing first 100 songs of {Data.data.songs.length}
+                </Text>
+              </View>
             )}
           </View>}
         </Animated.ScrollView>

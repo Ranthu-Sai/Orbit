@@ -91,7 +91,10 @@ export const YTMusicHomeSection = () => {
       console.log('🌐 YTMusic Home - Fetching data using Python bridge...');
 
       // Fetch data using Python bridge
-      const homeData = await PythonBridgeService.getHomeFeed(15, forceRefresh);
+      // Higher limit = more sections from YT Music homefeed
+      // Recommended: 50-100 for comprehensive content, 10-20 for quick loading
+      const HOMEFEED_SECTION_LIMIT = 100; // Fetch up to 100 sections
+      const homeData = await PythonBridgeService.getHomeFeed(HOMEFEED_SECTION_LIMIT, forceRefresh);
 
       console.log('📊 YTMusic Home - Python Response Summary:', {
         sectionsCount: Array.isArray(homeData) ? homeData.length : 0,
@@ -106,37 +109,65 @@ export const YTMusicHomeSection = () => {
 
         for (const section of homeData) {
           const sectionTitle = section.title || 'Unknown Section';
+          
+          // Skip "Quick picks" section as requested
+          if (sectionTitle.toLowerCase().includes('quick pick')) {
+            console.log(`⏭️  Skipping section: "${sectionTitle}"`);
+            continue;
+          }
+          
           console.log(`Processing section: "${sectionTitle}", contents: ${section.contents?.length || 0}`);
 
           if (section.contents && Array.isArray(section.contents)) {
-            // Filter playlists and albums (not songs)
+            // Filter and process playlists and albums
             const sectionItems = section.contents
               .filter(item => {
-                // YTMusic API uses different type indicators
-                const isPlaylist = item.type === 'playlist' || item.playlistId;
-                const isAlbum = item.type === 'album' || item.album;
-                const include = isPlaylist || isAlbum;
-                console.log(`  Item: "${item.title}", type: ${item.type}, playlistId: ${!!item.playlistId}, album: ${!!item.album}, include: ${include}`);
+                // Skip null or undefined items
+                if (!item || typeof item !== 'object') {
+                  console.log(`  ⏭️  Skipping null/invalid item in section "${sectionTitle}"`);
+                  return false;
+                }
+                
+                // Determine if item is a playlist or album based on available IDs
+                // YTMusic playlists have playlistId (starts with RDCLAK, PL, VL, etc.)
+                // YTMusic albums have browseId (starts with MPREb_)
+                const hasPlaylistId = item.playlistId && typeof item.playlistId === 'string';
+                const hasBrowseId = item.browseId && typeof item.browseId === 'string';
+                const hasVideoId = item.videoId && typeof item.videoId === 'string';
+                
+                // Include if it has playlistId or browseId (exclude pure video items)
+                const include = hasPlaylistId || (hasBrowseId && !hasVideoId);
+                
+                if (!include) {
+                  console.log(`  ⏭️  Skipping item: "${item.title || 'unknown'}" (videoId only, likely a song)`);
+                }
+                
                 return include;
               })
               .map(item => {
+                // Determine type based on ID patterns
+                const isPlaylist = item.playlistId && typeof item.playlistId === 'string';
+                const isAlbum = item.browseId && typeof item.browseId === 'string' && !isPlaylist;
+                
                 // Normalize the item structure
                 const normalizedItem = {
-                  id: item.playlistId || item.browseId || item.videoId || `yt_${Math.random()}`,
+                  id: item.playlistId || item.browseId || `yt_${Math.random()}`,
                   title: item.title || 'Unknown Title',
-                  type: item.playlistId ? 'playlist' : 'album',
+                  type: isPlaylist ? 'playlist' : 'album',
                   thumbnails: item.thumbnails || item.thumbnail || [],
                   artists: item.artists || [],
                   year: item.year,
                   sectionTitle: sectionTitle,
-                  downloadUrl: item.playlistId || item.browseId || item.videoId
+                  downloadUrl: item.playlistId || item.browseId
                 };
+                
+                console.log(`  ✅ Added ${normalizedItem.type}: "${normalizedItem.title}" (ID: ${normalizedItem.id})`);
                 return normalizedItem;
               });
 
             if (sectionItems.length > 0) {
               itemsArray.push(...sectionItems);
-              console.log(`✅ Added ${sectionItems.length} items from section: "${sectionTitle}"`);
+              console.log(`✅ Section "${sectionTitle}" complete: ${sectionItems.length} items (${sectionItems.filter(i => i.type === 'playlist').length} playlists, ${sectionItems.filter(i => i.type === 'album').length} albums)`);
             } else {
               console.log(`⚠️  No playlists/albums found in section: "${sectionTitle}"`);
             }
@@ -203,7 +234,7 @@ export const YTMusicHomeSection = () => {
 
       if (bridgeReady) {
         console.log('✅ Python bridge ready, proceeding with data fetch...');
-        // Step 3: Fetch fresh data
+        // Step 3: Fetch fresh data with higher limit to get more sections
         await fetchYTMusicHomeData(true);
       } else {
         console.error('❌ Python bridge initialization failed, cannot fetch YTMusic data');
