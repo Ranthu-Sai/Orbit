@@ -48,7 +48,7 @@ const startBackgroundTracking = () => {
   }, 5000); // Save every 5 seconds in background
 };
 
-export const PlaybackService = async function() {
+export const PlaybackService = async function () {
   try {
     // Only initialize player if not already initialized
     if (!isPlayerInitialized) {
@@ -59,13 +59,15 @@ export const PlaybackService = async function() {
         },
         autoHandleInterruptions: true,
         autoUpdateMetadata: true,
+        waitForBuffer: true, // Enable buffering for better streaming
+        iosCategory: 'playback', // iOS-specific, but doesn't hurt on Android
       });
       isPlayerInitialized = true;
       console.log('Player initialized successfully in service.js');
     } else {
       console.log('Player already initialized, skipping setup');
     }
-    
+
     TrackPlayer.addEventListener(Event.RemotePlay, () => TrackPlayer.play());
     TrackPlayer.addEventListener(Event.RemotePause, () => TrackPlayer.pause());
     TrackPlayer.addEventListener(Event.RemoteNext, () => TrackPlayer.skipToNext());
@@ -117,7 +119,7 @@ export const PlaybackService = async function() {
         console.error('Background: Error handling playback state:', error);
       }
     });
-    
+
     await TrackPlayer.updateOptions({
       android: {
         appKilledPlaybackBehavior: 'ContinuePlayback',
@@ -140,7 +142,7 @@ export const PlaybackService = async function() {
       ],
       // Capabilities that will show up when the notification is in the compact form on Android
       compactCapabilities: [Capability.Play, Capability.Pause, Capability.SkipToNext,
-        Capability.SkipToPrevious],
+      Capability.SkipToPrevious],
     });
 
     // Setup app state change listener for background tracking

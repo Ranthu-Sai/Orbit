@@ -11,6 +11,7 @@ import { AddOneSongToPlaylist } from "../../MusicPlayerFunctions";
 import PlaylistSelectorWrapper from '../Playlist/PlaylistSelectorWrapper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
+import PythonBridgeService from '../../Utils/PythonBridgeService';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -18,7 +19,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CircularProgress = ({ progress, size = 30, thickness = 2, color = '#1DB954' }) => {
   // Calculate rotation based on progress
   const rotation = progress * 3.6; // 360 degrees / 100 = 3.6
-  
+
   return (
     <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
       {/* Background Circle */}
@@ -30,7 +31,7 @@ const CircularProgress = ({ progress, size = 30, thickness = 2, color = '#1DB954
         borderColor: 'rgba(255,255,255,0.2)',
         position: 'absolute'
       }} />
-      
+
       {/* Progress Circle - segments for visualization */}
       <View style={{
         width: size,
@@ -44,7 +45,7 @@ const CircularProgress = ({ progress, size = 30, thickness = 2, color = '#1DB954
         borderLeftColor: progress > 87.5 ? color : 'transparent',
         transform: [{ rotate: `${rotation}deg` }]
       }} />
-      
+
       {/* Center Text showing percentage */}
       <Text style={{
         color: 'white',
@@ -76,7 +77,7 @@ export const EachSongMenuButton = ({
   const [isDownloaded, setIsDownloaded] = useState(propIsDownloaded || false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
-  
+
   // Check if song is already downloaded when component mounts
   useEffect(() => {
     if (propIsDownloaded !== null) {
@@ -87,12 +88,12 @@ export const EachSongMenuButton = ({
       checkIfDownloaded(song.id);
     }
   }, [song?.id, propIsDownloaded]);
-  
+
   // Function to check if a song is already downloaded
   const checkIfDownloaded = async (songId) => {
     try {
       if (!songId) return false;
-      
+
       // Use StorageManager to check if song is downloaded
       const downloaded = await StorageManager.isSongDownloaded(songId);
       setIsDownloaded(downloaded);
@@ -102,7 +103,7 @@ export const EachSongMenuButton = ({
       return false;
     }
   };
-  
+
   // Ensure we have a valid song object
   useEffect(() => {
     if (!song) {
@@ -129,20 +130,20 @@ export const EachSongMenuButton = ({
         // Calculate if menu would go off screen
         const menuHeight = 180; // Approximate height of menu
         const spaceBelow = SCREEN_HEIGHT - pageY - height;
-        
+
         // If not enough space below, position menu above the button
         if (spaceBelow < menuHeight) {
-          setMenuPosition({ 
+          setMenuPosition({
             top: Math.max(pageY - menuHeight, 50),
             right: 20
           });
         } else {
-          setMenuPosition({ 
+          setMenuPosition({
             top: pageY + (height * 1.5),
-            right: 20 
+            right: 20
           });
         }
-        
+
         setMenuVisible(true);
       });
     }
@@ -151,7 +152,7 @@ export const EachSongMenuButton = ({
   const closeMenu = () => {
     setMenuVisible(false);
   };
-  
+
   const addToQueue = async () => {
     closeMenu();
     if (!song?.url) {
@@ -163,12 +164,12 @@ export const EachSongMenuButton = ({
       // Get the actual URL from array if needed
       const songUrl = getHighestQualityUrl(song.url);
       console.log('Using URL for add to queue:', songUrl);
-      
+
       if (!songUrl) {
         ToastAndroid.show('Invalid song URL format', ToastAndroid.SHORT);
         return;
       }
-      
+
       // Add to queue using TrackPlayer
       await TrackPlayer.add({
         url: songUrl,
@@ -180,7 +181,7 @@ export const EachSongMenuButton = ({
         language: song.language || '',
         artistID: song.artistID || ''
       });
-      
+
       updateTrack();
       ToastAndroid.show(`Added ${song.title} to queue`, ToastAndroid.SHORT);
     } catch (error) {
@@ -191,39 +192,74 @@ export const EachSongMenuButton = ({
 
   const playNext = async () => {
     closeMenu();
-    if (!song?.url) {
-      ToastAndroid.show('No song URL available', ToastAndroid.SHORT);
+    if (!song?.url && !song?.id) {
+      ToastAndroid.show('No song data available', ToastAndroid.SHORT);
       return;
     }
 
     try {
-      // Get the actual URL from array if needed
-      const songUrl = getHighestQualityUrl(song.url);
+      // Check if this is a YouTube Music song (11-character video ID)
+      const isYouTubeSong = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
+
+      let songUrl = '';
+      let songMetadata = { ...song };
+
+      if (isYouTubeSong) {
+        // For YouTube songs, fetch the actual stream URL
+        console.log('🎵 Fetching YouTube stream for video ID:', song.id);
+        try {
+          const streamData = await PythonBridgeService.getStreamUrl(song.id);
+
+          if (streamData && streamData.url) {
+            songUrl = streamData.url;
+            songMetadata = {
+              ...songMetadata,
+              url: streamData.url,
+              artwork: streamData.thumbnail || songMetadata.artwork,
+              duration: streamData.duration || songMetadata.duration,
+              title: streamData.title || songMetadata.title,
+            };
+            console.log('✅ YouTube stream URL fetched successfully');
+          } else {
+            console.error('❌ Failed to get YouTube stream URL:', streamData);
+            ToastAndroid.show('Failed to get stream URL', ToastAndroid.SHORT);
+            return;
+          }
+        } catch (error) {
+          console.error('❌ Error fetching YouTube stream:', error);
+          ToastAndroid.show('Failed to load YouTube stream', ToastAndroid.SHORT);
+          return;
+        }
+      } else {
+        // For non-YouTube songs, get the URL from song data
+        songUrl = getHighestQualityUrl(song.url);
+      }
+
       console.log('Using URL for play next:', songUrl);
-      
+
       if (!songUrl) {
         ToastAndroid.show('Invalid song URL format', ToastAndroid.SHORT);
         return;
       }
-      
+
       // Format the track object
       const trackToAdd = {
         url: songUrl,
-        title: song.title || 'Unknown Title',
-        artist: song.artist || 'Unknown Artist',
-        artwork: song.artwork || song.image,
+        title: songMetadata.title || 'Unknown Title',
+        artist: songMetadata.artist || 'Unknown Artist',
+        artwork: songMetadata.artwork || songMetadata.image,
         id: song.id || Date.now().toString(),
-        duration: song.duration || 0,
-        language: song.language || '',
-        artistID: song.artistID || ''
+        duration: songMetadata.duration || 0,
+        language: songMetadata.language || '',
+        artistID: songMetadata.artistID || ''
       };
-      
+
       // Get current track index and queue
       const currentIndex = await TrackPlayer.getCurrentTrack();
       const queue = await TrackPlayer.getQueue();
       console.log('Current track index:', currentIndex);
       console.log('Current queue length:', queue.length);
-      
+
       if (currentIndex === null || queue.length === 0) {
         // If no track is playing, just start playing this song
         await TrackPlayer.reset();
@@ -245,7 +281,7 @@ export const EachSongMenuButton = ({
         }
         console.log('Added song to play next at position', currentIndex + 1);
       }
-      
+
       updateTrack();
       ToastAndroid.show(`${song.title} will play next`, ToastAndroid.SHORT);
     } catch (error) {
@@ -253,17 +289,17 @@ export const EachSongMenuButton = ({
       // Try a more basic approach if the first method fails
       try {
         const songUrl = getHighestQualityUrl(song.url);
-        
+
         if (!songUrl) {
           ToastAndroid.show('Invalid song URL format', ToastAndroid.SHORT);
           return;
         }
-        
+
         const queue = await TrackPlayer.getQueue();
-        
+
         // Check if any track is playing
         const currentTrack = await TrackPlayer.getCurrentTrack();
-        
+
         if (currentTrack === null || queue.length === 0) {
           // If nothing playing, just add and play
           await TrackPlayer.add({
@@ -284,7 +320,7 @@ export const EachSongMenuButton = ({
             id: song.id || Date.now().toString()
           }, currentTrack + 1);
         }
-        
+
         ToastAndroid.show(`${song.title} will play next`, ToastAndroid.SHORT);
         updateTrack();
       } catch (fallbackError) {
@@ -312,7 +348,7 @@ export const EachSongMenuButton = ({
       ToastAndroid.show('Failed to add to playlist', ToastAndroid.SHORT);
     }
   };
-  
+
   const downloadSong = async () => {
     // Close menu if it's open
     if (menuVisible) {
@@ -393,89 +429,89 @@ export const EachSongMenuButton = ({
   // Helper function to get highest quality URL from an array of URL objects
   const getHighestQualityUrl = (urlData) => {
     try {
-    console.log('Processing URL data type:', typeof urlData);
-      
+      console.log('Processing URL data type:', typeof urlData);
+
       // If it's undefined or null, handle the error gracefully
       if (urlData == null) {
         console.error('URL data is null or undefined');
         return null;
       }
-    
-    // If it's already a string, return it
-    if (typeof urlData === 'string') {
-      return urlData;
-    }
-    
-    // If it's an array of quality objects
-    if (Array.isArray(urlData)) {
+
+      // If it's already a string, return it
+      if (typeof urlData === 'string') {
+        return urlData;
+      }
+
+      // If it's an array of quality objects
+      if (Array.isArray(urlData)) {
         // Safety check for empty array
         if (urlData.length === 0) {
           console.error('URL data array is empty');
           return null;
         }
-        
-      try {
-        // Check if the first item has a quality property (Saavn format)
-        if (urlData[0] && typeof urlData[0] === 'object' && 'quality' in urlData[0]) {
-          // Sort by quality (assuming quality is in format like "320kbps")
-          const sortedUrls = [...urlData].sort((a, b) => {
-            // Extract numbers from quality strings
-            const qualityA = parseInt(a.quality?.replace(/[^\d]/g, '') || 0);
-            const qualityB = parseInt(b.quality?.replace(/[^\d]/g, '') || 0);
-            return qualityB - qualityA; // Descending order
-          });
-          
-          console.log('Selected highest quality:', sortedUrls[0]?.quality);
-          return sortedUrls[0]?.url || '';
-        } 
-        // If it's just an array of URLs, return the first one
-        else if (typeof urlData[0] === 'string') {
-          return urlData[0];
-        }
-        // If it's a different format with URL property
-        else if (urlData[0] && typeof urlData[0] === 'object' && 'url' in urlData[0]) {
-          return urlData[0].url;
-        }
+
+        try {
+          // Check if the first item has a quality property (Saavn format)
+          if (urlData[0] && typeof urlData[0] === 'object' && 'quality' in urlData[0]) {
+            // Sort by quality (assuming quality is in format like "320kbps")
+            const sortedUrls = [...urlData].sort((a, b) => {
+              // Extract numbers from quality strings
+              const qualityA = parseInt(a.quality?.replace(/[^\d]/g, '') || 0);
+              const qualityB = parseInt(b.quality?.replace(/[^\d]/g, '') || 0);
+              return qualityB - qualityA; // Descending order
+            });
+
+            console.log('Selected highest quality:', sortedUrls[0]?.quality);
+            return sortedUrls[0]?.url || '';
+          }
+          // If it's just an array of URLs, return the first one
+          else if (typeof urlData[0] === 'string') {
+            return urlData[0];
+          }
+          // If it's a different format with URL property
+          else if (urlData[0] && typeof urlData[0] === 'object' && 'url' in urlData[0]) {
+            return urlData[0].url;
+          }
           // Special case for local files or downloaded files
           else if (urlData[0] && typeof urlData[0] === 'object' && (
             urlData[0].filePath || urlData[0].localFilePath
           )) {
             return urlData[0].filePath || urlData[0].localFilePath;
-        }
-      } catch (error) {
-        console.error('Error parsing URL array:', error);
-        // Fallback to first item if possible
-        if (urlData[0]) {
+          }
+        } catch (error) {
+          console.error('Error parsing URL array:', error);
+          // Fallback to first item if possible
+          if (urlData[0]) {
             if (typeof urlData[0] === 'string') return urlData[0];
             if (urlData[0].url) return urlData[0].url;
             if (urlData[0].filePath) return urlData[0].filePath;
             if (urlData[0].localFilePath) return urlData[0].localFilePath;
           }
           return null;
-      }
-    }
-    
-    // Handle object with multiple URLs
-    if (urlData && typeof urlData === 'object') {
-      // Check for common URL properties in different formats
-      if ('url' in urlData) return urlData.url;
-        if ('filePath' in urlData) return urlData.filePath;
-        if ('localFilePath' in urlData) return urlData.localFilePath;
-      if ('320kbps' in urlData) return urlData['320kbps'];
-      if ('160kbps' in urlData) return urlData['160kbps'];
-      if ('96kbps' in urlData) return urlData['96kbps'];
-      if ('48kbps' in urlData) return urlData['48kbps'];
-      
-      // Try to find any property that looks like a URL
-      for (const key in urlData) {
-        if (typeof urlData[key] === 'string' && 
-            (urlData[key].startsWith('http') || urlData[key].startsWith('file:'))) {
-          return urlData[key];
         }
       }
-    }
-    
-    // Unknown format, return empty string
+
+      // Handle object with multiple URLs
+      if (urlData && typeof urlData === 'object') {
+        // Check for common URL properties in different formats
+        if ('url' in urlData) return urlData.url;
+        if ('filePath' in urlData) return urlData.filePath;
+        if ('localFilePath' in urlData) return urlData.localFilePath;
+        if ('320kbps' in urlData) return urlData['320kbps'];
+        if ('160kbps' in urlData) return urlData['160kbps'];
+        if ('96kbps' in urlData) return urlData['96kbps'];
+        if ('48kbps' in urlData) return urlData['48kbps'];
+
+        // Try to find any property that looks like a URL
+        for (const key in urlData) {
+          if (typeof urlData[key] === 'string' &&
+            (urlData[key].startsWith('http') || urlData[key].startsWith('file:'))) {
+            return urlData[key];
+          }
+        }
+      }
+
+      // Unknown format, return empty string
       console.error('Could not determine URL from provided data');
       return null;
     } catch (error) {
@@ -498,17 +534,17 @@ export const EachSongMenuButton = ({
             <MaterialCommunityIcons name="playlist-plus" size={24} color={colors.text} />
             <Text style={[styles.menuText, { color: colors.text }]}>Add to queue</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity style={styles.menuItem} onPress={playNext}>
             <MaterialCommunityIcons name="play-speed" size={24} color={colors.text} />
             <Text style={[styles.menuText, { color: colors.text }]}>Play next</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity style={styles.menuItem} onPress={addToPlaylist}>
             <MaterialCommunityIcons name="playlist-music" size={24} color={colors.text} />
             <Text style={[styles.menuText, { color: colors.text }]}>Add to playlist</Text>
           </TouchableOpacity>
-          
+
           {!isDownloaded && (
             <TouchableOpacity style={styles.menuItem} onPress={downloadSong}>
               <Octicons name="download" size={24} color={colors.text} />
@@ -545,9 +581,9 @@ export const EachSongMenuButton = ({
             elevation: 0,
             marginRight: getMarginRight(),
           }}
-          android_ripple={{ 
-            color: 'rgba(255, 255, 255, 0.2)', 
-            borderless: true, 
+          android_ripple={{
+            color: 'rgba(255, 255, 255, 0.2)',
+            borderless: true,
             radius: isFromAlbum ? 18 : 20
           }}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -555,16 +591,16 @@ export const EachSongMenuButton = ({
           <MaterialCommunityIcons
             name="dots-vertical"
             size={isFromAlbum ? 24 : 20}
-            color={colors.text} 
+            color={colors.text}
           />
         </Pressable>
       </View>
-      
+
       {/* Show playlist selector if needed */}
       {showPlaylistSelector && (
-        <PlaylistSelectorWrapper 
-          songToAdd={song} 
-          onClose={() => setShowPlaylistSelector(false)} 
+        <PlaylistSelectorWrapper
+          songToAdd={song}
+          onClose={() => setShowPlaylistSelector(false)}
         />
       )}
 

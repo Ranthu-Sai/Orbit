@@ -15,7 +15,7 @@ function transformYTToSaavnSong(song) {
   }
 
   return {
-    id: song.id,
+    id: song.videoId || song.id,
     name: song.title,
     title: song.title,
     subtitle: song.artists?.map(artist => artist.name).join(", ") || "Unknown Artist",
@@ -44,7 +44,7 @@ function transformYTToSaavnSong(song) {
     genre: "",
     playCount: 0,
     explicitContent: 0,
-    downloadUrl: song.id // Store the video ID for streaming
+    downloadUrl: song.videoId || song.id // Store the video ID for streaming
   };
 }
 
@@ -183,18 +183,14 @@ async function getYTMusicSearchSongData(searchText, page = 1, limit = 20) {
 
   const fetchFunction = async () => {
     try {
-      // Remove spaces from search query for YTMusic API
-      const apiQuery = searchText.replace(/\s+/g, '');
-      const response = await axios.get(`${YTMUSIC_API_BASE}/api/search`, {
-        params: {
-          query: apiQuery,
-          filter: "songs"
-        },
-        timeout: 10000
-      });
+      console.log(`🌐 YTMusic Search Songs - Using Python bridge for query: ${searchText}`);
 
-      if (response.data?.data?.results) {
-        const transformedResults = response.data.data.results.map(transformYTToSaavnSong);
+      const searchResults = await PythonBridgeService.search(searchText, 'songs', limit);
+
+      if (searchResults && Array.isArray(searchResults)) {
+        const transformedResults = searchResults.map(transformYTToSaavnSong);
+
+        console.log(`✅ YTMusic Search Songs - Found ${transformedResults.length} songs for: ${searchText}`);
 
         return {
           status: "SUCCESS",
@@ -208,6 +204,7 @@ async function getYTMusicSearchSongData(searchText, page = 1, limit = 20) {
         };
       }
 
+      console.log('YTMusic Search Songs - No results found');
       return {
         status: "SUCCESS",
         message: "",
@@ -250,18 +247,14 @@ async function getYTMusicSearchArtistData(searchText, page = 1, limit = 20) {
 
   const fetchFunction = async () => {
     try {
-      // Remove spaces from search query for YTMusic API
-      const apiQuery = searchText.replace(/\s+/g, '');
-      const response = await axios.get(`${YTMUSIC_API_BASE}/api/search`, {
-        params: {
-          query: apiQuery,
-          filter: "artists"
-        },
-        timeout: 10000
-      });
+      console.log(`🌐 YTMusic Search Artists - Using Python bridge for query: ${searchText}`);
 
-      if (response.data?.data?.results) {
-        const transformedResults = response.data.data.results.map(transformYTToSaavnArtist);
+      const searchResults = await PythonBridgeService.search(searchText, 'artists', limit);
+
+      if (searchResults && Array.isArray(searchResults)) {
+        const transformedResults = searchResults.map(transformYTToSaavnArtist);
+
+        console.log(`✅ YTMusic Search Artists - Found ${transformedResults.length} artists for: ${searchText}`);
 
         return {
           status: "SUCCESS",
@@ -275,6 +268,7 @@ async function getYTMusicSearchArtistData(searchText, page = 1, limit = 20) {
         };
       }
 
+      console.log('YTMusic Search Artists - No results found');
       return {
         status: "SUCCESS",
         message: "",
@@ -317,18 +311,14 @@ async function getYTMusicSearchAlbumData(searchText, page = 1, limit = 20) {
 
   const fetchFunction = async () => {
     try {
-      // Remove spaces from search query for YTMusic API
-      const apiQuery = searchText.replace(/\s+/g, '');
-      const response = await axios.get(`${YTMUSIC_API_BASE}/api/search`, {
-        params: {
-          query: apiQuery,
-          filter: "albums"
-        },
-        timeout: 10000
-      });
+      console.log(`🌐 YTMusic Search Albums - Using Python bridge for query: ${searchText}`);
 
-      if (response.data?.data?.results) {
-        const transformedResults = response.data.data.results.map(transformYTToSaavnAlbum);
+      const searchResults = await PythonBridgeService.search(searchText, 'albums', limit);
+
+      if (searchResults && Array.isArray(searchResults)) {
+        const transformedResults = searchResults.map(transformYTToSaavnAlbum);
+
+        console.log(`✅ YTMusic Search Albums - Found ${transformedResults.length} albums for: ${searchText}`);
 
         return {
           status: "SUCCESS",
@@ -342,6 +332,7 @@ async function getYTMusicSearchAlbumData(searchText, page = 1, limit = 20) {
         };
       }
 
+      console.log('YTMusic Search Albums - No results found');
       return {
         status: "SUCCESS",
         message: "",

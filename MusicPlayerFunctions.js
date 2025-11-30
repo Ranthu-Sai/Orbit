@@ -5,6 +5,7 @@ import NetInfo from "@react-native-community/netinfo";
 import { ToastAndroid } from "react-native";
 import historyManager from "./Utils/HistoryManager";
 import PythonBridgeService from "./Utils/PythonBridgeService";
+import dabMusicService from "./Utils/DabMusicService";
 
 let isPlayerInitialized = false;
 
@@ -21,7 +22,7 @@ export const setupPlayer = async () => {
           autoUpdateMetadata: true,
         });
         console.log('Player initialized successfully in MusicPlayerFunctions');
-        
+
         // Add event listeners
         TrackPlayer.addEventListener('remote-play', () => TrackPlayer.play());
         TrackPlayer.addEventListener('remote-pause', () => TrackPlayer.pause());
@@ -61,7 +62,7 @@ export const setupPlayer = async () => {
             'skipToPrevious',
           ]
         });
-        
+
         isPlayerInitialized = true;
       } catch (setupError) {
         // Check if the error is about player already being initialized
@@ -126,6 +127,45 @@ async function PlayOneSong(song) {
       } catch (error) {
         console.error('Error fetching YouTube stream:', error);
         ToastAndroid.show('Error loading YouTube stream', ToastAndroid.SHORT);
+        return;
+      }
+    }
+    // Check if this is a DAB Music track
+    else if (song.isDabTrack || song.source === 'dab' || (!isNaN(song.url) && String(song.url).length > 5)) {
+      try {
+        console.log('🎵 DAB Track detected! Fetching stream URL for ID:', song.id);
+        await dabMusicService.initialize();
+        const streamUrl = await dabMusicService.getStreamUrl(song.id);
+
+        if (streamUrl) {
+          playbackUrl = streamUrl;
+
+          // Parse format from URL to determine quality
+          const fmtMatch = streamUrl.match(/[?&]fmt=(\d+)/);
+          const fmt = fmtMatch ? fmtMatch[1] : null;
+          const formatMap = {
+            '5': 'MP3 320kbps',
+            '6': 'FLAC 16-bit/44.1kHz',
+            '7': 'FLAC 24-bit/96kHz',
+            '27': 'FLAC 24-bit/192kHz'
+          };
+          const dabQuality = formatMap[fmt] || 'FLAC';
+
+          updatedSong = {
+            ...updatedSong,
+            url: streamUrl,
+            currentPlayingQuality: dabQuality  // Set actual FLAC quality
+          };
+          console.log('✅ DAB stream URL fetched successfully');
+          console.log('🎵 Quality:', dabQuality);
+        } else {
+          console.error('Failed to get DAB stream URL');
+          ToastAndroid.show('Failed to load DAB stream', ToastAndroid.SHORT);
+          return;
+        }
+      } catch (error) {
+        console.error('❌ Error fetching DAB stream:', error);
+        ToastAndroid.show('Error loading DAB stream', ToastAndroid.SHORT);
         return;
       }
     } else {
@@ -207,7 +247,7 @@ async function PlayOneSong(song) {
   }
 }
 
-async function AddPlaylist (songs){
+async function AddPlaylist(songs) {
   try {
     // Validate songs array
     if (!Array.isArray(songs) || songs.length === 0) {
@@ -302,7 +342,7 @@ async function AddPlaylist (songs){
   }
 }
 
-async function AddSongsToQueue(songs){
+async function AddSongsToQueue(songs) {
   // Apply playback quality setting to songs being added to queue
   const qualityIndex = await getIndexQuality();
   const qualityNames = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
@@ -375,14 +415,14 @@ async function AddSongsToQueue(songs){
 
   await TrackPlayer.add(processedSongs);
 }
-async function PlaySong(){
+async function PlaySong() {
   await TrackPlayer.play();
 }
-async function PauseSong(){
+async function PauseSong() {
   await TrackPlayer.pause();
 }
 
-async function SetProgressSong(value){
+async function SetProgressSong(value) {
   try {
     // Ensure value is a valid number and within bounds
     const seekValue = Math.max(0, parseFloat(value) || 0);
@@ -392,7 +432,7 @@ async function SetProgressSong(value){
   }
 }
 
-async function PlayNextSong(){
+async function PlayNextSong() {
   try {
     // Ensure player is initialized
     if (!isPlayerInitialized) {
@@ -445,7 +485,7 @@ async function PlayNextSong(){
   }
 }
 
-async function PlayPreviousSong(){
+async function PlayPreviousSong() {
   try {
     // Ensure player is initialized
     if (!isPlayerInitialized) {
@@ -469,7 +509,7 @@ async function PlayPreviousSong(){
     console.error('Error in PlayPreviousSong:', error);
   }
 }
-async function SkipToTrack(trackIndex){
+async function SkipToTrack(trackIndex) {
   try {
     // Stop tracking current song before switching
     await historyManager.stopTracking();
@@ -501,11 +541,11 @@ async function SkipToTrack(trackIndex){
     console.error('Error in SkipToTrack:', error);
   }
 }
-async function SetRepeatMode(mode){
+async function SetRepeatMode(mode) {
   await setRepeatMode(mode)
 }
 
-async function getIndexQuality(){
+async function getIndexQuality() {
   const PlaybackQuality = [
     { value: '12kbps' },
     { value: '48kbps' },
@@ -515,8 +555,8 @@ async function getIndexQuality(){
   ];
   const data = await GetPlaybackQuality()
   let index = 4
-  PlaybackQuality.map((e, i)=>{
-    if (e.value === data){
+  PlaybackQuality.map((e, i) => {
+    if (e.value === data) {
       index = i
     }
   })
@@ -580,16 +620,16 @@ async function AddOneSongToPlaylist(song) {
 }
 
 export {
-  PlayOneSong, 
-  PlaySong, 
-  PauseSong, 
-  SetProgressSong, 
-  PlayNextSong, 
-  AddPlaylist, 
-  PlayPreviousSong, 
-  AddSongsToQueue, 
+  PlayOneSong,
+  PlaySong,
+  PauseSong,
+  SetProgressSong,
+  PlayNextSong,
+  AddPlaylist,
+  PlayPreviousSong,
+  AddSongsToQueue,
   SkipToTrack,
-  SetRepeatMode, 
+  SetRepeatMode,
   getIndexQuality,
   AddOneSongToPlaylist
 }

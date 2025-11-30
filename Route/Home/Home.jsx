@@ -43,9 +43,9 @@ const getImageUrl = (imageData) => {
   if (Array.isArray(imageData)) {
     // Try to get the best quality image (usually index 2 or highest quality)
     const bestImage = imageData.find(img => img.quality === "500x500") ||
-                     imageData[2] ||
-                     imageData[1] ||
-                     imageData[0];
+      imageData[2] ||
+      imageData[1] ||
+      imageData[0];
 
     return bestImage?.link || bestImage?.url || null;
   }
@@ -181,13 +181,13 @@ export const Home = () => {
 
   return (
     <MainWrapper>
-      <LoadingComponent loading={Loading}/>
+      <LoadingComponent loading={Loading} />
       {
-        !Loading &&  <View>
+        !Loading && <View>
           <ScrollView
-            style={{zIndex:-1}}
-            onScroll={(e)=>{
-              if (e.nativeEvent.contentOffset.y > 200 && !showHeader){
+            style={{ zIndex: -1 }}
+            onScroll={(e) => {
+              if (e.nativeEvent.contentOffset.y > 200 && !showHeader) {
                 setShowHeader(true)
               } else if (e.nativeEvent.contentOffset.y < 200 && showHeader) {
                 setShowHeader(false)
@@ -203,17 +203,17 @@ export const Home = () => {
             }
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{
-              paddingBottom:90,
+              paddingBottom: 90,
             }}
           >
-            <RouteHeading showSearch={true} showSettings={true}/>
+            <RouteHeading showSearch={true} showSettings={true} />
 
-            <DisplayTopGenres/>
+            <DisplayTopGenres />
             <View style={{ paddingHorizontal: 13 }}>
-              <HorizontalScrollSongs id={getChartId(0)}/>
+              <HorizontalScrollSongs id={getChartId(0)} />
             </View>
             <View style={{ paddingHorizontal: 13 }}>
-              <Heading text={"Recommended Playlists"}/>
+              <Heading text={"Recommended Playlists"} />
             </View>
             <FlatList
               horizontal={true}
@@ -250,7 +250,7 @@ export const Home = () => {
               )}
             />
             <View style={{ paddingHorizontal: 13 }}>
-              <Heading text={"Trending Albums"}/>
+              <Heading text={"Trending Albums"} />
             </View>
             <FlatList
               horizontal={true}
@@ -288,7 +288,7 @@ export const Home = () => {
             <YTMusicHomeSection />
 
             <View style={{ paddingHorizontal: 13, marginTop: 8 }}>
-              <HorizontalScrollSongs id={getChartId(1)}/>
+              <HorizontalScrollSongs id={getChartId(1)} />
               {offline && (
                 <View style={{
                   paddingHorizontal: 13,
@@ -306,26 +306,26 @@ export const Home = () => {
               )}
             </View>
             <PaddingConatiner>
-              <Heading text={"Top Charts"}/>
+              <Heading text={"Top Charts"} />
             </PaddingConatiner>
             <FlatList
               horizontal={true}
-              showsHorizontalScrollIndicator={false}
+              showsVerticalScrollIndicator={false}
               contentContainerStyle={{
-                paddingLeft:13,
+                paddingLeft: 13,
               }}
               data={[1]}
-              renderItem={()=><RenderTopCharts playlist={Data.data.charts}/>}
+              renderItem={() => <RenderTopCharts playlist={Data?.data?.charts || []} />}
               keyExtractor={() => 'top-charts'}
             />
             <PaddingConatiner>
-              <HorizontalScrollSongs id={getChartId(2)}/>
+              <HorizontalScrollSongs id={getChartId(2)} />
             </PaddingConatiner>
             <PaddingConatiner>
-              <HorizontalScrollSongs id={getChartId(3)}/>
+              <HorizontalScrollSongs id={getChartId(3)} />
             </PaddingConatiner>
           </ScrollView>
-          <TopHeader showHeader={showHeader}/>
+          <TopHeader showHeader={showHeader} />
         </View>
       }
     </MainWrapper>

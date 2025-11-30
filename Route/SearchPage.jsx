@@ -5,7 +5,8 @@ import { getSearchSongData, getSearchArtistData } from "../Api/Songs";
 import {
   getYTMusicSearchSongData
 } from "../Api/YTMusic";
-import { View, TouchableOpacity, TextInput, Pressable, Dimensions, FlatList, StyleSheet, Text, Modal } from "react-native";
+import dabMusicService from "../Utils/DabMusicService";
+import { View, TouchableOpacity, TextInput, Pressable, Dimensions, FlatList, StyleSheet, Text, Modal, Alert } from "react-native";
 import SongDisplay from "../Component/SearchPage/SongDisplay";
 import { LoadingComponent } from "../Component/Global/Loading";
 import { getSearchPlaylistData } from "../Api/Playlist";
@@ -24,7 +25,7 @@ const SEARCH_HISTORY_KEY = '@search_history';
 const MAX_HISTORY_ITEMS = 20;
 const SELECTED_SOURCE_KEY = '@selected_search_source';
 
-export const SearchPage = ({navigation}) => {
+export const SearchPage = ({ navigation }) => {
   const { colors } = useTheme();
   const width = Dimensions.get("window").width;
   const [ActiveTab, setActiveTab] = useState(0);
@@ -37,7 +38,7 @@ export const SearchPage = ({navigation}) => {
   const [modalVisible, setModalVisible] = useState(false);
   const limit = 20;
 
-  async function fetchSearchData(text){
+  async function fetchSearchData(text) {
     if (!text) {
       setData({ data: { results: [] } });
       return;
@@ -47,8 +48,41 @@ export const SearchPage = ({navigation}) => {
       setLoading(true);
       let data = null;
 
+      // DAB Music - only supports songs, requires authentication
+      if (selectedSource === 'dab') {
+        try {
+          const tracks = await dabMusicService.searchTracks(text, limit);
+          data = {
+            success: tracks.length > 0,
+            data: {
+              results: tracks,
+              total: tracks.length
+            }
+          };
+        } catch (error) {
+          if (error.message === 'AUTH_REQUIRED') {
+            // User not logged in
+            Alert.alert(
+              'Login Required',
+              'You must login to use DAB Music (FLAC). Would you like to login now?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Login',
+                  onPress: () => navigation.navigate('Settings')
+                }
+              ]
+            );
+            setData({ data: { results: [] } });
+            setLoading(false);
+            return;
+          }
+          // Other errors
+          throw error;
+        }
+      }
       // For YTMusic, always search songs since no other categories are supported
-      if (selectedSource === 'ytmusic') {
+      else if (selectedSource === 'ytmusic') {
         data = await getYTMusicSearchSongData(text, 1, limit);
       } else {
         // Saavn logic
@@ -134,13 +168,13 @@ export const SearchPage = ({navigation}) => {
   // Save search query to history
   const saveToHistory = useCallback(async (query) => {
     if (!query || query.length < 2) return; // Don't save very short queries
-    
+
     try {
       const updatedHistory = [
         query,
         ...searchHistory.filter(item => item.toLowerCase() !== query.toLowerCase())
       ].slice(0, MAX_HISTORY_ITEMS);
-      
+
       await AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(updatedHistory));
       setSearchHistory(updatedHistory);
     } catch (error) {
@@ -219,7 +253,7 @@ export const SearchPage = ({navigation}) => {
           Recent Searches
         </Text>
         {searchHistory.length > 0 && (
-          <Pressable 
+          <Pressable
             onPress={() => {
               AsyncStorage.removeItem(SEARCH_HISTORY_KEY);
               setSearchHistory([]);
@@ -276,16 +310,23 @@ export const SearchPage = ({navigation}) => {
       {selectedSource === 'saavn' && (
         <Tabs tabs={["Songs", "Playlists", "Albums", "Artists"]} setState={setActiveTab} state={ActiveTab} />
       )}
+      {selectedSource === 'dab' && (
+        <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+          <Text style={{ color: colors.text, opacity: 0.7, fontSize: 12, textAlign: 'center' }}>
+            🎵 DAB Music (High-Quality FLAC)
+          </Text>
+        </View>
+      )}
       <Spacer height={15} />
-      
+
       {!SearchText && searchHistory.length > 0 ? (
         renderSearchHistory()
       ) : Loading ? (
         <LoadingComponent loading={Loading} />
       ) : (
         <View style={{ flex: 1, paddingHorizontal: 10 }}>
-          {selectedSource === 'ytmusic' ? (
-            // YTMusic only supports Songs (no tabs shown)
+          {selectedSource === 'dab' || selectedSource === 'ytmusic' ? (
+            // DAB and YTMusic only support Songs (no tabs shown)
             <SongDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />
           ) : (
             // Saavn supports all categories
@@ -333,6 +374,17 @@ export const SearchPage = ({navigation}) => {
             >
               <Text style={[styles.sourceText, { color: colors.text }]}>YTMusic</Text>
               {selectedSource === 'ytmusic' && <Text style={[styles.checkmark, { color: colors.primary }]}>✓</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.sourceOption, selectedSource === 'dab' && styles.selectedOption]}
+              onPress={() => {
+                saveSelectedSource('dab');
+                setModalVisible(false);
+              }}
+            >
+              <Text style={[styles.sourceText, { color: colors.text }]}>DAB (FLAC)</Text>
+              {selectedSource === 'dab' && <Text style={[styles.checkmark, { color: colors.primary }]}>✓</Text>}
             </TouchableOpacity>
           </View>
         </Pressable>

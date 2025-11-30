@@ -88,7 +88,7 @@ android {
             pip {
                 install "six"
                 install "ytmusicapi"
-                install "pytube"  // Use pytube instead of pytubefix for better compatibility
+                install "pytubefix<8.0"  // Pin to older version compatible with Chaquopy's aiohttp
                 install "diskcache"
             }
         }

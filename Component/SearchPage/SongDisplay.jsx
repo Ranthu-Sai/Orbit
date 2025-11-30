@@ -49,13 +49,13 @@ export default function SongDisplay({ data, source = 'saavn' }) {
     <View>
       <FlatList
         showsVerticalScrollIndicator={false}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item, index) => item?.id?.toString() || index.toString()}
         contentContainerStyle={{ paddingBottom: 220 }}
         data={displayData.data.results}
         renderItem={({ item }) => {
           if (!item || !item.id) return null; // Render nothing if item is invalid
           return (
-        <EachSongCard
+            <EachSongCard
               artistID={item?.primaryArtistsId || item?.primary_artists_id}
               language={item?.language}
               duration={item?.duration}

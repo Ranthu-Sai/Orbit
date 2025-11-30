@@ -25,7 +25,7 @@ import { settingsConfig } from "../../config/settingsConfig";
 import { useThemeContext } from "../../Context/ThemeContext";
 import { StorageManager } from "../../Utils/StorageManager";
 
-export const SettingsPage = ({navigation}) => {
+export const SettingsPage = ({ navigation }) => {
   const { colors } = useTheme();
   const { changeFontSize, changeColorScheme, toggleTheme } = useThemeContext();
   const [font, setFont] = useState(settingsConfig.defaults.fontSize);
@@ -35,7 +35,7 @@ export const SettingsPage = ({navigation}) => {
   const [colorScheme, setColorScheme] = useState(settingsConfig.defaults.colorScheme);
   const [musicSource, setMusicSource] = useState(settingsConfig.defaults.musicSource);
   const [downloadPathInfo, setDownloadPathInfo] = useState(null);
-  
+
   async function loadSettings() {
     try {
       const [fontSize, playbackQuality, downloadPath, themePref, colorSchemePref, musicSourcePref] = await Promise.all([
@@ -93,7 +93,7 @@ export const SettingsPage = ({navigation}) => {
       );
     }
   }
-  
+
   async function handlePlaybackQualityChange(value) {
     try {
       await SetPlaybackQuality(value);
@@ -112,7 +112,7 @@ export const SettingsPage = ({navigation}) => {
       );
     }
   }
-  
+
   async function handleFontSizeChange(value) {
     try {
       await changeFontSize(value);
@@ -131,7 +131,7 @@ export const SettingsPage = ({navigation}) => {
       );
     }
   }
-  
+
   async function handleThemeToggle() {
     try {
       await toggleTheme();
@@ -151,7 +151,7 @@ export const SettingsPage = ({navigation}) => {
       );
     }
   }
-  
+
   async function handleColorSchemeChange(value) {
     try {
       await changeColorScheme(value);
@@ -190,16 +190,16 @@ export const SettingsPage = ({navigation}) => {
     }
   }
 
-  
+
   useEffect(() => {
     loadSettings();
   }, []);
-  
+
   return (
     <MainWrapper>
       <PaddingConatiner>
         <Text variant="headlineMedium" style={{ textAlign: 'left', marginBottom: 20, marginLeft: 16, color: colors.text, fontWeight: 'bold' }}>
-           Settings
+          Settings
         </Text>
         <ScrollView style={{ marginBottom: 52 }}>
           <View style={{ padding: 16 }}>
@@ -221,6 +221,44 @@ export const SettingsPage = ({navigation}) => {
               onPress={() => navigation.navigate("SelectLanguages")}
               style={{ paddingHorizontal: 0, paddingVertical: 0 }}
             />
+          </View>
+
+          {/* DAB Music Authentication */}
+          <View style={{ marginTop: 8, marginBottom: 8 }}>
+            <Text variant="titleMedium" style={{ paddingHorizontal: 16, paddingBottom: 8, color: colors.text, opacity: 0.7 }}>
+              DAB Music (FLAC)
+            </Text>
+          </View>
+          <View style={{ padding: 16 }}>
+            <List.Item
+              title="DAB Login"
+              description="Login to access DAB Music features"
+              titleStyle={{ color: colors.text, fontWeight: 'bold' }}
+              descriptionStyle={{ color: colors.text, opacity: 0.7, fontSize: 12 }}
+              left={() => <List.Icon icon="login" color={colors.primary} />}
+              right={() => <List.Icon icon="chevron-right" color={colors.text} />}
+              onPress={() => navigation.navigate("Login")}
+              style={{ paddingHorizontal: 0, paddingVertical: 0 }}
+            />
+          </View>
+          <View style={{ padding: 16 }}>
+            <List.Item
+              title="DAB Register"
+              description="Create a new DAB Music account"
+              titleStyle={{ color: colors.text, fontWeight: 'bold' }}
+              descriptionStyle={{ color: colors.text, opacity: 0.7, fontSize: 12 }}
+              left={() => <List.Icon icon="account-plus" color={colors.primary} />}
+              right={() => <List.Icon icon="chevron-right" color={colors.text} />}
+              onPress={() => navigation.navigate("Register")}
+              style={{ paddingHorizontal: 0, paddingVertical: 0 }}
+            />
+          </View>
+
+          {/* App Settings */}
+          <View style={{ marginTop: 8, marginBottom: 8 }}>
+            <Text variant="titleMedium" style={{ paddingHorizontal: 16, paddingBottom: 8, color: colors.text, opacity: 0.7 }}>
+              App Settings
+            </Text>
           </View>
 
           <DropDownMenu
@@ -341,9 +379,9 @@ function DropDownMenu({ title, icon, data, selectedValue, onSelect }) {
               <Text style={{ color: colors.text, marginRight: 8, opacity: 0.7 }}>
                 {displayValue}
               </Text>
-              <List.Icon 
-                icon={showDropdown ? 'menu-up' : 'menu-down'} 
-                color={colors.text} 
+              <List.Icon
+                icon={showDropdown ? 'menu-up' : 'menu-down'}
+                color={colors.text}
                 style={{ opacity: 0.7 }}
               />
             </View>
@@ -369,7 +407,7 @@ function DropDownMenu({ title, icon, data, selectedValue, onSelect }) {
                 key={item.value}
                 style={{
                   padding: 12,
-                  backgroundColor: item.value === selectedValue ? 
+                  backgroundColor: item.value === selectedValue ?
                     colors.primary + '20' : 'transparent',
                   borderRadius: 4,
                   marginVertical: 2,
@@ -383,9 +421,9 @@ function DropDownMenu({ title, icon, data, selectedValue, onSelect }) {
                     borderRadius: 4,
                   }}
                 >
-                  <Text 
+                  <Text
                     style={{
-                      color: item.value === selectedValue ? 
+                      color: item.value === selectedValue ?
                         colors.primary : colors.text,
                       fontSize: 16,
                       fontWeight: item.value === selectedValue ? '600' : '400',

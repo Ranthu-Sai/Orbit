@@ -1,5 +1,5 @@
 import ytmusicapi
-import pytube
+import pytubefix as pytube
 import json
 import logging
 import time
@@ -238,8 +238,21 @@ def search(query, filter_type='songs', limit=10):
         }
         return json.dumps(error_response)
 
+def validate_and_convert_video_id(video_id):
+    """Validate and clean video ID format"""
+    if not video_id or len(video_id) < 10:
+        return None
+    if len(video_id) == 11 and video_id.replace('_', '').replace('-', '').isalnum():
+        return video_id
+    if video_id.startswith('MUSIC_VIDEO_ID_'):
+        clean_id = video_id.replace('MUSIC_VIDEO_ID_', '')
+        if len(clean_id) == 11:
+            return clean_id
+    logger.warning(f"Potentially invalid video ID format: {video_id}")
+    return video_id
+
 def get_stream_url(video_id):
-    """Get stream URL for a video with caching"""
+    """Get stream URL for a video with caching - matches working app.py implementation"""
     cache_key = _get_cache_key("stream", video_id=video_id)
 
     # Try cache first (video URLs are stable, longer TTL)
@@ -249,31 +262,213 @@ def get_stream_url(video_id):
         return json.dumps(cached)
 
     try:
-        logger.info(f"Getting stream URL for video: {video_id}")
-        yt = pytube.YouTube(f"https://music.youtube.com/watch?v={video_id}")
+        # Validate and clean video ID
+        clean_video_id = validate_and_convert_video_id(video_id)
+        if not clean_video_id:
+            return json.dumps({"error": "Invalid video ID format", "code": "INVALID_ID"})
 
-        # Get best audio stream
-        stream = yt.streams.get_audio_only()
-        if not stream:
-            raise Exception("No audio stream available")
+        logger.info(f"Getting stream URL for video: {clean_video_id}")
+        
+        # Use default client - same as working app.py
+        youtube_url = f"https://music.youtube.com/watch?v={clean_video_id}"
+        yt = pytube.YouTube(youtube_url)
 
-        result = {
-            "url": stream.url,
-            "format": stream.mime_type,
+        # Check if video is accessible
+        if not yt.title or yt.title == "YouTube":
+            logger.error(f"Video not found or not accessible: {clean_video_id}")
+            return json.dumps({"error": "Video not found or not accessible", "code": "VIDEO_NOT_FOUND"})
+
+        # Get audio streams and select the best one
+        audio_streams = yt.streams.filter(only_audio=True)
+        if not audio_streams:
+            logger.error(f"No audio streams found for video: {clean_video_id}")
+            return json.dumps({"error": "No audio streams available", "code": "NO_AUDIO_STREAMS"})
+        
+        # Get the highest quality audio stream
+        best_audio = audio_streams.order_by('abr').desc().first()
+        if not best_audio:
+            logger.error(f"Failed to get best audio stream for video: {clean_video_id}")
+            return json.dumps({"error": "Failed to get audio stream"})
+
+        logger.info(f"Stream found: {best_audio.mime_type}, bitrate: {best_audio.abr}")
+
+        # Get all available audio formats
+        all_formats = [{
+            "itag": stream.itag,
             "quality": stream.abr,
             "bitrate": stream.bitrate,
+            "codec": stream.mime_type,
+            "url": stream.url,
+            "filesize": stream.filesize,
+        } for stream in audio_streams]
+
+        result = {
+            "video_id": clean_video_id,
             "title": yt.title,
             "duration": yt.length,
-            "thumbnail": yt.thumbnail_url
+            "thumbnail": yt.thumbnail_url,
+            "url": best_audio.url,
+            "format": best_audio.mime_type,
+            "quality": best_audio.abr,
+            "bitrate": best_audio.bitrate,
+            "filesize": best_audio.filesize,
+            "all_formats": all_formats
         }
 
         # Cache the result
         _set_cached_result(cache_key, result)
+        logger.info(f"Successfully retrieved stream URL for: {yt.title}")
         return json.dumps(result)
 
     except Exception as e:
+        if "BotDetection" in str(e):
+            logger.warning(f"Bot detection triggered for: {video_id}")
+            return json.dumps({"error": "Video request flagged as bot traffic. Try again later.", "code": "BOT_DETECTION"})
         logger.error(f"Stream URL error for {video_id}: {e}")
         return json.dumps({"error": str(e)})
+
+def get_dash_audio(video_id):
+    """Get DASH adaptive audio streams for a video - matches working app.py implementation"""
+    cache_key = _get_cache_key("dash", video_id=video_id)
+
+    # Try cache first
+    cached = _get_cached_result(cache_key)
+    if cached:
+        logger.info(f"Returning cached DASH audio for video: {video_id}")
+        return json.dumps(cached)
+
+    try:
+        # Validate and clean video ID
+        clean_video_id = validate_and_convert_video_id(video_id)
+        if not clean_video_id:
+            return json.dumps({"error": "Invalid video ID format", "code": "INVALID_ID"})
+
+        logger.info(f"Getting DASH audio streams for video: {clean_video_id}")
+
+        youtube_url = f"https://music.youtube.com/watch?v={clean_video_id}"
+        yt = pytube.YouTube(youtube_url)
+
+        # Check if video is accessible
+        if not yt.title or yt.title == "YouTube":
+            logger.error(f"Video not found or not accessible: {clean_video_id}")
+            return json.dumps({"error": "Video not found or not accessible", "code": "VIDEO_NOT_FOUND"})
+
+        # Try to get DASH adaptive audio streams first
+        dash_audio_streams = yt.streams.filter(only_audio=True, adaptive=True)
+        if not dash_audio_streams:
+            # Fallback to regular audio streams
+            dash_audio_streams = yt.streams.filter(only_audio=True)
+        
+        if not dash_audio_streams:
+            logger.error(f"No audio streams found for video: {clean_video_id}")
+            return json.dumps({"error": "No audio streams available", "code": "NO_AUDIO_STREAMS"})
+
+        # Get all DASH audio formats
+        dash_formats = [{
+            "itag": stream.itag,
+            "quality": stream.abr,
+            "bitrate": stream.bitrate,
+            "codec": stream.mime_type,
+            "url": stream.url,
+            "filesize": stream.filesize,
+        } for stream in dash_audio_streams]
+
+        result = {
+            "video_id": clean_video_id,
+            "title": yt.title,
+            "duration": yt.length,
+            "thumbnail": yt.thumbnail_url,
+            "dash_audio_streams": dash_formats
+        }
+
+        # Cache the result
+        _set_cached_result(cache_key, result)
+        logger.info(f"Successfully retrieved DASH audio streams for: {yt.title}")
+        return json.dumps(result)
+
+    except Exception as e:
+        if "BotDetection" in str(e):
+            logger.warning(f"Bot detection triggered for: {video_id}")
+            return json.dumps({"error": "Video request flagged as bot traffic. Try again later.", "code": "BOT_DETECTION"})
+        logger.error(f"DASH audio error for {video_id}: {e}")
+        return json.dumps({"error": str(e)})
+
+def search_and_stream(song_name, artist_name=""):
+    """Combined search and stream function - matches working app.py implementation"""
+    try:
+        logger.info(f"Searching and streaming: {song_name} by {artist_name}")
+        query = f"{song_name} {artist_name}".strip()
+
+        # Search for the song
+        ytmusic = get_ytmusic_session()
+        
+        try:
+            results = ytmusic.search(query, filter="songs", limit=5)
+        except Exception as search_error:
+            logger.error(f"Search error in search_and_stream: {search_error}")
+            return json.dumps({"error": "Search failed", "details": str(search_error)})
+
+        if not results:
+            return json.dumps({"error": "No results found"})
+
+        # Use first result
+        first = results[0]
+        video_id = first.get('videoId')
+        if not video_id:
+            return json.dumps({"error": "No videoId found"})
+
+        # Check if stream is cached
+        stream_cache_key = _get_cache_key("search_stream", video_id=video_id)
+        cached_stream = _get_cached_result(stream_cache_key)
+        if cached_stream:
+            logger.info(f"Returning cached search+stream result for: {video_id}")
+            return json.dumps(cached_stream)
+
+        # Get stream URL using the same logic as get_stream_url
+        youtube_url = f"https://music.youtube.com/watch?v={video_id}"
+        yt = pytube.YouTube(youtube_url)
+        
+        audio_streams = yt.streams.filter(only_audio=True).order_by('abr').desc()
+        if not audio_streams:
+            return json.dumps({"error": "No audio streams available"})
+
+        best_audio = audio_streams.first()
+
+        # Get all formats
+        all_formats = [{
+            "itag": stream.itag,
+            "quality": stream.abr,
+            "bitrate": stream.bitrate,
+            "codec": stream.mime_type,
+            "url": stream.url,
+            "filesize": stream.filesize,
+        } for stream in audio_streams]
+
+        result = {
+            "title": yt.title,
+            "artists": ', '.join([a.get('name') for a in first.get('artists', [])]),
+            "video_id": video_id,
+            "stream_url": best_audio.url,
+            "thumbnail": yt.thumbnail_url,
+            "quality": best_audio.abr,
+            "bitrate": best_audio.bitrate,
+            "codec": best_audio.mime_type,
+            "duration": yt.length,
+            "all_formats": all_formats
+        }
+
+        # Cache detailed result
+        _set_cached_result(stream_cache_key, result)
+        logger.info(f"Successfully retrieved search+stream for: {yt.title}")
+        return json.dumps(result)
+
+    except Exception as e:
+        if "BotDetection" in str(e):
+            logger.warning(f"Bot detection triggered for: {query}")
+            return json.dumps({"error": "Service temporarily unavailable due to bot detection"})
+        logger.error(f"Search and stream error: {e}")
+        return json.dumps({"error": str(e)})
+
 
 def get_charts(country_code='IN'):
     """Get charts for a country with caching"""
@@ -465,7 +660,7 @@ def get_video_info(video_id):
     """Get detailed video information using pytubefix"""
     try:
         logger.info(f"Getting video info for: {video_id}")
-        yt = pytube.YouTube(f"https://music.youtube.com/watch?v={video_id}")
+        yt = pytube.YouTube(f"https://music.youtube.com/watch?v={video_id}", client='ANDROID_VR')
 
         return json.dumps({
             "video_id": video_id,
@@ -485,7 +680,7 @@ def get_adaptive_streams(video_id):
     """Get adaptive (DASH) streams for better quality"""
     try:
         logger.info(f"Getting adaptive streams for: {video_id}")
-        yt = pytube.YouTube(f"https://music.youtube.com/watch?v={video_id}")
+        yt = pytube.YouTube(f"https://music.youtube.com/watch?v={video_id}", client='ANDROID_VR')
 
         dash_audio_streams = yt.streams.filter(only_audio=True, adaptive=True)
         dash_video_streams = yt.streams.filter(only_video=True, adaptive=True)
@@ -521,7 +716,7 @@ def get_highest_quality_stream(video_id, audio_only=True):
     """Get the highest quality stream available"""
     try:
         logger.info(f"Getting highest quality stream for: {video_id}")
-        yt = pytube.YouTube(f"https://music.youtube.com/watch?v={video_id}")
+        yt = pytube.YouTube(f"https://music.youtube.com/watch?v={video_id}", client='ANDROID_VR')
 
         streams = yt.streams.filter(only_audio=audio_only)
         if not streams:
@@ -572,7 +767,7 @@ def search_and_stream(song_name, artist_name=""):
             return json.dumps(cached_stream)
 
         # Get stream URL
-        yt = pytube.YouTube(f"https://music.youtube.com/watch?v={video_id}")
+        yt = pytube.YouTube(f"https://music.youtube.com/watch?v={video_id}", client='ANDROID_VR')
         audio_streams = yt.streams.filter(only_audio=True).order_by('abr').desc()
 
         if not audio_streams:
@@ -626,6 +821,8 @@ def call_function(func_name, params=None):
             return search(params.get('query', ''), params.get('filter', 'songs'), params.get('limit', 10))
         elif func_name == "get_stream_url":
             return get_stream_url(params.get('video_id', ''))
+        elif func_name == "get_dash_audio":
+            return get_dash_audio(params.get('video_id', ''))
         elif func_name == "get_charts":
             return get_charts(params.get('country', 'IN'))
         elif func_name == "search_and_stream":
