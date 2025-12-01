@@ -17,7 +17,7 @@ import { LyricsHandler } from "./LyricsHandler";
 import { AlbumArtworkDisplay } from "./AlbumArtworkDisplay";
 import { SongInfoDisplay } from "./SongInfoDisplay";
 import { PlaybackControls } from "./PlaybackControls";
-import { OfflineBanner, LocalTracksList, useOffline } from "../Offline";
+import { OfflineBanner, QualityIndicator, LocalTracksList, useOffline } from "../Offline";
 import { useThemeManager } from "./ThemeManager";
 import { TidalSourceSwitcher, useTidalIntegration } from "./TidalIntegration";
 import { useNavigationHandler, BackButtonHandler } from "./NavigationHandler";
@@ -273,7 +273,61 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
     <View
       style={[styles.overlay, { backgroundColor: getBackgroundOverlay() }]}
     >
-      <OfflineBanner />
+      {/* Show offline banner or quality indicator */}
+      {isOffline ? (
+        <OfflineBanner top={insets.top + 25} />
+      ) : (
+        currentPlaying && (() => {
+          // Determine streaming source and quality
+          let source = 'saavn'; //default
+          let quality = '';
+
+          // Check for DAB - parse quality from URL fmt parameter
+          // FIXED: Also check URL pattern for qobuz
+          if (currentPlaying.isDabTrack ||
+            currentPlaying.source === 'dab' ||
+            (currentPlaying.url && currentPlaying.url.includes('qobuz'))) {
+            source = 'dab';
+
+            // Parse quality from URL instead of using setting-based quality
+            if (currentPlaying.url) {
+              const fmtMatch = currentPlaying.url.match(/[?&]fmt=(\d+)/);
+              const fmt = fmtMatch ? fmtMatch[1] : null;
+              const formatMap = {
+                '5': 'MP3 320kbps',
+                '6': 'FLAC',
+                '7': 'FLAC',
+                '27': 'FLAC'
+              };
+              quality = formatMap[fmt] || 'FLAC';
+            } else {
+              quality = 'FLAC';
+            }
+          }
+          // Check for YouTube (11-character ID)
+          else if (currentPlaying.id && typeof currentPlaying.id === 'string' && currentPlaying.id.length === 11) {
+            source = 'youtube';
+            quality = currentPlaying.currentPlayingQuality || '';
+          }
+          // Check for Tidal
+          else if (currentPlaying.source === 'tidal' || currentPlaying.sourceType === 'tidal') {
+            source = 'tidal';
+            quality = currentPlaying.currentPlayingQuality || '';
+          }
+          // Default to Saavn
+          else {
+            quality = currentPlaying.currentPlayingQuality || '';
+          }
+
+          return (
+            <QualityIndicator
+              top={insets.top + 25}
+              quality={quality}
+              source={source}
+            />
+          );
+        })()
+      )}
       <LinearGradient
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
@@ -387,7 +441,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
             style={styles.bottomGradient}
           />
         </View>
-        
+
         {/* Bottom bar with icons */}
         <View style={styles.bottomBarContainer}>
           <View style={styles.barsButton}>
@@ -401,7 +455,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
             />
           </View>
         </View>
-        
+
         {/* Info icon on bottom left */}
         <View style={styles.infoBarContainer}>
           <View style={styles.barsButton}>
@@ -409,7 +463,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
               icon="information-outline"
               size={24}
               iconColor={iconColor}
-                  onPress={() => setIsInfoModalVisible(true)}
+              onPress={() => setIsInfoModalVisible(true)}
               style={{ margin: 0 }}
               rippleColor="rgba(255, 255, 255, 0.2)"
             />
@@ -487,10 +541,10 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
           onClose={closeMenu}
           menuOptions={getMenuOptions()}
         />
-        <SongInfoModal 
-        visible={isInfoModalVisible}
-        onDismiss={() => setIsInfoModalVisible(false)}
-        track={currentPlaying}
+        <SongInfoModal
+          visible={isInfoModalVisible}
+          onDismiss={() => setIsInfoModalVisible(false)}
+          track={currentPlaying}
         />
 
         <QueueBottomSheet

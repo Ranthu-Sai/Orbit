@@ -4,6 +4,7 @@ export { default as OfflineManager } from './OfflineManager';
 export { default as LocalMusicPlayer } from './LocalMusicPlayer';
 export { default as DownloadedSongsManager } from './DownloadedSongsManager';
 export { default as OfflineBanner } from './OfflineBanner';
+export { default as QualityIndicator } from './QualityIndicator';
 export { default as LocalTracksList } from './LocalTracksList';
 export { default as OfflineIndicator } from './OfflineIndicator';
 
