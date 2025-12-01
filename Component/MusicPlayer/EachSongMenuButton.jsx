@@ -12,6 +12,7 @@ import PlaylistSelectorWrapper from '../Playlist/PlaylistSelectorWrapper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 import PythonBridgeService from '../../Utils/PythonBridgeService';
+import dabMusicService from '../../Utils/DabMusicService';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -155,14 +156,75 @@ export const EachSongMenuButton = ({
 
   const addToQueue = async () => {
     closeMenu();
-    if (!song?.url) {
-      ToastAndroid.show('No song URL available', ToastAndroid.SHORT);
+    if (!song?.id) {
+      ToastAndroid.show('No song data available', ToastAndroid.SHORT);
       return;
     }
 
     try {
-      // Get the actual URL from array if needed
-      const songUrl = getHighestQualityUrl(song.url);
+      // Check if this is a YouTube Music song (11-character video ID)
+      const isYouTubeSong = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
+      // Check if this is a DAB Music track (multiple detection methods)
+      const isDabTrack = song.isDabTrack || song.source === 'dab' || (!isNaN(song.url) && String(song.url).length > 5);
+
+      let songUrl = '';
+      let songMetadata = { ...song };
+
+      if (isYouTubeSong) {
+        // For YouTube songs, fetch the actual stream URL
+        console.log('🎵 Fetching YouTube stream for add to queue:', song.id);
+        try {
+          const streamData = await PythonBridgeService.getStreamUrl(song.id);
+
+          if (streamData && streamData.url) {
+            songUrl = streamData.url;
+            songMetadata = {
+              ...songMetadata,
+              url: streamData.url,
+              artwork: streamData.thumbnail || songMetadata.artwork,
+              duration: streamData.duration || songMetadata.duration,
+              title: streamData.title || songMetadata.title,
+            };
+            console.log('✅ YouTube stream URL fetched successfully');
+          } else {
+            console.error('❌ Failed to get YouTube stream URL');
+            ToastAndroid.show('Failed to get stream URL', ToastAndroid.SHORT);
+            return;
+          }
+        } catch (error) {
+          console.error('❌ Error fetching YouTube stream:', error);
+          ToastAndroid.show('Failed to load YouTube stream', ToastAndroid.SHORT);
+          return;
+        }
+      } else if (isDabTrack) {
+        // For DAB tracks, fetch the actual stream URL
+        console.log('🎵 DAB Track detected in add to queue! Fetching stream URL for ID:', song.id);
+        try {
+          await dabMusicService.initialize();
+          const streamUrl = await dabMusicService.getStreamUrl(song.id);
+
+          if (streamUrl) {
+            songUrl = streamUrl;
+            songMetadata = {
+              ...songMetadata,
+              url: streamUrl,
+            };
+            console.log('✅ DAB stream URL fetched successfully for add to queue');
+          } else {
+            console.error('❌ Failed to get DAB stream URL');
+            ToastAndroid.show('Failed to load DAB stream', ToastAndroid.SHORT);
+            return;
+          }
+        } catch (error) {
+          console.error('❌ Error fetching DAB stream:', error);
+          ToastAndroid.show('Failed to load DAB stream', ToastAndroid.SHORT);
+          return;
+        }
+      } else {
+        // For non-YouTube/non-DAB songs, get the URL from song data
+        songUrl = getHighestQualityUrl(song.url);
+      }
+
       console.log('Using URL for add to queue:', songUrl);
 
       if (!songUrl) {
@@ -173,13 +235,13 @@ export const EachSongMenuButton = ({
       // Add to queue using TrackPlayer
       await TrackPlayer.add({
         url: songUrl,
-        title: song.title || 'Unknown Title',
-        artist: song.artist || 'Unknown Artist',
-        artwork: song.artwork || song.image,
+        title: songMetadata.title || 'Unknown Title',
+        artist: songMetadata.artist || 'Unknown Artist',
+        artwork: songMetadata.artwork || songMetadata.image,
         id: song.id || Date.now().toString(),
-        duration: song.duration || 0,
-        language: song.language || '',
-        artistID: song.artistID || ''
+        duration: songMetadata.duration || 0,
+        language: songMetadata.language || '',
+        artistID: songMetadata.artistID || ''
       });
 
       updateTrack();
@@ -200,6 +262,8 @@ export const EachSongMenuButton = ({
     try {
       // Check if this is a YouTube Music song (11-character video ID)
       const isYouTubeSong = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
+      // Check if this is a DAB Music track (multiple detection methods)
+      const isDabTrack = song.isDabTrack || song.source === 'dab' || (!isNaN(song.url) && String(song.url).length > 5);
 
       let songUrl = '';
       let songMetadata = { ...song };
@@ -230,8 +294,32 @@ export const EachSongMenuButton = ({
           ToastAndroid.show('Failed to load YouTube stream', ToastAndroid.SHORT);
           return;
         }
+      } else if (isDabTrack) {
+        // For DAB tracks, fetch the actual stream URL
+        console.log('🎵 DAB Track detected in play next! Fetching stream URL for ID:', song.id);
+        try {
+          await dabMusicService.initialize();
+          const streamUrl = await dabMusicService.getStreamUrl(song.id);
+
+          if (streamUrl) {
+            songUrl = streamUrl;
+            songMetadata = {
+              ...songMetadata,
+              url: streamUrl,
+            };
+            console.log('✅ DAB stream URL fetched successfully for play next');
+          } else {
+            console.error('❌ Failed to get DAB stream URL');
+            ToastAndroid.show('Failed to load DAB stream', ToastAndroid.SHORT);
+            return;
+          }
+        } catch (error) {
+          console.error('❌ Error fetching DAB stream:', error);
+          ToastAndroid.show('Failed to load DAB stream', ToastAndroid.SHORT);
+          return;
+        }
       } else {
-        // For non-YouTube songs, get the URL from song data
+        // For non-YouTube/non-DAB songs, get the URL from song data
         songUrl = getHighestQualityUrl(song.url);
       }
 

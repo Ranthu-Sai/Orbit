@@ -297,6 +297,42 @@ async function AddPlaylist(songs) {
           console.error('Error fetching YouTube stream for playlist song:', error);
           // Continue with original URL
         }
+      }
+      // Check if this is a DAB Music track
+      else if (song.isDabTrack || song.source === 'dab' || (!isNaN(song.url) && String(song.url).length > 5)) {
+        try {
+          console.log('🎵 DAB Track detected in playlist! Fetching stream URL for ID:', song.id);
+          await dabMusicService.initialize();
+          const streamUrl = await dabMusicService.getStreamUrl(song.id);
+
+          if (streamUrl) {
+            playbackUrl = streamUrl;
+
+            // Parse format from URL to determine quality
+            const fmtMatch = streamUrl.match(/[?&]fmt=(\d+)/);
+            const fmt = fmtMatch ? fmtMatch[1] : null;
+            const formatMap = {
+              '5': 'MP3 320kbps',
+              '6': 'FLAC 16-bit/44.1kHz',
+              '7': 'FLAC 24-bit/96kHz',
+              '27': 'FLAC 24-bit/192kHz'
+            };
+            const dabQuality = formatMap[fmt] || 'FLAC';
+
+            updatedSong = {
+              ...updatedSong,
+              url: streamUrl,
+              currentPlayingQuality: dabQuality
+            };
+            console.log('✅ DAB stream URL fetched successfully for playlist');
+            console.log('🎵 Quality:', dabQuality);
+          } else {
+            console.error('Failed to get DAB stream URL for playlist song');
+          }
+        } catch (error) {
+          console.error('❌ Error fetching DAB stream for playlist song:', error);
+          // Continue with original URL
+        }
       } else {
         // Select appropriate quality URL
         if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
@@ -374,6 +410,42 @@ async function AddSongsToQueue(songs) {
         }
       } catch (error) {
         console.error('Error fetching YouTube stream for playlist song:', error);
+        // Continue with original URL
+      }
+    }
+    // Check if this is a DAB Music track
+    else if (song.isDabTrack || song.source === 'dab' || (!isNaN(song.url) && String(song.url).length > 5)) {
+      try {
+        console.log('🎵 DAB Track detected in queue! Fetching stream URL for ID:', song.id);
+        await dabMusicService.initialize();
+        const streamUrl = await dabMusicService.getStreamUrl(song.id);
+
+        if (streamUrl) {
+          playbackUrl = streamUrl;
+
+          // Parse format from URL to determine quality
+          const fmtMatch = streamUrl.match(/[?&]fmt=(\d+)/);
+          const fmt = fmtMatch ? fmtMatch[1] : null;
+          const formatMap = {
+            '5': 'MP3 320kbps',
+            '6': 'FLAC 16-bit/44.1kHz',
+            '7': 'FLAC 24-bit/96kHz',
+            '27': 'FLAC 24-bit/192kHz'
+          };
+          const dabQuality = formatMap[fmt] || 'FLAC';
+
+          updatedSong = {
+            ...updatedSong,
+            url: streamUrl,
+            currentPlayingQuality: dabQuality
+          };
+          console.log('✅ DAB stream URL fetched successfully for queue');
+          console.log('🎵 Quality:', dabQuality);
+        } else {
+          console.error('Failed to get DAB stream URL for queue song');
+        }
+      } catch (error) {
+        console.error('❌ Error fetching DAB stream for queue song:', error);
         // Continue with original URL
       }
     } else {

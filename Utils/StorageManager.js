@@ -12,28 +12,21 @@ const getBaseDir = async () => {
     let actualPathUsed = downloadPref; // Track what path we're actually using
 
     if (Platform.OS === 'android') {
-      const musicDir = RNFS.MusicDirectoryPath;
       const downloadDir = RNFS.DownloadDirectoryPath;
 
       console.log('StorageManager: Available paths:', {
-        musicDir: musicDir,
+        musicDir: RNFS.MusicDirectoryPath,
         downloadDir: downloadDir,
         externalDir: RNFS.ExternalDirectoryPath,
         documentDir: RNFS.DocumentDirectoryPath
       });
 
-      if (downloadPref === 'Music' && musicDir) {
-        publicDir = musicDir;
-        console.log('StorageManager: Using Music directory for downloads');
-      } else if (downloadPref === 'Music' && !musicDir) {
-        console.warn('StorageManager: Music directory not available, falling back to Downloads');
-        publicDir = downloadDir || RNFS.ExternalDirectoryPath || RNFS.DocumentDirectoryPath;
-        actualPathUsed = 'Downloads (fallback)';
-      } else if (downloadDir) {
+      // Use Downloads directory as default (Music directory is often unavailable on Android)
+      if (downloadDir) {
         publicDir = downloadDir;
-        console.log('StorageManager: Using Downloads directory');
+        console.log('StorageManager: Using Downloads directory for storage');
       } else {
-        console.warn(`StorageManager: Preferred directory '${downloadPref}' not available. Falling back.`);
+        console.warn('StorageManager: Download directory not available. Falling back.');
         publicDir = RNFS.ExternalDirectoryPath || RNFS.DocumentDirectoryPath;
         actualPathUsed = 'External/Fallback';
       }
