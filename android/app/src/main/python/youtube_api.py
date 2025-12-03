@@ -102,18 +102,21 @@ def get_ytmusic_session():
             
             # Try multiple initialization strategies for Android environment
             strategies = [
-                # Strategy 1: No browser parameter, clean initialization (best for Android)
+                # Strategy 1: Try with auth headers if available
+                lambda: _init_with_auth(),
+                # Strategy 2: No browser parameter, clean initialization (best for Android)
                 lambda: ytmusicapi.YTMusic(language='en', location='IN'),
-                # Strategy 2: Try with explicit None for auth (fallback)
+                # Strategy 3: Try with explicit None for auth (fallback)
                 lambda: ytmusicapi.YTMusic(language='en', location='IN', auth=None)
             ]
             
             for i, strategy in enumerate(strategies):
                 try:
                     _ytmusic_session = strategy()
-                    logger.info(f"YTMusic session created successfully with strategy {i+1}")
-                    logger.info(f"Using temp directory: {temp_dir}")
-                    break
+                    if _ytmusic_session: # Ensure we got a session
+                        logger.info(f"YTMusic session created successfully with strategy {i+1}")
+                        logger.info(f"Using temp directory: {temp_dir}")
+                        break
                 except Exception as e:
                     logger.warning(f"Strategy {i+1} failed: {e}")
                     if i == len(strategies) - 1:
@@ -129,6 +132,73 @@ def get_ytmusic_session():
             logger.warning("Using mock YTMusic session as fallback")
     
     return _ytmusic_session
+
+def _get_auth_headers():
+    """Get authentication headers/cookies from saved file"""
+    import glob
+    
+    # Try to find headers_auth.json in various locations
+    # The React Native app saves to DocumentDirectoryPath which varies
+    possible_patterns = [
+        '/data/user/*/com.orbit.beta/files/headers_auth.json',
+        '/data/user/*/com.orbit/files/headers_auth.json',
+        '/data/data/com.orbit.beta/files/headers_auth.json',
+        '/data/data/com.orbit/files/headers_auth.json',
+    ]
+    
+    auth_file = None
+    for pattern in possible_patterns:
+        matches = glob.glob(pattern)
+        if matches:
+            auth_file = matches[0]
+            logger.info(f"Found auth file at: {auth_file}")
+            break
+    
+    if not auth_file:
+        return None
+    
+    try:
+        with open(auth_file, 'r') as f:
+            headers = json.load(f)
+        return headers
+    except Exception as e:
+        logger.error(f"Failed to read auth file: {e}")
+        return None
+
+def _init_with_auth():
+    """Helper to initialize YTMusic with auth headers if file exists"""
+    try:
+        headers = _get_auth_headers()
+        if not headers:
+            raise Exception("No auth headers found")
+        
+        # Save to temp file for ytmusicapi
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(headers, f)
+            temp_path = f.name
+        
+        ytmusic = ytmusicapi.YTMusic(auth=temp_path, language='en', location='IN')
+        
+        # Clean up temp file
+        try:
+            os.remove(temp_path)
+        except:
+            pass
+        
+        return ytmusic
+    except Exception as e:
+        raise e
+
+def reload_session():
+    """Force reload the YTMusic session (e.g. after login)"""
+    global _ytmusic_session
+    _ytmusic_session = None
+    try:
+        get_ytmusic_session()
+        return json.dumps({"status": "success", "message": "Session reloaded"})
+    except Exception as e:
+        return json.dumps({"error": str(e)})
 
 class MockYTMusic:
     """Mock YTMusic class for fallback when real initialization fails"""
@@ -269,9 +339,55 @@ def get_stream_url(video_id):
 
         logger.info(f"Getting stream URL for video: {clean_video_id}")
         
-        # Use default client - same as working app.py
+        # Use pytubefix with authentication
+        # Try with authentication cookies if available
         youtube_url = f"https://music.youtube.com/watch?v={clean_video_id}"
-        yt = pytube.YouTube(youtube_url)
+        
+        # Check if we have auth headers/cookies
+        auth_headers = _get_auth_headers()
+        if auth_headers and 'Cookie' in auth_headers:
+            logger.info("Using authenticated pytubefix with cookies")
+            try:
+                # Create a custom session with cookies
+                import requests
+                session = requests.Session()
+                
+                # Set headers from auth file
+                for key, value in auth_headers.items():
+                    if key.lower() != 'cookie':
+                        session.headers[key] = value
+                
+                # Parse and set cookies
+                cookie_string = auth_headers.get('Cookie', '')
+                for cookie in cookie_string.split('; '):
+                    if '=' in cookie:
+                        name, value = cookie.split('=', 1)
+                        session.cookies.set(name, value, domain='.youtube.com')
+                        session.cookies.set(name, value, domain='music.youtube.com')
+                
+                # Monkey-patch pytube to use our session
+                # This is a bit hacky but it works
+                import pytube.streams
+                original_get = pytube.streams.Stream._get
+                
+                def patched_get(self, *args, **kwargs):
+                    # Inject our session
+                    if hasattr(self, '_monostate'):
+                        self._monostate['session'] = session
+                    return original_get(self, *args, **kwargs)
+                
+                pytube.streams.Stream._get = patched_get
+                
+                # Now create YouTube object
+                yt = pytube.YouTube(youtube_url)
+                
+            except Exception as cookie_error:
+                logger.warning(f"Failed to inject cookies into pytubefix: {cookie_error}")
+                # Fall back to regular pytube
+                yt = pytube.YouTube(youtube_url)
+        else:
+            logger.info("Using unauthenticated pytubefix")
+            yt = pytube.YouTube(youtube_url)
 
         # Check if video is accessible
         if not yt.title or yt.title == "YouTube":
@@ -318,6 +434,7 @@ def get_stream_url(video_id):
         # Cache the result
         _set_cached_result(cache_key, result)
         logger.info(f"Successfully retrieved stream URL for: {yt.title}")
+        logger.info(f"Stream API Response: {json.dumps(result)}") # Log full response as requested
         return json.dumps(result)
 
     except Exception as e:
