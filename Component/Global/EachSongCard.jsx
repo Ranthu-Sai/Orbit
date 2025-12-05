@@ -126,11 +126,111 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
 
   async function AddSongToPlayer() {
     console.log(`[Playback] Clicked on song: "${title}", Source: ${source}, ID: ${id}`);
+
     if (isFromPlaylist) {
+      const songs = Data?.data?.songs || [];
+      const current = songs[index];
+
+      // If this playlist is from YTMusic, play only the clicked song immediately,
+      // then queue a small batch of next songs in background.
+      const isYtMusicPlaylist = current && ((current.source === 'ytmusic') || (typeof current.id === 'string' && current.id.length === 11));
+
+      if (isYtMusicPlaylist && current) {
+        // Build current song object for immediate playback
+        let artworkUri = '';
+        try {
+          if (typeof current?.image === 'string') {
+            artworkUri = current.image;
+          } else if (current?.image && typeof current.image === 'object') {
+            if (typeof current.image.uri === 'string') {
+              artworkUri = current.image.uri;
+            } else if (typeof current.image.url === 'string') {
+              artworkUri = current.image.url;
+            } else if (Array.isArray(current.image) && current.image.length > 0) {
+              if (typeof current.image[0] === 'string') {
+                artworkUri = current.image[0];
+              } else if (current.image[0] && typeof current.image[0].url === 'string') {
+                artworkUri = current.image[0].url;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error extracting artwork URI for current song:', error);
+        }
+
+        const currentSong = {
+          url: '', // Let PlayOneSong + YouTube service fetch the stream URL
+          title: formatText(current?.name || title),
+          artist: formatText(FormatArtist(current?.artists?.primary || [])) || formatText(artist),
+          artwork: artworkUri,
+          image: artworkUri,
+          duration: current?.duration ?? duration,
+          id: current?.id ?? id,
+          language: current?.language,
+          downloadUrl: current?.downloadUrl || current?.download_url || current?.id,
+          source: 'ytmusic',
+        };
+
+        // Play clicked song instantly
+        await PlayOneSong(currentSong);
+
+        // Queue only the next 5 songs in the background
+        try {
+          const { AddSongsToQueue } = require('../../MusicPlayerFunctions');
+
+          const nextSongsRaw = songs.slice(index + 1, index + 6);
+          const nextSongs = nextSongsRaw
+            .filter(s => s && s.id)
+            .map(s => {
+              let nextArtwork = '';
+              try {
+                if (typeof s?.image === 'string') {
+                  nextArtwork = s.image;
+                } else if (s?.image && typeof s.image === 'object') {
+                  if (typeof s.image.uri === 'string') {
+                    nextArtwork = s.image.uri;
+                  } else if (typeof s.image.url === 'string') {
+                    nextArtwork = s.image.url;
+                  } else if (Array.isArray(s.image) && s.image.length > 0) {
+                    if (typeof s.image[0] === 'string') {
+                      nextArtwork = s.image[0];
+                    } else if (s.image[0] && typeof s.image[0].url === 'string') {
+                      nextArtwork = s.image[0].url;
+                    }
+                  }
+                }
+              } catch (e) {
+                console.error('Error extracting artwork URI for queued song:', e);
+              }
+
+              return {
+                url: '', // stream URL will be fetched when queued song is processed
+                title: formatText(s?.name),
+                artist: formatText(FormatArtist(s?.artists?.primary || [])),
+                artwork: nextArtwork,
+                image: nextArtwork,
+                duration: s?.duration,
+                id: s?.id,
+                language: s?.language,
+                downloadUrl: s?.downloadUrl || s?.download_url || s?.id,
+                source: 'ytmusic',
+              };
+            });
+
+          if (nextSongs.length > 0) {
+            await AddSongsToQueue(nextSongs);
+          }
+        } catch (queueErr) {
+          console.error('Error queuing next YTMusic playlist songs:', queueErr);
+        }
+
+        updateTrack();
+        return;
+      }
+
+      // Non-YTMusic playlist: keep existing Saavn-style behavior
       const ForMusicPlayer = []
       const quality = await getIndexQuality()
-
-      const songs = Data?.data?.songs || []
 
       for (let i = index; i < songs.length; i++) {
         const e = songs[i]

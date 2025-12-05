@@ -676,7 +676,6 @@ async function getYTMusicPlaylistData(playlistId) {
           follower: `${transformedSongs.length} songs`
         };
 
-        console.log(`✅ YTMusic Playlist - Loaded ${transformedSongs.length} songs from playlist: ${transformedPlaylist.name}`);
 
         return {
           status: "SUCCESS",
@@ -686,7 +685,6 @@ async function getYTMusicPlaylistData(playlistId) {
         };
       }
 
-      console.log('YTMusic Playlist - No valid data from Innertube Client');
       return {
         status: "FAILED",
         message: playlistData?.error || "No playlist data found",

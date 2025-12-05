@@ -240,9 +240,6 @@ class InnerTubeClient {
 
     static parsePlaylist(data) {
         try {
-            console.log('=== YTMusic Playlist Raw Response ===');
-            console.log(JSON.stringify(data, null, 2));
-            console.log('=== End Response ===');
 
             const header = data?.header?.musicDetailHeaderRenderer || data?.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicResponsiveHeaderRenderer;
             const tracks = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer?.contents;
