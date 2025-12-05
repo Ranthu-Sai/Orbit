@@ -240,14 +240,39 @@ class InnerTubeClient {
 
     static parsePlaylist(data) {
         try {
+            console.log('=== YTMusic Playlist Raw Response ===');
+            console.log(JSON.stringify(data, null, 2));
+            console.log('=== End Response ===');
+
             const header = data?.header?.musicDetailHeaderRenderer || data?.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicResponsiveHeaderRenderer;
             const tracks = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer?.contents;
 
             const title = header?.title?.runs?.[0]?.text;
             const songs = tracks?.map(t => this.parseItem(t)).filter(i => i) || [];
 
-            return { title, songs };
-        } catch (e) { return null; }
+            // Extract additional metadata
+            const thumbnails = header?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+            const description = header?.description?.runs?.[0]?.text || header?.description?.simpleText;
+
+            // Author/Subtitle typically in subtitle runs
+            // "Playlist • YouTube Music • 2023" or "Username • 50 songs"
+            const subtitleRuns = header?.subtitle?.runs;
+            const author = subtitleRuns?.find(r => r.navigationEndpoint?.browseEndpoint?.browseId?.startsWith('UC'))?.text
+                || subtitleRuns?.[0]?.text
+                || "YouTube Music";
+            const year = subtitleRuns?.find(r => r.text.match(/\d{4}/))?.text;
+
+            return {
+                id: data?.header?.musicDetailHeaderRenderer?.menu?.menuRenderer?.topLevelButtons?.[0]?.buttonRenderer?.navigationEndpoint?.watchEndpoint?.playlistId,
+                title,
+                songs,
+                thumbnails,
+                description,
+                author,
+                year,
+                count: songs.length
+            };
+        } catch (e) { console.error('Parse Playlist Error', e); return null; }
     }
 
     static parseRelated(data) {

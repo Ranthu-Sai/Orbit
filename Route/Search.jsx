@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useActiveTrack, usePlaybackState } from "react-native-track-player";
 import { View, BackHandler, TouchableOpacity, Text, StyleSheet, FlatList, TextInput, Dimensions, ActivityIndicator } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -10,15 +11,17 @@ import EachSongCard from "../Component/Global/EachSongCard";
 
 const { width } = Dimensions.get('window');
 
-export const Search = ({route}) => {
+export const Search = ({ route }) => {
   const navigation = useNavigation();
   const [searchText, setSearchText] = useState(route?.params?.searchText || "");
   const [searchResults, setSearchResults] = useState({});
   const [loading, setLoading] = useState(false);
   const backAttempted = useRef(false);
+  const activeTrack = useActiveTrack();
+  const playbackState = usePlaybackState();
 
 
-  
+
   // Simple direct approach for back button
   useEffect(() => {
     const backAction = () => {
@@ -30,21 +33,21 @@ export const Search = ({route}) => {
 
       // First back attempt - set flag and try to go back normally
       backAttempted.current = true;
-      
+
       // Reset the flag after a delay
       setTimeout(() => {
         backAttempted.current = false;
       }, 3000); // Reset after 3 seconds
-      
+
       // Go directly to Home on first attempt too
       navigation.navigate('Home', { screen: 'HomePage' });
       return true;
     };
-    
+
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
   }, [navigation]);
-  
+
   // Direct header icon navigation to Home
   useEffect(() => {
     navigation.setOptions({
@@ -60,11 +63,11 @@ export const Search = ({route}) => {
       ),
     });
   }, [navigation]);
-  
+
   // Search functionality
   const handleSearch = async () => {
     if (!searchText.trim()) return;
-    
+
     setLoading(true);
     try {
       const results = await searchAll(searchText);
@@ -75,18 +78,18 @@ export const Search = ({route}) => {
       setLoading(false);
     }
   };
-  
+
   // Perform search when text changes or on mount
   useEffect(() => {
     if (searchText.trim()) {
       handleSearch();
     }
   }, [searchText]);
-  
+
   // Render playlist with improved UI
   const renderPlaylist = ({ item }) => (
     <View style={styles.playlistContainer}>
-      <EachPlaylistCard 
+      <EachPlaylistCard
         item={item}
         onPress={() => navigation.navigate('Playlist', {
           id: item.id,
@@ -99,7 +102,7 @@ export const Search = ({route}) => {
       />
     </View>
   );
-  
+
   // Render album with improved UI
   const renderAlbum = ({ item }) => (
     <View style={styles.albumContainer}>
@@ -117,23 +120,25 @@ export const Search = ({route}) => {
       />
     </View>
   );
-  
+
   // Render song with improved UI
   const renderSong = ({ item }) => (
     <EachSongCard
       item={item}
       source={{ type: 'search', query: searchText }}
       showNumber={false}
+      activeTrackId={activeTrack?.id}
+      isPlaying={playbackState.state === "playing" || playbackState.state === 3}
     />
   );
-  
+
   // Empty component for better UX
   const renderEmptyComponent = (title) => (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyText}>No {title} found</Text>
     </View>
   );
-  
+
   return (
     <View style={styles.container}>
       {/* Search Input */}
@@ -149,14 +154,14 @@ export const Search = ({route}) => {
           clearButtonMode="while-editing"
         />
       </View>
-      
+
       {/* Loading Indicator */}
       {loading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#8B5CF6" />
         </View>
       )}
-      
+
       {/* Results */}
       {!loading && (
         <FlatList
@@ -182,7 +187,7 @@ export const Search = ({route}) => {
                   />
                 </View>
               )}
-              
+
               {/* Albums Section */}
               {searchResults.albums && searchResults.albums.length > 0 && (
                 <View style={styles.section}>
@@ -201,7 +206,7 @@ export const Search = ({route}) => {
                   />
                 </View>
               )}
-              
+
               {/* Songs Section */}
               {searchResults.songs && searchResults.songs.length > 0 && (
                 <View style={styles.section}>
@@ -217,15 +222,15 @@ export const Search = ({route}) => {
                   />
                 </View>
               )}
-              
+
               {/* No Results */}
-              {!loading && searchText.trim() && 
+              {!loading && searchText.trim() &&
                 (!searchResults.songs?.length && !searchResults.albums?.length && !searchResults.playlists?.length) && (
-                <View style={styles.noResultsContainer}>
-                  <Ionicons name="search-outline" size={50} color="#8B5CF6" />
-                  <Text style={styles.noResultsText}>No results found for "{searchText}"</Text>
-                </View>
-              )}
+                  <View style={styles.noResultsContainer}>
+                    <Ionicons name="search-outline" size={50} color="#8B5CF6" />
+                    <Text style={styles.noResultsText}>No results found for "{searchText}"</Text>
+                  </View>
+                )}
             </View>
           )}
           contentContainerStyle={styles.flatListContent}

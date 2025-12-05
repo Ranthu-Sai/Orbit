@@ -5,7 +5,7 @@ import { AddPlaylist, getIndexQuality, PlayOneSong } from "../../MusicPlayerFunc
 import { useTheme } from "@react-navigation/native";
 import { memo, useContext, useState, useEffect } from "react";
 import Context from "../../Context/Context";
-import { useActiveTrack, usePlaybackState } from "react-native-track-player";
+// Removed unused TrackPlayer hooks
 import FormatTitleAndArtist, { truncateText } from "../../Utils/FormatTitleAndArtist";
 import FormatArtist from "../../Utils/FormatArtists";
 import { EachSongMenuButton } from "../MusicPlayer/EachSongMenuButton";
@@ -17,13 +17,12 @@ import { requestStoragePermission } from '../../Utils/PermissionManager';
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
 import PythonBridgeService from '../../Utils/PythonBridgeService';
 
-export const EachSongCard = memo(function EachSongCard({ title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', tidalUrl, truncateTitle = false, onDeleteComplete }) {
+export const EachSongCard = memo(function EachSongCard({ title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', tidalUrl, truncateTitle = false, onDeleteComplete, activeTrackId, isPlaying }) {
   const theme = useTheme();
   const { colors } = theme;
   const width1 = Dimensions.get("window").width;
   const { updateTrack } = useContext(Context)
-  const currentPlaying = useActiveTrack()
-  const playerState = usePlaybackState()
+  // Removed hooks to prevent excessive listeners
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [downloadInProgress, setDownloadInProgress] = useState(false);
 
@@ -32,9 +31,9 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
   let safeImageUri = '';
 
   try {
-    if (id === (currentPlaying?.id ?? "") && playerState.state === "playing") {
+    if (id === (activeTrackId ?? "") && isPlaying) {
       imageSource = require("../../Images/playing.gif");
-    } else if (id === (currentPlaying?.id ?? "") && playerState.state !== "playing") {
+    } else if (id === (activeTrackId ?? "") && !isPlaying) {
       imageSource = require("../../Images/songPaused.gif");
     } else {
       if (typeof image === 'string') {
@@ -546,7 +545,7 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
           alignItems: 'center',
           paddingVertical: 8,
           paddingHorizontal: 12,
-          backgroundColor: id === currentPlaying?.id ? colors.playingCard : 'transparent',
+          backgroundColor: id === activeTrackId ? colors.playingCard : 'transparent',
         }}>
         <Pressable
           onPress={AddSongToPlayer}

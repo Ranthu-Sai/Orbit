@@ -1,5 +1,5 @@
 import { MainWrapper } from "../Layout/MainWrapper";
-import Animated, { useAnimatedRef} from "react-native-reanimated";
+import Animated, { useAnimatedRef } from "react-native-reanimated";
 import { PlaylistTopHeader } from "../Component/Playlist/PlaylistTopHeader";
 import { View, BackHandler, Pressable, ActivityIndicator, StyleSheet, Dimensions, Text } from "react-native";
 import { EachSongCard } from "../Component/Global/EachSongCard";
@@ -12,6 +12,7 @@ import FormatArtist from "../Utils/FormatArtists";
 import { useNavigation, CommonActions, useTheme } from "@react-navigation/native";
 import { Spacer } from "../Component/Global/Spacer";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useActiveTrack, usePlaybackState } from "react-native-track-player";
 
 // AsyncStorage keys
 const CURRENT_PLAYLIST_ID_KEY = "orbit_current_playlist_id";
@@ -64,7 +65,7 @@ const getValidDownloadUrl = (downloadUrl, index = 2) => {
         return urlObj.url;
       }
     }
-    
+
     // Return empty string if it doesn't match expected format
     return '';
   } catch (error) {
@@ -112,33 +113,35 @@ const getValidImageUrl = (url) => {
 const formatArtistData = (artistData) => {
   // If it's already a string, return it
   if (typeof artistData === 'string') return artistData;
-  
+
   // If it's an array, use the FormatArtist function
   if (Array.isArray(artistData)) return FormatArtist(artistData);
-  
+
   // If it's an object with a primary property that's an array
   if (artistData && artistData.primary && Array.isArray(artistData.primary)) {
     return FormatArtist(artistData.primary);
   }
-  
+
   // If it's an object with a name property
   if (artistData && artistData.name) return artistData.name;
-  
+
   // Default fallback
   return "Unknown Artist";
 };
 
-export const Playlist = ({route}) => {
+export const Playlist = ({ route }) => {
   const AnimatedRef = useAnimatedRef();
   const [Loading, setLoading] = useState(true);
   const [Data, setData] = useState({});
   const navigation = useNavigation();
   const { width, height } = Dimensions.get('window');
   const theme = useTheme();
-  
+  const activeTrack = useActiveTrack();
+  const playbackState = usePlaybackState();
+
   // Safely destructure route.params with default values
-  const {id: routeId, image: routeImage, name: routeName, follower: routeFollower, navigationSource: routeNavigationSource} = route?.params || {};
-  
+  const { id: routeId, image: routeImage, name: routeName, follower: routeFollower, navigationSource: routeNavigationSource } = route?.params || {};
+
   // State to hold the actual ID we'll use (either from route or storage)
   const [id, setId] = useState(routeId);
   const [image, setImage] = useState(routeImage);
@@ -147,7 +150,7 @@ export const Playlist = ({route}) => {
   // Add source tracking
   const [source, setSource] = useState(route?.params?.source || null);
   const [navigationSource, setNavigationSource] = useState(routeNavigationSource || null);
-  
+
   // Memoized fetch function for playlist data to reduce API calls
   const fetchPlaylistData = useCallback(async () => {
     try {
@@ -157,22 +160,22 @@ export const Playlist = ({route}) => {
         setLoading(false);
         return;
       }
-      
+
       console.log(`Fetching playlist data for ID: ${id}`);
       setLoading(true);
       let data = {};
       data = await getPlaylistData(id);
-      console.log(`Playlist data fetched successfully for ID ${id}:`, 
-                 data?.data?.name || 'Unknown playlist', 
-                 `songs count: ${data?.data?.songs?.length || 0}`);
-      
+      console.log(`Playlist data fetched successfully for ID ${id}:`,
+        data?.data?.name || 'Unknown playlist',
+        `songs count: ${data?.data?.songs?.length || 0}`);
+
       // Log a sample song to debug structure
       // if (data?.data?.songs && data?.data?.songs.length > 0) {
       //   console.log('Sample song structure:', JSON.stringify(data.data.songs[0], null, 2));
       // }
-      
+
       setData(data);
-      
+
       // If we successfully got playlist data, update the stored information
       if (data?.data) {
         const updatedPlaylistData = {
@@ -185,7 +188,7 @@ export const Playlist = ({route}) => {
           language: route?.params?.language || '',
           navigationSource: navigationSource || null
         };
-        
+
         await AsyncStorage.setItem(CURRENT_PLAYLIST_DATA_KEY, JSON.stringify(updatedPlaylistData));
         console.log('Updated stored playlist data with API response, source:', updatedPlaylistData.source);
       }
@@ -195,7 +198,7 @@ export const Playlist = ({route}) => {
       setLoading(false);
     }
   }, [id, image, name, follower, source, navigationSource, route?.params]);
-  
+
   // When component mounts, check if we have a route ID - if not, try to recover from AsyncStorage
   useEffect(() => {
     const recoverPlaylistData = async () => {
@@ -203,14 +206,14 @@ export const Playlist = ({route}) => {
         if (routeId) {
           // If we have an ID from route params, clear previous data and use the new ones
           console.log(`New playlist selected: ${routeId}, clearing previous playlist data cache`);
-          
+
           setId(routeId);
           setImage(routeImage || '');
           setName(routeName || 'Playlist');
           setFollower(routeFollower || '');
           setSource(route?.params?.source || null);
           setNavigationSource(routeNavigationSource || null);
-          
+
           // Store the new playlist data
           const playlistData = {
             id: routeId,
@@ -222,21 +225,21 @@ export const Playlist = ({route}) => {
             language: route?.params?.language || null,
             navigationSource: routeNavigationSource || null
           };
-          
+
           await AsyncStorage.setItem(CURRENT_PLAYLIST_ID_KEY, routeId);
           await AsyncStorage.setItem(CURRENT_PLAYLIST_DATA_KEY, JSON.stringify(playlistData));
           console.log(`Stored new playlist data for: ${routeId}`);
-          
+
         } else {
           console.log('No playlist ID in route params, attempting to recover from storage');
-          
+
           // Try to get stored playlist ID as fallback
           const storedId = await AsyncStorage.getItem(CURRENT_PLAYLIST_ID_KEY);
-          
+
           if (storedId) {
             console.log(`Recovered playlist ID from storage: ${storedId}`);
             setId(storedId);
-            
+
             // Try to get the full playlist data
             const storedDataStr = await AsyncStorage.getItem(CURRENT_PLAYLIST_DATA_KEY);
             if (storedDataStr) {
@@ -258,26 +261,26 @@ export const Playlist = ({route}) => {
             return;
           }
         }
-        
+
         // After setting up the ID (either from route or storage), fetch the playlist data
         fetchPlaylistData();
-        
+
       } catch (e) {
         console.error('Error recovering playlist data:', e);
         navigation.navigate('Home', { screen: 'HomePage' });
       }
     };
-    
+
     recoverPlaylistData();
-    
+
     // Set up back handler
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
-    
+
     return () => {
       backHandler.remove();
     };
   }, [routeId, routeImage, routeName, routeFollower, routeNavigationSource, fetchPlaylistData, navigation]);
-  
+
   // Function to handle back button press
   const handleBackPress = async () => {
     // Clear navigation data when leaving the playlist
@@ -292,9 +295,9 @@ export const Playlist = ({route}) => {
     const source = route.params?.source;
     const navigationSource = route.params?.navigationSource;
     const previousScreen = route.params?.previousScreen;
-    
+
     console.log(`Back pressed in Playlist. Source: ${source}, NavigationSource: ${navigationSource}, PreviousScreen: ${previousScreen}`);
-    
+
     // Priority 1: Check for previousScreen parameter (used for specific flows)
     if (previousScreen === 'LikedPlaylists') {
       console.log("Navigating back to LikedPlaylists from playlist view");
@@ -306,11 +309,11 @@ export const Playlist = ({route}) => {
       });
       return true;
     }
-    
+
     // Priority 2: Check if we came from a Home screen
     if (previousScreen === 'Home' || previousScreen === 'HomePage' || navigationSource === 'Home') {
       console.log("Forcefully resetting navigation to Home screen");
-      
+
       // Use CommonActions.reset to clear the navigation stack and force navigation to Home
       navigation.dispatch(
         CommonActions.reset({
@@ -322,14 +325,14 @@ export const Playlist = ({route}) => {
       );
       return true;
     }
-    
+
     // Priority 3: Check specific source screens
     if (source === "ShowPlaylistofType") {
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
           routes: [
-            { 
+            {
               name: "ShowPlaylistofType",
               params: {
                 language: route.params?.language,
@@ -341,13 +344,13 @@ export const Playlist = ({route}) => {
       );
       return true;
     }
-    
+
     if (source === "LanguageDetail") {
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
           routes: [
-            { 
+            {
               name: "LanguageDetail",
               params: {
                 language: route.params?.language,
@@ -358,7 +361,7 @@ export const Playlist = ({route}) => {
       );
       return true;
     }
-    
+
     if (source === "Search") {
       try {
         navigation.goBack();
@@ -367,7 +370,7 @@ export const Playlist = ({route}) => {
           CommonActions.reset({
             index: 0,
             routes: [
-              { 
+              {
                 name: "Search",
                 params: {
                   searchText: route.params?.searchText,
@@ -379,7 +382,7 @@ export const Playlist = ({route}) => {
       }
       return true;
     }
-    
+
     // Priority 4: Handle navigation based on navigationSource
     if (navigationSource) {
       try {
@@ -419,7 +422,7 @@ export const Playlist = ({route}) => {
         console.log("Error navigating based on navigationSource:", error);
       }
     }
-    
+
     // Default fallback: just reset to Home
     console.log("Using fallback reset to Home");
     navigation.dispatch(
@@ -430,10 +433,10 @@ export const Playlist = ({route}) => {
     );
     return true;
   };
-  
+
   // If no ID is provided, show an error message
   if (!id) {
-    
+
     return (
       <MainWrapper>
         <View style={styles.errorContainer}>
@@ -449,7 +452,7 @@ export const Playlist = ({route}) => {
               }
             }}
             style={styles.goBackButton}
-            android_ripple={{color: 'rgba(255,255,255,0.1)'}}
+            android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
           >
             <PlainText text="Go Back" />
           </Pressable>
@@ -460,17 +463,17 @@ export const Playlist = ({route}) => {
 
   return (
     <MainWrapper>
-      {Loading && <LoadingComponent loading={Loading}/>}
+      {Loading && <LoadingComponent loading={Loading} />}
       {!Loading && (!Data?.data?.songs || Data?.data?.songs?.length === 0) && (
         <View style={styles.emptyContainer}>
-          <PlainText text="Playlist is empty or not available" style={styles.centeredText}/>
-          <SmallText text="Please try another playlist or check your connection" style={styles.centeredText}/>
+          <PlainText text="Playlist is empty or not available" style={styles.centeredText} />
+          <SmallText text="Please try another playlist or check your connection" style={styles.centeredText} />
         </View>
       )}
       {!Loading && Data?.data?.songs && Data?.data?.songs?.length > 0 && (
-        <Animated.ScrollView 
-          scrollEventThrottle={16} 
-          ref={AnimatedRef} 
+        <Animated.ScrollView
+          scrollEventThrottle={16}
+          ref={AnimatedRef}
           contentContainerStyle={{
             paddingBottom: 120,
             backgroundColor: theme.dark ? theme.colors.background : "#FFFFFF",
@@ -479,10 +482,10 @@ export const Playlist = ({route}) => {
             backgroundColor: 'transparent', // Keep transparent to allow header background to show
           }}
         >
-          <PlaylistTopHeader 
-            AnimatedRef={AnimatedRef} 
+          <PlaylistTopHeader
+            AnimatedRef={AnimatedRef}
             url={image || getValidImageUrl(ensureStringUrl(Data?.data?.songs[0]?.images?.[2]?.url || Data?.data?.songs[0]?.image?.[2]?.url))}
-            playlistId={id ? id.replace('album_', '') : id} 
+            playlistId={id ? id.replace('album_', '') : id}
             name={name || Data?.data?.name || "Playlist"}
             follower={follower || Data?.data?.follower || ""}
             style={{ position: 'relative' }}
@@ -498,11 +501,11 @@ export const Playlist = ({route}) => {
           />
 
           <View style={[styles.songsContainer, { backgroundColor: theme.dark ? 'rgb(16,16,16)' : '#FFFFFF' }]}>
-            {Data?.data?.songs?.slice(0, 100).map((e, i) => {
+            {Data?.data?.songs?.slice(0, 1000).map((e, i) => {
               // Process artist data to avoid [object Object] display
               const artistData = e?.artists || e?.primary_artists;
               const formattedArtist = formatArtistData(artistData);
-              
+
               // Get proper image URL - handle both array and direct URL formats
               let imageUrl = '';
               if (e?.image) {
@@ -514,19 +517,19 @@ export const Playlist = ({route}) => {
                   imageUrl = e.image;
                 }
               }
-              
+
               // Fallback to images property if image is not available
               if (!imageUrl && e?.images && Array.isArray(e.images)) {
                 const imageItem = e.images[2] || e.images[e.images.length - 1] || e.images[0];
                 imageUrl = imageItem?.url || imageItem?.link || '';
               }
-              
+
               // Final validation
               imageUrl = getValidImageUrl(imageUrl);
-              
+
               // Get download URL properly for menu options
               const downloadUrlData = e?.downloadUrl || e?.download_url;
-            
+
               return (
                 <EachSongCard
                   isFromPlaylist={true}
@@ -544,6 +547,8 @@ export const Playlist = ({route}) => {
                   source={e?.source || 'saavn'}
                   style={styles.songCard}
                   showNumber={true} // Explicitly show numbers in playlist view
+                  activeTrackId={activeTrack?.id}
+                  isPlaying={playbackState.state === "playing" || playbackState.state === 3} // Handle both string and enum
                 />
               );
             })}
@@ -576,8 +581,8 @@ const styles = StyleSheet.create({
     borderRadius: 5
   },
   emptyContainer: {
-    flex: 1, 
-    justifyContent: 'center', 
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20
   },

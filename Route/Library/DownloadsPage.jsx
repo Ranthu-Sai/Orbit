@@ -6,13 +6,15 @@ import { EachSongCard } from "../../Component/Global/EachSongCard";
 import { Heading } from "../../Component/Global/Heading";
 import { Spacer } from "../../Component/Global/Spacer";
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import TrackPlayer from 'react-native-track-player';
+import TrackPlayer, { useActiveTrack, usePlaybackState } from 'react-native-track-player';
 import EventRegister from '../../Utils/EventRegister';
 
 export const DownloadsPage = () => {
   const [downloads, setDownloads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const activeTrack = useActiveTrack();
+  const playbackState = usePlaybackState();
   const loadDownloadedSongs = async () => {
     setLoading(true);
     try {
@@ -95,7 +97,7 @@ export const DownloadsPage = () => {
           </Text>
         </View>
         <Spacer height={10} />
-        
+
         <FlatList
           data={downloads}
           keyExtractor={(item) => item.id}
@@ -113,6 +115,8 @@ export const DownloadsPage = () => {
               allSongs={downloads}
               downloadUrl={item.downloadUrl}
               onDeleteComplete={() => loadDownloadedSongs()}
+              activeTrackId={activeTrack?.id}
+              isPlaying={playbackState.state === "playing" || playbackState.state === 3}
             />
           )}
           refreshControl={

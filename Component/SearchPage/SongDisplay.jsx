@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Dimensions, FlatList, View } from 'react-native';
+import { useActiveTrack, usePlaybackState } from "react-native-track-player";
 import { EachSongCard } from '../Global/EachSongCard';
 import { LoadingComponent } from '../Global/Loading';
 import { PlainText } from '../Global/PlainText';
@@ -9,6 +10,8 @@ import { useTheme } from '@react-navigation/native';
 export default function SongDisplay({ data, source = 'saavn' }) {
   const [displayData, setDisplayData] = useState(data);
   const theme = useTheme();
+  const activeTrack = useActiveTrack();
+  const playbackState = usePlaybackState();
 
   useEffect(() => {
     setDisplayData(data);
@@ -69,6 +72,8 @@ export default function SongDisplay({ data, source = 'saavn' }) {
               source={source === 'ytmusic' ? 'ytmusic' : 'search'} // Mark YTMusic songs appropriately
               Data={displayData}
               index={displayData.data.results.findIndex(x => x.id === item.id)}
+              activeTrackId={activeTrack?.id}
+              isPlaying={playbackState.state === "playing" || playbackState.state === 3}
             />
           );
         }}

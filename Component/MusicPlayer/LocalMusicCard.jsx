@@ -5,7 +5,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
 import Context from '../../Context/Context';
-import { useActiveTrack, usePlaybackState } from 'react-native-track-player';
+// Removed unused TrackPlayer hooks
 import { useTheme, useNavigation } from '@react-navigation/native';
 import * as RNFS from 'react-native-fs';
 import { PlayOneSong } from '../../MusicPlayerFunctions';
@@ -14,11 +14,10 @@ import TrackPlayer from 'react-native-track-player';
 // Default music image for local tracks
 const DEFAULT_LOCAL_MUSIC_IMAGE = require('../../Images/Music.jpeg');
 
-export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
+export const LocalMusicCard = ({ song, index, allSongs, artist, activeTrackId, isPlaying }) => {
 
   const { updateTrack, setVisible, setIndex, setPreviousScreen, setMusicPreviousScreen } = useContext(Context);
-  const currentPlaying = useActiveTrack();
-  const playerState = usePlaybackState();
+  // Removed hooks to prevent excessive listeners
   const menuButtonRef = useRef(null);
   const theme = useTheme();
   const styles = getThemedStyles(theme.colors, theme.dark);
@@ -40,7 +39,7 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
               setAlbumArt(song.cover);
               return;
             }
-            
+
             // If we reach here, no valid cover image found
             // We'll use the default image instead (handled in render)
             setAlbumArt(null);
@@ -52,7 +51,7 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
         setAlbumArt(null);
       }
     };
-    
+
     fetchAlbumArt();
   }, [song.path, song.title, song.cover]);
 
@@ -119,11 +118,11 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
       if (currentState && currentState.routes && currentState.routes.length > 0) {
         // Get navigation path reliably using the helper function
         const navPath = getNavigationPath();
-        
+
         // Store the navigation path only in the required context variables
         // Don't use setFullNavPath (it might be undefined)
         console.log('Setting navigation path for local music:', navPath);
-        setPreviousScreen(navPath);  
+        setPreviousScreen(navPath);
         setMusicPreviousScreen(navPath);
       }
 
@@ -131,13 +130,13 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
       await prepareAndPlayTracks();
     } catch (error) {
       console.error('Error playing track:', error);
-      
+
       // Fallback method if the normal approach fails
       try {
         const song = allSongs[index];
         // Get source type using reliable method instead of fullNavPath
         const isFromMyMusic = getNavigationPath().includes('MyMusicPage');
-        
+
         // Ensure we have a valid artwork that won't cause type issues
         let artwork;
         if (song.cover && typeof song.cover === 'string' && song.cover.trim() !== '') {
@@ -146,7 +145,7 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
           // Use Music.jpeg for local tracks
           artwork = DEFAULT_LOCAL_MUSIC_IMAGE;
         }
-        
+
         const singleTrack = {
           id: song.id,
           url: song.url || `file://${song.path}`,
@@ -156,7 +155,7 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
           isLocal: true,
           sourceType: isFromMyMusic ? 'mymusic' : 'download'
         };
-        
+
         await TrackPlayer.reset();
         await TrackPlayer.add(singleTrack);
         await TrackPlayer.play();
@@ -170,29 +169,29 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
   // Format song title and artist
   const formatTitle = (title) => {
     if (!title) return "Unknown Title";
-    
+
     // Remove file extensions if they exist
     let formatted = title.replace(/\.(mp3|m4a|wav|ogg|flac)$/i, '');
-    
+
     // Limit to 20 characters
     if (formatted.length > 20) {
       return formatted.substring(0, 20) + "...";
     }
-    
+
     return formatted;
   };
-  
+
   const formatArtist = (artistName) => {
     if (!artistName) return "Unknown Artist";
-    
+
     // Remove file extensions if they exist
     let formatted = artistName.replace(/\.(mp3|m4a|wav|ogg|flac)$/i, '');
-    
+
     // Limit to 20 characters
     if (formatted.length > 20) {
       return formatted.substring(0, 20) + "...";
     }
-    
+
     return formatted;
   };
 
@@ -207,7 +206,7 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
       // Ensure we have allSongs before proceeding
       if (!allSongs || !Array.isArray(allSongs) || allSongs.length === 0) {
         console.log('No songs available for queue');
-        
+
         // Play just the current song if we don't have a valid array
         const singleTrack = {
           id: song.id || String(Math.random()),
@@ -218,26 +217,26 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
           isLocal: true,
           sourceType: isFromMyMusic ? 'mymusic' : 'download'
         };
-        
+
         if (!singleTrack.url) {
           console.error('No URL available for track');
           return;
         }
-        
+
         await TrackPlayer.reset();
         await TrackPlayer.add(singleTrack);
         await TrackPlayer.play();
         setIndex(1);
         return;
       }
-      
+
       // Get the index of the current song in the array
       const songIndex = allSongs.findIndex(s => s.id === song.id);
       if (songIndex === -1) {
         console.error('Song not found in queue');
         return;
       }
-      
+
       // Format tracks for the queue
       const formattedTracks = allSongs.map(track => {
         return {
@@ -250,19 +249,19 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
           sourceType: isFromMyMusic ? 'mymusic' : 'download'
         };
       }).filter(track => track && track.url); // Remove any invalid tracks
-      
+
       // Reset the queue and add tracks
       await TrackPlayer.reset();
-      
+
       // Add tracks to queue, starting from the selected track
       await TrackPlayer.add([
         ...formattedTracks.slice(songIndex), // Current song and those after it
         ...formattedTracks.slice(0, songIndex) // Songs before the current one
       ]);
-      
+
       // Start playback
       await TrackPlayer.play();
-      
+
       // Open fullscreen player
       setIndex(1);
     } catch (error) {
@@ -272,7 +271,7 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
       try {
         const navPath = getNavigationPath();
         const isFromMyMusic = navPath.includes('MyMusicPage');
-        
+
         const singleTrack = {
           id: song.id || String(Math.random()),
           url: song.url || (song.path ? `file://${song.path}` : null),
@@ -296,7 +295,7 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
       }
     }
   };
-  
+
   // Helper function to get artwork for a track
   const getArtworkForTrack = (track) => {
     // For local tracks, use Music.jpeg as default artwork
@@ -339,8 +338,8 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
     }
   };
 
-  const isCurrentlyPlaying = currentPlaying?.id === song.id && playerState.state === 'playing';
-  const isPaused = currentPlaying?.id === song.id && playerState.state !== 'playing';
+  const isCurrentlyPlaying = activeTrackId === song.id && isPlaying;
+  const isPaused = activeTrackId === song.id && !isPlaying;
 
   // Determine what image source to use
   const getImageSource = () => {
@@ -355,44 +354,44 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
   };
 
   return (
-    <Pressable 
-      onPress={handlePress} 
-      style={({pressed}) => [
+    <Pressable
+      onPress={handlePress}
+      style={({ pressed }) => [
         styles.container,
-        pressed && {backgroundColor: theme.dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.05)' }
+        pressed && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.05)' }
       ]}
-      android_ripple={{color: theme.dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)'}}
+      android_ripple={{ color: theme.dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)' }}
     >
       <View style={styles.songInfo}>
         <View style={styles.imageContainer}>
-          <FastImage 
+          <FastImage
             source={getImageSource()}
             style={styles.image}
             resizeMode={FastImage.resizeMode.cover}
           />
         </View>
         <View style={styles.textContainer}>
-          <PlainText 
-            text={formatTitle(song.title)} 
-            style={styles.title} 
-            numberOfLines={1} 
+          <PlainText
+            text={formatTitle(song.title)}
+            style={styles.title}
+            numberOfLines={1}
             ellipsizeMode="tail"
           />
-          <SmallText 
-            text={formatArtist(song.artist)} 
-            style={styles.artist} 
-            numberOfLines={1} 
+          <SmallText
+            text={formatArtist(song.artist)}
+            style={styles.artist}
+            numberOfLines={1}
             ellipsizeMode="tail"
           />
         </View>
       </View>
-      <Pressable 
+      <Pressable
         ref={menuButtonRef}
         onPress={handleMenuPress}
         hitSlop={8}
         style={styles.menuButton}
       >
-        <MaterialCommunityIcons name="dots-vertical" size={24} color={theme.colors.text}/>
+        <MaterialCommunityIcons name="dots-vertical" size={24} color={theme.colors.text} />
       </Pressable>
     </Pressable>
   );

@@ -23,71 +23,71 @@ const events = [
     Event.PlaybackError,
     Event.PlaybackState,
 ];
-const ContextState = (props)=>{
+const ContextState = (props) => {
     const [Index, setIndex] = useState(0);
     const [QueueIndex, setQueueIndex] = useState(0);
-    const [currentPlaying, setCurrentPlaying]  = useState({})
+    const [currentPlaying, setCurrentPlaying] = useState({})
     const [Repeat, setRepeat] = useState(Repeats.NoRepeat);
     const [Visible, setVisible] = useState({
-        visible:false,
+        visible: false,
     });
     const [previousScreen, setPreviousScreen] = useState(null);
     // Dedicated state for music player navigation - won't be affected by general navigation
     const [musicPreviousScreen, setMusicPreviousScreen] = useState("");
-    
+
     // Add state to track the current playlist information
     const [currentPlaylistData, setCurrentPlaylistData] = useState(null);
-    
+
     // Add state to track liked playlists for UI updates
     const [likedPlaylists, setLikedPlaylists] = useState([]);
 
     const [Queue, setQueue] = useState([]);
-    async function updateTrack (){
+    async function updateTrack() {
         try {
             const tracks = await TrackPlayer.getQueue();
             // await SetQueueSongs(tracks)
             console.log(tracks);
-            const ids = tracks.map((e)=>e.id)
-            const queuesId = Queue.map((e)=>e.id)
-            if (JSON.stringify(ids) !== JSON.stringify(queuesId)){
+            const ids = tracks.map((e) => e.id)
+            const queuesId = Queue.map((e) => e.id)
+            if (JSON.stringify(ids) !== JSON.stringify(queuesId)) {
                 setQueue(tracks)
             }
         } catch (error) {
             console.log('updateTrack: TrackPlayer not ready yet');
         }
     }
-    
+
     // Function to update liked playlists state and trigger UI updates
     function updateLikedPlaylist() {
         // This is just to trigger rerenders when playlists are liked/unliked
         setLikedPlaylists(prev => [...prev]);
     }
-    
-    async function AddRecommendedSongs(index,id){
+
+    async function AddRecommendedSongs(index, id) {
         const tracks = await TrackPlayer.getQueue();
         const totalTracks = tracks.length - 1
-        if (index >= totalTracks - 2){
-           try {
-               const songs = await getRecommendedSongs(id)
-               if (songs?.data?.length !== 0){
-                   const ForMusicPlayer = songs.data.map((e)=> {
-                       return {
-                           url:e.downloadUrl[3].url,
-                           title:e.name.toString().replaceAll("&quot;","\"").replaceAll("&amp;","and").replaceAll("&#039;","'").replaceAll("&trade;","™"),
-                           artist:FormatArtist(e?.artists?.primary).toString().replaceAll("&quot;","\"").replaceAll("&amp;","and").replaceAll("&#039;","'").replaceAll("&trade;","™"),
-                           artwork:e.image[2].url,
-                           duration:e.duration,
-                           id:e.id,
-                           language:e.language,
-                       }
-                   })
-                   await AddSongsToQueue(ForMusicPlayer)
-               }
-           } catch (e) {
-               console.log(e);
-           } finally {
-               await updateTrack()
-           }
+        if (index >= totalTracks - 2) {
+            try {
+                const songs = await getRecommendedSongs(id)
+                if (songs?.data?.length !== 0) {
+                    const ForMusicPlayer = songs.data.map((e) => {
+                        return {
+                            url: e.downloadUrl[3].url,
+                            title: e.name.toString().replaceAll("&quot;", "\"").replaceAll("&amp;", "and").replaceAll("&#039;", "'").replaceAll("&trade;", "™"),
+                            artist: FormatArtist(e?.artists?.primary).toString().replaceAll("&quot;", "\"").replaceAll("&amp;", "and").replaceAll("&#039;", "'").replaceAll("&trade;", "™"),
+                            artwork: e.image[2].url,
+                            duration: e.duration,
+                            id: e.id,
+                            language: e.language,
+                        }
+                    })
+                    await AddSongsToQueue(ForMusicPlayer)
+                }
+            } catch (e) {
+                console.log(e);
+            } finally {
+                await updateTrack()
+            }
         }
     }
 
@@ -143,9 +143,9 @@ const ContextState = (props)=>{
                     }
 
                     setCurrentPlaying(event.track)
-                    if (Repeat === Repeats.NoRepeat){
-                        if (event.track?.id ){
-                            AddRecommendedSongs(event.index,event.track?.id)
+                    if (Repeat === Repeats.NoRepeat) {
+                        if (event.track?.id) {
+                            AddRecommendedSongs(event.index, event.track?.id)
                         }
                     }
 
@@ -180,7 +180,7 @@ const ContextState = (props)=>{
             console.error('Error in TrackPlayer event handler:', error);
         }
     });
-    async function InitialSetup(){
+    async function InitialSetup() {
         try {
             // Clear old cache entries to prevent storage full errors
             await CacheManager.clearOldCacheEntries();
@@ -218,7 +218,7 @@ const ContextState = (props)=>{
             }
         }, 500);
     }
-    async function getCurrentSong(){
+    async function getCurrentSong() {
         try {
             const song = await TrackPlayer.getActiveTrack();
             setCurrentPlaying(song);
@@ -287,17 +287,17 @@ const ContextState = (props)=>{
         };
     }, []);
     return <Context.Provider value={{
-        currentPlaying,  
-        Repeat, 
-        setRepeat, 
-        updateTrack, 
-        Index, 
-        setIndex, 
-        QueueIndex, 
-        setQueueIndex, 
-        setVisible, 
-        Queue, 
-        previousScreen, 
+        currentPlaying,
+        Repeat,
+        setRepeat,
+        updateTrack,
+        Index,
+        setIndex,
+        QueueIndex,
+        setQueueIndex,
+        setVisible,
+        Queue,
+        previousScreen,
         setPreviousScreen,
         musicPreviousScreen,
         setMusicPreviousScreen,
@@ -307,8 +307,8 @@ const ContextState = (props)=>{
         likedPlaylists
     }}>
         {props.children}
-         <EachSongMenuModal setVisible={setVisible} Visible={Visible}/>
+        <EachSongMenuModal setVisible={setVisible} Visible={Visible} />
     </Context.Provider>
 }
 
-export default  ContextState
+export default ContextState

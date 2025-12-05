@@ -14,7 +14,7 @@ import Context from '../../Context/Context';
 import { useTheme, useNavigation } from '@react-navigation/native';
 import { StorageManager } from '../../Utils/StorageManager';
 import NetInfo from '@react-native-community/netinfo';
-import TrackPlayer, { useActiveTrack } from 'react-native-track-player';
+import TrackPlayer, { useActiveTrack, usePlaybackState } from 'react-native-track-player';
 import { useTrackPlayerEvents, Event } from 'react-native-track-player';
 import Ionicons from "react-native-vector-icons/Ionicons";
 import Cover from "../../Images/Music.jpeg";
@@ -31,6 +31,7 @@ export const MyMusicPage = () => {
   const [isOffline, setIsOffline] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const currentPlaying = useActiveTrack();
+  const playbackState = usePlaybackState();
   const { Index, setIndex } = useContext(Context);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchVisible, setIsSearchVisible] = useState(false);
@@ -227,7 +228,7 @@ export const MyMusicPage = () => {
           RNFS.ExternalStorageDirectoryPath + '/Media/Music',
           RNFS.MusicDirectoryPath,
           RNFS.ExternalDirectoryPath + '/Music',
-          
+
           // Messaging apps
           RNFS.ExternalStorageDirectoryPath + '/WhatsApp/Media/WhatsApp Music',
           RNFS.ExternalStorageDirectoryPath + '/WhatsApp/Media/WhatsApp Voice Notes',
@@ -238,7 +239,7 @@ export const MyMusicPage = () => {
           RNFS.ExternalStorageDirectoryPath + '/Signal/Media/Signal Voice Notes',
           RNFS.ExternalStorageDirectoryPath + '/Download/Telegram',
           RNFS.ExternalStorageDirectoryPath + '/Download/WhatsApp',
-          
+
           // Voice recordings and system sounds
           RNFS.ExternalStorageDirectoryPath + '/Recordings',
           RNFS.ExternalStorageDirectoryPath + '/Voice Recorder',
@@ -247,7 +248,7 @@ export const MyMusicPage = () => {
           RNFS.ExternalStorageDirectoryPath + '/Notifications',
           RNFS.ExternalStorageDirectoryPath + '/Alarms',
           RNFS.ExternalStorageDirectoryPath + '/Ringtones',
-          
+
           // Common download locations
           RNFS.ExternalStorageDirectoryPath + '/Download',
           RNFS.ExternalStorageDirectoryPath + '/Downloads',
@@ -255,17 +256,17 @@ export const MyMusicPage = () => {
           RNFS.ExternalStorageDirectoryPath + '/DCIM',
           RNFS.ExternalStorageDirectoryPath + '/Pictures',
           RNFS.ExternalStorageDirectoryPath + '/Documents',
-          
+
           // Cloud storage folders
           RNFS.ExternalStorageDirectoryPath + '/Google Drive',
           RNFS.ExternalStorageDirectoryPath + '/Dropbox',
           RNFS.ExternalStorageDirectoryPath + '/OneDrive',
-          
+
           // App-specific folders
           RNFS.ExternalStorageDirectoryPath + '/Pocket Casts',
           RNFS.ExternalStorageDirectoryPath + '/Podcasts',
           RNFS.ExternalStorageDirectoryPath + '/Audiobooks',
-          
+
           // Hidden folders that might contain audio
           RNFS.ExternalStorageDirectoryPath + '/.media',
         ].filter(dir => dir && !dir.includes('undefined') && !dir.includes('null') && !dir.includes('/data/user/0/'));
@@ -279,8 +280,8 @@ export const MyMusicPage = () => {
               try {
                 if (item.isDirectory()) {
                   // Skip some known non-music directories
-                  if (item.name.startsWith('.') || 
-                      ['Android', 'Cache', 'temp', 'thumbnails', 'cache', 'logs'].includes(item.name)) {
+                  if (item.name.startsWith('.') ||
+                    ['Android', 'Cache', 'temp', 'thumbnails', 'cache', 'logs'].includes(item.name)) {
                     continue;
                   }
                   // Recursively scan subdirectories
@@ -300,7 +301,7 @@ export const MyMusicPage = () => {
         };
 
         // Scan all directories concurrently with progress feedback
-        const scanPromises = directories.map(dir => 
+        const scanPromises = directories.map(dir =>
           scanDirectory(dir).catch(err => {
             console.warn(`Error scanning ${dir}:`, err);
             return [];
@@ -467,7 +468,7 @@ export const MyMusicPage = () => {
 
   const loadAndPlayTrack = async (index) => {
     if (index < 0 || index >= localMusic.length) return;
-    
+
     try {
       // Find the track at the requested index
       const song = localMusic[index];
@@ -490,7 +491,7 @@ export const MyMusicPage = () => {
           isLocal: true,
           sourceType: 'mymusic' // Set source type for proper artwork handling
         }));
-      
+
       // Reset player and add all tracks, starting with the selected one
       await TrackPlayer.reset();
       await TrackPlayer.add([
@@ -498,7 +499,7 @@ export const MyMusicPage = () => {
         ...formattedTracks.slice(0, index)
       ]);
       await TrackPlayer.play();
-      
+
       // Open the fullscreen player
       setIndex(1);
     } catch (error) {
@@ -507,9 +508,9 @@ export const MyMusicPage = () => {
   };
 
   const events = [Event.PlaybackActiveTrackChanged,
-    Event.PlaybackError,
-    Event.PlaybackState,
-    Event.PlaybackQueueEnded
+  Event.PlaybackError,
+  Event.PlaybackState,
+  Event.PlaybackQueueEnded
   ];
 
   useTrackPlayerEvents(events, async (event) => {
@@ -520,7 +521,7 @@ export const MyMusicPage = () => {
           // When playback stops or ends, automatically play the next track
           const queue = await TrackPlayer.getQueue();
           const currentTrack = await TrackPlayer.getCurrentTrack();
-          
+
           if (queue.length > 0) {
             if (currentTrack === null) {
               // If no track is playing, start from the beginning
@@ -685,7 +686,7 @@ export const MyMusicPage = () => {
 
   return (
     <View style={styles.container}>
-      
+
       {isOffline && (
         <View style={styles.offlineBanner}>
           <Image
@@ -696,7 +697,7 @@ export const MyMusicPage = () => {
           <Text style={styles.offlineBannerText}>You're currently offline</Text>
         </View>
       )}
-      
+
       <FlatList
         ListHeaderComponent={
           <View style={styles.headerContainer}>
@@ -707,17 +708,19 @@ export const MyMusicPage = () => {
             />
           </View>
         }
-        data={localMusic.filter(item => 
+        data={localMusic.filter(item =>
           item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
           item.artist.toLowerCase().includes(searchQuery.toLowerCase())
         )}
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (
-          <LocalMusicCard 
-            song={item} 
-            index={index} 
-            allSongs={localMusic} 
+          <LocalMusicCard
+            song={item}
+            index={index}
+            allSongs={localMusic}
             artist={item.artist.length > 20 ? item.artist.substring(0, 20) + "..." : item.artist}
+            activeTrackId={currentPlaying?.id}
+            isPlaying={playbackState.state === "playing" || playbackState.state === 3}
           />
         )}
         ListEmptyComponent={<Text style={styles.emptyText}>No music files available.</Text>}
@@ -730,7 +733,7 @@ export const MyMusicPage = () => {
           />
         }
       />
-      
+
       {/* Add buttons for next and previous song */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 10 }}>
         <Pressable onPress={playPreviousSong} style={styles.controlButton}>

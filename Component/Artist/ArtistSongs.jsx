@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Pressable } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useActiveTrack, usePlaybackState } from "react-native-track-player";
 import { Heading } from '../Global/Heading';
 import { SmallText } from '../Global/SmallText';
 import { PlainText } from '../Global/PlainText';
@@ -20,14 +21,16 @@ import FormatArtist from '../../Utils/FormatArtists';
  * @param {function} props.onLoadMore - Function to load more songs
  * @returns {JSX.Element} - ArtistSongs component
  */
-const ArtistSongs = ({ 
-  visibleSongs, 
-  totalSongs, 
-  songLoading, 
-  hasMoreSongs, 
-  onLoadMore 
+const ArtistSongs = ({
+  visibleSongs,
+  totalSongs,
+  songLoading,
+  hasMoreSongs,
+  onLoadMore
 }) => {
   const theme = useTheme();
+  const activeTrack = useActiveTrack();
+  const playbackState = usePlaybackState();
 
   if (!visibleSongs || visibleSongs.length === 0) {
     return (
@@ -40,20 +43,20 @@ const ArtistSongs = ({
 
   return (
     <View style={{ paddingHorizontal: 10 }}>
-      <View style={{ 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginBottom: 15, 
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 15,
         paddingHorizontal: 2 // Change this from 10 to 0
       }}>
-        <Heading text="Top Songs" style={{ color: theme.colors.text, fontSize: 20, marginRight:30}} />
+        <Heading text="Top Songs" style={{ color: theme.colors.text, fontSize: 20, marginRight: 30 }} />
         <SmallText
           text={safeString(totalSongs > 0 ? `${totalSongs} songs` : `${visibleSongs.length} songs`)}
           style={{ color: theme.colors.text, opacity: 0.6, marginRight: 10, fontSize: 14 }}
         />
       </View>
-      
+
       <View>
         {visibleSongs.map((song, index) => {
           // Safety checks to prevent undefined values
@@ -80,6 +83,8 @@ const ArtistSongs = ({
                 marginBottom: 8,
                 borderRadius: 12,
               }}
+              activeTrackId={activeTrack?.id}
+              isPlaying={playbackState.state === "playing" || playbackState.state === 3}
             />
           );
         })}

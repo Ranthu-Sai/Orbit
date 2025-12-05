@@ -67,3 +67,6 @@ yarn-error.log
 
 # Environment files
 .env
+
+# Embedded repositories
+OuterTune/

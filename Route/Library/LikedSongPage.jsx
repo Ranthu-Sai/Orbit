@@ -6,6 +6,7 @@ import { GetLikedSongs } from "../../LocalStorage/StoreLikedSongs";
 import { EachSongCard } from "../../Component/Global/EachSongCard";
 import { Dimensions, View } from "react-native";
 import { useTheme, useNavigation } from "@react-navigation/native";
+import { useActiveTrack, usePlaybackState } from "react-native-track-player";
 
 export const LikedSongPage = () => {
   const AnimatedRef = useAnimatedRef()
@@ -13,10 +14,12 @@ export const LikedSongPage = () => {
   const width = Dimensions.get("window").width
   const theme = useTheme()
   const navigation = useNavigation();
-  
+  const activeTrack = useActiveTrack();
+  const playbackState = usePlaybackState();
+
   // Removed BackHandler - let RootRoute handle navigation
 
-  async function getAllLikedSongs(){
+  async function getAllLikedSongs() {
     const Songs = await GetLikedSongs()
     const Temp = []
     // eslint-disable-next-line no-unused-vars
@@ -24,17 +27,17 @@ export const LikedSongPage = () => {
       Temp[value.count] = value
     }
     const Final = []
-    Temp?.map((e)=>{
+    Temp?.map((e) => {
       if (e) {
         Final.push({
-          url:e.url,
-          title:e?.title,
-          artist:e?.artist,
-          artwork:e?.image,
-          duration:e?.duration,
-          id:e?.id,
-          language:e?.language,
-          artistID:e?.primary_artists_id,
+          url: e.url,
+          title: e?.title,
+          artist: e?.artist,
+          artwork: e?.image,
+          duration: e?.duration,
+          id: e?.id,
+          language: e?.language,
+          artistID: e?.primary_artists_id,
         })
       }
     })
@@ -45,16 +48,32 @@ export const LikedSongPage = () => {
   }, []);
   return (
     <Animated.ScrollView scrollEventThrottle={16} ref={AnimatedRef} contentContainerStyle={{
-      paddingBottom:55,
-      backgroundColor:"rgba(0,0,0)",
+      paddingBottom: 55,
+      backgroundColor: "rgba(0,0,0)",
     }}>
       <LikedPagesTopHeader AnimatedRef={AnimatedRef} url={require("../../Images/likedMusic.webp")} />
-      <LikedDetails name={"Liked Songs"} Data={LikedSongs} textStyle={!theme.dark ? { color: '#FFFFFF' } : {}}/>
-     <View style={{paddingHorizontal:10, backgroundColor:theme.colors.background}}>
-       {LikedSongs.map((e,i) =>{
-         return <EachSongCard width={width * 0.95} Data={LikedSongs} index={i} showNumber={false} url={e?.url} id={e?.id} title={e?.title} artist={e?.artist} image={e?.artwork} language={e?.language} duration={e?.duration} artistID={e?.artistID} key={i}/>
-       })}
-     </View>
+      <LikedDetails name={"Liked Songs"} Data={LikedSongs} textStyle={!theme.dark ? { color: '#FFFFFF' } : {}} />
+      <View style={{ paddingHorizontal: 10, backgroundColor: theme.colors.background }}>
+        {LikedSongs.map((e, i) => {
+          return <EachSongCard
+            width={width * 0.95}
+            Data={LikedSongs}
+            index={i}
+            showNumber={false}
+            url={e?.url}
+            id={e?.id}
+            title={e?.title}
+            artist={e?.artist}
+            image={e?.artwork}
+            language={e?.language}
+            duration={e?.duration}
+            artistID={e?.artistID}
+            key={i}
+            activeTrackId={activeTrack?.id}
+            isPlaying={playbackState.state === "playing" || playbackState.state === 3}
+          />
+        })}
+      </View>
     </Animated.ScrollView>
   );
 };
