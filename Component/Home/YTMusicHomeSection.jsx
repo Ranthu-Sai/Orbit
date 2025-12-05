@@ -51,19 +51,19 @@ export const YTMusicHomeSection = () => {
     }
   };
 
-  // Initialize Python bridge
-  const initializePythonBridge = async () => {
+  // Initialize Innertube Client
+  const initializeInnertube = async () => {
     try {
       const success = await PythonBridgeService.initialize();
       if (success) {
-        console.log('✅ Python Bridge initialized successfully');
+        console.log('✅ Innertube Client initialized successfully');
         return true;
       } else {
-        console.error('❌ Python Bridge initialization failed');
+        console.error('❌ Innertube Client initialization failed');
         return false;
       }
     } catch (error) {
-      console.error('❌ Python Bridge initialization error:', error);
+      console.error('❌ Innertube Client initialization error:', error);
       return false;
     }
   };
@@ -88,7 +88,7 @@ export const YTMusicHomeSection = () => {
         console.log('🧹 YTMusic Home - Cleared local cache keys');
       }
 
-      console.log('🌐 YTMusic Home - Fetching data using Python bridge...');
+      console.log('🌐 YTMusic Home - Fetching data using Innertube Client...');
 
       // Fetch data using Python bridge
       // Higher limit = more sections from YT Music homefeed
@@ -96,7 +96,7 @@ export const YTMusicHomeSection = () => {
       const HOMEFEED_SECTION_LIMIT = 100; // Fetch up to 100 sections
       const homeData = await PythonBridgeService.getHomeFeed(HOMEFEED_SECTION_LIMIT, forceRefresh);
 
-      console.log('📊 YTMusic Home - Python Response Summary:', {
+      console.log('📊 YTMusic Home - Innertube Response Summary:', {
         sectionsCount: Array.isArray(homeData) ? homeData.length : 0,
         firstSectionTitle: Array.isArray(homeData) && homeData[0]?.title ? homeData[0].title : 'none'
       });
@@ -105,17 +105,17 @@ export const YTMusicHomeSection = () => {
 
       // Process the YTMusic API response (direct from Python)
       if (Array.isArray(homeData) && homeData.length > 0) {
-        console.log(`YTMusic Home - Processing ${homeData.length} sections from Python API`);
+        console.log(`YTMusic Home - Processing ${homeData.length} sections from Innertube API`);
 
         for (const section of homeData) {
           const sectionTitle = section.title || 'Unknown Section';
-          
+
           // Skip "Quick picks" section as requested
           if (sectionTitle.toLowerCase().includes('quick pick')) {
             console.log(`⏭️  Skipping section: "${sectionTitle}"`);
             continue;
           }
-          
+
           console.log(`Processing section: "${sectionTitle}", contents: ${section.contents?.length || 0}`);
 
           if (section.contents && Array.isArray(section.contents)) {
@@ -127,28 +127,28 @@ export const YTMusicHomeSection = () => {
                   console.log(`  ⏭️  Skipping null/invalid item in section "${sectionTitle}"`);
                   return false;
                 }
-                
+
                 // Determine if item is a playlist or album based on available IDs
                 // YTMusic playlists have playlistId (starts with RDCLAK, PL, VL, etc.)
                 // YTMusic albums have browseId (starts with MPREb_)
                 const hasPlaylistId = item.playlistId && typeof item.playlistId === 'string';
                 const hasBrowseId = item.browseId && typeof item.browseId === 'string';
                 const hasVideoId = item.videoId && typeof item.videoId === 'string';
-                
+
                 // Include if it has playlistId or browseId (exclude pure video items)
                 const include = hasPlaylistId || (hasBrowseId && !hasVideoId);
-                
+
                 if (!include) {
                   console.log(`  ⏭️  Skipping item: "${item.title || 'unknown'}" (videoId only, likely a song)`);
                 }
-                
+
                 return include;
               })
               .map(item => {
                 // Determine type based on ID patterns
                 const isPlaylist = item.playlistId && typeof item.playlistId === 'string';
                 const isAlbum = item.browseId && typeof item.browseId === 'string' && !isPlaylist;
-                
+
                 // Normalize the item structure
                 const normalizedItem = {
                   id: item.playlistId || item.browseId || `yt_${Math.random()}`,
@@ -160,7 +160,7 @@ export const YTMusicHomeSection = () => {
                   sectionTitle: sectionTitle,
                   downloadUrl: item.playlistId || item.browseId
                 };
-                
+
                 console.log(`  ✅ Added ${normalizedItem.type}: "${normalizedItem.title}" (ID: ${normalizedItem.id})`);
                 return normalizedItem;
               });
@@ -228,12 +228,12 @@ export const YTMusicHomeSection = () => {
       // Step 1: Reset all caches
       await resetAllCaches();
 
-      // Step 2: Initialize Python bridge
-      console.log('🔧 Initializing Python bridge...');
-      const bridgeReady = await initializePythonBridge();
+      // Step 2: Initialize Innertube
+      console.log('🔧 Initializing Music Client...');
+      const bridgeReady = await initializeInnertube();
 
       if (bridgeReady) {
-        console.log('✅ Python bridge ready, proceeding with data fetch...');
+        console.log('✅ Music Client ready, proceeding with data fetch...');
         // Step 3: Fetch fresh data with higher limit to get more sections
         await fetchYTMusicHomeData(true);
       } else {
@@ -255,12 +255,15 @@ export const YTMusicHomeSection = () => {
     }
 
     const processed = ytMusicItems.map((item, index) => {
-      console.log(`Processing item ${index + 1}:`, item.title || 'unknown', `(type: ${item.type})`);
+      // console.log(`Processing item ${index + 1}:`, item.title || 'unknown', `(type: ${item.type})`);
 
-      // Get the best thumbnail (largest available)
-      const bestThumbnail = item.thumbnails?.reduce((best, current) =>
-        (current.height > (best?.height || 0)) ? current : best
-      );
+      // Get the best thumbnail (largest available) safety check
+      let bestThumbnail = null;
+      if (item.thumbnails && Array.isArray(item.thumbnails) && item.thumbnails.length > 0) {
+        bestThumbnail = item.thumbnails.reduce((best, current) =>
+          (current.height > (best?.height || 0)) ? current : best
+          , item.thumbnails[0]); // Provide initial value just in case
+      }
 
       // Create proper image array for the UI components
       const imageArray = item.thumbnails?.map(thumb => ({

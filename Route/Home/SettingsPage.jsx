@@ -223,6 +223,25 @@ export const SettingsPage = ({ navigation }) => {
             />
           </View>
 
+          {/* YouTube Music Authentication */}
+          <View style={{ marginTop: 8, marginBottom: 8 }}>
+            <Text variant="titleMedium" style={{ paddingHorizontal: 16, paddingBottom: 8, color: colors.text, opacity: 0.7 }}>
+              YouTube Music
+            </Text>
+          </View>
+          <View style={{ padding: 16 }}>
+            <List.Item
+              title="Login to YouTube Music"
+              description="Login to access personalized content and bypass restrictions"
+              titleStyle={{ color: colors.text, fontWeight: 'bold' }}
+              descriptionStyle={{ color: colors.text, opacity: 0.7, fontSize: 12 }}
+              left={() => <List.Icon icon="youtube" color="#FF0000" />}
+              right={() => <List.Icon icon="chevron-right" color={colors.text} />}
+              onPress={() => navigation.navigate("LoginScreen")}
+              style={{ paddingHorizontal: 0, paddingVertical: 0 }}
+            />
+          </View>
+
           {/* DAB Music Authentication */}
           <View style={{ marginTop: 8, marginBottom: 8 }}>
             <Text variant="titleMedium" style={{ paddingHorizontal: 16, paddingBottom: 8, color: colors.text, opacity: 0.7 }}>

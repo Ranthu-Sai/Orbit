@@ -183,7 +183,7 @@ async function getYTMusicSearchSongData(searchText, page = 1, limit = 20) {
 
   const fetchFunction = async () => {
     try {
-      console.log(`🌐 YTMusic Search Songs - Using Python bridge for query: ${searchText}`);
+      console.log(`🌐 YTMusic Search Songs - Using Innertube Client for query: ${searchText}`);
 
       const searchResults = await PythonBridgeService.search(searchText, 'songs', limit);
 
@@ -247,7 +247,7 @@ async function getYTMusicSearchArtistData(searchText, page = 1, limit = 20) {
 
   const fetchFunction = async () => {
     try {
-      console.log(`🌐 YTMusic Search Artists - Using Python bridge for query: ${searchText}`);
+      console.log(`🌐 YTMusic Search Artists - Using Innertube Client for query: ${searchText}`);
 
       const searchResults = await PythonBridgeService.search(searchText, 'artists', limit);
 
@@ -311,7 +311,7 @@ async function getYTMusicSearchAlbumData(searchText, page = 1, limit = 20) {
 
   const fetchFunction = async () => {
     try {
-      console.log(`🌐 YTMusic Search Albums - Using Python bridge for query: ${searchText}`);
+      console.log(`🌐 YTMusic Search Albums - Using Innertube Client for query: ${searchText}`);
 
       const searchResults = await PythonBridgeService.search(searchText, 'albums', limit);
 
@@ -375,7 +375,7 @@ async function getYTMusicSearchPlaylistData(searchText, page = 1, limit = 20) {
 
   const fetchFunction = async () => {
     try {
-      console.log(`🌐 YTMusic Search Playlists - Using Python bridge for query: ${searchText}`);
+      console.log(`🌐 YTMusic Search Playlists - Using Innertube Client for query: ${searchText}`);
 
       // Use Python bridge for production
       const searchResults = await PythonBridgeService.search(searchText, 'playlists', limit);
@@ -441,13 +441,13 @@ async function getYTMusicHomeFeed(limit = 10) {
   const fetchFunction = async () => {
     try {
       // Use Python bridge for production (calls android/app/src/main/python/youtube_api.py)
-      console.log('🌐 YTMusic Home - Using Python bridge for homefeed...');
+      console.log('🌐 YTMusic Home - Using Innertube Client for homefeed...');
 
       const homeFeedData = await PythonBridgeService.getHomeFeed(limit);
 
-      if (homeFeedData && typeof homeFeedData === 'string') {
-        // Parse the JSON string returned by Python
-        const parsedData = JSON.parse(homeFeedData);
+      if (homeFeedData) {
+        // No need to parse if it's already an object from Shim
+        const parsedData = typeof homeFeedData === 'string' ? JSON.parse(homeFeedData) : homeFeedData;
 
         if (parsedData && Array.isArray(parsedData)) {
           // Transform the homefeed data to extract playlists and albums
@@ -524,7 +524,7 @@ async function getYTMusicHomeFeed(limit = 10) {
         }
       }
 
-      console.log('YTMusic homefeed: No valid data from Python bridge');
+      console.log('YTMusic homefeed: No valid data from Innertube Client');
       return {
         status: "SUCCESS",
         message: "No data available",
@@ -568,7 +568,7 @@ async function getYTMusicPlaylistData(playlistId) {
 
   const fetchFunction = async () => {
     try {
-      console.log(`🌐 YTMusic Playlist - Using Python bridge for playlist: ${playlistId}`);
+      console.log(`🌐 YTMusic Playlist - Using Innertube Client for playlist: ${playlistId}`);
 
       // Use Python bridge for production
       const playlistData = await PythonBridgeService.getPlaylist(playlistId);
@@ -684,7 +684,7 @@ async function getYTMusicPlaylistData(playlistId) {
         };
       }
 
-      console.log('YTMusic Playlist - No valid data from Python bridge');
+      console.log('YTMusic Playlist - No valid data from Innertube Client');
       return {
         status: "FAILED",
         message: playlistData?.error || "No playlist data found",
@@ -719,7 +719,7 @@ async function getYTMusicAlbumData(albumId) {
 
   const fetchFunction = async () => {
     try {
-      console.log(`🌐 YTMusic Album - Using Python bridge for album: ${albumId}`);
+      console.log(`🌐 YTMusic Album - Using Innertube Client for album: ${albumId}`);
 
       // Use Python bridge for production
       const albumData = await PythonBridgeService.getAlbum(albumId);
@@ -851,7 +851,7 @@ async function getYTMusicAlbumData(albumId) {
         };
       }
 
-      console.log('YTMusic Album - No valid data from Python bridge');
+      console.log('YTMusic Album - No valid data from Innertube Client');
       return {
         status: "FAILED",
         message: albumData?.error || "No album data found",

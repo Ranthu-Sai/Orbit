@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 import PythonBridgeService from '../../Utils/PythonBridgeService';
 import dabMusicService from '../../Utils/DabMusicService';
+import youtubeStreamingService from '../../Utils/YouTubeStreamingService';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -174,13 +175,15 @@ export const EachSongMenuButton = ({
         // For YouTube songs, fetch the actual stream URL
         console.log('🎵 Fetching YouTube stream for add to queue:', song.id);
         try {
-          const streamData = await PythonBridgeService.getStreamUrl(song.id);
+          const streamData = await youtubeStreamingService.getStreamUrl(song.id);
 
           if (streamData && streamData.url) {
             songUrl = streamData.url;
             songMetadata = {
               ...songMetadata,
               url: streamData.url,
+              headers: streamData.headers,  // Add headers for TrackPlayer
+              userAgent: streamData.headers?.['User-Agent'],
               artwork: streamData.thumbnail || songMetadata.artwork,
               duration: streamData.duration || songMetadata.duration,
               title: streamData.title || songMetadata.title,
@@ -241,7 +244,9 @@ export const EachSongMenuButton = ({
         id: song.id || Date.now().toString(),
         duration: songMetadata.duration || 0,
         language: songMetadata.language || '',
-        artistID: songMetadata.artistID || ''
+        artistID: songMetadata.artistID || '',
+        ...(songMetadata.headers && { headers: songMetadata.headers }),
+        ...(songMetadata.userAgent && { userAgent: songMetadata.userAgent })
       });
 
       updateTrack();
@@ -270,15 +275,17 @@ export const EachSongMenuButton = ({
 
       if (isYouTubeSong) {
         // For YouTube songs, fetch the actual stream URL
-        console.log('🎵 Fetching YouTube stream for video ID:', song.id);
+        console.log('🎵 Fetching YouTube stream for play next:', song.id);
         try {
-          const streamData = await PythonBridgeService.getStreamUrl(song.id);
+          const streamData = await youtubeStreamingService.getStreamUrl(song.id);
 
           if (streamData && streamData.url) {
             songUrl = streamData.url;
             songMetadata = {
               ...songMetadata,
               url: streamData.url,
+              headers: streamData.headers,  // Add headers for TrackPlayer
+              userAgent: streamData.headers?.['User-Agent'],
               artwork: streamData.thumbnail || songMetadata.artwork,
               duration: streamData.duration || songMetadata.duration,
               title: streamData.title || songMetadata.title,
@@ -339,7 +346,9 @@ export const EachSongMenuButton = ({
         id: song.id || Date.now().toString(),
         duration: songMetadata.duration || 0,
         language: songMetadata.language || '',
-        artistID: songMetadata.artistID || ''
+        artistID: songMetadata.artistID || '',
+        ...(songMetadata.headers && { headers: songMetadata.headers }),
+        ...(songMetadata.userAgent && { userAgent: songMetadata.userAgent })
       };
 
       // Get current track index and queue

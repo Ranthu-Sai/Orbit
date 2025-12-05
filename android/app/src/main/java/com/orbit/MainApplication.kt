@@ -25,7 +25,8 @@ class MainApplication : Application(), ReactApplication {
               // Packages that cannot be autolinked yet can be added manually here, for example:
               // add(MyReactNativePackage())
               // Add Python bridge package
-              add(PythonPackage())
+
+              add(StreamPackage())
             }
         override fun getJSBundleFile(): String {
                           return CodePush.getJSBundleFile()

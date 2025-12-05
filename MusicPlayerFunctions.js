@@ -6,6 +6,7 @@ import { ToastAndroid } from "react-native";
 import historyManager from "./Utils/HistoryManager";
 import PythonBridgeService from "./Utils/PythonBridgeService";
 import dabMusicService from "./Utils/DabMusicService";
+import youtubeStreamingService from "./Utils/YouTubeStreamingService";
 
 let isPlayerInitialized = false;
 
@@ -106,14 +107,16 @@ async function PlayOneSong(song) {
     if (isYouTubeSong) {
       try {
         console.log('Fetching YouTube stream for video ID:', song.id);
-        const streamData = await PythonBridgeService.getStreamUrl(song.id);
+        const streamData = await youtubeStreamingService.getStreamUrl(song.id);
 
         if (streamData && streamData.url) {
           playbackUrl = streamData.url;
-          // Update song with stream data
+          // Update song with stream data and headers
           updatedSong = {
             ...updatedSong,
             url: streamData.url,
+            headers: streamData.headers,  // CRITICAL: Pass headers to TrackPlayer
+            userAgent: streamData.headers?.['User-Agent'],  // Explicit for ExoPlayer
             artwork: streamData.thumbnail || updatedSong.artwork,
             duration: streamData.duration || updatedSong.duration,
             title: streamData.title || updatedSong.title,
@@ -279,13 +282,15 @@ async function AddPlaylist(songs) {
       if (isYouTubeSong) {
         try {
           console.log('Fetching YouTube stream for playlist song:', song.id);
-          const streamData = await PythonBridgeService.getStreamUrl(song.id);
+          const streamData = await youtubeStreamingService.getStreamUrl(song.id);
 
           if (streamData && streamData.url) {
             playbackUrl = streamData.url;
             updatedSong = {
               ...updatedSong,
               url: streamData.url,
+              headers: streamData.headers,  // CRITICAL: Pass headers to TrackPlayer
+              userAgent: streamData.headers?.['User-Agent'],  // Explicit for ExoPlayer
               artwork: streamData.thumbnail || updatedSong.artwork,
               duration: streamData.duration || updatedSong.duration,
               title: streamData.title || updatedSong.title,
@@ -393,23 +398,25 @@ async function AddSongsToQueue(songs) {
 
     if (isYouTubeSong) {
       try {
-        console.log('Fetching YouTube stream for playlist song:', song.id);
-        const streamData = await PythonBridgeService.getStreamUrl(song.id);
+        console.log('Fetching YouTube stream for queue song:', song.id);
+        const streamData = await youtubeStreamingService.getStreamUrl(song.id);
 
         if (streamData && streamData.url) {
           playbackUrl = streamData.url;
           updatedSong = {
             ...updatedSong,
             url: streamData.url,
+            headers: streamData.headers,  // CRITICAL: Pass headers to TrackPlayer
+            userAgent: streamData.headers?.['User-Agent'],  // Explicit for ExoPlayer
             artwork: streamData.thumbnail || updatedSong.artwork,
             duration: streamData.duration || updatedSong.duration,
             title: streamData.title || updatedSong.title,
           };
         } else {
-          console.warn('Failed to get YouTube stream URL for playlist song, using original');
+          console.warn('Failed to get YouTube stream URL for queue song, using original');
         }
       } catch (error) {
-        console.error('Error fetching YouTube stream for playlist song:', error);
+        console.error('Error fetching YouTube stream for queue song:', error);
         // Continue with original URL
       }
     }

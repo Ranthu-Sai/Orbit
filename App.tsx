@@ -10,6 +10,7 @@ import { RouteOnboarding } from "./Route/OnboardingScreen/RouteOnboarding";
 import { InitialScreen } from "./Route/InitialScreen";
 import { Album } from './Route/Album';
 import ArtistPage from './Route/ArtistPage';
+import LoginScreen from './Component/Auth/LoginScreen';
 import CodePush from "react-native-code-push";
 import { useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -37,9 +38,9 @@ type ThemeContextType = {
 const Stack = createStackNavigator()
 let codePushOptions = { checkFrequency: CodePush.CheckFrequency.ON_APP_START };
 
-function App(){
+function App() {
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
-  
+
   useEffect(() => {
     // Initialize playlists structure if needed
     const initializeUserPlaylists = async () => {
@@ -52,20 +53,20 @@ function App(){
         // Silent error handling for playlist initialization
       }
     };
-    
+
     initializeUserPlaylists();
   }, []);
-  
+
   // Initialize Firebase Analytics
   useEffect(() => {
     // Set analytics collection enabled (can be toggled for GDPR compliance)
     analyticsService.setAnalyticsCollectionEnabled(true);
-    
+
     // Log app open event
     analyticsService.logEvent(AnalyticsEvents.APP_OPEN);
   }, []);
-  
-  useEffect(()=>{
+
+  useEffect(() => {
     // @ts-ignore
     CodePush.notifyAppReady()
     CodePush.checkForUpdate().then(update => {
@@ -80,8 +81,8 @@ function App(){
         );
       }
     });
-  },[])
-  
+  }, [])
+
   useEffect(() => {
     // Ensure storage directories exist early to avoid ENOENT when accessing files
     StorageManager.ensureDirectoriesExist().catch(err => {
@@ -103,12 +104,12 @@ function App(){
       }
       return false;
     };
-    
+
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
     return () => backHandler.remove();
   }, []);
-  
-  return <GestureHandlerRootView style={{flex:1}}>
+
+  return <GestureHandlerRootView style={{ flex: 1 }}>
     <ContextState>
       <BottomSheetModalProvider>
         <ThemeProvider>
@@ -136,11 +137,12 @@ function App(){
                     headerShown: false,
                     cardStyle: { backgroundColor: theme.colors.background }
                   }}>
-              <Stack.Screen name="Initial" component={InitialScreen} />
-              <Stack.Screen name="Onboarding" component={RouteOnboarding} />
-                          <Stack.Screen name="MainRoute" component={RootRoute} />
-              <Stack.Screen name="Album" component={Album} />
-              <Stack.Screen name="ArtistPage" component={ArtistPage} />
+                    <Stack.Screen name="Initial" component={InitialScreen} />
+                    <Stack.Screen name="Onboarding" component={RouteOnboarding} />
+                    <Stack.Screen name="MainRoute" component={RootRoute} />
+                    <Stack.Screen name="Album" component={Album} />
+                    <Stack.Screen name="ArtistPage" component={ArtistPage} />
+                    <Stack.Screen name="LoginScreen" component={LoginScreen} />
                   </Stack.Navigator>
                 </NavigationContainer>
               </PaperProvider>
@@ -151,4 +153,4 @@ function App(){
     </ContextState>
   </GestureHandlerRootView>
 }
-export default  CodePush(codePushOptions)(App)
+export default CodePush(codePushOptions)(App)
