@@ -1,0 +1,427 @@
+import React, { useState, useEffect, useCallback, useContext } from 'react';
+import { View, Dimensions, StyleSheet, ToastAndroid } from 'react-native';
+import FastImage from 'react-native-fast-image';
+import { Text, IconButton, Button } from 'react-native-paper';
+import { useTheme } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import TrackPlayer from 'react-native-track-player';
+import { SetLikedPlaylist, DeleteALikedPlaylist } from '../../LocalStorage/StoreLikedPlaylists';
+import { getPlaylistData } from '../../Api/Playlist';
+import { DownloadButton } from '../Global/DownloadButton';
+import { AddPlaylist, getIndexQuality } from '../../MusicPlayerFunctions';
+import Context from '../../Context/Context';
+import FormatArtist from '../../Utils/FormatArtists';
+import FormatTitleAndArtist from '../../Utils/FormatTitleAndArtist';
+
+// Get screen dimensions
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const IMAGE_SIZE = SCREEN_WIDTH * 0.45; // 45% of screen width
+
+/**
+ * Helper to validate image URL or provide default
+ */
+const getValidImageUrl = (url) => {
+    if (!url || url === 'null' || url === 'undefined' || url.trim() === '') {
+        return require('../../Images/default.jpg');
+    }
+    return { uri: url };
+};
+
+/**
+ * Helper to format artist data properly
+ */
+const formatArtistData = (artistData) => {
+    if (typeof artistData === 'string') return artistData;
+    if (Array.isArray(artistData)) return FormatArtist(artistData);
+    if (artistData?.primary && Array.isArray(artistData.primary)) {
+        return FormatArtist(artistData.primary);
+    }
+    if (artistData?.name) return artistData.name;
+    return 'Unknown Artist';
+};
+
+/**
+ * Helper to safely get song URL
+ */
+const getSongUrl = (song, quality) => {
+    if (song.downloadUrl?.length > quality && song.downloadUrl[quality]?.url) {
+        return song.downloadUrl[quality].url;
+    }
+    if (song.download_url?.length > quality && song.download_url[quality]?.url) {
+        return song.download_url[quality].url;
+    }
+    // Fallback to any available URL
+    const urls = song.downloadUrl || song.download_url || [];
+    for (const item of urls) {
+        if (item?.url) return item.url;
+    }
+    return '';
+};
+
+/**
+ * PlaylistHeader Component
+ * 
+ * A modern, compact playlist header with:
+ * - 30% width cover image on the left
+ * - 70% content area on the right with title, song count, and action icons
+ * - Separate full-width Play/Shuffle button row
+ */
+export const PlaylistHeader = ({
+    imageUrl,
+    title,
+    songCount = 0,
+    playlistId,
+    follower,
+    songsData = [],
+    playlistData = null, // Full playlist data object
+}) => {
+    const theme = useTheme();
+    const { updateTrack } = useContext(Context);
+    const [isLiked, setIsLiked] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isPlaying, setIsPlaying] = useState(false);
+
+    // Check if playlist is liked on mount
+    useEffect(() => {
+        const checkLikedStatus = async () => {
+            if (!playlistId) return;
+
+            try {
+                const playlists = await AsyncStorage.getItem('LikedPlaylists');
+                if (playlists) {
+                    const parsed = JSON.parse(playlists);
+                    if (parsed?.playlist?.[playlistId]) {
+                        setIsLiked(true);
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking liked status:', error);
+            }
+        };
+
+        checkLikedStatus();
+    }, [playlistId]);
+
+    // Check playback state
+    useEffect(() => {
+        const checkPlaybackState = async () => {
+            try {
+                const state = await TrackPlayer.getState();
+                const isPlayerPlaying = state === TrackPlayer.STATE_PLAYING || state === 3;
+                const currentTrackIndex = await TrackPlayer.getCurrentTrack();
+
+                if (currentTrackIndex === null) {
+                    setIsPlaying(false);
+                    return;
+                }
+
+                const currentTrack = await TrackPlayer.getTrack(currentTrackIndex);
+                if (currentTrack?.playlistId === playlistId) {
+                    setIsPlaying(isPlayerPlaying);
+                } else {
+                    setIsPlaying(false);
+                }
+            } catch (error) {
+                setIsPlaying(false);
+            }
+        };
+
+        checkPlaybackState();
+
+        const stateListener = TrackPlayer.addEventListener('playback-state', checkPlaybackState);
+        const trackListener = TrackPlayer.addEventListener('playback-track-changed', checkPlaybackState);
+
+        return () => {
+            stateListener.remove();
+            trackListener.remove();
+        };
+    }, [playlistId, songsData]);
+
+    // Toggle like/unlike playlist
+    const handleLikePress = useCallback(async () => {
+        if (!playlistId) return;
+
+        try {
+            if (isLiked) {
+                await DeleteALikedPlaylist(playlistId);
+                setIsLiked(false);
+                ToastAndroid.show('Removed from Favorites', ToastAndroid.SHORT);
+            } else {
+                const displayImage = imageUrl || '';
+                const displayName = title || 'Playlist';
+                const displayFollower = follower || '';
+                await SetLikedPlaylist(displayImage, displayName, displayFollower, playlistId);
+                setIsLiked(true);
+                ToastAndroid.show('Added to Favorites', ToastAndroid.SHORT);
+            }
+        } catch (error) {
+            console.error('Error toggling like:', error);
+            ToastAndroid.show('Error updating favorites', ToastAndroid.SHORT);
+        }
+    }, [isLiked, playlistId, title, imageUrl, follower]);
+
+    // Format songs for player
+    const formatSongsForPlayer = useCallback(async (shuffle = false) => {
+        const quality = await getIndexQuality();
+        const songs = songsData || playlistData?.data?.songs || [];
+
+        const formatted = [];
+        for (const song of songs) {
+            if (!song) continue;
+
+            const songUrl = getSongUrl(song, quality);
+            if (!songUrl) continue;
+
+            const artistData = song.artists || song.primary_artists;
+
+            formatted.push({
+                url: songUrl,
+                title: FormatTitleAndArtist(song.name || song.song || ''),
+                artist: FormatTitleAndArtist(formatArtistData(artistData)),
+                artwork: song.image?.[2]?.url || song.images?.[2]?.url || '',
+                image: song.image?.[2]?.url || song.images?.[2]?.url || '',
+                duration: song.duration || 0,
+                id: song.id || '',
+                language: song.language || '',
+                playlistId: playlistId || '',
+                downloadUrl: song.downloadUrl || song.download_url || [],
+            });
+        }
+
+        if (shuffle && formatted.length > 0) {
+            // Fisher-Yates shuffle
+            for (let i = formatted.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [formatted[i], formatted[j]] = [formatted[j], formatted[i]];
+            }
+        }
+
+        return formatted;
+    }, [songsData, playlistData, playlistId]);
+
+    // Play all songs
+    const handlePlayPress = useCallback(async () => {
+        if (isLoading) return;
+
+        try {
+            // If already playing this playlist, toggle pause/play
+            if (isPlaying) {
+                await TrackPlayer.pause();
+                setIsPlaying(false);
+                return;
+            }
+
+            // Check if playlist is already in queue
+            const currentTrackIndex = await TrackPlayer.getCurrentTrack();
+            if (currentTrackIndex !== null) {
+                const currentTrack = await TrackPlayer.getTrack(currentTrackIndex);
+                if (currentTrack?.playlistId === playlistId) {
+                    await TrackPlayer.play();
+                    setIsPlaying(true);
+                    return;
+                }
+            }
+
+            setIsLoading(true);
+            const formattedSongs = await formatSongsForPlayer(false);
+
+            if (formattedSongs.length === 0) {
+                ToastAndroid.show('No songs available to play', ToastAndroid.SHORT);
+                setIsLoading(false);
+                return;
+            }
+
+            await AddPlaylist(formattedSongs);
+            setIsPlaying(true);
+            updateTrack?.();
+            ToastAndroid.show(`Playing ${formattedSongs.length} songs`, ToastAndroid.SHORT);
+        } catch (error) {
+            console.error('Error playing playlist:', error);
+            ToastAndroid.show('Failed to play playlist', ToastAndroid.SHORT);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [isLoading, isPlaying, playlistId, formatSongsForPlayer, updateTrack]);
+
+    // Shuffle and play
+    const handleShufflePress = useCallback(async () => {
+        if (isLoading) return;
+
+        try {
+            setIsLoading(true);
+            const formattedSongs = await formatSongsForPlayer(true);
+
+            if (formattedSongs.length === 0) {
+                ToastAndroid.show('No songs available to shuffle', ToastAndroid.SHORT);
+                setIsLoading(false);
+                return;
+            }
+
+            await AddPlaylist(formattedSongs);
+            setIsPlaying(true);
+            updateTrack?.();
+            ToastAndroid.show(`Shuffling ${formattedSongs.length} songs`, ToastAndroid.SHORT);
+        } catch (error) {
+            console.error('Error shuffling playlist:', error);
+            ToastAndroid.show('Failed to shuffle playlist', ToastAndroid.SHORT);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [isLoading, formatSongsForPlayer, updateTrack]);
+
+    return (
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+            {/* Top Section: Image + Info */}
+            <View style={styles.topSection}>
+                {/* Cover Image - 30% width */}
+                <FastImage
+                    source={getValidImageUrl(imageUrl)}
+                    style={styles.coverImage}
+                    resizeMode={FastImage.resizeMode.cover}
+                />
+
+                {/* Content Section - 70% width */}
+                <View style={styles.contentSection}>
+                    {/* Title */}
+                    <Text
+                        variant="titleLarge"
+                        style={[styles.title, { color: theme.colors.text }]}
+                        numberOfLines={2}
+                    >
+                        {title || 'Playlist'}
+                    </Text>
+
+                    {/* Song Count */}
+                    <Text
+                        variant="bodyMedium"
+                        style={[styles.songCount, { color: theme.colors.text, opacity: 0.7 }]}
+                    >
+                        {songCount} {songCount === 1 ? 'song' : 'songs'}
+                    </Text>
+
+                    {/* Action Icons Row: Like, Download, More */}
+                    <View style={styles.actionIconsRow}>
+                        {/* Like Button */}
+                        <IconButton
+                            icon={isLiked ? 'heart' : 'heart-outline'}
+                            iconColor={isLiked ? '#E91E63' : theme.colors.text}
+                            size={26}
+                            onPress={handleLikePress}
+                            style={styles.actionIcon}
+                        />
+
+                        {/* Download Button (downloads all songs) */}
+                        <DownloadButton
+                            songs={songsData}
+                            albumName={title}
+                            size="small"
+                        />
+
+                        {/* More Options */}
+                        <IconButton
+                            icon="dots-vertical"
+                            iconColor={theme.colors.text}
+                            size={26}
+                            onPress={() => {/* TODO: Show options menu */ }}
+                            style={styles.actionIcon}
+                        />
+                    </View>
+                </View>
+            </View>
+
+            {/* Bottom Section: Play & Shuffle Buttons */}
+            <View style={styles.buttonRow}>
+                {/* Play Button */}
+                <Button
+                    mode="contained"
+                    icon={isPlaying ? 'pause' : 'play'}
+                    onPress={handlePlayPress}
+                    loading={isLoading}
+                    disabled={isLoading}
+                    style={[styles.playButton, { backgroundColor: theme.colors.primary }]}
+                    labelStyle={[styles.buttonLabel, { color: '#FFFFFF' }]}
+                    contentStyle={styles.buttonContent}
+                >
+                    {isPlaying ? 'Pause' : 'Play'}
+                </Button>
+
+                {/* Shuffle Button */}
+                <Button
+                    mode="outlined"
+                    icon="shuffle"
+                    onPress={handleShufflePress}
+                    disabled={isLoading}
+                    style={[styles.shuffleButton, { borderColor: theme.colors.text }]}
+                    labelStyle={[styles.buttonLabel, { color: theme.colors.text }]}
+                    contentStyle={styles.buttonContent}
+                >
+                    Shuffle
+                </Button>
+            </View>
+        </View>
+    );
+};
+
+const styles = StyleSheet.create({
+    container: {
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 12,
+    },
+    topSection: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+    },
+    coverImage: {
+        width: IMAGE_SIZE,
+        height: IMAGE_SIZE,
+        borderRadius: 8,
+        backgroundColor: '#333',
+    },
+    contentSection: {
+        flex: 1,
+        marginLeft: 20,
+        paddingLeft: 4,
+        justifyContent: 'flex-start',
+        paddingTop: 8,
+    },
+    title: {
+        fontWeight: '700',
+        marginBottom: 4,
+    },
+    songCount: {
+        marginBottom: 12,
+    },
+    actionIconsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginLeft: -4,
+        gap: 8,
+    },
+    actionIcon: {
+        margin: 0,
+    },
+    buttonRow: {
+        flexDirection: 'row',
+        marginTop: 16,
+        gap: 12,
+    },
+    playButton: {
+        flex: 1,
+        borderRadius: 24,
+    },
+    shuffleButton: {
+        flex: 1,
+        borderRadius: 24,
+        borderWidth: 1,
+    },
+    buttonLabel: {
+        fontWeight: '600',
+        fontSize: 15,
+    },
+    buttonContent: {
+        height: 44,
+    },
+});
+
+export default PlaylistHeader;

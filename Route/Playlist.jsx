@@ -1,7 +1,6 @@
 import { MainWrapper } from "../Layout/MainWrapper";
-import Animated, { useAnimatedRef } from "react-native-reanimated";
-import { PlaylistTopHeader } from "../Component/Playlist/PlaylistTopHeader";
-import { View, BackHandler, Pressable, ActivityIndicator, StyleSheet, Dimensions, Text } from "react-native";
+import { PlaylistHeader } from "../Component/Playlist/PlaylistHeader";
+import { View, BackHandler, Pressable, ActivityIndicator, StyleSheet, Dimensions, Text, ScrollView } from "react-native";
 import { EachSongCard } from "../Component/Global/EachSongCard";
 import { useEffect, useState, useCallback } from "react";
 import { getPlaylistData } from "../Api/Playlist";
@@ -130,7 +129,6 @@ const formatArtistData = (artistData) => {
 };
 
 export const Playlist = ({ route }) => {
-  const AnimatedRef = useAnimatedRef();
   const [Loading, setLoading] = useState(true);
   const [Data, setData] = useState({});
   const navigation = useNavigation();
@@ -462,33 +460,23 @@ export const Playlist = ({ route }) => {
         </View>
       )}
       {!Loading && Data?.data?.songs && Data?.data?.songs?.length > 0 && (
-        <Animated.ScrollView
-          scrollEventThrottle={16}
-          ref={AnimatedRef}
+        <ScrollView
           contentContainerStyle={{
             paddingBottom: 120,
             backgroundColor: theme.dark ? theme.colors.background : "#FFFFFF",
           }}
           style={{
-            backgroundColor: 'transparent', // Keep transparent to allow header background to show
+            backgroundColor: theme.dark ? theme.colors.background : '#FFFFFF',
           }}
         >
-          <PlaylistTopHeader
-            AnimatedRef={AnimatedRef}
-            url={image || getValidImageUrl(ensureStringUrl(Data?.data?.songs[0]?.images?.[2]?.url || Data?.data?.songs[0]?.image?.[2]?.url))}
+          <PlaylistHeader
+            imageUrl={image || Data?.data?.songs?.[0]?.image?.[2]?.url || Data?.data?.songs?.[0]?.images?.[2]?.url || ''}
+            title={name || Data?.data?.name || "Playlist"}
+            songCount={Data?.data?.songs?.length || 0}
             playlistId={id ? id.replace('album_', '') : id}
-            name={name || Data?.data?.name || "Playlist"}
             follower={follower || Data?.data?.follower || ""}
-            style={{ position: 'relative' }}
-            // New props for details display
-            detailsName={truncateText(name || Data?.data?.name || "Playlist")}
             songsData={Data?.data?.songs}
-            contentIdForPlayer={id} // Assuming 'id' is the playlistId for the player
-            playerLoading={Loading} // Placeholder: Replace with actual player loading state if different
-            isPlayingState={false} // Placeholder: Replace with actual isPlaying state
-            onPlayPress={() => console.log('Play pressed - Placeholder')} // Placeholder: Replace with actual handlePlayPause function
-            isAlbumScreen={false}
-            releaseYear={null}
+            playlistData={Data}
           />
 
           <View style={[styles.songsContainer, { backgroundColor: theme.dark ? 'rgb(16,16,16)' : '#FFFFFF' }]}>
@@ -553,7 +541,7 @@ export const Playlist = ({ route }) => {
             {/* Add view to hide the "No music" player at bottom */}
             <View style={styles.bottomSpacer} />
           </View>
-        </Animated.ScrollView>
+        </ScrollView>
       )}
     </MainWrapper>
   );

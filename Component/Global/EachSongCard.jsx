@@ -652,6 +652,7 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
               text={truncateTitle ? truncateText(formatText(title), isFromAlbum ? 15 : isFromPlaylist ? 15 : 15) : formatText(title)}
               songId={id}
               isSongTitle={true}
+              isCurrentlyPlaying={id === activeTrackId}
               style={{
                 width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.65 : isFromPlaylist ? 0.63 : 0.66),
                 marginBottom: 2,
