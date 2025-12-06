@@ -5,8 +5,7 @@ import { Text, IconButton, Button } from 'react-native-paper';
 import { useTheme } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer from 'react-native-track-player';
-import { SetLikedPlaylist, DeleteALikedPlaylist } from '../../LocalStorage/StoreLikedPlaylists';
-import { getPlaylistData } from '../../Api/Playlist';
+import { SetLikedAlbum, DeleteALikedAlbum } from '../../LocalStorage/StoreLikedAlbums';
 import { DownloadButton } from '../Global/DownloadButton';
 import { AddPlaylist, getIndexQuality } from '../../MusicPlayerFunctions';
 import Context from '../../Context/Context';
@@ -59,21 +58,21 @@ const getSongUrl = (song, quality) => {
 };
 
 /**
- * PlaylistHeader Component
+ * AlbumHeader Component
  * 
- * A modern, compact playlist header with:
- * - 30% width cover image on the left
- * - 70% content area on the right with title, song count, and action icons
+ * A modern, compact album header with:
+ * - 40% width cover image on the left
+ * - 60% content area on the right with title, year/song count, and action icons
  * - Separate full-width Play/Shuffle button row
  */
-export const PlaylistHeader = ({
+export const AlbumHeader = ({
     imageUrl,
     title,
     songCount = 0,
-    playlistId,
-    follower,
+    albumId,
+    year,
     songsData = [],
-    playlistData = null, // Full playlist data object
+    albumData = null, // Full album data object
 }) => {
     const theme = useTheme();
     const { updateTrack } = useContext(Context);
@@ -81,16 +80,16 @@ export const PlaylistHeader = ({
     const [isLoading, setIsLoading] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
 
-    // Check if playlist is liked on mount
+    // Check if album is liked on mount
     useEffect(() => {
         const checkLikedStatus = async () => {
-            if (!playlistId) return;
+            if (!albumId) return;
 
             try {
-                const playlists = await AsyncStorage.getItem('LikedPlaylists');
-                if (playlists) {
-                    const parsed = JSON.parse(playlists);
-                    if (parsed?.playlist?.[playlistId]) {
+                const albums = await AsyncStorage.getItem('LikedAlbums');
+                if (albums) {
+                    const parsed = JSON.parse(albums);
+                    if (parsed?.albums?.[albumId]) {
                         setIsLiked(true);
                     }
                 }
@@ -100,7 +99,7 @@ export const PlaylistHeader = ({
         };
 
         checkLikedStatus();
-    }, [playlistId]);
+    }, [albumId]);
 
     // Check playback state
     useEffect(() => {
@@ -116,7 +115,7 @@ export const PlaylistHeader = ({
                 }
 
                 const currentTrack = await TrackPlayer.getTrack(currentTrackIndex);
-                if (currentTrack?.playlistId === playlistId) {
+                if (currentTrack?.albumId === albumId) {
                     setIsPlaying(isPlayerPlaying);
                 } else {
                     setIsPlaying(false);
@@ -135,22 +134,22 @@ export const PlaylistHeader = ({
             stateListener.remove();
             trackListener.remove();
         };
-    }, [playlistId, songsData]);
+    }, [albumId, songsData]);
 
-    // Toggle like/unlike playlist
+    // Toggle like/unlike album
     const handleLikePress = useCallback(async () => {
-        if (!playlistId) return;
+        if (!albumId) return;
 
         try {
             if (isLiked) {
-                await DeleteALikedPlaylist(playlistId);
+                await DeleteALikedAlbum(albumId);
                 setIsLiked(false);
                 ToastAndroid.show('Removed from Favorites', ToastAndroid.SHORT);
             } else {
                 const displayImage = imageUrl || '';
-                const displayName = title || 'Playlist';
-                const displayFollower = follower || '';
-                await SetLikedPlaylist(displayImage, displayName, displayFollower, playlistId);
+                const displayName = title || 'Album';
+                const displayYear = year || '';
+                await SetLikedAlbum(displayImage, displayName, displayYear, albumId);
                 setIsLiked(true);
                 ToastAndroid.show('Added to Favorites', ToastAndroid.SHORT);
             }
@@ -158,12 +157,12 @@ export const PlaylistHeader = ({
             console.error('Error toggling like:', error);
             ToastAndroid.show('Error updating favorites', ToastAndroid.SHORT);
         }
-    }, [isLiked, playlistId, title, imageUrl, follower]);
+    }, [isLiked, albumId, title, imageUrl, year]);
 
     // Format songs for player
     const formatSongsForPlayer = useCallback(async (shuffle = false) => {
         const quality = await getIndexQuality();
-        const songs = songsData || playlistData?.data?.songs || [];
+        const songs = songsData || albumData?.data?.songs || [];
 
         const formatted = [];
         for (const song of songs) {
@@ -183,7 +182,7 @@ export const PlaylistHeader = ({
                 duration: song.duration || 0,
                 id: song.id || '',
                 language: song.language || '',
-                playlistId: playlistId || '',
+                albumId: albumId || '',
                 downloadUrl: song.downloadUrl || song.download_url || [],
             });
         }
@@ -197,25 +196,25 @@ export const PlaylistHeader = ({
         }
 
         return formatted;
-    }, [songsData, playlistData, playlistId]);
+    }, [songsData, albumData, albumId]);
 
     // Play all songs
     const handlePlayPress = useCallback(async () => {
         if (isLoading) return;
 
         try {
-            // If already playing this playlist, toggle pause/play
+            // If already playing this album, toggle pause/play
             if (isPlaying) {
                 await TrackPlayer.pause();
                 setIsPlaying(false);
                 return;
             }
 
-            // Check if playlist is already in queue
+            // Check if album is already in queue
             const currentTrackIndex = await TrackPlayer.getCurrentTrack();
             if (currentTrackIndex !== null) {
                 const currentTrack = await TrackPlayer.getTrack(currentTrackIndex);
-                if (currentTrack?.playlistId === playlistId) {
+                if (currentTrack?.albumId === albumId) {
                     await TrackPlayer.play();
                     setIsPlaying(true);
                     return;
@@ -236,12 +235,12 @@ export const PlaylistHeader = ({
             updateTrack?.();
             ToastAndroid.show(`Playing ${formattedSongs.length} songs`, ToastAndroid.SHORT);
         } catch (error) {
-            console.error('Error playing playlist:', error);
-            ToastAndroid.show('Failed to play playlist', ToastAndroid.SHORT);
+            console.error('Error playing album:', error);
+            ToastAndroid.show('Failed to play album', ToastAndroid.SHORT);
         } finally {
             setIsLoading(false);
         }
-    }, [isLoading, isPlaying, playlistId, formatSongsForPlayer, updateTrack]);
+    }, [isLoading, isPlaying, albumId, formatSongsForPlayer, updateTrack]);
 
     // Shuffle and play
     const handleShufflePress = useCallback(async () => {
@@ -262,8 +261,8 @@ export const PlaylistHeader = ({
             updateTrack?.();
             ToastAndroid.show(`Shuffling ${formattedSongs.length} songs`, ToastAndroid.SHORT);
         } catch (error) {
-            console.error('Error shuffling playlist:', error);
-            ToastAndroid.show('Failed to shuffle playlist', ToastAndroid.SHORT);
+            console.error('Error shuffling album:', error);
+            ToastAndroid.show('Failed to shuffle album', ToastAndroid.SHORT);
         } finally {
             setIsLoading(false);
         }
@@ -273,14 +272,14 @@ export const PlaylistHeader = ({
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             {/* Top Section: Image + Info */}
             <View style={styles.topSection}>
-                {/* Cover Image - 30% width */}
+                {/* Cover Image - 40% width */}
                 <FastImage
                     source={getValidImageUrl(imageUrl)}
                     style={styles.coverImage}
                     resizeMode={FastImage.resizeMode.cover}
                 />
 
-                {/* Content Section - 70% width */}
+                {/* Content Section - 60% width */}
                 <View style={styles.contentSection}>
                     {/* Title */}
                     <Text
@@ -288,15 +287,15 @@ export const PlaylistHeader = ({
                         style={[styles.title, { color: theme.colors.text }]}
                         numberOfLines={2}
                     >
-                        {title || 'Playlist'}
+                        {title || 'Album'}
                     </Text>
 
-                    {/* Song Count */}
+                    {/* Year + Song Count */}
                     <Text
                         variant="bodyMedium"
                         style={[styles.songCount, { color: theme.colors.text, opacity: 0.7 }]}
                     >
-                        {songCount} {songCount === 1 ? 'song' : 'songs'}
+                        {year && `${year} • `}{songCount} {songCount === 1 ? 'song' : 'songs'}
                     </Text>
 
                     {/* Action Icons Row: Like, Download, More */}
@@ -424,4 +423,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default PlaylistHeader;
+export default AlbumHeader;
