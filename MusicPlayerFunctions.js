@@ -7,6 +7,7 @@ import historyManager from "./Utils/HistoryManager";
 import PythonBridgeService from "./Utils/PythonBridgeService";
 import dabMusicService from "./Utils/DabMusicService";
 import youtubeStreamingService from "./Utils/YouTubeStreamingService";
+import queueManager from "./Utils/QueueManager";
 
 let isPlayerInitialized = false;
 
@@ -112,6 +113,7 @@ async function PlayOneSong(song) {
         if (streamData && streamData.url) {
           playbackUrl = streamData.url;
           // Update song with stream data and headers
+          // IMPORTANT: Preserve artist from original song data
           updatedSong = {
             ...updatedSong,
             url: streamData.url,
@@ -119,7 +121,10 @@ async function PlayOneSong(song) {
             userAgent: streamData.headers?.['User-Agent'],  // Explicit for ExoPlayer
             artwork: streamData.thumbnail || updatedSong.artwork,
             duration: streamData.duration || updatedSong.duration,
-            title: streamData.title || updatedSong.title,
+            // Only use stream title if we don't have a good title already
+            title: updatedSong.title || streamData.title,
+            // Preserve artist from original song data (don't use stream artist)
+            artist: updatedSong.artist || 'Unknown Artist',
           };
           console.log('YouTube stream URL fetched successfully');
         } else {
@@ -245,6 +250,13 @@ async function PlayOneSong(song) {
     await TrackPlayer.reset();
     await TrackPlayer.add([songForPlayback]);
     await TrackPlayer.play();
+
+    // Trigger prefetch for next song in queue (if any)
+    setTimeout(() => {
+      queueManager.prefetchNextTrack().catch(err =>
+        console.error('Error prefetching next track:', err)
+      );
+    }, 1000); // Wait 1 second after playback starts
   } catch (error) {
     console.error('Error playing song:', error);
   }
@@ -280,27 +292,33 @@ async function AddPlaylist(songs) {
       const isYouTubeSong = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
 
       if (isYouTubeSong) {
-        try {
-          console.log('Fetching YouTube stream for playlist song:', song.id);
-          const streamData = await youtubeStreamingService.getStreamUrl(song.id);
+        // For YouTube songs in playlist, fetch stream for first song only
+        // Others will be fetched on-demand
+        const isFirstSong = songs.indexOf(song) === 0;
 
-          if (streamData && streamData.url) {
-            playbackUrl = streamData.url;
-            updatedSong = {
-              ...updatedSong,
-              url: streamData.url,
-              headers: streamData.headers,  // CRITICAL: Pass headers to TrackPlayer
-              userAgent: streamData.headers?.['User-Agent'],  // Explicit for ExoPlayer
-              artwork: streamData.thumbnail || updatedSong.artwork,
-              duration: streamData.duration || updatedSong.duration,
-              title: streamData.title || updatedSong.title,
-            };
-          } else {
-            console.warn('Failed to get YouTube stream URL for playlist song, using original');
+        if (isFirstSong) {
+          try {
+            console.log('Fetching YouTube stream for first playlist song:', song.id);
+            const streamData = await youtubeStreamingService.getStreamUrl(song.id);
+
+            if (streamData && streamData.url) {
+              playbackUrl = streamData.url;
+              updatedSong = {
+                ...updatedSong,
+                url: streamData.url,
+                headers: streamData.headers,
+                userAgent: streamData.headers?.['User-Agent'],
+                artwork: streamData.thumbnail || updatedSong.artwork,
+                duration: streamData.duration || updatedSong.duration,
+                title: streamData.title || updatedSong.title,
+              };
+            }
+          } catch (error) {
+            console.error('Error fetching YouTube stream for first playlist song:', error);
           }
-        } catch (error) {
-          console.error('Error fetching YouTube stream for playlist song:', error);
-          // Continue with original URL
+        } else {
+          // Mark as needing stream fetch later
+          updatedSong._needsStream = true;
         }
       }
       // Check if this is a DAB Music track
@@ -378,6 +396,13 @@ async function AddPlaylist(songs) {
     await TrackPlayer.reset();
     await TrackPlayer.add(processedSongs);
     await TrackPlayer.play();
+
+    // Prefetch next song after a short delay
+    setTimeout(() => {
+      queueManager.prefetchNextTrack().catch(err =>
+        console.error('Error prefetching next track:', err)
+      );
+    }, 1000);
   } catch (error) {
     console.error('Error in AddPlaylist:', error);
   }
@@ -389,73 +414,21 @@ async function AddSongsToQueue(songs) {
   const qualityNames = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
   const currentQuality = qualityNames[qualityIndex] || 'Unknown';
 
-  const processedSongs = await Promise.all(songs.map(async (song) => {
+  const processedSongs = songs.map(song => {
     let playbackUrl = song.url;
     let updatedSong = { ...song };
 
     // Check if this is a YouTube song
     const isYouTubeSong = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
+    const isDabSong = song.isDabTrack || song.source === 'dab';
 
-    if (isYouTubeSong) {
-      try {
-        console.log('Fetching YouTube stream for queue song:', song.id);
-        const streamData = await youtubeStreamingService.getStreamUrl(song.id);
-
-        if (streamData && streamData.url) {
-          playbackUrl = streamData.url;
-          updatedSong = {
-            ...updatedSong,
-            url: streamData.url,
-            headers: streamData.headers,  // CRITICAL: Pass headers to TrackPlayer
-            userAgent: streamData.headers?.['User-Agent'],  // Explicit for ExoPlayer
-            artwork: streamData.thumbnail || updatedSong.artwork,
-            duration: streamData.duration || updatedSong.duration,
-            title: streamData.title || updatedSong.title,
-          };
-        } else {
-          console.warn('Failed to get YouTube stream URL for queue song, using original');
-        }
-      } catch (error) {
-        console.error('Error fetching YouTube stream for queue song:', error);
-        // Continue with original URL
-      }
+    // For YouTube and DAB songs, don't fetch stream immediately
+    // Mark them for on-demand fetching
+    if (isYouTubeSong || isDabSong) {
+      updatedSong._needsStream = true;
+      console.log(`⏭️ Queued song without stream (will fetch on-demand): ${song.title || song.id}`);
     }
-    // Check if this is a DAB Music track
-    else if (song.isDabTrack || song.source === 'dab' || (!isNaN(song.url) && String(song.url).length > 5)) {
-      try {
-        console.log('🎵 DAB Track detected in queue! Fetching stream URL for ID:', song.id);
-        await dabMusicService.initialize();
-        const streamUrl = await dabMusicService.getStreamUrl(song.id);
-
-        if (streamUrl) {
-          playbackUrl = streamUrl;
-
-          // Parse format from URL to determine quality
-          const fmtMatch = streamUrl.match(/[?&]fmt=(\d+)/);
-          const fmt = fmtMatch ? fmtMatch[1] : null;
-          const formatMap = {
-            '5': 'MP3 320kbps',
-            '6': 'FLAC 16-bit/44.1kHz',
-            '7': 'FLAC 24-bit/96kHz',
-            '27': 'FLAC 24-bit/192kHz'
-          };
-          const dabQuality = formatMap[fmt] || 'FLAC';
-
-          updatedSong = {
-            ...updatedSong,
-            url: streamUrl,
-            currentPlayingQuality: dabQuality
-          };
-          console.log('✅ DAB stream URL fetched successfully for queue');
-          console.log('🎵 Quality:', dabQuality);
-        } else {
-          console.error('Failed to get DAB stream URL for queue song');
-        }
-      } catch (error) {
-        console.error('❌ Error fetching DAB stream for queue song:', error);
-        // Continue with original URL
-      }
-    } else {
+    else {
       // Select appropriate quality URL
       if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
         if (song.downloadUrl[qualityIndex]?.url) {
@@ -490,7 +463,7 @@ async function AddSongsToQueue(songs) {
       url: playbackUrl,
       currentPlayingQuality: currentQuality
     };
-  }));
+  });
 
   await TrackPlayer.add(processedSongs);
 }
@@ -535,6 +508,15 @@ async function PlayNextSong() {
       return;
     }
 
+    const nextTrackIndex = currentTrack + 1;
+    const nextTrack = queue[nextTrackIndex];
+
+    // Check if next track needs stream URL fetching
+    if (nextTrack._needsStream) {
+      console.log('🔄 Next track needs stream, fetching on-demand...');
+      await queueManager.fetchStreamForTrack(nextTrackIndex);
+    }
+
     // Skip to next track and ensure it plays
     await TrackPlayer.skipToNext();
 
@@ -559,6 +541,13 @@ async function PlayNextSong() {
         console.error('Error playing after skip:', playError);
       }
     }
+
+    // Prefetch the next song after this one
+    setTimeout(() => {
+      queueManager.prefetchNextTrack().catch(err =>
+        console.error('Error prefetching next track:', err)
+      );
+    }, 1000);
   } catch (error) {
     console.error('Error in PlayNextSong:', error);
   }

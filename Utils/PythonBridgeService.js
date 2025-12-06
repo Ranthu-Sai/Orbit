@@ -47,6 +47,10 @@ class PythonBridgeService {
         return await InnerTubeClient.getArtist(browseId);
     }
 
+    static async getNext(videoId, playlistId = null, continuation = null) {
+        return await InnerTubeClient.getNext(videoId, playlistId, continuation);
+    }
+
     static async getCharts(country = 'IN') {
         // Not implemented in InnerTubeClient yet, returning empty
         return { videos: [], artists: [], genres: [] };

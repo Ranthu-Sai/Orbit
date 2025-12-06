@@ -15,7 +15,7 @@ import EventRegister from '../../Utils/EventRegister';
 import Octicons from 'react-native-vector-icons/Octicons';
 import { requestStoragePermission } from '../../Utils/PermissionManager';
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
-import PythonBridgeService from '../../Utils/PythonBridgeService';
+import queueManager from '../../Utils/QueueManager';
 
 export const EachSongCard = memo(function EachSongCard({ title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', tidalUrl, truncateTitle = false, onDeleteComplete, activeTrackId, isPlaying }) {
   const theme = useTheme();
@@ -124,6 +124,14 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
     }
   }
 
+  // Format duration from seconds to MM:SS format (like OuterTune)
+  const formatDuration = (seconds) => {
+    if (!seconds || seconds === 0 || seconds === '0') return '';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return ` • ${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
   async function AddSongToPlayer() {
     console.log(`[Playback] Clicked on song: "${title}", Source: ${source}, ID: ${id}`);
 
@@ -174,54 +182,21 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
         // Play clicked song instantly
         await PlayOneSong(currentSong);
 
-        // Queue only the next 5 songs in the background
+        // Build queue from recommendations in the background
         try {
-          const { AddSongsToQueue } = require('../../MusicPlayerFunctions');
+          // Use YouTube Music's recommendations API to get similar songs for queue
+          const recommendedSongs = await queueManager.buildQueueFromRecommendations(
+            current?.id,
+            'ytmusic',
+            10
+          );
 
-          const nextSongsRaw = songs.slice(index + 1, index + 6);
-          const nextSongs = nextSongsRaw
-            .filter(s => s && s.id)
-            .map(s => {
-              let nextArtwork = '';
-              try {
-                if (typeof s?.image === 'string') {
-                  nextArtwork = s.image;
-                } else if (s?.image && typeof s.image === 'object') {
-                  if (typeof s.image.uri === 'string') {
-                    nextArtwork = s.image.uri;
-                  } else if (typeof s.image.url === 'string') {
-                    nextArtwork = s.image.url;
-                  } else if (Array.isArray(s.image) && s.image.length > 0) {
-                    if (typeof s.image[0] === 'string') {
-                      nextArtwork = s.image[0];
-                    } else if (s.image[0] && typeof s.image[0].url === 'string') {
-                      nextArtwork = s.image[0].url;
-                    }
-                  }
-                }
-              } catch (e) {
-                console.error('Error extracting artwork URI for queued song:', e);
-              }
-
-              return {
-                url: '', // stream URL will be fetched when queued song is processed
-                title: formatText(s?.name),
-                artist: formatText(FormatArtist(s?.artists?.primary || [])),
-                artwork: nextArtwork,
-                image: nextArtwork,
-                duration: s?.duration,
-                id: s?.id,
-                language: s?.language,
-                downloadUrl: s?.downloadUrl || s?.download_url || s?.id,
-                source: 'ytmusic',
-              };
-            });
-
-          if (nextSongs.length > 0) {
-            await AddSongsToQueue(nextSongs);
+          if (recommendedSongs.length > 0) {
+            const { AddSongsToQueue } = require('../../MusicPlayerFunctions');
+            await AddSongsToQueue(recommendedSongs);
           }
         } catch (queueErr) {
-          console.error('Error queuing next YTMusic playlist songs:', queueErr);
+          console.error('Error building queue:', queueErr);
         }
 
         updateTrack();
@@ -686,7 +661,7 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
               ellipsizeMode="tail"
             />
             <SmallText
-              text={truncateText(formatText(artist), isFromAlbum ? 30 : isFromPlaylist ? 32 : 35)}
+              text={truncateText(formatText(artist), isFromAlbum ? 30 : isFromPlaylist ? 32 : 35) + formatDuration(duration)}
               isArtistName={true}
               style={{
                 width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.63 : isFromPlaylist ? 0.59 : 0.63),
@@ -743,3 +718,4 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
     </>
   );
 })
+

@@ -572,12 +572,12 @@ async function getYTMusicPlaylistData(playlistId) {
 
       // Use Python bridge for production
       const playlistData = await PythonBridgeService.getPlaylist(playlistId);
-      console.log('YTMusic Playlist Data Raw:', JSON.stringify(playlistData, null, 2));
 
       if (playlistData && !playlistData.error) {
         // Transform the tracks data to match Saavn format
         const transformedSongs = [];
         const tracks = playlistData.songs || playlistData.tracks;
+
         if (tracks && Array.isArray(tracks)) {
           // Limit processing to avoid excessive callbacks
           const tracksToProcess = tracks.slice(0, 500); // Limit to 500 songs max

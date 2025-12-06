@@ -33,7 +33,15 @@ class InnerTubeClient {
      */
     static async request(endpoint, body) {
         try {
-            const response = await fetch(`${INNERTUBE_API_URL}/${endpoint}?key=${INNERTUBE_API_KEY}`, {
+            const url = `${INNERTUBE_API_URL}/${endpoint}?key=${INNERTUBE_API_KEY}`;
+            console.log('🌐 InnerTube request:', {
+                endpoint,
+                url,
+                INNERTUBE_API_URL,
+                INNERTUBE_API_KEY: INNERTUBE_API_KEY ? 'present' : 'missing'
+            });
+
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: HEADERS,
                 body: JSON.stringify({
@@ -41,11 +49,34 @@ class InnerTubeClient {
                     ...body
                 })
             });
-            return await response.json();
+
+            const data = await response.json();
+            return data;
         } catch (error) {
             console.error(`InnerTube request failed for ${endpoint}:`, error);
             return null;
         }
+    }
+
+    /**
+     * Parse time string (e.g., "3:45", "1:23:45") to seconds
+     * Matches OuterTune's parseTime function
+     */
+    static parseTime(timeString) {
+        if (!timeString) return null;
+
+        const parts = timeString.split(':').map(p => parseInt(p, 10));
+        if (parts.some(isNaN)) return null;
+
+        if (parts.length === 2) {
+            // MM:SS format
+            return parts[0] * 60 + parts[1];
+        } else if (parts.length === 3) {
+            // HH:MM:SS format
+            return parts[0] * 3600 + parts[1] * 60 + parts[2];
+        }
+
+        return null;
     }
 
     /**
@@ -90,6 +121,28 @@ class InnerTubeClient {
     static async getRelated(browseId) {
         const data = await this.request('next', { videoId: browseId });
         return this.parseRelated(data);
+    }
+
+    /**
+     * Get Next/Recommendations for a video (YouTube Music Radio)
+     * This is similar to OuterTune's YouTube.next() function
+     */
+    static async getNext(videoId, playlistId = null, continuation = null) {
+        const body = {
+            videoId,
+            isAudioOnly: true
+        };
+
+        if (playlistId) {
+            body.playlistId = playlistId;
+        }
+
+        if (continuation) {
+            body.continuation = continuation;
+        }
+
+        const data = await this.request('next', body);
+        return this.parseNext(data);
     }
 
     // --- Parsers ---
@@ -280,6 +333,45 @@ class InnerTubeClient {
         } catch (e) { return null; }
     }
 
+    /**
+     * Parse Next/Recommendations response
+     * Returns an object with items (songs) and continuation token
+     */
+    static parseNext(data) {
+        try {
+            const panel = data?.contents?.singleColumnMusicWatchNextResultsRenderer?.tabbedRenderer?.watchNextTabbedResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.musicQueueRenderer?.content?.playlistPanelRenderer;
+
+            if (!panel) {
+                console.log('InnerTube parseNext: No panel found');
+                return { items: [], continuation: null };
+            }
+
+            // Parse all items (songs)
+            const items = panel.contents?.map(item => {
+                // Skip automix preview items
+                if (item.automixPreviewVideoRenderer) {
+                    return null;
+                }
+                return this.parseItem(item);
+            }).filter(i => i) || [];
+
+            // Get continuation token for loading more recommendations
+            const continuation = panel.continuations?.[0]?.nextContinuationData?.continuation || null;
+
+            console.log(`InnerTube parseNext: Found ${items.length} recommendations, continuation: ${continuation ? 'yes' : 'no'}`);
+
+            return {
+                items,
+                continuation,
+                // Also return the title if available
+                title: data?.contents?.singleColumnMusicWatchNextResultsRenderer?.tabbedRenderer?.watchNextTabbedResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.musicQueueRenderer?.header?.musicQueueHeaderRenderer?.subtitle?.runs?.[0]?.text || null
+            };
+        } catch (e) {
+            console.error('Parse Next Error:', e);
+            return { items: [], continuation: null };
+        }
+    }
+
     // --- generic Item Parser ---
     static parseItem(itemWrapper) {
         try {
@@ -318,27 +410,45 @@ class InnerTubeClient {
 
             if (itemWrapper.musicTwoRowItemRenderer && !videoId && type === 'song') type = 'album/playlist';
 
-            // Subtitle / Artist
-            const subtitleRuns = item.subtitle?.runs || item.longBylineText?.runs || item.shortBylineText?.runs;
-            // Artist logic: Try to find run with navigationEndpoint to browse/artist or just take the first text
-            const artistRun = subtitleRuns?.find(r => r.navigationEndpoint?.browseEndpoint?.browseId?.startsWith('UC')) || subtitleRuns?.[0];
-            const artist = artistRun?.text || 'Unknown';
+            // Artist extraction - OuterTune's approach
+            // Artists are in flexColumns[1].text.runs, with separators " • " between them
+            // We need to filter odd elements (indices 0, 2, 4...) to skip separators
+            const flexColumn1 = item.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs;
+            let artist = 'Unknown';
+            let artistsList = [];
 
+            if (flexColumn1 && Array.isArray(flexColumn1)) {
+                // Filter to get only even-indexed elements (skip " • " separators)
+                const oddElements = flexColumn1.filter((_, index) => index % 2 === 0);
+                artistsList = oddElements.map(run => ({
+                    name: run.text,
+                    id: run.navigationEndpoint?.browseEndpoint?.browseId
+                }));
+                artist = oddElements.map(run => run.text).join(', ') || 'Unknown';
+            }
+
+            // Duration extraction - from fixedColumns[0] (OuterTune's approach)
+            const durationText = item.fixedColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text;
+            const duration = durationText ? this.parseTime(durationText) : null;
+
+          
             return {
                 videoId,
                 browseId,
                 playlistId,
                 title,
                 artist,
+                artists: artistsList,  // Array of artist objects
+                duration,  // Duration in seconds
                 thumbnail,
                 thumbnails,
                 type,
                 // UI Compat
                 id: videoId || browseId,
                 name: title,
-                subtitle: subtitleRuns?.map(r => r.text).join('') || '',
+                subtitle: item.subtitle?.runs?.map(r => r.text).join('') || item.longBylineText?.runs?.map(r => r.text).join('') || item.shortBylineText?.runs?.map(r => r.text).join('') || '',
                 image: thumbnails.map(t => ({ url: t.url, quality: 'hd' })),
-                year: subtitleRuns?.[2]?.text || ''
+                year: item.subtitle?.runs?.[item.subtitle.runs.length - 1]?.text || ''
             };
         } catch (e) { console.error(e); return null; }
     }

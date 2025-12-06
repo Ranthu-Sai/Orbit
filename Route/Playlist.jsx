@@ -165,14 +165,6 @@ export const Playlist = ({ route }) => {
       setLoading(true);
       let data = {};
       data = await getPlaylistData(id);
-      console.log(`Playlist data fetched successfully for ID ${id}:`,
-        data?.data?.name || 'Unknown playlist',
-        `songs count: ${data?.data?.songs?.length || 0}`);
-
-      // Log a sample song to debug structure
-      // if (data?.data?.songs && data?.data?.songs.length > 0) {
-      //   console.log('Sample song structure:', JSON.stringify(data.data.songs[0], null, 2));
-      // }
 
       setData(data);
 
@@ -190,7 +182,6 @@ export const Playlist = ({ route }) => {
         };
 
         await AsyncStorage.setItem(CURRENT_PLAYLIST_DATA_KEY, JSON.stringify(updatedPlaylistData));
-        console.log('Updated stored playlist data with API response, source:', updatedPlaylistData.source);
       }
     } catch (e) {
       console.error(`Error fetching playlist with ID ${id}:`, e.message);
