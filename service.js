@@ -2,6 +2,7 @@
 import TrackPlayer, { Capability } from "react-native-track-player";
 import { Event } from 'react-native-track-player';
 import historyManager from './Utils/HistoryManager';
+import autoRecommendations from './Utils/AutoRecommendations';
 import { AppState } from 'react-native';
 
 // Keep track of whether the player has been initialized
@@ -150,6 +151,10 @@ export const PlaybackService = async function () {
 
     // Initialize history manager
     await historyManager.initialize();
+
+    // Initialize auto-recommendations event listeners
+    autoRecommendations.initializeListeners();
+    console.log('Auto-recommendations event listeners initialized');
 
     // Periodic save for background tracking
     setInterval(async () => {

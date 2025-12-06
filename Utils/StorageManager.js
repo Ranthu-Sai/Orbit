@@ -14,17 +14,9 @@ const getBaseDir = async () => {
     if (Platform.OS === 'android') {
       const downloadDir = RNFS.DownloadDirectoryPath;
 
-      console.log('StorageManager: Available paths:', {
-        musicDir: RNFS.MusicDirectoryPath,
-        downloadDir: downloadDir,
-        externalDir: RNFS.ExternalDirectoryPath,
-        documentDir: RNFS.DocumentDirectoryPath
-      });
-
       // Use Downloads directory as default (Music directory is often unavailable on Android)
       if (downloadDir) {
         publicDir = downloadDir;
-        console.log('StorageManager: Using Downloads directory for storage');
       } else {
         console.warn('StorageManager: Download directory not available. Falling back.');
         publicDir = RNFS.ExternalDirectoryPath || RNFS.DocumentDirectoryPath;
@@ -42,7 +34,6 @@ const getBaseDir = async () => {
     }
 
     const finalPath = `${publicDir}/orbit`;
-    console.log(`StorageManager: Final download path: ${finalPath} (requested: ${downloadPref}, actual: ${actualPathUsed})`);
     return finalPath;
   } catch (error) {
     console.error('StorageManager: Error determining base directory:', error);

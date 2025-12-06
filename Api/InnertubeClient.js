@@ -142,6 +142,39 @@ class InnerTubeClient {
         }
 
         const data = await this.request('next', body);
+        const result = this.parseNext(data);
+
+        // If we got an automix playlist endpoint, fetch the radio playlist
+        if (result.automixPlaylistId) {
+            console.log(`🎵 Following automix playlist: ${result.automixPlaylistId}`);
+            const radioResult = await this.getNextWithPlaylist(videoId, result.automixPlaylistId);
+            if (radioResult && radioResult.items && radioResult.items.length > 0) {
+                // Combine current items with radio items
+                return {
+                    items: [...result.items, ...radioResult.items],
+                    continuation: radioResult.continuation,
+                    title: result.title || radioResult.title,
+                    automixPlaylistId: null // Already processed
+                };
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Get Next with a specific playlist ID (for automix/radio)
+     */
+    static async getNextWithPlaylist(videoId, playlistId) {
+        const body = {
+            videoId,
+            playlistId,
+            isAudioOnly: true,
+            enablePersistentPlaylistPanel: true,
+            tunerSettingValue: 'AUTOMIX_SETTING_NORMAL'
+        };
+
+        const data = await this.request('next', body);
         return this.parseNext(data);
     }
 
@@ -335,7 +368,7 @@ class InnerTubeClient {
 
     /**
      * Parse Next/Recommendations response
-     * Returns an object with items (songs) and continuation token
+     * Returns an object with items (songs), continuation token, and automix playlist ID
      */
     static parseNext(data) {
         try {
@@ -343,32 +376,45 @@ class InnerTubeClient {
 
             if (!panel) {
                 console.log('InnerTube parseNext: No panel found');
-                return { items: [], continuation: null };
+                return { items: [], continuation: null, automixPlaylistId: null };
             }
 
-            // Parse all items (songs)
-            const items = panel.contents?.map(item => {
-                // Skip automix preview items
+            // Parse all items (songs) - skip automix preview items for now
+            const items = [];
+            let automixPlaylistId = null;
+
+            for (const item of (panel.contents || [])) {
+                // Check for automix preview - extract the playlist endpoint
                 if (item.automixPreviewVideoRenderer) {
-                    return null;
+                    const watchEndpoint = item.automixPreviewVideoRenderer?.content?.automixPlaylistVideoRenderer?.navigationEndpoint?.watchPlaylistEndpoint;
+                    if (watchEndpoint?.playlistId) {
+                        automixPlaylistId = watchEndpoint.playlistId;
+                        console.log(`🎵 Found automix playlist ID: ${automixPlaylistId}`);
+                    }
+                    continue;
                 }
-                return this.parseItem(item);
-            }).filter(i => i) || [];
+
+                const parsed = this.parseItem(item);
+                if (parsed) {
+                    items.push(parsed);
+                }
+            }
 
             // Get continuation token for loading more recommendations
             const continuation = panel.continuations?.[0]?.nextContinuationData?.continuation || null;
 
-            console.log(`InnerTube parseNext: Found ${items.length} recommendations, continuation: ${continuation ? 'yes' : 'no'}`);
+            console.log(`InnerTube parseNext: Found ${items.length} recommendations, automix: ${automixPlaylistId ? 'yes' : 'no'}, continuation: ${continuation ? 'yes' : 'no'}`);
 
             return {
                 items,
                 continuation,
+                automixPlaylistId,
                 // Also return the title if available
                 title: data?.contents?.singleColumnMusicWatchNextResultsRenderer?.tabbedRenderer?.watchNextTabbedResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.musicQueueRenderer?.header?.musicQueueHeaderRenderer?.subtitle?.runs?.[0]?.text || null
             };
         } catch (e) {
             console.error('Parse Next Error:', e);
-            return { items: [], continuation: null };
+            return { items: [], continuation: null, automixPlaylistId: null };
         }
     }
 
@@ -388,11 +434,27 @@ class InnerTubeClient {
                 title = item.title?.runs?.[0]?.text || item.title?.simpleText;
             }
 
-            // Thumbnail
+            // Thumbnail - get highest quality available
             const thumbnails = item.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails ||
                 item.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails ||
                 item.thumbnails || [];
-            const thumbnail = thumbnails?.[thumbnails.length - 1]?.url;
+
+            // Sort thumbnails by width (descending) to get highest quality
+            const sortedThumbnails = [...thumbnails].sort((a, b) => (b.width || 0) - (a.width || 0));
+            let thumbnail = sortedThumbnails[0]?.url;
+
+            // If we have a videoId, construct the highest quality YouTube thumbnail URL
+            // YouTube provides these quality levels:
+            // - maxresdefault.jpg (1280x720)
+            // - sddefault.jpg (640x480)
+            // - hqdefault.jpg (480x360)
+            // - mqdefault.jpg (320x180)
+            if (videoId && (!thumbnail || thumbnail.includes('60-') || thumbnail.includes('w60'))) {
+                thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+            }
+
+            // Also provide a high-res version for full player
+            const highResThumbnail = videoId ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` : thumbnail;
 
             // Type detection
             let type = 'song';
@@ -410,14 +472,15 @@ class InnerTubeClient {
 
             if (itemWrapper.musicTwoRowItemRenderer && !videoId && type === 'song') type = 'album/playlist';
 
-            // Artist extraction - OuterTune's approach
-            // Artists are in flexColumns[1].text.runs, with separators " • " between them
-            // We need to filter odd elements (indices 0, 2, 4...) to skip separators
-            const flexColumn1 = item.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs;
+            // Artist extraction - handle multiple structures:
+            // 1. Search results: flexColumns[1].text.runs
+            // 2. Recommendations (playlistPanelVideoRenderer): longBylineText.runs or shortBylineText.runs
             let artist = 'Unknown';
             let artistsList = [];
 
-            if (flexColumn1 && Array.isArray(flexColumn1)) {
+            // Try flexColumns first (search results)
+            const flexColumn1 = item.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs;
+            if (flexColumn1 && Array.isArray(flexColumn1) && flexColumn1.length > 0) {
                 // Filter to get only even-indexed elements (skip " • " separators)
                 const oddElements = flexColumn1.filter((_, index) => index % 2 === 0);
                 artistsList = oddElements.map(run => ({
@@ -426,12 +489,43 @@ class InnerTubeClient {
                 }));
                 artist = oddElements.map(run => run.text).join(', ') || 'Unknown';
             }
+            // Try longBylineText (used in playlistPanelVideoRenderer for recommendations)
+            else if (item.longBylineText?.runs && Array.isArray(item.longBylineText.runs)) {
+                const runs = item.longBylineText.runs;
+                // First run is usually the artist name
+                artistsList = runs.filter((_, index) => index % 2 === 0).map(run => ({
+                    name: run.text,
+                    id: run.navigationEndpoint?.browseEndpoint?.browseId
+                }));
+                artist = runs.filter((_, index) => index % 2 === 0).map(run => run.text).join(', ') || 'Unknown';
+            }
+            // Try shortBylineText as fallback
+            else if (item.shortBylineText?.runs && Array.isArray(item.shortBylineText.runs)) {
+                const runs = item.shortBylineText.runs;
+                artistsList = runs.filter((_, index) => index % 2 === 0).map(run => ({
+                    name: run.text,
+                    id: run.navigationEndpoint?.browseEndpoint?.browseId
+                }));
+                artist = runs.filter((_, index) => index % 2 === 0).map(run => run.text).join(', ') || 'Unknown';
+            }
+            // Try subtitle as last resort (used in some UI)
+            else if (item.subtitle?.runs && Array.isArray(item.subtitle.runs)) {
+                // Usually format: "Artist • Duration" or "Artist • Album • Year"
+                const firstRun = item.subtitle.runs[0];
+                if (firstRun?.text) {
+                    artist = firstRun.text;
+                    artistsList = [{ name: firstRun.text, id: firstRun.navigationEndpoint?.browseEndpoint?.browseId }];
+                }
+            }
 
-            // Duration extraction - from fixedColumns[0] (OuterTune's approach)
-            const durationText = item.fixedColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text;
+            // Duration extraction - from fixedColumns[0] or lengthText (for playlistPanelVideoRenderer)
+            let durationText = item.fixedColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text;
+            if (!durationText) {
+                durationText = item.lengthText?.runs?.[0]?.text || item.lengthText?.simpleText;
+            }
             const duration = durationText ? this.parseTime(durationText) : null;
 
-          
+
             return {
                 videoId,
                 browseId,
@@ -441,13 +535,19 @@ class InnerTubeClient {
                 artists: artistsList,  // Array of artist objects
                 duration,  // Duration in seconds
                 thumbnail,
+                highResThumbnail,  // High resolution for full-screen player
                 thumbnails,
                 type,
                 // UI Compat
                 id: videoId || browseId,
                 name: title,
                 subtitle: item.subtitle?.runs?.map(r => r.text).join('') || item.longBylineText?.runs?.map(r => r.text).join('') || item.shortBylineText?.runs?.map(r => r.text).join('') || '',
-                image: thumbnails.map(t => ({ url: t.url, quality: 'hd' })),
+                image: videoId ? [
+                    { url: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`, quality: 'max' },
+                    { url: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, quality: 'hq' },
+                    { url: thumbnail, quality: 'default' }
+                ] : thumbnails.map(t => ({ url: t.url, quality: 'hd' })),
+                artwork: highResThumbnail || thumbnail,  // Use high-res for artwork
                 year: item.subtitle?.runs?.[item.subtitle.runs.length - 1]?.text || ''
             };
         } catch (e) { console.error(e); return null; }

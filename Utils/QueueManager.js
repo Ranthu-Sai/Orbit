@@ -38,31 +38,55 @@ class QueueManager {
 
 
                 // Map YouTube recommendations to queue format
-                const queueSongs = nextData.items.slice(0, limit).map(song => {
-                    // Extract artwork
-                    let artworkUri = '';
-                    if (song.thumbnails && Array.isArray(song.thumbnails)) {
-                        const bestThumb = song.thumbnails[song.thumbnails.length - 1];
-                        artworkUri = bestThumb?.url || '';
-                    } else if (song.thumbnail) {
-                        artworkUri = song.thumbnail;
-                    }
+                // Filter out items without valid videoId first
+                const queueSongs = nextData.items
+                    .filter(song => {
+                        const videoId = song.videoId || song.id;
+                        // Validate videoId exists and is a valid YouTube video ID format
+                        return videoId && typeof videoId === 'string' && videoId.length === 11;
+                    })
+                    .slice(0, limit)
+                    .map(song => {
+                        const videoId = song.videoId || song.id;
 
-                    return {
-                        url: '', // Will be fetched on-demand
-                        title: song.title || song.name || 'Unknown',
-                        artist: song.artist || 'Unknown Artist',
-                        artwork: artworkUri,
-                        image: artworkUri,
-                        duration: song.duration || 0,
-                        id: song.videoId || song.id,
-                        language: 'unknown',
-                        downloadUrl: song.videoId || song.id,
-                        source: 'ytmusic',
-                        _needsStream: true // Mark for on-demand fetching
-                    };
-                });
+                        // Use high-resolution YouTube thumbnail URL (maxresdefault = 1280x720)
+                        // Fallback chain: artwork -> highResThumbnail -> construct from videoId -> thumbnail
+                        let artworkUri = song.artwork || song.highResThumbnail;
 
+                        if (!artworkUri && videoId) {
+                            // Construct highest quality YouTube thumbnail URL
+                            artworkUri = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+                        }
+
+                        // Final fallbacks
+                        if (!artworkUri) {
+                            if (song.thumbnails && Array.isArray(song.thumbnails)) {
+                                const bestThumb = song.thumbnails[song.thumbnails.length - 1];
+                                artworkUri = bestThumb?.url || '';
+                            } else if (song.thumbnail) {
+                                artworkUri = song.thumbnail;
+                            } else if (song.image && typeof song.image === 'string') {
+                                artworkUri = song.image;
+                            }
+                        }
+
+                        return {
+                            url: `https://music.youtube.com/watch?v=${videoId}`, // Valid URL placeholder - will be replaced with stream
+                            title: song.title || song.name || 'Unknown',
+                            artist: song.artist || 'Unknown Artist',
+                            artwork: artworkUri,
+                            image: artworkUri,
+                            duration: song.duration || 0,
+                            id: videoId,
+                            language: 'unknown',
+                            downloadUrl: videoId,
+                            source: 'ytmusic',
+                            isYTMusic: true,
+                            _needsStream: true // Mark for on-demand fetching
+                        };
+                    });
+
+                console.log(`✅ QueueManager: Built ${queueSongs.length} queue songs from recommendations`);
 
                 return queueSongs;
             }
@@ -291,6 +315,99 @@ class QueueManager {
         }
         if (artistData.name) return artistData.name;
         return 'Unknown Artist';
+    }
+
+    /**
+     * Start monitoring queue and fetch more recommendations when near end
+     * @param {string} originalVideoId - The original video ID to base recommendations on
+     */
+    startContinuousQueueMonitor(originalVideoId) {
+        // Store the video ID for fetching more recommendations
+        this.currentVideoId = originalVideoId;
+        this.isFetchingMore = false;
+        this.fetchThreshold = 5; // Fetch more when 5 songs left in queue
+
+        // Set up track change listener
+        if (!this.trackChangeSubscription) {
+            console.log('📡 Starting continuous queue monitor');
+            this.trackChangeSubscription = TrackPlayer.addEventListener(
+                'playback-active-track-changed',
+                this._onTrackChange.bind(this)
+            );
+        }
+    }
+
+    /**
+     * Stop the continuous queue monitor
+     */
+    stopContinuousQueueMonitor() {
+        if (this.trackChangeSubscription) {
+            console.log('🛑 Stopping continuous queue monitor');
+            this.trackChangeSubscription.remove();
+            this.trackChangeSubscription = null;
+        }
+        this.currentVideoId = null;
+        this.isFetchingMore = false;
+    }
+
+    /**
+     * Handler for track change events - checks if we need more recommendations
+     * @private
+     */
+    async _onTrackChange(event) {
+        if (this.isFetchingMore || !this.currentVideoId) return;
+
+        try {
+            const queue = await TrackPlayer.getQueue();
+            const currentIndex = event.index ?? (await TrackPlayer.getActiveTrackIndex());
+
+            if (currentIndex === null || currentIndex === undefined) return;
+
+            const songsRemaining = queue.length - currentIndex - 1;
+
+            console.log(`📊 Queue status: ${songsRemaining} songs remaining after current`);
+
+            // If less than threshold songs remaining, fetch more
+            if (songsRemaining <= this.fetchThreshold) {
+                this.isFetchingMore = true;
+                console.log(`🔄 Near end of queue! Fetching more recommendations...`);
+
+                // Get the last song in queue to base recommendations on
+                const lastSong = queue[queue.length - 1];
+                const videoIdForRecs = lastSong?.id || this.currentVideoId;
+
+                try {
+                    // Import AddSongsToQueue dynamically to avoid circular dependencies
+                    const { AddSongsToQueue } = require('../MusicPlayerFunctions');
+
+                    const recommendations = await this.buildQueueFromRecommendations(
+                        videoIdForRecs,
+                        'ytmusic',
+                        20
+                    );
+
+                    if (recommendations && recommendations.length > 0) {
+                        // Filter out songs already in queue
+                        const existingIds = new Set(queue.map(s => s.id));
+                        const newSongs = recommendations.filter(rec => !existingIds.has(rec.id));
+
+                        if (newSongs.length > 0) {
+                            await AddSongsToQueue(newSongs);
+                            console.log(`✅ Added ${newSongs.length} more songs to extend queue!`);
+                        } else {
+                            console.log('⚠️ No new songs to add (all duplicates)');
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ Error fetching more recommendations:', error);
+                }
+
+                this.isFetchingMore = false;
+            }
+        } catch (error) {
+            console.error('❌ Error in queue monitor:', error);
+            this.isFetchingMore = false;
+        }
     }
 
     /**

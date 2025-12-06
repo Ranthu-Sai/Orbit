@@ -1,0 +1,185 @@
+/**
+ * AutoRecommendations.js
+ * 
+ * Automatically fetches and appends YouTube Music recommendations
+ * to maintain infinite playback.
+ * 
+ * Flow:
+ * 1. Fetch 20 recommendations when user starts playing
+ * 2. Monitor current track position in queue
+ * 3. When at song 19 (or queue length - 1), fetch 20 more
+ * 4. Append seamlessly without interrupting playback
+ */
+
+import TrackPlayer, { Event } from 'react-native-track-player';
+import PythonBridgeService from './PythonBridgeService';
+import FormatTitleAndArtist from '../Utils/FormatTitleAndArtist';
+
+class AutoRecommendations {
+    constructor() {
+        this.isEnabled = false;
+        this.isFetching = false;
+        this.currentVideoId = null;
+        this.continuation = null;
+        this.lastQueueLength = 0;
+        this.fetchThreshold = 3; // Fetch when 3 songs left
+    }
+
+    /**
+     * Start auto-recommendations for a videoId
+     */
+    async start(videoId) {
+        console.log(`✨ AutoRecommendations: Starting for videoId: ${videoId}`);
+
+        this.currentVideoId = videoId;
+        this.continuation = null;
+        this.isEnabled = true;
+
+        // Fetch initial recommendations
+        await this.fetchAndAppendRecommendations();
+    }
+
+    /**
+     * Stop auto-recommendations
+     */
+    stop() {
+        console.log('✨ AutoRecommendations: Stopped');
+        this.isEnabled = false;
+        this.currentVideoId = null;
+        this.continuation = null;
+        this.isFetching = false;
+    }
+
+    /**
+     * Check if we should fetch more recommendations
+     */
+    async checkAndFetch() {
+        if (!this.isEnabled || this.isFetching) {
+            return;
+        }
+
+        try {
+            const queue = await TrackPlayer.getQueue();
+            const currentIndex = await TrackPlayer.getCurrentTrack();
+
+            if (currentIndex === null || !queue || queue.length === 0) {
+                return;
+            }
+
+            const songsRemaining = queue.length - currentIndex;
+
+            console.log(`✨ AutoRecs: Position ${currentIndex}/${queue.length}, ${songsRemaining} songs remaining`);
+
+            // Fetch when approaching end of queue
+            if (songsRemaining <= this.fetchThreshold) {
+                console.log(`✨ AutoRecs: Threshold reached! Fetching more...`);
+                await this.fetchAndAppendRecommendations();
+            }
+        } catch (error) {
+            console.error('AutoRecommendations checkAndFetch error:', error);
+        }
+    }
+
+    /**
+     * Fetch 20 recommendations and append to queue
+     */
+    async fetchAndAppendRecommendations() {
+        if (this.isFetching || !this.currentVideoId) {
+            return;
+        }
+
+        this.isFetching = true;
+
+        try {
+            console.log(`✨ AutoRecs: Fetching recommendations for ${this.currentVideoId}`);
+
+            // Call YouTube Music's getNext API
+            const result = await PythonBridgeService.getNext(
+                this.currentVideoId,
+                null,
+                this.continuation
+            );
+
+            if (!result || !result.items || result.items.length === 0) {
+                console.log('✨ AutoRecs: No recommendations returned');
+                this.isFetching = false;
+                return;
+            }
+
+            console.log(`✨ AutoRecs: Received ${result.items.length} recommendations`);
+
+            // Store continuation for next fetch
+            this.continuation = result.continuation;
+
+            // Format songs for TrackPlayer
+            const formattedSongs = result.items.slice(0, 20).map(song => {
+                const artistNames = song.artists?.map(a => a.name).join(', ') || song.artist || 'Unknown';
+                const songId = song.videoId || song.id;
+
+                return {
+                    url: `ytmusic://${songId}`, // Placeholder - will be resolved at playback time
+                    title: FormatTitleAndArtist(song.title || song.name || ''),
+                    artist: FormatTitleAndArtist(artistNames),
+                    artwork: song.thumbnail || song.thumbnails?.[0]?.url || '',
+                    image: song.thumbnail || song.thumbnails?.[0]?.url || '',
+                    duration: song.duration || 0,
+                    id: songId,
+                    language: '',
+                    source: 'ytmusic',
+                    isYTMusic: true,
+                    isRecommendation: true,
+                    _needsStream: true,
+                };
+            }).filter(song => song.id); // Filter out invalid songs
+
+            if (formattedSongs.length === 0) {
+                console.log('✨ AutoRecs: No valid songs after formatting');
+                this.isFetching = false;
+                return;
+            }
+
+            // Append to queue
+            await TrackPlayer.add(formattedSongs);
+            console.log(`✨ AutoRecs: Added ${formattedSongs.length} songs to queue`);
+
+            // Update currentVideoId to last song for next fetch
+            if (formattedSongs.length > 0) {
+                this.currentVideoId = formattedSongs[formattedSongs.length - 1].id;
+            }
+
+        } catch (error) {
+            console.error('AutoRecommendations fetch error:', error);
+        } finally {
+            this.isFetching = false;
+        }
+    }
+
+    /**
+     * Handle track change event
+     */
+    async onTrackChanged() {
+        if (!this.isEnabled) return;
+
+        // Check if we need to fetch more
+        await this.checkAndFetch();
+    }
+
+    /**
+     * Initialize event listeners
+     */
+    initializeListeners() {
+        // Listen for track changes
+        TrackPlayer.addEventListener(Event.PlaybackTrackChanged, async (event) => {
+            if (this.isEnabled && event.nextTrack !== undefined) {
+                await this.onTrackChanged();
+            }
+        });
+
+        console.log('✨ AutoRecommendations: Initialized');
+    }
+}
+
+// Singleton instance
+const autoRecommendations = new AutoRecommendations();
+
+export default autoRecommendations;

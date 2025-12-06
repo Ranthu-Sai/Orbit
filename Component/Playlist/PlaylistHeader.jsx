@@ -165,28 +165,49 @@ export const PlaylistHeader = ({
         const quality = await getIndexQuality();
         const songs = songsData || playlistData?.data?.songs || [];
 
+        console.log(`PlaylistHeader: Formatting ${songs.length} songs for player`);
+
         const formatted = [];
         for (const song of songs) {
             if (!song) continue;
 
-            const songUrl = getSongUrl(song, quality);
-            if (!songUrl) continue;
+            // For YTMusic songs, use videoId as the identifier
+            const isYTMusic = song.source === 'ytmusic' || song.downloadUrl === song.id || typeof song.downloadUrl === 'string';
+
+            let songUrl = '';
+            if (isYTMusic) {
+                // For YTMusic, we'll get the URL at playback time
+                songUrl = song.id || song.videoId || song.downloadUrl;
+            } else {
+                // For Saavn, get from downloadUrl array
+                songUrl = getSongUrl(song, quality);
+            }
+
+            // Don't skip songs without URL - they'll be fetched at playback time
+            if (!songUrl) {
+                console.warn('Song missing ID:', song);
+                continue;
+            }
 
             const artistData = song.artists || song.primary_artists;
 
             formatted.push({
                 url: songUrl,
-                title: FormatTitleAndArtist(song.name || song.song || ''),
+                title: FormatTitleAndArtist(song.name || song.title || song.song || ''),
                 artist: FormatTitleAndArtist(formatArtistData(artistData)),
                 artwork: song.image?.[2]?.url || song.images?.[2]?.url || '',
                 image: song.image?.[2]?.url || song.images?.[2]?.url || '',
                 duration: song.duration || 0,
-                id: song.id || '',
+                id: song.id || song.videoId || '',
                 language: song.language || '',
                 playlistId: playlistId || '',
+                albumId: song.albumId || '',
                 downloadUrl: song.downloadUrl || song.download_url || [],
+                source: song.source || (isYTMusic ? 'ytmusic' : 'saavn'),
             });
         }
+
+        console.log(`PlaylistHeader: Formatted ${formatted.length} songs successfully`);
 
         if (shuffle && formatted.length > 0) {
             // Fisher-Yates shuffle
@@ -223,25 +244,27 @@ export const PlaylistHeader = ({
             }
 
             setIsLoading(true);
-            const formattedSongs = await formatSongsForPlayer(false);
+            const songs = songsData || playlistData?.data?.songs || [];
 
-            if (formattedSongs.length === 0) {
+            if (songs.length === 0) {
                 ToastAndroid.show('No songs available to play', ToastAndroid.SHORT);
                 setIsLoading(false);
                 return;
             }
 
-            await AddPlaylist(formattedSongs);
+            // AddPlaylist already handles YTMusic stream fetching properly
+            // Just pass the raw songs - it will fetch stream for first song only
+            await AddPlaylist(songs);
             setIsPlaying(true);
             updateTrack?.();
-            ToastAndroid.show(`Playing ${formattedSongs.length} songs`, ToastAndroid.SHORT);
+            ToastAndroid.show(`Playing ${songs.length} songs`, ToastAndroid.SHORT);
         } catch (error) {
             console.error('Error playing playlist:', error);
             ToastAndroid.show('Failed to play playlist', ToastAndroid.SHORT);
         } finally {
             setIsLoading(false);
         }
-    }, [isLoading, isPlaying, playlistId, formatSongsForPlayer, updateTrack]);
+    }, [isLoading, isPlaying, playlistId, songsData, playlistData, updateTrack]);
 
     // Shuffle and play
     const handleShufflePress = useCallback(async () => {
@@ -249,25 +272,32 @@ export const PlaylistHeader = ({
 
         try {
             setIsLoading(true);
-            const formattedSongs = await formatSongsForPlayer(true);
+            const songs = songsData || playlistData?.data?.songs || [];
 
-            if (formattedSongs.length === 0) {
+            if (songs.length === 0) {
                 ToastAndroid.show('No songs available to shuffle', ToastAndroid.SHORT);
                 setIsLoading(false);
                 return;
             }
 
-            await AddPlaylist(formattedSongs);
+            // Shuffle the songs array
+            const shuffled = [...songs];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+
+            await AddPlaylist(shuffled);
             setIsPlaying(true);
             updateTrack?.();
-            ToastAndroid.show(`Shuffling ${formattedSongs.length} songs`, ToastAndroid.SHORT);
+            ToastAndroid.show(`Shuffling ${shuffled.length} songs`, ToastAndroid.SHORT);
         } catch (error) {
             console.error('Error shuffling playlist:', error);
             ToastAndroid.show('Failed to shuffle playlist', ToastAndroid.SHORT);
         } finally {
             setIsLoading(false);
         }
-    }, [isLoading, formatSongsForPlayer, updateTrack]);
+    }, [isLoading, songsData, playlistData, updateTrack]);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -310,11 +340,13 @@ export const PlaylistHeader = ({
                             style={styles.actionIcon}
                         />
 
-                        {/* Download Button (downloads all songs) */}
-                        <DownloadButton
-                            songs={songsData}
-                            albumName={title}
-                            size="small"
+                        {/* Download Button */}
+                        <IconButton
+                            icon="download-outline"
+                            iconColor={theme.colors.text}
+                            size={26}
+                            onPress={() => {/* TODO: Download all songs */ }}
+                            style={styles.actionIcon}
                         />
 
                         {/* More Options */}

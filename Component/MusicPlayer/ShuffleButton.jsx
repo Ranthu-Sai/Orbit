@@ -15,15 +15,12 @@ export const ShuffleButton = ({ size = 24, color, style }) => {
   React.useEffect(() => {
     const loadShuffleState = async () => {
       try {
-        const queue = await TrackPlayer.getQueue();
-        // In v4, we'll track shuffle state ourselves
-        // since there's no direct shuffle mode API
-        const currentTrack = await TrackPlayer.getCurrentTrack();
-        if (currentTrack) {
-          setIsShuffled(true);
-        }
+        // Shuffle state should only be true when explicitly enabled by user
+        // Do not auto-enable shuffle just because a track is playing
+        // The state will be managed by user interaction only
+        setIsShuffled(false);
       } catch (error) {
-        console.log('Error getting queue state:', error);
+        console.log('Error initializing shuffle state:', error);
       }
     };
 
@@ -34,45 +31,45 @@ export const ShuffleButton = ({ size = 24, color, style }) => {
   const shuffleQueue = useCallback(async () => {
     try {
       setIsShuffling(true);
-      
+
       // Get current track index and queue
       const currentTrackIndex = await TrackPlayer.getCurrentTrack();
       if (currentTrackIndex === null || currentTrackIndex === undefined) {
         ToastAndroid.show('No track is currently playing', ToastAndroid.SHORT);
         return;
       }
-      
+
       const queue = await TrackPlayer.getQueue();
       if (queue.length <= 1) {
         ToastAndroid.show('Not enough songs to shuffle', ToastAndroid.SHORT);
         return;
       }
-      
+
       // Get current track and remaining tracks
       const currentTrack = queue[currentTrackIndex];
       const remainingTracks = queue.filter((_, index) => index !== currentTrackIndex);
-      
+
       // Fisher-Yates shuffle algorithm
       for (let i = remainingTracks.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [remainingTracks[i], remainingTracks[j]] = [remainingTracks[j], remainingTracks[i]];
       }
-      
+
       try {
         // Remove all tracks after the current track
         const tracksToRemove = queue.slice(currentTrackIndex + 1).map((_, index) => {
           return currentTrackIndex + 1 + index;
         });
-        
+
         if (tracksToRemove.length > 0) {
           await TrackPlayer.remove(tracksToRemove);
         }
-        
+
         // Add shuffled tracks back one by one
         for (let i = 0; i < remainingTracks.length; i++) {
           await TrackPlayer.add(remainingTracks[i]);
         }
-        
+
         setIsShuffled(true);
         ToastAndroid.show('Queue shuffled', ToastAndroid.SHORT);
       } catch (updateError) {

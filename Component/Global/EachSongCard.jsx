@@ -180,24 +180,9 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
         };
 
         // Play clicked song instantly
+        // Note: PlayOneSong already handles fetching recommendations for YTMusic songs
+        // via its internal setTimeout, so we don't need to call buildQueueFromRecommendations here
         await PlayOneSong(currentSong);
-
-        // Build queue from recommendations in the background
-        try {
-          // Use YouTube Music's recommendations API to get similar songs for queue
-          const recommendedSongs = await queueManager.buildQueueFromRecommendations(
-            current?.id,
-            'ytmusic',
-            10
-          );
-
-          if (recommendedSongs.length > 0) {
-            const { AddSongsToQueue } = require('../../MusicPlayerFunctions');
-            await AddSongsToQueue(recommendedSongs);
-          }
-        } catch (queueErr) {
-          console.error('Error building queue:', queueErr);
-        }
 
         updateTrack();
         return;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import TrackPlayer, { useActiveTrack, useTrackPlayerEvents, Event, State } from 'react-native-track-player';
-import { ToastAndroid, Platform } from 'react-native';
+import { ToastAndroid, Platform, DeviceEventEmitter } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import {
   isLocalTrack,
@@ -25,10 +25,10 @@ import {
  */
 
 export const useQueueManager = (options = {}) => {
-  const { 
+  const {
     autoInitialize = true,
     onQueueChange = null,
-    onTrackSelect = null 
+    onTrackSelect = null
   } = options;
 
   const [upcomingQueue, setUpcomingQueue] = useState([]);
@@ -37,7 +37,7 @@ export const useQueueManager = (options = {}) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const [isPendingAction, setIsPendingAction] = useState(false);
-  
+
   const operationInProgressRef = useRef(false);
   const currentPlaying = useActiveTrack();
 
@@ -52,14 +52,40 @@ export const useQueueManager = (options = {}) => {
         setIsOffline(false);
       }
     };
-    
+
     checkNetworkStatus();
-    
+
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsOffline(!(state.isConnected && state.isInternetReachable));
     });
-    
+
     return () => unsubscribe();
+  }, []);
+
+  // Listen for queue-updated events to refresh queue when songs are added progressively
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('queue-updated', async (data) => {
+      console.log(`🔄 Queue update received: ${data?.count || 0} songs added (batch ${data?.batch || '?'})`);
+      // Small delay to ensure TrackPlayer has finished adding tracks
+      setTimeout(async () => {
+        try {
+          // Get ALL tracks from TrackPlayer without filtering
+          const queue = await TrackPlayer.getQueue();
+          console.log(`📋 TrackPlayer has ${queue.length} tracks total`);
+
+          if (queue.length > 0) {
+            // Remove duplicates only
+            const uniqueQueue = removeDuplicateTracks(queue);
+            setUpcomingQueue(uniqueQueue);
+            console.log(`✅ Queue UI refreshed: ${uniqueQueue.length} tracks`);
+          }
+        } catch (error) {
+          console.error('Error refreshing queue on update:', error);
+        }
+      }, 100);
+    });
+
+    return () => subscription.remove();
   }, []);
 
   // Use shared utilities instead of duplicated code
@@ -154,7 +180,7 @@ export const useQueueManager = (options = {}) => {
       } else {
         await TrackPlayer.add([track]);
       }
-      
+
       // Refresh queue
       await initializeQueue();
     } catch (error) {

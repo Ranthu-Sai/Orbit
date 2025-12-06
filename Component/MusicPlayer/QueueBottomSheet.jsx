@@ -5,10 +5,11 @@ import { PlainText } from "../Global/PlainText";
 import { SmallText } from "../Global/SmallText";
 import { View, StyleSheet, Dimensions, Text, ActivityIndicator, ToastAndroid } from "react-native";
 import { TouchableOpacity as Pressable } from "react-native";
-import { Minus, ListPlus, ListX, Shuffle } from 'lucide-react-native';
+import { Minus, ListPlus, ListX, Shuffle, Sparkles } from 'lucide-react-native';
 import Svg, { Circle } from "react-native-svg";
 import { useThemeContext } from "../../Context/ThemeContext";
 import TrackPlayer from 'react-native-track-player';
+import { shuffleQueuePreservingCurrent } from '../../Utils/SmartShuffleUtils';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -16,6 +17,8 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
   const { theme, themeMode } = useThemeContext();
   const bottomSheetRef = useRef(null);
   const [reorderMode, setReorderMode] = useState(false);
+  const [isSmartShuffleActive, setIsSmartShuffleActive] = useState(false);
+  const [isShuffling, setIsShuffling] = useState(false);
 
   // Theme-aware colors
   const getBackgroundColor = () => {
@@ -31,6 +34,58 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
   const getShadowColor = () => {
     return themeMode === 'light' ? "#000" : "#000";
   };
+
+  // Handle smart shuffle
+  const handleSmartShuffle = useCallback(async () => {
+    if (isShuffling) return;
+
+    try {
+      setIsShuffling(true);
+
+      // Get current queue and track
+      const currentTrackIndex = await TrackPlayer.getCurrentTrack();
+      const queue = await TrackPlayer.getQueue();
+
+      if (!queue || queue.length <= 1) {
+        ToastAndroid.show('Not enough songs to shuffle', ToastAndroid.SHORT);
+        setIsShuffling(false);
+        return;
+      }
+
+      // Toggle smart shuffle mode
+      const newMode = !isSmartShuffleActive;
+      setIsSmartShuffleActive(newMode);
+
+      // Shuffle the queue while preserving current track
+      const shuffledQueue = await shuffleQueuePreservingCurrent(
+        queue,
+        currentTrackIndex,
+        newMode // Use smart shuffle if activating, standard if deactivating
+      );
+
+      // Remove all tracks
+      const indicesToRemove = queue.map((_, index) => index);
+      await TrackPlayer.remove(indicesToRemove);
+
+      // Add shuffled tracks
+      await TrackPlayer.add(shuffledQueue);
+
+      // Skip to the preserved current track (should be at same index)
+      if (currentTrackIndex !== null && currentTrackIndex < shuffledQueue.length) {
+        await TrackPlayer.skip(currentTrackIndex);
+      }
+
+      ToastAndroid.show(
+        newMode ? '✨ Smart Shuffle Active' : 'Standard Shuffle',
+        ToastAndroid.SHORT
+      );
+    } catch (error) {
+      console.error('Error shuffling queue:', error);
+      ToastAndroid.show('Failed to shuffle queue', ToastAndroid.SHORT);
+    } finally {
+      setIsShuffling(false);
+    }
+  }, [isSmartShuffleActive, isShuffling]);
 
   return (
     <BottomSheet
@@ -76,13 +131,24 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
             </View>
             <View style={styles.headerRight}>
               <Pressable
-                style={[styles.actionButton, { marginRight: 10 }]}
+                onPress={handleSmartShuffle}
+                disabled={isShuffling}
+                style={[
+                  styles.actionButton,
+                  { marginRight: 10 },
+                  isSmartShuffleActive && styles.smartShuffleActive
+                ]}
               >
-                <Shuffle 
-                  size={20} 
-                  color={getTextColor()}
-                  fill={'transparent'}
-                />
+                {isShuffling ? (
+                  <ActivityIndicator size="small" color={isSmartShuffleActive ? '#FFD700' : getTextColor()} />
+                ) : (
+                  <Shuffle
+                    size={20}
+                    color={isSmartShuffleActive ? '#FFD700' : getTextColor()}
+                    fill={isSmartShuffleActive ? '#FFD700' : 'transparent'}
+                    strokeWidth={isSmartShuffleActive ? 2.5 : 2}
+                  />
+                )}
               </Pressable>
               <Pressable
                 onPress={() => setReorderMode(!reorderMode)}
@@ -97,13 +163,27 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
             </View>
           </View>
           <SmallText
-            text={reorderMode ? "Drag songs to reorder" : "Swipe left to delete"}
-            style={[styles.subHeaderText, { color: getTextColor() }]}
+            text={
+              isShuffling
+                ? "Shuffling queue..."
+                : reorderMode
+                  ? "Drag songs to reorder"
+                  : isSmartShuffleActive
+                    ? "✨ Smart Shuffle Active"
+                    : "Swipe left to delete"
+            }
+            style={[
+              styles.subHeaderText,
+              {
+                color: isSmartShuffleActive ? '#FFD700' : getTextColor(),
+                fontWeight: isSmartShuffleActive ? '600' : '500'
+              }
+            ]}
           />
         </View>
       )}
     >
-      <QueueRenderSongs reorderMode={reorderMode}/>
+      <QueueRenderSongs reorderMode={reorderMode} />
     </BottomSheet>
   );
 };
@@ -203,6 +283,9 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 8,
     borderRadius: 20,
+  },
+  smartShuffleActive: {
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
   },
   headerText: {
     fontWeight: 'bold',

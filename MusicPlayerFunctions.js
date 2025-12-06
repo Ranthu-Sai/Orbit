@@ -2,12 +2,13 @@ import TrackPlayer from "react-native-track-player";
 import { setRepeatMode } from "react-native-track-player/lib/trackPlayer";
 import { GetPlaybackQuality } from "./LocalStorage/AppSettings";
 import NetInfo from "@react-native-community/netinfo";
-import { ToastAndroid } from "react-native";
+import { ToastAndroid, DeviceEventEmitter } from "react-native";
 import historyManager from "./Utils/HistoryManager";
 import PythonBridgeService from "./Utils/PythonBridgeService";
 import dabMusicService from "./Utils/DabMusicService";
 import youtubeStreamingService from "./Utils/YouTubeStreamingService";
 import queueManager from "./Utils/QueueManager";
+import autoRecommendations from "./Utils/AutoRecommendations";
 
 let isPlayerInitialized = false;
 
@@ -251,12 +252,39 @@ async function PlayOneSong(song) {
     await TrackPlayer.add([songForPlayback]);
     await TrackPlayer.play();
 
+    // For individual YTMusic song plays, fetch recommendations to build queue
+    if (isYouTubeSong) {
+      setTimeout(async () => {
+        try {
+          console.log('🎵 Building queue from YTMusic recommendations for:', song.id);
+          const recommendations = await queueManager.buildQueueFromRecommendations(song.id, 'ytmusic', 30);
+
+          if (recommendations && recommendations.length > 0) {
+            // Filter out the current song from recommendations
+            const filteredRecs = recommendations.filter(rec => rec.id !== song.id);
+
+            if (filteredRecs.length > 0) {
+              // Use AddSongsToQueue which handles stream fetching for YTMusic
+              await AddSongsToQueue(filteredRecs);
+              console.log(`✅ Added ${filteredRecs.length} recommended songs to queue`);
+            }
+          }
+        } catch (error) {
+          console.error('Error building queue from recommendations:', error);
+          // Non-fatal - continue playing the current song
+        }
+      }, 1500); // Wait 1.5 seconds after playback starts
+    }
+
     // Trigger prefetch for next song in queue (if any)
     setTimeout(() => {
       queueManager.prefetchNextTrack().catch(err =>
         console.error('Error prefetching next track:', err)
       );
-    }, 1000); // Wait 1 second after playback starts
+    }, 3000); // Wait 3 seconds (after recommendations load)
+
+    // Set up continuous queue monitoring - fetch more when near end
+    queueManager.startContinuousQueueMonitor(song.id);
   } catch (error) {
     console.error('Error playing song:', error);
   }
@@ -318,7 +346,10 @@ async function AddPlaylist(songs) {
           }
         } else {
           // Mark as needing stream fetch later
+          // Set a placeholder URL with videoId - will be replaced before playback
+          playbackUrl = `ytmusic://${song.id || song.videoId}`;
           updatedSong._needsStream = true;
+          updatedSong.isYTMusic = true;
         }
       }
       // Check if this is a DAB Music track
@@ -386,9 +417,40 @@ async function AddPlaylist(songs) {
         }
       }
 
+      // Extract artwork - handle all possible formats
+      const extractArtwork = (song) => {
+        // Direct artwork/image string
+        if (song.artwork && typeof song.artwork === 'string' && song.artwork.length > 0) {
+          return song.artwork;
+        }
+        if (song.image && typeof song.image === 'string' && song.image.length > 0) {
+          return song.image;
+        }
+        // Array format (Saavn)
+        if (song.image && Array.isArray(song.image)) {
+          const bestImage = song.image[2] || song.image[song.image.length - 1] || song.image[0];
+          if (bestImage?.url) return bestImage.url;
+          if (bestImage?.link) return bestImage.link;
+          if (typeof bestImage === 'string') return bestImage;
+        }
+        // Thumbnail format (YTMusic)
+        if (song.thumbnail && typeof song.thumbnail === 'string') {
+          return song.thumbnail;
+        }
+        if (song.thumbnails && Array.isArray(song.thumbnails)) {
+          const bestThumb = song.thumbnails[song.thumbnails.length - 1] || song.thumbnails[0];
+          if (bestThumb?.url) return bestThumb.url;
+        }
+        return '';
+      };
+
+      const artworkUrl = extractArtwork(song) || extractArtwork(updatedSong);
+
       return {
         ...updatedSong,
         url: playbackUrl,
+        artwork: artworkUrl,
+        image: artworkUrl,
         currentPlayingQuality: currentQuality
       };
     }));
@@ -396,6 +458,21 @@ async function AddPlaylist(songs) {
     await TrackPlayer.reset();
     await TrackPlayer.add(processedSongs);
     await TrackPlayer.play();
+
+    // Auto-recommendations disabled temporarily - URL handling needs proper fix
+    // TODO: Re-enable once lazy loading is properly implemented
+    /*
+    const hasYTMusicSongs = processedSongs.some(song => song.source === 'ytmusic' || (song.id && song.id.length === 11));
+    if (hasYTMusicSongs && processedSongs.length > 0) {
+      const firstSongId = processedSongs[0].id;
+      console.log('✨ Starting auto-recommendations for YTMusic playlist, first song:', firstSongId);
+      setTimeout(() => {
+        autoRecommendations.start(firstSongId).catch(err =>
+          console.error('Error starting auto-recommendations:', err)
+        );
+      }, 2000);
+    }
+    */
 
     // Prefetch next song after a short delay
     setTimeout(() => {
@@ -409,63 +486,138 @@ async function AddPlaylist(songs) {
 }
 
 async function AddSongsToQueue(songs) {
-  // Apply playback quality setting to songs being added to queue
+  console.log(`🎵 AddSongsToQueue: Starting progressive queue loading for ${songs.length} songs...`);
+
   const qualityIndex = await getIndexQuality();
   const qualityNames = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
   const currentQuality = qualityNames[qualityIndex] || 'Unknown';
 
-  const processedSongs = songs.map(song => {
-    let playbackUrl = song.url;
-    let updatedSong = { ...song };
+  // Separate YTMusic songs from others
+  const ytMusicSongs = [];
+  const otherSongs = [];
 
-    // Check if this is a YouTube song
-    const isYouTubeSong = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
+  for (const song of songs) {
+    const hasValidYouTubeId = song.id && typeof song.id === 'string' && song.id.length === 11;
+    const isYTMusicSource = song.source === 'ytmusic' || song.isYTMusic === true;
     const isDabSong = song.isDabTrack || song.source === 'dab';
 
-    // For YouTube and DAB songs, don't fetch stream immediately
-    // Mark them for on-demand fetching
-    if (isYouTubeSong || isDabSong) {
-      updatedSong._needsStream = true;
-      console.log(`⏭️ Queued song without stream (will fetch on-demand): ${song.title || song.id}`);
+    if ((hasValidYouTubeId && !song.isLocalMusic) || isYTMusicSource) {
+      ytMusicSongs.push(song);
+    } else if (isDabSong) {
+      otherSongs.push({ ...song, isDab: true });
+    } else {
+      otherSongs.push(song);
     }
-    else {
-      // Select appropriate quality URL
-      if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
-        if (song.downloadUrl[qualityIndex]?.url) {
-          playbackUrl = song.downloadUrl[qualityIndex].url;
-        } else {
-          // Fallback to any available URL
-          for (let i = song.downloadUrl.length - 1; i >= 0; i--) {
-            if (song.downloadUrl[i]?.url) {
-              playbackUrl = song.downloadUrl[i].url;
-              break;
-            }
+  }
+
+  console.log(`📊 Queue: ${ytMusicSongs.length} YTMusic, ${otherSongs.length} other`);
+
+  let totalAdded = 0;
+
+  // PROGRESSIVE LOADING: Fetch and add YTMusic songs in batches of 5
+  // Each batch is added to TrackPlayer IMMEDIATELY after fetching
+  if (ytMusicSongs.length > 0) {
+    const batchSize = 5;
+    console.log(`🎯 Progressive loading: ${ytMusicSongs.length} songs in ${Math.ceil(ytMusicSongs.length / batchSize)} batches`);
+
+    for (let batchIndex = 0; batchIndex < ytMusicSongs.length; batchIndex += batchSize) {
+      const batch = ytMusicSongs.slice(batchIndex, batchIndex + batchSize);
+      const batchNum = Math.floor(batchIndex / batchSize) + 1;
+
+      console.log(`📦 Batch ${batchNum}: Fetching ${batch.length} streams...`);
+
+      // Fetch all streams in this batch in parallel
+      const fetchPromises = batch.map(async (song) => {
+        try {
+          const streamData = await youtubeStreamingService.getStreamUrl(song.id);
+          if (streamData && streamData.url) {
+            // Cache the stream URL for instant playback later
+            queueManager.streamCache.set(song.id, streamData);
+
+            return {
+              ...song,
+              url: streamData.url,
+              headers: streamData.headers,
+              userAgent: streamData.headers?.['User-Agent'],
+              artwork: streamData.thumbnail || song.artwork || song.image,
+              duration: streamData.duration || song.duration,
+              source: 'ytmusic',
+              _needsStream: false,
+              currentPlayingQuality: currentQuality
+            };
           }
+          return null;
+        } catch (error) {
+          console.error(`❌ Stream error ${song.title?.substring(0, 20)}:`, error.message);
+          return null;
         }
-      } else if (song.download_url && Array.isArray(song.download_url)) {
-        // Alternative format
-        if (song.download_url[qualityIndex]?.url) {
-          playbackUrl = song.download_url[qualityIndex].url;
-        } else {
-          // Fallback to any available URL
-          for (let i = song.download_url.length - 1; i >= 0; i--) {
-            if (song.download_url[i]?.url) {
-              playbackUrl = song.download_url[i].url;
-              break;
-            }
-          }
+      });
+
+      const results = await Promise.allSettled(fetchPromises);
+      const validSongs = results
+        .filter(r => r.status === 'fulfilled' && r.value)
+        .map(r => r.value);
+
+      // ADD THIS BATCH TO TRACKPLAYER IMMEDIATELY
+      if (validSongs.length > 0) {
+        try {
+          await TrackPlayer.add(validSongs);
+          totalAdded += validSongs.length;
+          console.log(`✅ Batch ${batchNum}: Added ${validSongs.length} songs (Total: ${totalAdded})`);
+
+          // Emit event AFTER EACH BATCH to refresh queue UI progressively
+          DeviceEventEmitter.emit('queue-updated', { count: totalAdded, batch: batchNum });
+        } catch (addError) {
+          console.error(`❌ Batch ${batchNum} add failed:`, addError.message);
         }
       }
+
+      // Small delay between batches to not overwhelm the system
+      if (batchIndex + batchSize < ytMusicSongs.length) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+    }
+  }
+
+  // Process and add non-YTMusic songs (Saavn, local, etc.)
+  const processedOtherSongs = [];
+  for (const song of otherSongs) {
+    let playbackUrl = song.url || '';
+
+    if (song.isDab) {
+      try {
+        await dabMusicService.initialize();
+        playbackUrl = await dabMusicService.getStreamUrl(song.id) || '';
+      } catch (error) {
+        continue;
+      }
+    } else if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
+      playbackUrl = song.downloadUrl[qualityIndex]?.url ||
+        song.downloadUrl.find(d => d?.url)?.url || playbackUrl;
+    } else if (song.download_url && Array.isArray(song.download_url)) {
+      playbackUrl = song.download_url[qualityIndex]?.url ||
+        song.download_url.find(d => d?.url)?.url || playbackUrl;
     }
 
-    return {
-      ...updatedSong,
-      url: playbackUrl,
-      currentPlayingQuality: currentQuality
-    };
-  });
+    if (playbackUrl && playbackUrl.trim() !== '') {
+      processedOtherSongs.push({ ...song, url: playbackUrl, currentPlayingQuality: currentQuality });
+    }
+  }
 
-  await TrackPlayer.add(processedSongs);
+  if (processedOtherSongs.length > 0) {
+    try {
+      await TrackPlayer.add(processedOtherSongs);
+      totalAdded += processedOtherSongs.length;
+      console.log(`✅ Added ${processedOtherSongs.length} non-YTMusic songs`);
+    } catch (error) {
+      console.error('❌ Failed to add other songs:', error.message);
+    }
+  }
+
+  console.log(`🎉 Queue loading complete! Total: ${totalAdded} songs added`);
+
+  // Emit event to trigger queue UI refresh
+  DeviceEventEmitter.emit('queue-updated', { count: totalAdded });
 }
 async function PlaySong() {
   await TrackPlayer.play();
