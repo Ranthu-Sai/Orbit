@@ -18,6 +18,7 @@ import { debounce } from './EventDebouncer';
 import NetInfo from '@react-native-community/netinfo';
 import PythonBridgeService from './PythonBridgeService';
 import FormatTitleAndArtist from '../Utils/FormatTitleAndArtist';
+import { upgradeArtworkQuality } from './YTMusicArtworkUtils';
 
 class AutoRecommendations {
     constructor() {
@@ -119,13 +120,14 @@ class AutoRecommendations {
             const formattedSongs = result.items.slice(0, 20).map(song => {
                 const artistNames = song.artists?.map(a => a.name).join(', ') || song.artist || 'Unknown';
                 const songId = song.videoId || song.id;
+                const artworkUrl = upgradeArtworkQuality(song.thumbnail || song.thumbnails?.[0]?.url || '');
 
                 return {
                     url: `ytmusic://${songId}`, // Placeholder - will be resolved at playback time
                     title: FormatTitleAndArtist(song.title || song.name || ''),
                     artist: FormatTitleAndArtist(artistNames),
-                    artwork: song.thumbnail || song.thumbnails?.[0]?.url || '',
-                    image: song.thumbnail || song.thumbnails?.[0]?.url || '',
+                    artwork: artworkUrl,
+                    image: artworkUrl,
                     duration: song.duration || 0,
                     id: songId,
                     language: '',

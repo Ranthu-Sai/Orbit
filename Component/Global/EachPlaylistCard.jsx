@@ -22,23 +22,23 @@ const truncateText = (text, limit = 30) => {
   return text.length > limit ? text.substring(0, limit) + '...' : text;
 };
 
-export const EachPlaylistCard = memo(function EachPlaylistCard ({
-  image, 
-  name, 
-  follower, 
-  id, 
-  MainContainerStyle, 
+export const EachPlaylistCard = memo(function EachPlaylistCard({
+  image,
+  name,
+  follower,
+  id,
+  MainContainerStyle,
   ImageStyle,
   source,
   searchText,
   language,
   navigationSource,
   style
-}){
+}) {
   const { theme } = useThemeContext();
   const navigation = useNavigation()
   const { width, height } = Dimensions.get('window');
-  
+
   // Calculate responsive dimensions based on screen size
   const responsiveStyles = useMemo(() => {
     // Match album card width (42% of screen width with minimum 180px)
@@ -47,7 +47,7 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
     const cardHeight = cardWidth * 1.2;
     // Slightly reduced image height
     const imageHeight = cardWidth * 0.9;
-    
+
     return {
       container: {
         width: cardWidth,
@@ -68,7 +68,7 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
       }
     };
   }, [width]);
-  
+
   const handleNavigation = async () => {
     try {
       // Clear any existing album and playlist data to prevent navigation conflicts
@@ -79,7 +79,7 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
         AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY),
         AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY)
       ]);
-      
+
       const params = {
         id,
         image,
@@ -87,24 +87,24 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
         follower,
         timestamp: Date.now() // Add timestamp to ensure fresh navigation and prevent caching issues
       };
-      
+
       // Store the current screen information to handle proper back navigation
       try {
         // Safer way to get current route name from navigation state
         const navState = navigation.getState();
         let currentRouteName = 'Unknown';
-        
+
         if (navState && navState.routes && navState.routes.length > 0) {
           // Get the current active route index
           const currentRouteIndex = navState.index;
           currentRouteName = navState.routes[currentRouteIndex]?.name || 'Unknown';
         }
-        
+
         console.log(`Current screen before navigation: ${currentRouteName}`);
-        
+
         // Always set previousScreen parameter to ensure proper back navigation
         params.previousScreen = currentRouteName;
-        
+
         // If coming from LikedPlaylists, save that specifically
         if (currentRouteName === 'LikedPlaylists' || currentRouteName === 'LikedPlaylistPage') {
           params.previousScreen = 'LikedPlaylists';
@@ -119,27 +119,27 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
         params.previousScreen = 'Home';
         await AsyncStorage.setItem('NAVIGATION_SOURCE', 'Home');
       }
-      
+
       if (source) {
         params.source = source;
-        
+
         if (source === 'ShowPlaylistofType' && searchText) {
           params.searchText = searchText;
         } else if (source === 'LanguageDetail' && language) {
           params.language = language;
         }
       }
-      
+
       // Pass along the navigation source if available
       if (navigationSource) {
         params.navigationSource = navigationSource;
       } else {
         // If navigationSource not provided, derive it from navState
         const navState = navigation.getState();
-        const routeName = navState && navState.routes && navState.routes.length > 0 
-          ? navState.routes[navState.index]?.name || '' 
+        const routeName = navState && navState.routes && navState.routes.length > 0
+          ? navState.routes[navState.index]?.name || ''
           : '';
-          
+
         if (routeName.includes('Home')) {
           params.navigationSource = 'Home';
         } else if (routeName.includes('Library')) {
@@ -151,7 +151,7 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
           params.navigationSource = 'Home';
         }
       }
-      
+
       console.log(`Navigating to PlaylistPage with params:`, JSON.stringify(params));
       navigation.navigate("Playlist", params);
     } catch (error) {
@@ -160,12 +160,30 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
       navigation.navigate("Home");
     }
   };
-  
-  // Add validation for empty image URLs
-  const imageSource = image && image !== "" 
-    ? { uri: image } 
+
+  // Add validation for empty image URLs and handle array/object formats
+  let imageUrl = '';
+
+  if (image) {
+    if (typeof image === 'string') {
+      // Direct string URL
+      imageUrl = image;
+    } else if (Array.isArray(image)) {
+      // Array format - extract from first/best image
+      const bestImage = image[image.length - 1] || image[0];
+      if (bestImage) {
+        imageUrl = bestImage.url || bestImage.link || '';
+      }
+    } else if (typeof image === 'object') {
+      // Object format
+      imageUrl = image.url || image.link || image.uri || '';
+    }
+  }
+
+  const imageSource = imageUrl && imageUrl !== ""
+    ? { uri: imageUrl }
     : require('../../Images/default.jpg');
-  
+
   return (
     <Pressable onPress={handleNavigation} style={{
       ...(style || {}),
@@ -181,7 +199,7 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
           ...responsiveStyles.image,
           borderRadius: 10,
           ...ImageStyle,
-        }}/>
+        }} />
         {language && <LanguageTag language={language} />}
       </View>
       <SpaceBetween style={{
@@ -195,7 +213,7 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
           justifyContent: 'flex-start',
           paddingRight: 5,
         }}>
-          <PlainText 
+          <PlainText
             text={name}
             style={{
               marginTop: 4,  // Added top margin

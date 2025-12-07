@@ -35,7 +35,7 @@ export const AlbumArtworkDisplay = ({
           <FastImage
             source={artworkSource}
             style={styles.artworkImage}
-            resizeMode={FastImage.resizeMode.contain}
+            resizeMode={FastImage.resizeMode.cover}
             key={`artwork-${JSON.stringify(artworkSource)}`}
           />
         </Surface>

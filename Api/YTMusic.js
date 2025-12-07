@@ -1,5 +1,7 @@
 import { getCachedData, CACHE_GROUPS } from './CacheManager';
 import PythonBridgeService from '../Utils/PythonBridgeService';
+import { upgradeArtworkQuality } from '../Utils/YTMusicArtworkUtils';
+
 
 // Helper function to transform YTMusic song data to Saavn format
 function transformYTToSaavnSong(song) {
@@ -8,11 +10,12 @@ function transformYTToSaavnSong(song) {
   if (song.thumbnails && Array.isArray(song.thumbnails)) {
     song.thumbnails.forEach((thumbnail, index) => {
       imageArray.push({
-        url: thumbnail.url,
+        url: upgradeArtworkQuality(thumbnail.url),
         quality: index === 0 ? "50x50" : index === 1 ? "150x150" : "500x500"
       });
     });
   }
+
 
   return {
     id: song.videoId || song.id,
@@ -55,11 +58,12 @@ function transformYTToSaavnArtist(artist) {
   if (artist.thumbnails && Array.isArray(artist.thumbnails)) {
     artist.thumbnails.forEach((thumbnail) => {
       imageArray.push({
-        url: thumbnail.url,
+        url: upgradeArtworkQuality(thumbnail.url),
         quality: thumbnail.height < 300 ? "150x150" : "500x500"
       });
     });
   }
+
 
   // Handle both 'browseId' and 'id' field names
   const artistId = artist.browseId || artist.id;
@@ -99,7 +103,7 @@ function transformYTToSaavnAlbum(album) {
   const imageArray = [];
   if (album.thumbnails && Array.isArray(album.thumbnails)) {
     album.thumbnails.forEach((thumbnail) => {
-      const imageUrl = thumbnail.link || thumbnail.url;
+      const imageUrl = upgradeArtworkQuality(thumbnail.link || thumbnail.url);
       imageArray.push({
         url: imageUrl,
         link: imageUrl, // Add link property for compatibility
@@ -107,6 +111,7 @@ function transformYTToSaavnAlbum(album) {
       });
     });
   }
+
 
   // Handle both 'browseId' and 'id' field names
   const albumId = album.browseId || album.id;
@@ -143,7 +148,7 @@ function transformYTToSaavnPlaylist(playlist) {
   const imageArray = [];
   if (playlist.thumbnails && Array.isArray(playlist.thumbnails)) {
     playlist.thumbnails.forEach((thumbnail, index) => {
-      const imageUrl = thumbnail.link || thumbnail.url;
+      const imageUrl = upgradeArtworkQuality(thumbnail.link || thumbnail.url);
       imageArray.push({
         quality: thumbnail.height <= 192 ? "50x50" : thumbnail.height <= 226 ? "150x150" : "500x500",
         url: imageUrl,
@@ -151,6 +156,7 @@ function transformYTToSaavnPlaylist(playlist) {
       });
     });
   }
+
 
   // Handle both 'browseId' and 'id' field names
   const playlistId = playlist.browseId || playlist.id;
@@ -593,7 +599,7 @@ async function getYTMusicPlaylistData(playlistId) {
             if (song.thumbnails && Array.isArray(song.thumbnails) && song.thumbnails.length > 0) {
               // Get highest quality thumbnail (last one is usually highest)
               const bestThumb = song.thumbnails[song.thumbnails.length - 1];
-              thumbnailUrl = bestThumb?.url || thumbnailUrl;
+              thumbnailUrl = upgradeArtworkQuality(bestThumb?.url || thumbnailUrl);
             }
 
             // Transform song data to Saavn format
@@ -606,7 +612,7 @@ async function getYTMusicPlaylistData(playlistId) {
               source: "ytmusic", // Mark as YTMusic song
               // Use array format with url property for compatibility
               image: song.thumbnails?.map(thumb => ({
-                url: thumb.url,
+                url: upgradeArtworkQuality(thumb.url),
                 quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500"
               })) || [{
                 url: thumbnailUrl,
@@ -614,7 +620,7 @@ async function getYTMusicPlaylistData(playlistId) {
               }],
               // Also add direct image URL for components that expect it
               images: song.thumbnails?.map(thumb => ({
-                url: thumb.url,
+                url: upgradeArtworkQuality(thumb.url),
                 quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500"
               })) || [{
                 url: thumbnailUrl,
@@ -748,7 +754,7 @@ async function getYTMusicAlbumData(albumId) {
             if (thumbnails && Array.isArray(thumbnails) && thumbnails.length > 0) {
               // Get highest quality thumbnail (last one is usually highest)
               const bestThumb = thumbnails[thumbnails.length - 1];
-              thumbnailUrl = bestThumb?.url || bestThumb?.link || thumbnailUrl;
+              thumbnailUrl = upgradeArtworkQuality(bestThumb?.url || bestThumb?.link || thumbnailUrl);
             }
 
             // Transform song data to Saavn format
@@ -761,7 +767,7 @@ async function getYTMusicAlbumData(albumId) {
               source: "ytmusic", // Mark as YTMusic song
               // Use array format with url property for compatibility
               image: thumbnails?.map(thumb => ({
-                url: thumb.url || thumb.link,
+                url: upgradeArtworkQuality(thumb.url || thumb.link),
                 quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500"
               })) || [{
                 url: thumbnailUrl,
@@ -769,7 +775,7 @@ async function getYTMusicAlbumData(albumId) {
               }],
               // Also add direct image URL for components that expect it
               images: thumbnails?.map(thumb => ({
-                url: thumb.url || thumb.link,
+                url: upgradeArtworkQuality(thumb.url || thumb.link),
                 quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500"
               })) || [{
                 url: thumbnailUrl,
