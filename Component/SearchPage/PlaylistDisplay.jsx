@@ -8,21 +8,29 @@ import { SmallText } from '../Global/SmallText'
 import { getSearchPlaylistData } from '../../Api/Playlist'
 import { useTheme } from '@react-navigation/native'
 
-export default function PlaylistDisplay({data, limit, Searchtext}) {
+export default function PlaylistDisplay({ data, limit, Searchtext, source }) {
   const [Data, setData] = useState(data)
   const totalPages = Math.ceil(Data?.data?.total ?? 1 / limit)
   const [Page, setPage] = useState(1)
   const [Loading, setLoading] = useState(false)
   const theme = useTheme()
-  
-  async function fetchSearchData(text,page){
-    if (Page <= totalPages){
-      if(Searchtext !== ""){
+
+  async function fetchSearchData(text, page) {
+    if (Page <= totalPages) {
+      if (Searchtext !== "") {
         try {
           setLoading(true)
-          const fetchdata = await getSearchPlaylistData(text,page,limit)
+          let fetchdata;
+          // Use correct API based on source
+          if (source === 'ytmusic') {
+            const { getYTMusicSearchPlaylistData } = require('../../Api/YTMusic');
+            fetchdata = await getYTMusicSearchPlaylistData(text, page, limit);
+          } else {
+            fetchdata = await getSearchPlaylistData(text, page, limit);
+          }
+
           const temp = Data
-          const finalData = [...temp.data.results,...fetchdata.data.results]
+          const finalData = [...temp.data.results, ...fetchdata.data.results]
           temp.data.results = finalData
           setData(temp)
         } catch (e) {
@@ -35,26 +43,26 @@ export default function PlaylistDisplay({data, limit, Searchtext}) {
   }
 
   const { width } = Dimensions.get("window")
-  
+
   // Function to truncate text
   const truncateText = (text, limit = 30) => {
     if (!text) return '';
     return text.length > limit ? text.substring(0, limit) + '...' : text;
   };
-  
+
   return (
     <>
-      {Data?.data?.results?.length !== 0 && 
-        <FlatList 
-          showsVerticalScrollIndicator={false} 
-          numColumns={2} 
-          keyExtractor={(item, index) => String(index)} 
+      {Data?.data?.results?.length !== 0 &&
+        <FlatList
+          showsVerticalScrollIndicator={false}
+          numColumns={2}
+          keyExtractor={(item, index) => String(index)}
           onEndReached={() => {
             setTimeout(() => {
               setPage(Page + 1)
               fetchSearchData(Searchtext, Page)
             }, 200)
-          }} 
+          }}
           contentContainerStyle={{
             paddingHorizontal: 10,
             paddingBottom: 120, // Extra padding for bottom player
@@ -65,10 +73,10 @@ export default function PlaylistDisplay({data, limit, Searchtext}) {
             marginBottom: 20,
             width: '100%',
           }}
-          data={[...Data?.data?.results ?? [], {LoadingComponent: true}]} 
+          data={[...Data?.data?.results ?? [], { LoadingComponent: true }]}
           renderItem={(item) => {
-            if(item.item.LoadingComponent === true){
-              return <LoadingComponent loading={Loading} height={100}/>
+            if (item.item.LoadingComponent === true) {
+              return <LoadingComponent loading={Loading} height={100} />
             } else {
               // Safely extract image URL with fallbacks for different data formats
               let imageUrl = '';
@@ -95,7 +103,7 @@ export default function PlaylistDisplay({data, limit, Searchtext}) {
                   key={item.index}
                   image={imageUrl}
                   id={item.item?.id}
-                  source="Search"
+                  source={source || "Search"} // Pass source ('ytmusic' or 'saavn')
                   searchText={Searchtext}
                   MainContainerStyle={{
                     width: width * 0.42,

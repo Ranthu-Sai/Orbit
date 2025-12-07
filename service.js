@@ -4,6 +4,7 @@ import { Event } from 'react-native-track-player';
 import historyManager from './Utils/HistoryManager';
 import autoRecommendations from './Utils/AutoRecommendations';
 import { AppState } from 'react-native';
+import { PlayNextSong, PlayPreviousSong } from './MusicPlayerFunctions';
 
 // Keep track of whether the player has been initialized
 let isPlayerInitialized = false;
@@ -71,8 +72,9 @@ export const PlaybackService = async function () {
 
     TrackPlayer.addEventListener(Event.RemotePlay, () => TrackPlayer.play());
     TrackPlayer.addEventListener(Event.RemotePause, () => TrackPlayer.pause());
-    TrackPlayer.addEventListener(Event.RemoteNext, () => TrackPlayer.skipToNext());
-    TrackPlayer.addEventListener(Event.RemotePrevious, () => TrackPlayer.skipToPrevious());
+    // Use centralized skip handlers with debouncing from MusicPlayerFunctions
+    TrackPlayer.addEventListener(Event.RemoteNext, () => PlayNextSong());
+    TrackPlayer.addEventListener(Event.RemotePrevious, () => PlayPreviousSong());
     TrackPlayer.addEventListener(Event.RemoteSeek, (e) => TrackPlayer.seekTo(e.position));
 
     // History tracking events

@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { ToastAndroid } from 'react-native';
 import { getArtistDetails, getArtistSongsPaginated, getArtistAlbumsPaginated } from '../Api/Songs';
+import { getYTMusicArtistDetails, getYTMusicArtistSongsPaginated, getYTMusicArtistAlbumsPaginated } from '../Api/YTMusic';
 
 /**
  * Custom hook for managing artist data fetching and state
  * @param {string} artistId - Artist ID
+ * @param {string} source - Source (saavn or ytmusic)
  * @returns {object} - Artist data state and functions
  */
-export const useArtistData = (artistId) => {
+export const useArtistData = (artistId, source = 'saavn') => {
   const [artistData, setArtistData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -16,7 +18,13 @@ export const useArtistData = (artistId) => {
     try {
       setLoading(true);
 
-      const detailsResponse = await getArtistDetails(artistId);
+      let detailsResponse;
+      if (source === 'ytmusic') {
+        detailsResponse = await getYTMusicArtistDetails(artistId);
+      } else {
+        detailsResponse = await getArtistDetails(artistId);
+      }
+
       setArtistData(detailsResponse);
 
     } catch (error) {
@@ -37,7 +45,7 @@ export const useArtistData = (artistId) => {
     if (artistId) {
       fetchArtistData();
     }
-  }, [artistId]);
+  }, [artistId, source]);
 
   return {
     artistData,
@@ -52,9 +60,10 @@ export const useArtistData = (artistId) => {
  * Custom hook for managing infinite scroll songs
  * @param {string} artistId - Artist ID
  * @param {number} songsPerPage - Number of songs per page
+ * @param {string} source - Source (saavn or ytmusic)
  * @returns {object} - Songs state and functions
  */
-export const useArtistSongs = (artistId, songsPerPage = 10) => {
+export const useArtistSongs = (artistId, songsPerPage = 10, source = 'saavn') => {
   const [visibleSongs, setVisibleSongs] = useState([]);
   const [currentSongPage, setCurrentSongPage] = useState(1);
   const [songLoading, setSongLoading] = useState(false);
@@ -64,7 +73,12 @@ export const useArtistSongs = (artistId, songsPerPage = 10) => {
   const loadInitialSongs = async () => {
     try {
       setSongLoading(true);
-      const response = await getArtistSongsPaginated(artistId, 1, songsPerPage);
+      let response;
+      if (source === 'ytmusic') {
+        response = await getYTMusicArtistSongsPaginated(artistId, 1, songsPerPage);
+      } else {
+        response = await getArtistSongsPaginated(artistId, 1, songsPerPage);
+      }
 
       if (response?.data?.songs) {
         setVisibleSongs(response.data.songs);
@@ -86,7 +100,12 @@ export const useArtistSongs = (artistId, songsPerPage = 10) => {
     try {
       setSongLoading(true);
       const nextPage = currentSongPage + 1;
-      const response = await getArtistSongsPaginated(artistId, nextPage, songsPerPage);
+      let response;
+      if (source === 'ytmusic') {
+        response = await getYTMusicArtistSongsPaginated(artistId, nextPage, songsPerPage);
+      } else {
+        response = await getArtistSongsPaginated(artistId, nextPage, songsPerPage);
+      }
 
       if (response?.data?.songs && response.data.songs.length > 0) {
         setVisibleSongs(prev => [...prev, ...response.data.songs]);
@@ -117,7 +136,7 @@ export const useArtistSongs = (artistId, songsPerPage = 10) => {
     if (artistId) {
       loadInitialSongs();
     }
-  }, [artistId]);
+  }, [artistId, source]);
 
   return {
     visibleSongs,
@@ -134,9 +153,10 @@ export const useArtistSongs = (artistId, songsPerPage = 10) => {
  * Custom hook for managing infinite scroll albums
  * @param {string} artistId - Artist ID
  * @param {number} albumsPerPage - Number of albums per page
+ * @param {string} source - Source (saavn or ytmusic)
  * @returns {object} - Albums state and functions
  */
-export const useArtistAlbums = (artistId, albumsPerPage = 10) => {
+export const useArtistAlbums = (artistId, albumsPerPage = 10, source = 'saavn') => {
   const [visibleAlbums, setVisibleAlbums] = useState([]);
   const [currentAlbumPage, setCurrentAlbumPage] = useState(1);
   const [albumLoading, setAlbumLoading] = useState(false);
@@ -146,7 +166,12 @@ export const useArtistAlbums = (artistId, albumsPerPage = 10) => {
   const loadInitialAlbums = async () => {
     try {
       setAlbumLoading(true);
-      const response = await getArtistAlbumsPaginated(artistId, 1, albumsPerPage);
+      let response;
+      if (source === 'ytmusic') {
+        response = await getYTMusicArtistAlbumsPaginated(artistId, 1, albumsPerPage);
+      } else {
+        response = await getArtistAlbumsPaginated(artistId, 1, albumsPerPage);
+      }
 
       if (response?.data?.albums) {
         setVisibleAlbums(response.data.albums);
@@ -168,7 +193,12 @@ export const useArtistAlbums = (artistId, albumsPerPage = 10) => {
     try {
       setAlbumLoading(true);
       const nextPage = currentAlbumPage + 1;
-      const response = await getArtistAlbumsPaginated(artistId, nextPage, albumsPerPage);
+      let response;
+      if (source === 'ytmusic') {
+        response = await getYTMusicArtistAlbumsPaginated(artistId, nextPage, albumsPerPage);
+      } else {
+        response = await getArtistAlbumsPaginated(artistId, nextPage, albumsPerPage);
+      }
 
       if (response?.data?.albums && response.data.albums.length > 0) {
         setVisibleAlbums(prev => [...prev, ...response.data.albums]);
@@ -199,7 +229,7 @@ export const useArtistAlbums = (artistId, albumsPerPage = 10) => {
     if (artistId) {
       loadInitialAlbums();
     }
-  }, [artistId]);
+  }, [artistId, source]);
 
   return {
     visibleAlbums,

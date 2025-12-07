@@ -4,13 +4,64 @@ import { GetPlaybackQuality } from "./LocalStorage/AppSettings";
 import NetInfo from "@react-native-community/netinfo";
 import { ToastAndroid, DeviceEventEmitter } from "react-native";
 import historyManager from "./Utils/HistoryManager";
-import PythonBridgeService from "./Utils/PythonBridgeService";
+
 import dabMusicService from "./Utils/DabMusicService";
 import youtubeStreamingService from "./Utils/YouTubeStreamingService";
 import queueManager from "./Utils/QueueManager";
 import autoRecommendations from "./Utils/AutoRecommendations";
+import skipOperationManager from "./Utils/SkipOperationManager";
+import streamFetchManager from "./Utils/StreamFetchManager";
+import smartPrefetchManager from "./Utils/SmartPrefetchManager";
 
 let isPlayerInitialized = false;
+
+// Helper to extract artwork URL from various formats
+const extractArtwork = (song) => {
+  // Direct artwork/image string
+  if (song.artwork && typeof song.artwork === 'string' && song.artwork.length > 0) {
+    return song.artwork;
+  }
+  if (song.image && typeof song.image === 'string' && song.image.length > 0) {
+    return song.image;
+  }
+
+  // Object format with url/uri
+  if (song.artwork && typeof song.artwork === 'object') {
+    if (song.artwork.url) return song.artwork.url;
+    if (song.artwork.uri) return song.artwork.uri;
+  }
+
+  // Array format (Saavn/OuterTune)
+  if (song.image && Array.isArray(song.image)) {
+    const bestImage = song.image[2] || song.image[song.image.length - 1] || song.image[0];
+    if (bestImage?.url) return bestImage.url;
+    if (bestImage?.link) return bestImage.link;
+    if (typeof bestImage === 'string') return bestImage;
+  }
+
+  // Single Image Object format
+  if (song.image && typeof song.image === 'object') {
+    if (song.image.url) return song.image.url;
+    if (song.image.uri) return song.image.uri;
+  }
+
+  // Thumbnail format (YTMusic)
+  if (song.thumbnail) {
+    if (typeof song.thumbnail === 'string') return song.thumbnail;
+    if (typeof song.thumbnail === 'object' && song.thumbnail.url) return song.thumbnail.url;
+  }
+
+  if (song.thumbnails && Array.isArray(song.thumbnails)) {
+    const bestThumb = song.thumbnails[song.thumbnails.length - 1] || song.thumbnails[0];
+    if (bestThumb?.url) return bestThumb.url;
+  }
+
+  // Try to find any property that looks like a URL
+  if (song.artwork?.uri) return song.artwork.uri;
+  if (song.image?.uri) return song.image.uri;
+
+  return '';
+};
 
 export const setupPlayer = async () => {
   try {
@@ -26,12 +77,9 @@ export const setupPlayer = async () => {
         });
         console.log('Player initialized successfully in MusicPlayerFunctions');
 
-        // Add event listeners
-        TrackPlayer.addEventListener('remote-play', () => TrackPlayer.play());
-        TrackPlayer.addEventListener('remote-pause', () => TrackPlayer.pause());
-        TrackPlayer.addEventListener('remote-stop', () => TrackPlayer.destroy());
-        TrackPlayer.addEventListener('remote-next', () => PlayNextSong());
-        TrackPlayer.addEventListener('remote-previous', () => PlayPreviousSong());
+        // NOTE: Remote control listeners (play, pause, next, previous) are registered in service.js
+        // to avoid duplicate event listeners. DO NOT add them here.
+
         await TrackPlayer.updateOptions({
           android: {
             appKilledPlaybackBehavior: 'ContinuePlayback',
@@ -67,11 +115,16 @@ export const setupPlayer = async () => {
         });
 
         isPlayerInitialized = true;
+
+        // Initialize SmartPrefetchManager for background prefetching
+        smartPrefetchManager.initialize();
+
       } catch (setupError) {
         // Check if the error is about player already being initialized
         if (setupError.message && setupError.message.includes('player has already been initialized')) {
           console.log('Player already initialized in MusicPlayerFunctions');
           isPlayerInitialized = true;
+          smartPrefetchManager.initialize();
         } else {
           console.error('Error setting up player in MusicPlayerFunctions:', setupError);
           throw setupError;
@@ -109,7 +162,14 @@ async function PlayOneSong(song) {
     if (isYouTubeSong) {
       try {
         console.log('Fetching YouTube stream for video ID:', song.id);
-        const streamData = await youtubeStreamingService.getStreamUrl(song.id);
+
+        // Use StreamFetchManager for deduplication and abort support
+        const streamData = await streamFetchManager.fetchStream(
+          song.id,
+          async (videoId, signal) => {
+            return await youtubeStreamingService.getStreamUrl(videoId, signal);
+          }
+        );
 
         if (streamData && streamData.url) {
           playbackUrl = streamData.url;
@@ -128,6 +188,9 @@ async function PlayOneSong(song) {
             artist: updatedSong.artist || 'Unknown Artist',
           };
           console.log('YouTube stream URL fetched successfully');
+
+          // Reset error counter on successful fetch
+          skipOperationManager.resetErrorCounter();
         } else {
           console.error('Failed to get YouTube stream URL');
           ToastAndroid.show('Failed to load YouTube stream', ToastAndroid.SHORT);
@@ -135,7 +198,11 @@ async function PlayOneSong(song) {
         }
       } catch (error) {
         console.error('Error fetching YouTube stream:', error);
-        ToastAndroid.show('Error loading YouTube stream', ToastAndroid.SHORT);
+
+        // Don't show toast if operation was cancelled
+        if (error.name !== 'AbortError') {
+          ToastAndroid.show('Error loading YouTube stream', ToastAndroid.SHORT);
+        }
         return;
       }
     }
@@ -252,7 +319,10 @@ async function PlayOneSong(song) {
     await TrackPlayer.add([songForPlayback]);
     await TrackPlayer.play();
 
-    // For individual YTMusic song plays, fetch recommendations to build queue
+    // NOTE: Auto-recommendations disabled here per user request
+    // User will manually trigger recommendations where needed (not for playlists)
+    // Original code for individual YTMusic song plays:
+    /*
     if (isYouTubeSong) {
       setTimeout(async () => {
         try {
@@ -275,6 +345,7 @@ async function PlayOneSong(song) {
         }
       }, 1500); // Wait 1.5 seconds after playback starts
     }
+    */
 
     // Trigger prefetch for next song in queue (if any)
     setTimeout(() => {
@@ -290,7 +361,7 @@ async function PlayOneSong(song) {
   }
 }
 
-async function AddPlaylist(songs) {
+async function AddPlaylist(songs, startSongId = null) {
   try {
     // Validate songs array
     if (!Array.isArray(songs) || songs.length === 0) {
@@ -298,12 +369,24 @@ async function AddPlaylist(songs) {
       return;
     }
 
+    // Filter/Slice if startSongId is provided
+    let tracksToAdd = [...songs];
+    if (startSongId) {
+      const startIndex = songs.findIndex(s => s.id === startSongId || s.videoId === startSongId);
+      if (startIndex !== -1) {
+        console.log(`🎵 Playing from index ${startIndex} (Song ID: ${startSongId}), skipping previous ${startIndex} songs`);
+        tracksToAdd = songs.slice(startIndex);
+      } else {
+        console.warn(`⚠️ Start song ID ${startSongId} not found in playlist, playing all`);
+      }
+    }
+
     // Ensure all songs have albumId if it exists on the first song
-    const albumId = songs[0]?.albumId;
+    const albumId = tracksToAdd[0]?.albumId;
     if (albumId) {
-      songs = songs.map(song => ({
+      tracksToAdd = tracksToAdd.map(song => ({
         ...song,
-        albumId: albumId // Ensure all songs have the same albumId
+        albumId: albumId
       }));
     }
 
@@ -312,7 +395,7 @@ async function AddPlaylist(songs) {
     const qualityNames = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
     const currentQuality = qualityNames[qualityIndex] || 'Unknown';
 
-    const processedSongs = await Promise.all(songs.map(async (song) => {
+    const processedSongs = await Promise.all(tracksToAdd.map(async (song, index) => {
       let playbackUrl = song.url;
       let updatedSong = { ...song };
 
@@ -320,9 +403,9 @@ async function AddPlaylist(songs) {
       const isYouTubeSong = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
 
       if (isYouTubeSong) {
-        // For YouTube songs in playlist, fetch stream for first song only
-        // Others will be fetched on-demand
-        const isFirstSong = songs.indexOf(song) === 0;
+        // Only fetch stream for the FIRST song immediately
+        // All others get a placeholder and will be fetched on demand
+        const isFirstSong = index === 0;
 
         if (isFirstSong) {
           try {
@@ -339,29 +422,32 @@ async function AddPlaylist(songs) {
                 artwork: streamData.thumbnail || updatedSong.artwork,
                 duration: streamData.duration || updatedSong.duration,
                 title: streamData.title || updatedSong.title,
+                currentPlayingQuality: currentQuality
               };
             }
           } catch (error) {
             console.error('Error fetching YouTube stream for first playlist song:', error);
           }
         } else {
-          // Mark as needing stream fetch later
-          // Set a placeholder URL with videoId - will be replaced before playback
+          // LAZY LOAD: Set placeholder URL and flag
           playbackUrl = `ytmusic://${song.id || song.videoId}`;
           updatedSong._needsStream = true;
           updatedSong.isYTMusic = true;
+          updatedSong.url = playbackUrl;
+          updatedSong.currentPlayingQuality = currentQuality;
         }
       }
       // Check if this is a DAB Music track
       else if (song.isDabTrack || song.source === 'dab' || (!isNaN(song.url) && String(song.url).length > 5)) {
         try {
-          console.log('🎵 DAB Track detected in playlist! Fetching stream URL for ID:', song.id);
+          // For DAB tracks, we might also want to lazy load if there are many?
+          // For now, keeping existing logic but logging
+          // console.log('🎵 DAB Track detected in playlist:', song.id);
           await dabMusicService.initialize();
           const streamUrl = await dabMusicService.getStreamUrl(song.id);
 
           if (streamUrl) {
             playbackUrl = streamUrl;
-
             // Parse format from URL to determine quality
             const fmtMatch = streamUrl.match(/[?&]fmt=(\d+)/);
             const fmt = fmtMatch ? fmtMatch[1] : null;
@@ -378,77 +464,24 @@ async function AddPlaylist(songs) {
               url: streamUrl,
               currentPlayingQuality: dabQuality
             };
-            console.log('✅ DAB stream URL fetched successfully for playlist');
-            console.log('🎵 Quality:', dabQuality);
-          } else {
-            console.error('Failed to get DAB stream URL for playlist song');
           }
         } catch (error) {
-          console.error('❌ Error fetching DAB stream for playlist song:', error);
-          // Continue with original URL
+          // console.error('❌ Error fetching DAB stream (soft fail):', error.message);
         }
       } else {
-        // Select appropriate quality URL
+        // Standard file/download URL logic
         if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
-          if (song.downloadUrl[qualityIndex]?.url) {
-            playbackUrl = song.downloadUrl[qualityIndex].url;
-          } else {
-            // Fallback to any available URL
-            for (let i = song.downloadUrl.length - 1; i >= 0; i--) {
-              if (song.downloadUrl[i]?.url) {
-                playbackUrl = song.downloadUrl[i].url;
-                break;
-              }
-            }
-          }
+          updatedSong.url = song.downloadUrl[qualityIndex]?.url || song.downloadUrl.find(d => d?.url)?.url || song.url;
         } else if (song.download_url && Array.isArray(song.download_url)) {
-          // Alternative format
-          if (song.download_url[qualityIndex]?.url) {
-            playbackUrl = song.download_url[qualityIndex].url;
-          } else {
-            // Fallback to any available URL
-            for (let i = song.download_url.length - 1; i >= 0; i--) {
-              if (song.download_url[i]?.url) {
-                playbackUrl = song.download_url[i].url;
-                break;
-              }
-            }
-          }
+          updatedSong.url = song.download_url[qualityIndex]?.url || song.download_url.find(d => d?.url)?.url || song.url;
         }
       }
-
-      // Extract artwork - handle all possible formats
-      const extractArtwork = (song) => {
-        // Direct artwork/image string
-        if (song.artwork && typeof song.artwork === 'string' && song.artwork.length > 0) {
-          return song.artwork;
-        }
-        if (song.image && typeof song.image === 'string' && song.image.length > 0) {
-          return song.image;
-        }
-        // Array format (Saavn)
-        if (song.image && Array.isArray(song.image)) {
-          const bestImage = song.image[2] || song.image[song.image.length - 1] || song.image[0];
-          if (bestImage?.url) return bestImage.url;
-          if (bestImage?.link) return bestImage.link;
-          if (typeof bestImage === 'string') return bestImage;
-        }
-        // Thumbnail format (YTMusic)
-        if (song.thumbnail && typeof song.thumbnail === 'string') {
-          return song.thumbnail;
-        }
-        if (song.thumbnails && Array.isArray(song.thumbnails)) {
-          const bestThumb = song.thumbnails[song.thumbnails.length - 1] || song.thumbnails[0];
-          if (bestThumb?.url) return bestThumb.url;
-        }
-        return '';
-      };
 
       const artworkUrl = extractArtwork(song) || extractArtwork(updatedSong);
 
       return {
         ...updatedSong,
-        url: playbackUrl,
+        url: playbackUrl || updatedSong.url,
         artwork: artworkUrl,
         image: artworkUrl,
         currentPlayingQuality: currentQuality
@@ -459,22 +492,7 @@ async function AddPlaylist(songs) {
     await TrackPlayer.add(processedSongs);
     await TrackPlayer.play();
 
-    // Auto-recommendations disabled temporarily - URL handling needs proper fix
-    // TODO: Re-enable once lazy loading is properly implemented
-    /*
-    const hasYTMusicSongs = processedSongs.some(song => song.source === 'ytmusic' || (song.id && song.id.length === 11));
-    if (hasYTMusicSongs && processedSongs.length > 0) {
-      const firstSongId = processedSongs[0].id;
-      console.log('✨ Starting auto-recommendations for YTMusic playlist, first song:', firstSongId);
-      setTimeout(() => {
-        autoRecommendations.start(firstSongId).catch(err =>
-          console.error('Error starting auto-recommendations:', err)
-        );
-      }, 2000);
-    }
-    */
-
-    // Prefetch next song after a short delay
+    // Prefetch next song check
     setTimeout(() => {
       queueManager.prefetchNextTrack().catch(err =>
         console.error('Error prefetching next track:', err)
@@ -486,138 +504,71 @@ async function AddPlaylist(songs) {
 }
 
 async function AddSongsToQueue(songs) {
-  console.log(`🎵 AddSongsToQueue: Starting progressive queue loading for ${songs.length} songs...`);
+  console.log(`🎵 AddSongsToQueue: Lazy loading ${songs.length} songs...`);
 
   const qualityIndex = await getIndexQuality();
   const qualityNames = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
   const currentQuality = qualityNames[qualityIndex] || 'Unknown';
 
-  // Separate YTMusic songs from others
-  const ytMusicSongs = [];
-  const otherSongs = [];
+  const processedSongs = [];
 
   for (const song of songs) {
     const hasValidYouTubeId = song.id && typeof song.id === 'string' && song.id.length === 11;
     const isYTMusicSource = song.source === 'ytmusic' || song.isYTMusic === true;
     const isDabSong = song.isDabTrack || song.source === 'dab';
 
+    let processedSong = { ...song };
+
     if ((hasValidYouTubeId && !song.isLocalMusic) || isYTMusicSource) {
-      ytMusicSongs.push(song);
+      // LAZY LOAD: Do NOT fetch stream here. Just set placeholder.
+      const videoId = song.id || song.videoId;
+      processedSong = {
+        ...processedSong,
+        url: `ytmusic://${videoId}`,
+        _needsStream: true,
+        isYTMusic: true,
+        source: 'ytmusic',
+        currentPlayingQuality: currentQuality,
+        // Ensure artwork is set correctly using helper
+        artwork: extractArtwork(song),
+        image: extractArtwork(song),
+        duration: song.duration
+      };
+
     } else if (isDabSong) {
-      otherSongs.push({ ...song, isDab: true });
-    } else {
-      otherSongs.push(song);
-    }
-  }
-
-  console.log(`📊 Queue: ${ytMusicSongs.length} YTMusic, ${otherSongs.length} other`);
-
-  let totalAdded = 0;
-
-  // PROGRESSIVE LOADING: Fetch and add YTMusic songs in batches of 5
-  // Each batch is added to TrackPlayer IMMEDIATELY after fetching
-  if (ytMusicSongs.length > 0) {
-    const batchSize = 5;
-    console.log(`🎯 Progressive loading: ${ytMusicSongs.length} songs in ${Math.ceil(ytMusicSongs.length / batchSize)} batches`);
-
-    for (let batchIndex = 0; batchIndex < ytMusicSongs.length; batchIndex += batchSize) {
-      const batch = ytMusicSongs.slice(batchIndex, batchIndex + batchSize);
-      const batchNum = Math.floor(batchIndex / batchSize) + 1;
-
-      console.log(`📦 Batch ${batchNum}: Fetching ${batch.length} streams...`);
-
-      // Fetch all streams in this batch in parallel
-      const fetchPromises = batch.map(async (song) => {
-        try {
-          const streamData = await youtubeStreamingService.getStreamUrl(song.id);
-          if (streamData && streamData.url) {
-            // Cache the stream URL for instant playback later
-            queueManager.streamCache.set(song.id, streamData);
-
-            return {
-              ...song,
-              url: streamData.url,
-              headers: streamData.headers,
-              userAgent: streamData.headers?.['User-Agent'],
-              artwork: streamData.thumbnail || song.artwork || song.image,
-              duration: streamData.duration || song.duration,
-              source: 'ytmusic',
-              _needsStream: false,
-              currentPlayingQuality: currentQuality
-            };
-          }
-          return null;
-        } catch (error) {
-          console.error(`❌ Stream error ${song.title?.substring(0, 20)}:`, error.message);
-          return null;
-        }
-      });
-
-      const results = await Promise.allSettled(fetchPromises);
-      const validSongs = results
-        .filter(r => r.status === 'fulfilled' && r.value)
-        .map(r => r.value);
-
-      // ADD THIS BATCH TO TRACKPLAYER IMMEDIATELY
-      if (validSongs.length > 0) {
-        try {
-          await TrackPlayer.add(validSongs);
-          totalAdded += validSongs.length;
-          console.log(`✅ Batch ${batchNum}: Added ${validSongs.length} songs (Total: ${totalAdded})`);
-
-          // Emit event AFTER EACH BATCH to refresh queue UI progressively
-          DeviceEventEmitter.emit('queue-updated', { count: totalAdded, batch: batchNum });
-        } catch (addError) {
-          console.error(`❌ Batch ${batchNum} add failed:`, addError.message);
-        }
-      }
-
-      // Small delay between batches to not overwhelm the system
-      if (batchIndex + batchSize < ytMusicSongs.length) {
-        await new Promise(resolve => setTimeout(resolve, 50));
-      }
-    }
-  }
-
-  // Process and add non-YTMusic songs (Saavn, local, etc.)
-  const processedOtherSongs = [];
-  for (const song of otherSongs) {
-    let playbackUrl = song.url || '';
-
-    if (song.isDab) {
+      // DAB songs logic - ideally lazy load too, but keeping minimal changes for now
+      processedSong = { ...processedSong, isDab: true };
       try {
         await dabMusicService.initialize();
-        playbackUrl = await dabMusicService.getStreamUrl(song.id) || '';
-      } catch (error) {
-        continue;
+        const streamUrl = await dabMusicService.getStreamUrl(song.id);
+        if (streamUrl) processedSong.url = streamUrl;
+      } catch (e) { }
+
+    } else {
+      // Standard logic for downloads/local
+      if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
+        processedSong.url = song.downloadUrl[qualityIndex]?.url || song.downloadUrl.find(d => d?.url)?.url || song.url;
+      } else if (song.download_url && Array.isArray(song.download_url)) {
+        processedSong.url = song.download_url[qualityIndex]?.url || song.download_url.find(d => d?.url)?.url || song.url;
       }
-    } else if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
-      playbackUrl = song.downloadUrl[qualityIndex]?.url ||
-        song.downloadUrl.find(d => d?.url)?.url || playbackUrl;
-    } else if (song.download_url && Array.isArray(song.download_url)) {
-      playbackUrl = song.download_url[qualityIndex]?.url ||
-        song.download_url.find(d => d?.url)?.url || playbackUrl;
+      processedSong.currentPlayingQuality = currentQuality;
     }
 
-    if (playbackUrl && playbackUrl.trim() !== '') {
-      processedOtherSongs.push({ ...song, url: playbackUrl, currentPlayingQuality: currentQuality });
-    }
+    processedSongs.push(processedSong);
   }
 
-  if (processedOtherSongs.length > 0) {
+  if (processedSongs.length > 0) {
     try {
-      await TrackPlayer.add(processedOtherSongs);
-      totalAdded += processedOtherSongs.length;
-      console.log(`✅ Added ${processedOtherSongs.length} non-YTMusic songs`);
+      // Add ALL songs at once - no batches!
+      await TrackPlayer.add(processedSongs);
+      console.log(`✅ Queue: Added ${processedSongs.length} songs instantly (Lazy Mode)`);
+
+      // Emit event to refresh UI
+      DeviceEventEmitter.emit('queue-updated', { count: processedSongs.length });
     } catch (error) {
-      console.error('❌ Failed to add other songs:', error.message);
+      console.error('❌ Failed to add songs to queue:', error.message);
     }
   }
-
-  console.log(`🎉 Queue loading complete! Total: ${totalAdded} songs added`);
-
-  // Emit event to trigger queue UI refresh
-  DeviceEventEmitter.emit('queue-updated', { count: totalAdded });
 }
 async function PlaySong() {
   await TrackPlayer.play();
@@ -637,96 +588,140 @@ async function SetProgressSong(value) {
 }
 
 async function PlayNextSong() {
-  try {
-    // Ensure player is initialized
-    if (!isPlayerInitialized) {
-      console.log('Player not initialized, setting up...');
-      await setupPlayer();
-    }
-
-    // Stop tracking current song before switching
-    await historyManager.stopTracking();
-
-    // Get current track and queue info
-    const currentTrack = await TrackPlayer.getCurrentTrack();
-    const queue = await TrackPlayer.getQueue();
-    const playerState = await TrackPlayer.getState();
-
-    console.log('PlayNextSong called - Current track:', currentTrack, 'Queue length:', queue.length, 'Player state:', playerState);
-
-    // If there's no next track, just return
-    if (currentTrack >= queue.length - 1) {
-      console.log('No next track available');
-      return;
-    }
-
-    const nextTrackIndex = currentTrack + 1;
-    const nextTrack = queue[nextTrackIndex];
-
-    // Check if next track needs stream URL fetching
-    if (nextTrack._needsStream) {
-      console.log('🔄 Next track needs stream, fetching on-demand...');
-      await queueManager.fetchStreamForTrack(nextTrackIndex);
-    }
-
-    // Skip to next track and ensure it plays
-    await TrackPlayer.skipToNext();
-
-    // Short delay to allow track to change
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // Get the new track and start tracking it
-    const newTrack = await TrackPlayer.getActiveTrack();
-    if (newTrack) {
-      await historyManager.startTracking(newTrack);
-    }
-
-    // Check player state and play if not already playing
-    const stateAfterSkip = await TrackPlayer.getState();
-    console.log('Player state after skip:', stateAfterSkip);
-
-    if (stateAfterSkip !== TrackPlayer.STATE_PLAYING) {
-      try {
-        await TrackPlayer.play();
-        console.log('Play command issued after skip');
-      } catch (playError) {
-        console.error('Error playing after skip:', playError);
+  // Use SkipOperationManager to debounce and lock skip operations
+  const executed = await skipOperationManager.executeSkip(async (signal) => {
+    try {
+      // Ensure player is initialized
+      if (!isPlayerInitialized) {
+        console.log('Player not initialized, setting up...');
+        await setupPlayer();
       }
-    }
 
-    // Prefetch the next song after this one
-    setTimeout(() => {
-      queueManager.prefetchNextTrack().catch(err =>
-        console.error('Error prefetching next track:', err)
-      );
-    }, 1000);
-  } catch (error) {
-    console.error('Error in PlayNextSong:', error);
+      // Stop tracking current song before switching
+      await historyManager.stopTracking();
+
+      // Get current track and queue info
+      const currentTrack = await TrackPlayer.getCurrentTrack();
+      const queue = await TrackPlayer.getQueue();
+
+      console.log('⏭️ PlayNextSong - Current:', currentTrack, 'Queue:', queue.length);
+
+      // If there's no next track, just return
+      if (currentTrack >= queue.length - 1) {
+        console.log('No next track available');
+        return;
+      }
+
+      const nextTrackIndex = currentTrack + 1;
+      const nextTrack = queue[nextTrackIndex];
+
+      // Check if next track needs stream (wasn't prefetched)
+      const needsStream = nextTrack._needsStream ||
+        nextTrack.url?.startsWith('ytmusic://') ||
+        nextTrack.url?.includes('music.youtube.com');
+
+      if (needsStream && !nextTrack._prefetched) {
+        console.log('🔄 Track not prefetched, fetching on-demand...');
+
+        // Use SmartPrefetchManager for on-demand fetch (1 retry)
+        const smartPrefetchManager = require('./Utils/SmartPrefetchManager').default;
+        const streamData = await smartPrefetchManager.fetchOnDemand(nextTrack.id);
+
+        if (streamData && streamData.url) {
+          // Replace track in queue with valid URL
+          const updatedTrack = {
+            ...nextTrack,
+            url: streamData.url,
+            headers: streamData.headers,
+            _needsStream: false,
+            _prefetched: true
+          };
+
+          await TrackPlayer.remove(nextTrackIndex);
+          await TrackPlayer.add(updatedTrack, nextTrackIndex);
+          console.log('✅ Track replaced with valid URL');
+        } else {
+          // Failed to get stream - skip this track entirely
+          console.error('❌ Failed to get stream, removing track');
+          await TrackPlayer.remove(nextTrackIndex);
+          // Try to play the next one instead
+          await TrackPlayer.skipToNext();
+          return;
+        }
+      }
+
+      // Skip to next track - should now have valid URL
+      await TrackPlayer.skipToNext();
+
+      // Get the new track and start tracking it
+      const newTrack = await TrackPlayer.getActiveTrack();
+      if (newTrack) {
+        await historyManager.startTracking(newTrack);
+        skipOperationManager.resetErrorCounter();
+      }
+
+      // Ensure playback starts
+      const stateAfterSkip = await TrackPlayer.getState();
+      if (stateAfterSkip !== TrackPlayer.STATE_PLAYING) {
+        await TrackPlayer.play();
+      }
+
+    } catch (error) {
+      if (error.message === 'AbortError') {
+        console.log('⏭️ Skip cancelled');
+      } else {
+        console.error('❌ Error in PlayNextSong:', error);
+      }
+      throw error;
+    }
+  });
+
+  if (!executed) {
+    console.log('⏭️ Skip blocked - operation in progress');
   }
 }
 
 async function PlayPreviousSong() {
-  try {
-    // Ensure player is initialized
-    if (!isPlayerInitialized) {
-      console.log('Player not initialized, setting up...');
-      await setupPlayer();
+  // Use SkipOperationManager to debounce and lock skip operations
+  const executed = await skipOperationManager.executeSkip(async (signal) => {
+    try {
+      // Ensure player is initialized
+      if (!isPlayerInitialized) {
+        console.log('Player not initialized, setting up...');
+        await setupPlayer();
+      }
+
+      // Stop tracking current song before switching
+      await historyManager.stopTracking();
+
+      // Check if operation was cancelled
+      if (signal.aborted) {
+        throw new Error('AbortError');
+      }
+
+      await TrackPlayer.skipToPrevious();
+
+      // Get the new track and start tracking it
+      const newTrack = await TrackPlayer.getActiveTrack();
+      if (newTrack) {
+        await historyManager.startTracking(newTrack);
+        // Reset error counter on successful track change
+        skipOperationManager.resetErrorCounter();
+      }
+
+      PlaySong();
+    } catch (error) {
+      if (error.message === 'AbortError') {
+        console.log('⏮️ Skip cancelled');
+      } else {
+        console.error('❌ Error in PlayPreviousSong:', error);
+      }
+      throw error;
     }
+  });
 
-    // Stop tracking current song before switching
-    await historyManager.stopTracking();
-
-    await TrackPlayer.skipToPrevious();
-
-    // Get the new track and start tracking it
-    const newTrack = await TrackPlayer.getActiveTrack();
-    if (newTrack) {
-      await historyManager.startTracking(newTrack);
-    }
-
-    PlaySong();
-  } catch (error) {
-    console.error('Error in PlayPreviousSong:', error);
+  if (!executed) {
+    console.log('⏮️ Skip blocked - operation already in progress');
   }
 }
 async function SkipToTrack(trackIndex) {
@@ -746,6 +741,38 @@ async function SkipToTrack(trackIndex) {
     if (validIndex < 0 || validIndex >= queue.length) {
       console.error('Track index out of bounds:', validIndex, 'Queue length:', queue.length);
       return;
+    }
+
+    const targetTrack = queue[validIndex];
+
+    // Check if track needs stream (random song selection)
+    const needsStream = targetTrack._needsStream ||
+      targetTrack.url?.startsWith('ytmusic://') ||
+      targetTrack.url?.includes('music.youtube.com');
+
+    if (needsStream && !targetTrack._prefetched) {
+      console.log('🎯 Random track selection - fetching on-demand...');
+
+      // Use SmartPrefetchManager for on-demand fetch (1 retry)
+      const streamData = await smartPrefetchManager.fetchOnDemand(targetTrack.id);
+
+      if (streamData && streamData.url) {
+        // Replace track in queue with valid URL
+        const updatedTrack = {
+          ...targetTrack,
+          url: streamData.url,
+          headers: streamData.headers,
+          _needsStream: false,
+          _prefetched: true
+        };
+
+        await TrackPlayer.remove(validIndex);
+        await TrackPlayer.add(updatedTrack, validIndex);
+        console.log('✅ Track replaced for random selection');
+      } else {
+        console.error('❌ Failed to get stream for random track');
+        return;
+      }
     }
 
     await TrackPlayer.skip(validIndex);

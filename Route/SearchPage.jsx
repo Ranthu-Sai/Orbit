@@ -3,7 +3,10 @@ import Tabs from "../Component/Global/Tabs/Tabs";
 import { useEffect, useState, useCallback } from "react";
 import { getSearchSongData, getSearchArtistData } from "../Api/Songs";
 import {
-  getYTMusicSearchSongData
+  getYTMusicSearchSongData,
+  getYTMusicSearchPlaylistData,
+  getYTMusicSearchAlbumData,
+  getYTMusicSearchArtistData
 } from "../Api/YTMusic";
 import dabMusicService from "../Utils/DabMusicService";
 import { View, TouchableOpacity, TextInput, Pressable, Dimensions, FlatList, StyleSheet, Text, Modal, Alert } from "react-native";
@@ -81,9 +84,17 @@ export const SearchPage = ({ navigation }) => {
           throw error;
         }
       }
-      // For YTMusic, always search songs since no other categories are supported
+      // For YTMusic, handle categories based on tabs
       else if (selectedSource === 'ytmusic') {
-        data = await getYTMusicSearchSongData(text, 1, limit);
+        if (ActiveTab === 0) {
+          data = await getYTMusicSearchSongData(text, 1, limit);
+        } else if (ActiveTab === 1) {
+          data = await getYTMusicSearchPlaylistData(text, 1, limit);
+        } else if (ActiveTab === 2) {
+          data = await getYTMusicSearchAlbumData(text, 1, limit);
+        } else if (ActiveTab === 3) {
+          data = await getYTMusicSearchArtistData(text, 1, limit);
+        }
       } else {
         // Saavn logic
         if (ActiveTab === 0) {
@@ -307,7 +318,7 @@ export const SearchPage = ({ navigation }) => {
         </Pressable>
       </View>
 
-      {selectedSource === 'saavn' && (
+      {(selectedSource === 'saavn' || selectedSource === 'ytmusic') && (
         <Tabs tabs={["Songs", "Playlists", "Albums", "Artists"]} setState={setActiveTab} state={ActiveTab} />
       )}
       {selectedSource === 'dab' && (
@@ -325,16 +336,16 @@ export const SearchPage = ({ navigation }) => {
         <LoadingComponent loading={Loading} />
       ) : (
         <View style={{ flex: 1, paddingHorizontal: 10 }}>
-          {selectedSource === 'dab' || selectedSource === 'ytmusic' ? (
-            // DAB and YTMusic only support Songs (no tabs shown)
+          {selectedSource === 'dab' ? (
+            // DAB only supports Songs (no tabs shown)
             <SongDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />
           ) : (
-            // Saavn supports all categories
+            // Saavn and YTMusic support all categories
             <>
               {ActiveTab === 0 && <SongDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />}
-              {ActiveTab === 1 && <PlaylistDisplay data={Data} limit={limit} Searchtext={SearchText} />}
-              {ActiveTab === 2 && <AlbumsDisplay data={Data} limit={limit} Searchtext={SearchText} />}
-              {ActiveTab === 3 && <ArtistDisplay data={Data} limit={limit} Searchtext={SearchText} />}
+              {ActiveTab === 1 && <PlaylistDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />}
+              {ActiveTab === 2 && <AlbumsDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />}
+              {ActiveTab === 3 && <ArtistDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />}
             </>
           )}
         </View>

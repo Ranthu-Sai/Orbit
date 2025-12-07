@@ -57,7 +57,7 @@ function removeDuplicateArtists(artists) {
   });
 }
 
-export default function ArtistDisplay({data, limit, Searchtext}) {
+export default function ArtistDisplay({ data, limit, Searchtext, source }) {
   const [Data, setData] = useState(data)
   const totalPages = Math.ceil(Data?.data?.total ?? 1 / limit)
   const [Page, setPage] = useState(1)
@@ -82,54 +82,61 @@ export default function ArtistDisplay({data, limit, Searchtext}) {
     }
   }, [data]);
 
-  async function fetchSearchData(text,page){
-   if (Page <= totalPages){
-   if(Searchtext !== ""){
-    try {
-        setLoading(true)
-        const fetchdata = await getSearchArtistData(text,page,limit)
-        
-        // Check if fetchdata has valid structure
-        if (fetchdata && fetchdata.data && fetchdata.data.results) {
-          if (Data && Data.data && Data.data.results) {
-            // Combine existing and new results, then remove duplicates
-            const combinedData = [...Data.data.results, ...fetchdata.data.results]
-            const finalData = removeDuplicateArtists(combinedData)
-
-            console.log(`Combined ${Data.data.results.length} existing + ${fetchdata.data.results.length} new = ${combinedData.length} total`);
-            console.log(`After deduplication: ${finalData.length} unique artists`);
-
-            // Create new data object instead of mutating existing one
-            const newData = {
-              ...Data,
-              data: {
-                ...Data.data,
-                results: finalData,
-                total: finalData.length
-              }
-            }
-            setData(newData)
+  async function fetchSearchData(text, page) {
+    if (Page <= totalPages) {
+      if (Searchtext !== "") {
+        try {
+          setLoading(true)
+          let fetchdata;
+          // Use correct API based on source
+          if (source === 'ytmusic') {
+            const { getYTMusicSearchArtistData } = require('../../Api/YTMusic');
+            fetchdata = await getYTMusicSearchArtistData(text, page, limit);
           } else {
-            // First load - just set the data with deduplication
-            const finalData = removeDuplicateArtists(fetchdata.data.results)
-            const newData = {
-              ...fetchdata,
-              data: {
-                ...fetchdata.data,
-                results: finalData,
-                total: finalData.length
-              }
-            }
-            setData(newData)
+            fetchdata = await getSearchArtistData(text, page, limit);
           }
+
+          // Check if fetchdata has valid structure
+          if (fetchdata && fetchdata.data && fetchdata.data.results) {
+            if (Data && Data.data && Data.data.results) {
+              // Combine existing and new results, then remove duplicates
+              const combinedData = [...Data.data.results, ...fetchdata.data.results]
+              const finalData = removeDuplicateArtists(combinedData)
+
+              console.log(`Combined ${Data.data.results.length} existing + ${fetchdata.data.results.length} new = ${combinedData.length} total`);
+              console.log(`After deduplication: ${finalData.length} unique artists`);
+
+              // Create new data object instead of mutating existing one
+              const newData = {
+                ...Data,
+                data: {
+                  ...Data.data,
+                  results: finalData,
+                  total: finalData.length
+                }
+              }
+              setData(newData)
+            } else {
+              // First load - just set the data with deduplication
+              const finalData = removeDuplicateArtists(fetchdata.data.results)
+              const newData = {
+                ...fetchdata,
+                data: {
+                  ...fetchdata.data,
+                  results: finalData,
+                  total: finalData.length
+                }
+              }
+              setData(newData)
+            }
+          }
+        } catch (e) {
+          console.log(e);
+        } finally {
+          setLoading(false)
         }
-      } catch (e) {
-        console.log(e);
-      } finally {
-        setLoading(false)
       }
-   }
-   }
+    }
   }
   const width = Dimensions.get("window").width
 
@@ -143,19 +150,19 @@ export default function ArtistDisplay({data, limit, Searchtext}) {
           justifyContent: 'space-between',
           marginBottom: 10,
         }}
-        onEndReached={()=>{
-          setTimeout(()=>{
+        onEndReached={() => {
+          setTimeout(() => {
             setPage(Page + 1)
             fetchSearchData(Searchtext, Page)
-          },200)
+          }, 200)
         }}
         contentContainerStyle={{
           paddingBottom: 220,
           paddingHorizontal: 10,
         }}
         data={Data?.data?.results ?? []}
-        ListFooterComponent={() => Loading ? <LoadingComponent loading={Loading} height={100}/> : null}
-        renderItem={(item)=>{
+        ListFooterComponent={() => Loading ? <LoadingComponent loading={Loading} height={100} /> : null}
+        renderItem={(item) => {
           // Safely extract image URL with fallbacks for different data formats
           let imageUrl = '';
           if (item.item?.image) {
@@ -178,7 +185,7 @@ export default function ArtistDisplay({data, limit, Searchtext}) {
             role={item.item?.role}
             image={imageUrl}
             followerCount={item.item?.followerCount || item.item?.follower_count || 0}
-            source="saavn"
+            source={source || "saavn"}
             searchText={Searchtext}
             mainContainerStyle={{
               marginBottom: 5,
@@ -187,9 +194,9 @@ export default function ArtistDisplay({data, limit, Searchtext}) {
         }}
       />}
       {Data?.data?.results?.length === 0 && <View style={{
-        height:400,
-        alignItems:"center",
-        justifyContent:"center",
+        height: 400,
+        alignItems: "center",
+        justifyContent: "center",
       }}>
         <PlainText
           text={"No Artist found!"}
@@ -206,7 +213,7 @@ export default function ArtistDisplay({data, limit, Searchtext}) {
             marginTop: 8
           }}
         />
-        </View> }
-     </View>
+      </View>}
+    </View>
   )
 }

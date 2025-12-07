@@ -1,5 +1,6 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "kotlinx-serialization"
 apply plugin: "com.facebook.react"
 
 apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")
@@ -128,6 +129,7 @@ android {
             signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            applicationIdSuffix ".beta"
             
             // Fix for CodePush duplicate resources
             packagingOptions {
@@ -183,6 +185,15 @@ dependencies {
         implementation jscFlavor
     }
     implementation "com.github.TeamNewPipe:NewPipeExtractor:v0.24.8"
+    // Ktor & Serialization (InnerTube Port)
+    implementation "io.ktor:ktor-client-core:2.3.6"
+    implementation "io.ktor:ktor-client-okhttp:2.3.6"
+    implementation "io.ktor:ktor-client-content-negotiation:2.3.6"
+    implementation "io.ktor:ktor-serialization-kotlinx-json:2.3.6"
+    implementation "io.ktor:ktor-client-encoding:2.3.6"
+    implementation "org.brotli:dec:0.1.2"
+    implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0"
+
     implementation 'com.squareup.okhttp3:okhttp:4.10.0'
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.3'
 }

@@ -8,6 +8,7 @@ import { useTheme, useNavigation } from "@react-navigation/native";
 import { PlainText } from "../Component/Global/PlainText";
 import { SmallText } from "../Component/Global/SmallText";
 import { getAlbumData } from "../Api/Album";
+import { getYTMusicAlbumData } from "../Api/YTMusic";
 
 import FormatArtist from "../Utils/FormatArtists";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -136,7 +137,12 @@ export const Album = ({ route }) => {
 
     try {
       setLoading(true);
-      const response = await getAlbumData(albumId);
+      let response;
+      if (source === 'ytmusic') {
+        response = await getYTMusicAlbumData(albumId);
+      } else {
+        response = await getAlbumData(albumId);
+      }
       setData(response);
 
       // Store the album data and ID for recovery

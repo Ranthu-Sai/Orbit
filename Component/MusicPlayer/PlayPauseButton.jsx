@@ -1,9 +1,9 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { ActivityIndicator, View, Animated, Easing, Pressable } from 'react-native';
 import { usePlaybackState } from 'react-native-track-player';
+import TrackPlayer from 'react-native-track-player';
 import { useTheme } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { PauseSong, PlaySong } from "../../MusicPlayerFunctions";
 
 export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
   const theme = useTheme();
@@ -13,44 +13,30 @@ export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(1)).current;
 
-  // Debounced play/pause functions to prevent rapid state changes
-  const debouncedPlay = useCallback(async () => {
+  // INSTANT play/pause - call TrackPlayer directly for zero-lag response
+  const handlePlayPause = useCallback(async (shouldPlay) => {
     const now = Date.now();
-    if (now - lastActionTimeRef.current < 500 || isProcessingRef.current) {
-      return; // Prevent rapid successive calls
+    // Shorter debounce (150ms) for responsiveness while preventing double-taps
+    if (now - lastActionTimeRef.current < 150 || isProcessingRef.current) {
+      return;
     }
 
     lastActionTimeRef.current = now;
     isProcessingRef.current = true;
 
     try {
-      await PlaySong();
+      // Call TrackPlayer DIRECTLY for instant response (no wrapper function overhead)
+      if (shouldPlay) {
+        await TrackPlayer.play();
+      } else {
+        await TrackPlayer.pause();
+      }
     } catch (error) {
-      console.log("Error in play action:", error);
+      console.log("Error in play/pause action:", error);
     } finally {
       setTimeout(() => {
         isProcessingRef.current = false;
-      }, 300);
-    }
-  }, []);
-
-  const debouncedPause = useCallback(async () => {
-    const now = Date.now();
-    if (now - lastActionTimeRef.current < 500 || isProcessingRef.current) {
-      return; // Prevent rapid successive calls
-    }
-
-    lastActionTimeRef.current = now;
-    isProcessingRef.current = true;
-
-    try {
-      await PauseSong();
-    } catch (error) {
-      console.log("Error in pause action:", error);
-    } finally {
-      setTimeout(() => {
-        isProcessingRef.current = false;
-      }, 300);
+      }, 100); // Reduced from 300ms
     }
   }, []);
 
@@ -58,27 +44,24 @@ export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
   const buttonSize = isFullScreen ? size * 1.8 : size * 1.5; // Increased size for better touch
   const iconSize = size * 1; // Increased icon size relative to button
 
-  // Handle button press with animation
+  // Handle button press with animation - INSTANT response
   const handlePress = () => {
-    // Scale down animation
+    // Quick scale animation (doesn't block action)
     Animated.sequence([
       Animated.timing(scaleAnim, {
         toValue: 0.9,
-        duration: 100,
+        duration: 50, // Faster animation
         useNativeDriver: true,
       }),
       Animated.spring(scaleAnim, {
         toValue: 1,
-        friction: 3,
+        friction: 4,
         useNativeDriver: true,
       })
     ]).start();
 
-    if (isPlaying) {
-      debouncedPause();
-    } else {
-      debouncedPlay();
-    }
+    // Call play/pause - action happens BEFORE animation completes
+    handlePlayPause(!isPlaying);
   };
 
   // Loading state animation
@@ -112,8 +95,8 @@ export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
           transform: [{ scale: scaleAnim }]
         }}
       >
-        <ActivityIndicator 
-          size={iconSize * 0.7} 
+        <ActivityIndicator
+          size={iconSize * 0.7}
           color={theme.dark ? '#FFFFFF' : '#000000'}
         />
       </Animated.View>
@@ -136,9 +119,9 @@ export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
   };
 
   return (
-    <Pressable 
+    <Pressable
       onPress={handlePress}
-      style={({pressed}) => ({
+      style={({ pressed }) => ({
         width: buttonSize,
         height: buttonSize,
         borderRadius: buttonSize / 2,

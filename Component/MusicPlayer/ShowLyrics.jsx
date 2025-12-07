@@ -36,7 +36,8 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
   const screenHeight = Dimensions.get("window").height;
   const screenWidth = Dimensions.get("window").width;
   const { theme, themeMode } = useThemeContext(); // Use custom theme context
-  const { position } = useProgress(250); // Update every 250ms
+  // PERFORMANCE: Increased from 250ms to 500ms - still smooth for lyrics sync
+  const { position } = useProgress(500);
 
   const artworkCenterOpacity = 0.3;
   const artworkEdgeOpacity = 1.0; // Fully opaque edge for artwork background
@@ -58,7 +59,7 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
       const parsed = parseLRC(Lyric.synced);
       setParsedLyrics(parsed);
       lyricLineRefs.current = parsed.map((_, i) => lyricLineRefs.current[i] || React.createRef());
-      setActiveLyricIndex(-1); 
+      setActiveLyricIndex(-1);
     } else {
       setParsedLyrics([]);
     }
@@ -153,9 +154,9 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
             {/* This View consumes touch events to prevent modal close when interacting with content */}
             <View style={styles.contentWrapper} onStartShouldSetResponder={() => true}>
               {/* Top fade gradient removed as per request */}
-              <ScrollView 
-                ref={scrollViewRef} 
-                showsVerticalScrollIndicator={false} 
+              <ScrollView
+                ref={scrollViewRef}
+                showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollViewContent}
                 scrollEventThrottle={16}
                 style={{ zIndex: 1 }} // Ensure gradients can overlay
@@ -195,9 +196,9 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
           <Pressable style={{ flex: 1, backgroundColor: 'transparent' }} onPress={() => setShowDailog(false)}>
             {/* This View consumes touch events to prevent modal close when interacting with content */}
             <View style={styles.contentWrapper} onStartShouldSetResponder={() => true}>
-              <ScrollView 
-                ref={scrollViewRef} 
-                showsVerticalScrollIndicator={false} 
+              <ScrollView
+                ref={scrollViewRef}
+                showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollViewContent}
                 scrollEventThrottle={16}
                 style={{ zIndex: 1 }} // Ensure gradients can overlay
@@ -211,7 +212,7 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
                           key={`${index}-${line.time}`}
                           ref={lyricLineRefs.current[index]}
                           style={[
-                            styles.lyricText, 
+                            styles.lyricText,
                             {
                               color: index === activeLyricIndex ? '#FFFFFF' : '#9E9E9E' // Active: white, Inactive: gray
                             }

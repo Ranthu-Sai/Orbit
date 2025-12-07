@@ -8,34 +8,36 @@ export const PreviousSongButton = ({ size = 28, color, style }) => {
   const theme = useTheme();
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
   const isProcessingRef = useRef(false);
-  
+
   const handlePress = useCallback(() => {
     if (isProcessingRef.current) return;
-    
-    // Button press animation
+
+    isProcessingRef.current = true;
+
+    // Start animation AFTER setting processing flag (action takes priority)
     Animated.sequence([
       Animated.timing(scaleAnim, {
-        toValue: 0.9,
-        duration: 100,
+        toValue: 0.85,
+        duration: 50, // Faster
         useNativeDriver: true,
       }),
       Animated.spring(scaleAnim, {
         toValue: 1,
-        friction: 3,
+        friction: 4,
         useNativeDriver: true,
       })
     ]).start();
-    
-    isProcessingRef.current = true;
-    
+
+    // Fire and forget - SkipOperationManager handles debouncing
     PlayPreviousSong()
       .catch(error => {
         console.log("Error playing previous song:", error);
       })
       .finally(() => {
+        // Match SkipOperationManager's debounce (300ms)
         setTimeout(() => {
           isProcessingRef.current = false;
-        }, 300);
+        }, 350);
       });
   }, [scaleAnim]);
 

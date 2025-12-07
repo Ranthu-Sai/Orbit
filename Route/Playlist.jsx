@@ -4,6 +4,7 @@ import { View, BackHandler, Pressable, ActivityIndicator, StyleSheet, Dimensions
 import { EachSongCard } from "../Component/Global/EachSongCard";
 import { useEffect, useState, useCallback } from "react";
 import { getPlaylistData } from "../Api/Playlist";
+import { getYTMusicPlaylistData } from "../Api/YTMusic";
 import { LoadingComponent } from "../Component/Global/Loading";
 import { PlainText } from "../Component/Global/PlainText";
 import { SmallText } from "../Component/Global/SmallText";
@@ -162,7 +163,12 @@ export const Playlist = ({ route }) => {
       console.log(`Fetching playlist data for ID: ${id}`);
       setLoading(true);
       let data = {};
-      data = await getPlaylistData(id);
+
+      if (source === 'ytmusic') {
+        data = await getYTMusicPlaylistData(id);
+      } else {
+        data = await getPlaylistData(id);
+      }
 
       setData(data);
 

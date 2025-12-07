@@ -36,6 +36,7 @@ const ArtistPage = () => {
   // Validate and sanitize route parameters
   const routeParams = route.params || {};
   const { safeArtistId, safeArtistName, safeInitialTab } = validateRouteParams(routeParams);
+  const source = routeParams.source || 'saavn';
 
   // Validate required parameters
   if (!safeArtistId) {
@@ -64,7 +65,7 @@ const ArtistPage = () => {
   const [activeTab, setActiveTab] = useState(safeInitialTab || 'songs');
 
   // Custom hooks for data management
-  const { artistData, loading, refreshing, onRefresh } = useArtistData(safeArtistId);
+  const { artistData, loading, refreshing, onRefresh } = useArtistData(safeArtistId, source);
   const {
     visibleSongs,
     songLoading,
@@ -72,7 +73,7 @@ const ArtistPage = () => {
     totalSongs,
     loadMoreSongs,
     resetSongs
-  } = useArtistSongs(safeArtistId);
+  } = useArtistSongs(safeArtistId, 10, source);
   const {
     visibleAlbums,
     albumLoading,
@@ -80,7 +81,7 @@ const ArtistPage = () => {
     totalAlbums,
     loadMoreAlbums,
     resetAlbums
-  } = useArtistAlbums(safeArtistId);
+  } = useArtistAlbums(safeArtistId, 10, source);
 
   // Navigate to album function
   const navigateToAlbum = (album, currentTab) => {

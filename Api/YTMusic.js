@@ -881,6 +881,153 @@ async function getYTMusicAlbumData(albumId) {
   }
 }
 
+// Transform YTMusic artist details
+function transformYTToSaavnArtistDetails(artistData) {
+  // Transform thumbnails
+  const imageArray = [];
+  // Use a default or valid image if available
+  const artistImage = "https://via.placeholder.com/150";
+
+  if (artistData.thumbnails && Array.isArray(artistData.thumbnails)) {
+    artistData.thumbnails.forEach((thumbnail) => {
+      imageArray.push({
+        url: thumbnail.url,
+        quality: thumbnail.height < 300 ? "150x150" : "500x500"
+      });
+    });
+  } else {
+    imageArray.push({ url: artistImage, quality: "150x150" });
+  }
+
+  return {
+    id: artistData.browseId || artistData.id,
+    name: artistData.name,
+    url: artistData.browseId || artistData.id,
+    image: imageArray,
+    followerCount: 0,
+    isVerified: false,
+    bio: [],
+    dob: "",
+    fb: "",
+    twitter: "",
+    wiki: "",
+    availableLanguages: [],
+    isRadioPresent: false
+  };
+}
+
+
+async function getYTMusicArtistDetails(artistId) {
+  const cacheKey = `ytmusic_artist_details_${artistId}`;
+
+  const fetchFunction = async () => {
+    try {
+      console.log(`🌐 YTMusic Artist Details - query: ${artistId}`);
+
+      const artistData = await PythonBridgeService.getArtist(artistId);
+
+      if (artistData && !artistData.error) {
+        return {
+          status: "SUCCESS",
+          data: {
+            id: artistId,
+            name: artistData.name,
+            image: artistData.thumbnails?.map(t => ({ url: t.url, quality: "500x500" })) || [{ url: "https://via.placeholder.com/500", quality: "500x500" }],
+            followerCount: 0,
+            bio: [],
+            isVerified: false
+          },
+          success: true
+        };
+      }
+
+      return { success: false, data: null };
+    } catch (error) {
+      console.error('YTMusic artist details error:', error);
+      return { success: false, data: null };
+    }
+  };
+
+  try {
+    return await getCachedData(cacheKey, fetchFunction, 120, CACHE_GROUPS.SEARCH);
+  } catch (error) {
+    console.error(`Error getting YTMusic artist details for "${artistId}":`, error);
+    return { success: false, data: null };
+  }
+}
+
+async function getYTMusicArtistSongsPaginated(artistId, page = 1, limit = 20) {
+  const cacheKey = `ytmusic_artist_songs_${artistId}_page${page}_limit${limit}`;
+
+  const fetchFunction = async () => {
+    try {
+      // We have to fetch the full artist page to get songs
+      const artistData = await PythonBridgeService.getArtist(artistId);
+
+      if (artistData && artistData.songs) {
+        const allSongs = artistData.songs.map(transformYTToSaavnSong);
+
+        // Simulate pagination
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedSongs = allSongs.slice(startIndex, endIndex);
+
+        return {
+          data: {
+            songs: paginatedSongs,
+            total: allSongs.length
+          },
+          success: true
+        };
+      }
+      return { data: { songs: [], total: 0 }, success: true };
+    } catch (e) {
+      console.error(e);
+      return { data: { songs: [], total: 0 }, success: false };
+    }
+  };
+
+  try {
+    return await getCachedData(cacheKey, fetchFunction, 30, CACHE_GROUPS.SEARCH);
+  } catch (error) {
+    return { data: { songs: [], total: 0 }, success: false };
+  }
+}
+
+async function getYTMusicArtistAlbumsPaginated(artistId, page = 1, limit = 20) {
+  const cacheKey = `ytmusic_artist_albums_${artistId}_page${page}_limit${limit}`;
+  const fetchFunction = async () => {
+    try {
+      const artistData = await PythonBridgeService.getArtist(artistId);
+
+      if (artistData && artistData.albums) {
+        const allAlbums = artistData.albums.map(transformYTToSaavnAlbum);
+
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedAlbums = allAlbums.slice(startIndex, endIndex);
+
+        return {
+          data: {
+            albums: paginatedAlbums,
+            total: allAlbums.length
+          },
+          success: true
+        };
+      }
+      return { data: { albums: [], total: 0 }, success: true };
+    } catch (e) {
+      console.error(e);
+      return { data: { albums: [], total: 0 }, success: false };
+    }
+  };
+  try {
+    return await getCachedData(cacheKey, fetchFunction, 30, CACHE_GROUPS.SEARCH);
+  } catch (error) {
+    return { data: { albums: [], total: 0 }, success: false };
+  }
+}
+
 export {
   getYTMusicSearchSongData,
   getYTMusicSearchArtistData,
@@ -888,5 +1035,8 @@ export {
   getYTMusicSearchPlaylistData,
   getYTMusicHomeFeed,
   getYTMusicPlaylistData,
-  getYTMusicAlbumData
+  getYTMusicAlbumData,
+  getYTMusicArtistDetails,
+  getYTMusicArtistSongsPaginated,
+  getYTMusicArtistAlbumsPaginated
 };

@@ -31,9 +31,7 @@ import {
 
 import Context from "../../Context/Context";
 import useDynamicArtwork from "../../hooks/useDynamicArtwork.js";
-import { useUnifiedDownload } from "../Download/useUnifiedDownload";
-import { DownloadControl } from "../Download/DownloadControl";
-
+import { SmartDownloadControl } from "../Download/DownloadControl";
 import {
   Surface,
   IconButton,
@@ -166,19 +164,10 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
   const currentPlaying = useActiveTrack();
   const { musicPreviousScreen } = useContext(Context);
   const { getArtworkSourceFromHook } = useDynamicArtwork();
-  const [isLyricsActive, setIsLyricsActive] = useState(false);
+  // const [isLyricsActive, setIsLyricsActive] = useState(false); // REMOVED
   const [isInfoModalVisible, setIsInfoModalVisible] = useState(false);
   const [queueIndex, setQueueIndex] = useState(-1);
   const insets = useSafeAreaInsets();
-
-  // Use the new unified download hook
-  const {
-    isDownloaded,
-    isDownloading,
-    downloadProgress,
-    startDownload,
-    canDownload,
-  } = useUnifiedDownload(currentPlaying, false);
 
   // Memoize artwork source to prevent excessive hook calls
   const currentArtworkSource = useMemo(() => {
@@ -221,9 +210,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
     error: localTracksError,
   } = useLocalTracks({ isOffline });
 
-  const handleLyricsVisibilityChange = (visible) => {
-    setIsLyricsActive(visible);
-  };
+  /* Removed unused isLyricsActive state to prevent re-renders */
 
   const handlePlayerCloseAction = () => {
     setIndex(0);
@@ -238,21 +225,6 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
     setQueueIndex(index);
   };
 
-  const renderDownloadControl = () => {
-    return (
-      <DownloadControl
-        isDownloaded={isDownloaded}
-        isDownloading={isDownloading}
-        downloadProgress={downloadProgress}
-        onDownloadPress={startDownload}
-        isOffline={isOffline}
-        disabled={!canDownload}
-        size={28}
-        iconColor={iconColor}
-      />
-    );
-  };
-
   const paperTheme = useTheme();
   const hasArtworkBackground = useMemo(() => {
     if (!currentArtworkSource) {
@@ -264,10 +236,8 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
     return Boolean(currentArtworkSource?.uri);
   }, [currentArtworkSource]);
 
-  const backgroundBlurRadius = useMemo(
-    () => (isLyricsActive ? 40 : 28),
-    [isLyricsActive]
-  );
+  // Constant blur radius to prevent re-renders
+  const backgroundBlurRadius = 28;
 
   const renderPlayerContent = () => (
     <View
@@ -353,7 +323,6 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
               currentPlayingTrack={currentPlaying}
               isOffline={isOffline}
               Index={Index}
-              onLyricsVisibilityChange={handleLyricsVisibilityChange}
               currentArtworkSource={currentArtworkSource}
               iconColor={iconColor}
             />
@@ -404,7 +373,12 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
                 </View>
                 <View style={[styles.iconWrapper, { marginRight: 0, transform: [{ translateY: 1 }] }]}>
                   <View style={styles.iconButton}>
-                    {renderDownloadControl()}
+                    <SmartDownloadControl
+                      songData={currentPlaying}
+                      isOffline={isOffline}
+                      size={28}
+                      iconColor={iconColor}
+                    />
                   </View>
                 </View>
               </View>
@@ -516,13 +490,26 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
           </LocalTracksErrorBoundary>
 
           {hasArtworkBackground ? (
+            /* PERFORMANCE CRITICAL FIX:
+             * React Native's blurRadius is extremely expensive on Android.
+             * It processes the image on every render, causing massive lag.
+             * 
+             * Solution: Use a dark overlay instead of blur. This achieves
+             * a similar visual effect (subdued background) at near-zero cost.
+             * The LinearGradient overlays already provide depth and contrast.
+             */
             <ImageBackground
               source={currentArtworkSource}
               style={styles.backgroundImage}
               resizeMode="cover"
-              blurRadius={backgroundBlurRadius}
-              key={`bg-${JSON.stringify(currentArtworkSource)}`}
+              /* blurRadius REMOVED - was causing severe performance issues */
+              key={`bg-${currentPlaying?.id || 'default'}`}
             >
+              {/* Dark overlay to simulate blur effect cheaply */}
+              <View style={{
+                ...StyleSheet.absoluteFillObject,
+                backgroundColor: 'rgba(0,0,0,0.6)',
+              }} />
               {renderPlayerContent()}
             </ImageBackground>
           ) : (

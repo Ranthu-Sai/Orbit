@@ -3,7 +3,7 @@ import { TouchableOpacity as Pressable } from "react-native";
 import FastImage from "react-native-fast-image";
 import { PlainText } from "../Global/PlainText";
 import { SmallText } from "../Global/SmallText";
-import { memo, useState, useRef, useEffect} from "react";
+import { memo, useState, useRef, useEffect, useCallback } from "react";
 import { useActiveTrack, usePlaybackState } from "react-native-track-player";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { Swipeable } from "react-native-gesture-handler";
@@ -52,7 +52,7 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
 
   // Check if this is the currently playing track
   const isCurrentTrack = id === currentPlaying?.id;
-  
+
   // Determine the image source
   const getImageSource = () => {
     try {
@@ -121,18 +121,18 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
       return getDefaultImage(); // Static image fallback
     }
   };
-  
+
   // Function to get a default image for songs without artwork
   const getDefaultImage = () => {
     // Check if this is a local track
-  const st = songData?.sourceType ? String(songData.sourceType).toLowerCase() : null;
-  const isLocal = songData?.isLocal || st === 'mymusic' || st === 'download' || st === 'downloaded' || songData?.path ||
-                   (songData?.url && (songData.url.startsWith('file://') || songData.url.includes('content://') || songData.url.includes('/storage/')));
+    const st = songData?.sourceType ? String(songData.sourceType).toLowerCase() : null;
+    const isLocal = songData?.isLocal || st === 'mymusic' || st === 'download' || st === 'downloaded' || songData?.path ||
+      (songData?.url && (songData.url.startsWith('file://') || songData.url.includes('content://') || songData.url.includes('/storage/')));
 
     // Use Music.jpeg for local tracks, Music.jpeg for others
     return require('../../Images/Music.jpeg');
   };
-  
+
   // Handle special characters in text
   const formatText = (text) => {
     if (!text) return 'Unknown';
@@ -142,16 +142,16 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
       .replaceAll("&#039;", "'")
       .replaceAll("&trade;", "™");
   };
-  
+
   // Truncate text to 20 characters
   const truncateText = (text, limit = 20) => {
     if (!text) return 'Unknown';
     return text.length > limit ? text.substring(0, limit) + '...' : text;
   };
-  
+
   // Calculate max text width based on screen size (no longer need space for trash icon)
   const maxTextWidth = SCREEN_WIDTH - 100; // 48px for image + 12px gap + download button + padding
-  
+
   // Handle long press with immediate feedback
   const handleLongPress = () => {
     try {
@@ -168,13 +168,13 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
       console.error('Error in long press handler:', error);
     }
   };
-  
+
   // Only add drag functionality if drag function is provided
   const dragHandlers = typeof drag === 'function' ? {
     onLongPress: handleLongPress,
     delayLongPress: 100
   } : {};
-  
+
   // Handle track selection with safer approach
   const handlePress = () => {
     try {
@@ -259,91 +259,50 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
     }
   };
 
-  // Render left swipe action (delete) with smooth animation
-  const renderLeftActions = (progress, dragX) => {
-    // Animate the action button appearance
-    const scale = dragX.interpolate({
-      inputRange: [0, 80],
-      outputRange: [0.8, 1],
-      extrapolate: 'clamp',
-    });
-
-    const opacity = dragX.interpolate({
-      inputRange: [0, 40, 80],
-      outputRange: [0, 0.5, 1],
-      extrapolate: 'clamp',
-    });
-
+  // Render left swipe action (delete) - SIMPLIFIED to prevent callback leak
+  const renderLeftActions = useCallback(() => {
     return (
       <Pressable
         style={{
           width: 80,
           height: '100%',
-          backgroundColor: '#FF3B30', // iOS red color for delete
+          backgroundColor: '#FF3B30',
           justifyContent: 'center',
           alignItems: 'center',
         }}
         onPress={handleSwipeDelete}
       >
-        <Animated.View
-          style={{
-            transform: [{ scale }],
-            opacity,
-          }}
-        >
-          <MaterialCommunityIcons
-            name="delete-outline"
-            size={24}
-            color="white"
-          />
-        </Animated.View>
+        <MaterialCommunityIcons
+          name="delete-outline"
+          size={24}
+          color="white"
+        />
       </Pressable>
     );
-  };
+  }, [handleSwipeDelete]);
 
-  // Render right swipe action (like/unlike) with smooth animation
-  const renderRightActions = (progress, dragX) => {
-    // Animate the action button appearance
-    const scale = dragX.interpolate({
-      inputRange: [-80, 0],
-      outputRange: [1, 0.8],
-      extrapolate: 'clamp',
-    });
-
-    const opacity = dragX.interpolate({
-      inputRange: [-80, -40, 0],
-      outputRange: [1, 0.5, 0],
-      extrapolate: 'clamp',
-    });
-
+  // Render right swipe action (like/unlike) - SIMPLIFIED to prevent callback leak
+  const renderRightActions = useCallback(() => {
     return (
       <Pressable
         style={{
           width: 80,
           height: '100%',
-          backgroundColor: '#4CAF50', // Light green color for like
+          backgroundColor: '#4CAF50',
           justifyContent: 'center',
           alignItems: 'center',
         }}
         onPress={handleSwipeLike}
       >
-        <Animated.View
-          style={{
-            transform: [{ scale }],
-            opacity,
-          }}
-        >
-          <MaterialCommunityIcons
-            name={isLiked ? "heart" : "heart-outline"}
-            size={24}
-            color="white"
-          />
-        </Animated.View>
+        <MaterialCommunityIcons
+          name={isLiked ? "heart" : "heart-outline"}
+          size={24}
+          color="white"
+        />
       </Pressable>
     );
+  }, [handleSwipeLike, isLiked]);
 
-  };
-  
   // Theme-aware colors
   const getRippleColor = () => {
     return themeMode === 'light'
@@ -356,6 +315,11 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
     const playingColor = theme.colors.playingColor || theme.colors.primary;
     const opacity = themeMode === 'light' ? 0.08 : 0.12; // Light theme: lower opacity, dark theme: slightly higher
     return getOpacityColor(playingColor, opacity);
+  };
+
+  const getActiveBackgroundColor = () => {
+    // Background for items being dragged
+    return themeMode === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)';
   };
 
   const getShadowColor = () => {

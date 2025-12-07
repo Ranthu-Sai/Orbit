@@ -12,6 +12,10 @@
  */
 
 import TrackPlayer, { Event } from 'react-native-track-player';
+import { AddSongsToQueue } from '../MusicPlayerFunctions';
+import YTMusic from '../Api/YTMusic';
+import { debounce } from './EventDebouncer';
+import NetInfo from '@react-native-community/netinfo';
 import PythonBridgeService from './PythonBridgeService';
 import FormatTitleAndArtist from '../Utils/FormatTitleAndArtist';
 
@@ -168,14 +172,17 @@ class AutoRecommendations {
      * Initialize event listeners
      */
     initializeListeners() {
-        // Listen for track changes
-        TrackPlayer.addEventListener(Event.PlaybackTrackChanged, async (event) => {
+        // Debounced track change handler to prevent excessive processing during rapid skips
+        const debouncedTrackHandler = debounce(async (event) => {
             if (this.isEnabled && event.nextTrack !== undefined) {
                 await this.onTrackChanged();
             }
-        });
+        }, 500); // 500ms debounce for auto-recommendations
 
-        console.log('✨ AutoRecommendations: Initialized');
+        // Listen for track changes
+        TrackPlayer.addEventListener(Event.PlaybackTrackChanged, debouncedTrackHandler);
+
+        console.log('✨ AutoRecommendations: Initialized with debouncing');
     }
 }
 

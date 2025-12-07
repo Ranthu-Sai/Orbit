@@ -222,8 +222,9 @@ class QueueManager {
      * Fetch stream URL for a specific track by index
      * Used when user skips to a track that hasn't been streamed yet
      * @param {number} trackIndex - Index of track in queue
+     * @param {AbortSignal} signal - Optional abort signal
      */
-    async fetchStreamForTrack(trackIndex) {
+    async fetchStreamForTrack(trackIndex, signal = null) {
         try {
             const queue = await TrackPlayer.getQueue();
 
@@ -236,30 +237,42 @@ class QueueManager {
 
             // Check cache first
             if (this.streamCache.has(track.id)) {
+                const cached = this.streamCache.get(track.id);
                 console.log(`✅ Using cached stream for: ${track.title}`);
-                return this.streamCache.get(track.id);
+                return cached;
             }
 
             console.log(`🔄 Fetching stream on-demand for: ${track.title}`);
-            const streamData = await this._fetchStreamForSong(track);
+            const streamData = await this._fetchStreamForSong(track, signal);
 
-            if (streamData) {
-                // Update track in queue
+            if (streamData && streamData.url) {
+                // Validate the URL
+                if (streamData.url.startsWith('ytmusic://') || streamData.url.startsWith('http') === false) {
+                    console.error(`❌ Invalid stream URL format: ${streamData.url}`);
+                    return null;
+                }
+
+                // Update track in queue with the real stream URL
                 await TrackPlayer.updateMetadataForTrack(trackIndex, {
                     url: streamData.url,
                     headers: streamData.headers,
                     userAgent: streamData.headers?.['User-Agent']
                 });
 
-                // Cache the stream
+                // Cache the stream (will expire in 2 minutes)
                 this.streamCache.set(track.id, streamData);
-                console.log(`✅ Fetched stream for: ${track.title}`);
+                console.log(`✅ Fetched and updated stream for: ${track.title}`);
                 return streamData;
             }
 
+            console.error(`❌ No stream data returned for: ${track.title}`);
             return null;
         } catch (error) {
-            console.error('❌ Error fetching stream for track:', error);
+            if (error.name === 'AbortError') {
+                console.log(`🚫 Stream fetch aborted for track ${trackIndex}`);
+            } else {
+                console.error('❌ Error fetching stream for track:', error);
+            }
             return null;
         }
     }
@@ -267,15 +280,26 @@ class QueueManager {
     /**
      * Internal method to fetch stream for a song based on its source
      * @private
+     * @param {Object} song - Song object
+     * @param {AbortSignal} signal - Optional abort signal
      */
-    async _fetchStreamForSong(song) {
+    async _fetchStreamForSong(song, signal = null) {
         try {
             const isYouTubeSong = song.id && typeof song.id === 'string' &&
                 song.id.length === 11 && !song.isLocalMusic;
             const isDabSong = song.isDabTrack || song.source === 'dab';
 
             if (isYouTubeSong) {
-                const streamData = await youtubeStreamingService.getStreamUrl(song.id);
+                // Use streamFetchManager for caching and deduplication
+                const streamFetchManager = require('./StreamFetchManager').default;
+                const streamData = await streamFetchManager.fetchStream(
+                    song.id,
+                    async (videoId) => {
+                        return await youtubeStreamingService.getStreamUrl(videoId);
+                    },
+                    signal
+                );
+
                 if (streamData && streamData.url) {
                     return {
                         url: streamData.url,
@@ -298,7 +322,11 @@ class QueueManager {
 
             return null;
         } catch (error) {
-            console.error('❌ Error in _fetchStreamForSong:', error);
+            if (error.message === 'AbortError' || error.name === 'AbortError') {
+                console.log(`🚫 Stream fetch aborted for: ${song.title}`);
+            } else {
+                console.error('❌ Error in _fetchStreamForSong:', error);
+            }
             return null;
         }
     }

@@ -20,10 +20,10 @@ export const DownloadControl = ({
   iconColor,
 }) => {
   const { theme, themeMode } = useThemeContext();
-  
+
   const pressedBackgroundColor = themeMode === 'light' ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)';
-  const resolvedDownloadColor = iconColor ?? (themeMode === 'light' ? 
-    (isOffline ? "#888888" : theme.colors.text) : 
+  const resolvedDownloadColor = iconColor ?? (themeMode === 'light' ?
+    (isOffline ? "#888888" : theme.colors.text) :
     (isOffline ? "#888888" : "#ffffff"));
 
   const controlIconStyle = {
@@ -38,17 +38,17 @@ export const DownloadControl = ({
   // Always show checkmark in offline mode or if downloaded
   if (isOffline || isDownloaded) {
     return (
-      <View style={[controlIconStyle, { 
-        width: size + 16, 
+      <View style={[controlIconStyle, {
+        width: size + 16,
         height: size + 16,
         justifyContent: 'center',
         alignItems: 'center'
       }]}>
-        <MaterialIcons 
-          name="check-circle" 
-          size={size} 
+        <MaterialIcons
+          name="check-circle"
+          size={size}
           color="#4CAF50"
-          style={{ 
+          style={{
             width: size,
             height: size,
             textAlign: 'center',
@@ -60,24 +60,24 @@ export const DownloadControl = ({
       </View>
     );
   }
-  
+
   // Show progress indicator while downloading
   if (isDownloading && downloadProgress > 0) {
     return (
       <View style={controlIconStyle}>
-        <DownloadProgressIndicator 
-          progress={downloadProgress} 
-          size={size + 4} 
-          thickness={3} 
+        <DownloadProgressIndicator
+          progress={downloadProgress}
+          size={size + 4}
+          thickness={3}
           showPercentage={size >= 24}
         />
       </View>
     );
   }
-  
+
   // Regular download button
   return (
-    <Pressable 
+    <Pressable
       style={({ pressed }) => [
         controlIconStyle,
         {
@@ -90,10 +90,10 @@ export const DownloadControl = ({
       onPress={onDownloadPress}
       disabled={disabled || isOffline || isDownloading}
     >
-      <MaterialIcons 
-        name="file-download" 
-        size={size} 
-        color={resolvedDownloadColor} 
+      <MaterialIcons
+        name="file-download"
+        size={size}
+        color={resolvedDownloadColor}
       />
     </Pressable>
   );
@@ -145,6 +145,40 @@ export const LargeDownloadControl = ({
       disabled={disabled}
       size={32}
       style={{ padding: 12 }}
+    />
+  );
+};
+
+// Import hook here to avoid circular dependencies if possible, or just require it
+import { useUnifiedDownload } from './useUnifiedDownload';
+
+/**
+ * SmartDownloadControl - Wrapper that handles logic internally
+ */
+export const SmartDownloadControl = ({
+  songData,
+  isOffline = false,
+  size = 28,
+  iconColor
+}) => {
+  const {
+    isDownloaded,
+    isDownloading,
+    downloadProgress,
+    startDownload,
+    canDownload,
+  } = useUnifiedDownload(songData, isOffline);
+
+  return (
+    <DownloadControl
+      isDownloaded={isDownloaded}
+      isDownloading={isDownloading}
+      downloadProgress={downloadProgress}
+      onDownloadPress={startDownload}
+      isOffline={isOffline}
+      disabled={!canDownload}
+      size={size}
+      iconColor={iconColor}
     />
   );
 };

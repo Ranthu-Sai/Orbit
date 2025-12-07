@@ -144,45 +144,12 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
       const isYtMusicPlaylist = current && ((current.source === 'ytmusic') || (typeof current.id === 'string' && current.id.length === 11));
 
       if (isYtMusicPlaylist && current) {
-        // Build current song object for immediate playback
-        let artworkUri = '';
-        try {
-          if (typeof current?.image === 'string') {
-            artworkUri = current.image;
-          } else if (current?.image && typeof current.image === 'object') {
-            if (typeof current.image.uri === 'string') {
-              artworkUri = current.image.uri;
-            } else if (typeof current.image.url === 'string') {
-              artworkUri = current.image.url;
-            } else if (Array.isArray(current.image) && current.image.length > 0) {
-              if (typeof current.image[0] === 'string') {
-                artworkUri = current.image[0];
-              } else if (current.image[0] && typeof current.image[0].url === 'string') {
-                artworkUri = current.image[0].url;
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error extracting artwork URI for current song:', error);
-        }
+        // Use the new AddPlaylist logic which handles slicing and lazy loading
+        // Pass the full songs array and the ID of the song to start from
+        console.log(`[Playback] YTMusic Playlist: Playing from song ${current.id || current.videoId} (Index: ${index})`);
 
-        const currentSong = {
-          url: '', // Let PlayOneSong + YouTube service fetch the stream URL
-          title: formatText(current?.name || title),
-          artist: formatText(FormatArtist(current?.artists?.primary || [])) || formatText(artist),
-          artwork: artworkUri,
-          image: artworkUri,
-          duration: current?.duration ?? duration,
-          id: current?.id ?? id,
-          language: current?.language,
-          downloadUrl: current?.downloadUrl || current?.download_url || current?.id,
-          source: 'ytmusic',
-        };
-
-        // Play clicked song instantly
-        // Note: PlayOneSong already handles fetching recommendations for YTMusic songs
-        // via its internal setTimeout, so we don't need to call buildQueueFromRecommendations here
-        await PlayOneSong(currentSong);
+        // Pass the raw songs array - AddPlaylist processes it
+        await AddPlaylist(songs, current.id || current.videoId);
 
         updateTrack();
         return;

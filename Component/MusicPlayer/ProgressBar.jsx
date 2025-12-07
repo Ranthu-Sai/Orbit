@@ -8,13 +8,15 @@ import TrackPlayer from 'react-native-track-player';
 
 const ProgressBar = () => {
   const theme = useTheme();
-  const { position, duration } = useProgress();
+  // PERFORMANCE: Throttle progress updates to 1000ms instead of default 100ms
+  // This reduces re-renders from 10/sec to 1/sec while still feeling smooth
+  const { position, duration } = useProgress(1000);
   const currentTrack = useActiveTrack();
   const [isSliding, setIsSliding] = useState(false);
   const [sliderValue, setSliderValue] = useState(0);
   const [wasPlaying, setWasPlaying] = useState(false);
   const playbackState = usePlaybackState();
-  
+
   const screenWidth = Dimensions.get('window').width;
   const horizontalPadding = 14; // Reduced from 16 to make slider wider
   const sliderWidth = screenWidth - (horizontalPadding * 2); // Full width minus padding
@@ -94,15 +96,15 @@ const ProgressBar = () => {
               try {
                 // Update the slider value immediately for better UX
                 setSliderValue(value);
-                
+
                 // Seek to the new position
                 await TrackPlayer.seekTo(value);
-                
+
                 // If it was playing before seeking, ensure it continues playing
                 if (wasPlaying) {
                   await TrackPlayer.play();
                 }
-                
+
                 // Update the state after a small delay to ensure smooth transition
                 setTimeout(() => {
                   setIsSliding(false);
@@ -117,7 +119,7 @@ const ProgressBar = () => {
             thumbTintColor="white"
           />
         </View>
-        
+
         {/* Time Stamps */}
         <View style={styles.timeContainer}>
           <View style={styles.timeTextWrapper}>
