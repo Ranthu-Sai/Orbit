@@ -106,8 +106,22 @@ const ContextState = (props) => {
                     console.error('Error getting track info during error:', error);
                 }
 
-                // NOTE: Auto-recovery is handled by SmartPrefetchManager._handlePlaybackError()
-                // which fetches stream on-demand and retries playback before skipping
+                // PRIMARY: SmartPrefetchManager handles auto-recovery
+                // FALLBACK: If still in error after 2 seconds, manually recover
+                setTimeout(async () => {
+                    try {
+                        const state = await TrackPlayer.getPlaybackState();
+
+                        // If still in error state, SmartPrefetchManager didn't fix it
+                        if (state.state === 'error' || state.state === 'none') {
+                            console.log('🔄 ContextState: Fallback recovery - skipping to next track');
+                            await TrackPlayer.skipToNext();
+                            await TrackPlayer.play();
+                        }
+                    } catch (err) {
+                        console.error('Error in fallback recovery:', err);
+                    }
+                }, 2000);
             }
 
             if (event.type === Event.PlaybackActiveTrackChanged) {
@@ -115,27 +129,26 @@ const ContextState = (props) => {
                 const currentTrackId = trackingInfo?.currentTrack?.id;
                 const newTrackId = event.track?.id;
 
+                // ✅ UPDATE UI IMMEDIATELY (non-blocking)
+                setCurrentPlaying(event.track);
+
                 // Only process if it's actually a different track
                 if (currentTrackId !== newTrackId) {
-                    // Stop tracking previous song if any
-                    if (trackingInfo.isTracking) {
-                        await historyManager.stopTracking();
-                    }
+                    // ✅ Run history tracking in background (non-blocking)
+                    // Don't await - let it run async to avoid UI freeze
+                    Promise.all([
+                        trackingInfo.isTracking ? historyManager.stopTracking() : Promise.resolve(),
+                        event.track?.id ? historyManager.startTracking(event.track) : Promise.resolve()
+                    ]).catch(err => console.error('History tracking error:', err));
 
-                    setCurrentPlaying(event.track)
-                    if (Repeat === Repeats.NoRepeat) {
-                        if (event.track?.id) {
-                            AddRecommendedSongs(event.index, event.track?.id)
-                        }
+                    // ✅ Add recommendations async (non-blocking)
+                    // Defer to next tick to keep UI responsive
+                    if (Repeat === Repeats.NoRepeat && event.track?.id) {
+                        setTimeout(() => {
+                            AddRecommendedSongs(event.index, event.track.id)
+                                .catch(err => console.error('Recommendations error:', err));
+                        }, 100);
                     }
-
-                    // Start tracking the new track
-                    if (event.track?.id) {
-                        await historyManager.startTracking(event.track);
-                    }
-                } else {
-                    // Same track, just update UI state
-                    setCurrentPlaying(event.track)
                 }
             }
 

@@ -37,6 +37,7 @@ const ArtistPage = () => {
   const routeParams = route.params || {};
   const { safeArtistId, safeArtistName, safeInitialTab } = validateRouteParams(routeParams);
   const source = routeParams.source || 'saavn';
+  const preloadedSongs = routeParams.preloadedSongs || null;
 
   // Validate required parameters
   if (!safeArtistId) {
@@ -73,7 +74,7 @@ const ArtistPage = () => {
     totalSongs,
     loadMoreSongs,
     resetSongs
-  } = useArtistSongs(safeArtistId, 10, source);
+  } = useArtistSongs(safeArtistId, 10, source, preloadedSongs);
   const {
     visibleAlbums,
     albumLoading,

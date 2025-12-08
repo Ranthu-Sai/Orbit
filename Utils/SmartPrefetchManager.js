@@ -14,6 +14,7 @@
 
 import TrackPlayer, { Event, State } from 'react-native-track-player';
 import youtubeStreamingService from './YouTubeStreamingService';
+import { InteractionManager } from 'react-native';
 
 // Constants for configuration
 const PREFETCH_DELAY_MS = 2000; // 2 seconds after playback starts
@@ -218,7 +219,7 @@ class SmartPrefetchManager {
     // ==========================================
 
     /**
-     * Replace a track in queue with updated URL
+     * Replace a track in queue with updated URL (non-blocking)
      */
     async _replaceTrackInQueue(index, originalTrack, streamData) {
         try {
@@ -232,11 +233,17 @@ class SmartPrefetchManager {
 
             const updatedTrack = this._createUpdatedTrack(originalTrack, streamData);
 
-            // Remove old track and insert new one at same position
-            await TrackPlayer.remove(index);
-            await TrackPlayer.add(updatedTrack, index);
-
-            console.log(`🔄 Replaced track at index ${index}`);
+            // ✅ Wrap in InteractionManager to prevent UI blocking
+            InteractionManager.runAfterInteractions(async () => {
+                try {
+                    // Remove old track and insert new one at same position
+                    await TrackPlayer.remove(index);
+                    await TrackPlayer.add(updatedTrack, index);
+                    console.log(`🔄 Replaced track at index ${index}`);
+                } catch (err) {
+                    console.error('Error in queue replacement:', err.message);
+                }
+            });
 
         } catch (error) {
             console.error('Error replacing track:', error.message);

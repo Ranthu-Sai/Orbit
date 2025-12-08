@@ -5,6 +5,7 @@ import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityI
 import { useTheme } from "@react-navigation/native";
 import { AddOneSongToPlaylist } from '../../../MusicPlayerFunctions';
 import { getArtistSongs, getAlbumSongs, getSearchSongData, getSearchArtistData } from '../../../Api/Songs';
+import { getYTMusicArtistSongsPaginated, getYTMusicSearchArtistData } from '../../../Api/YTMusic';
 
 
 /**
@@ -55,9 +56,9 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
         let artistId = null;
         if (index === 0) {
           artistId = song.artistID ||
-                    song.primary_artists_id ||
-                    song.more_info?.artistid ||
-                    song.more_info?.primary_artists_id;
+            song.primary_artists_id ||
+            song.more_info?.artistid ||
+            song.more_info?.primary_artists_id;
         }
 
         artists.push({
@@ -71,9 +72,9 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
     // Method 3: Fallback to single artist
     if (artists.length === 0 && song.artist) {
       const artistId = song.artistID ||
-                      song.primary_artists_id ||
-                      song.more_info?.artistid ||
-                      song.more_info?.primary_artists_id;
+        song.primary_artists_id ||
+        song.more_info?.artistid ||
+        song.more_info?.primary_artists_id;
 
       artists.push({
         id: artistId,
@@ -128,11 +129,11 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
         for (const song of songResponse.data.results) {
           const songArtist = song.artist || song.artists?.primary?.[0]?.name || '';
           if (songArtist.toLowerCase().includes(artistName.toLowerCase()) ||
-              artistName.toLowerCase().includes(songArtist.toLowerCase())) {
+            artistName.toLowerCase().includes(songArtist.toLowerCase())) {
 
             const artistId = song.artists?.primary?.[0]?.id ||
-                           song.artistID ||
-                           song.primary_artists_id;
+              song.artistID ||
+              song.primary_artists_id;
 
             if (artistId) {
               return artistId;
@@ -165,7 +166,7 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
           const betterMatch = response.data.results.find(song => {
             const songArtist = song.artist || song.artists?.primary?.[0]?.name || '';
             return songArtist.toLowerCase().includes(artistName.toLowerCase()) ||
-                   artistName.toLowerCase().includes(songArtist.toLowerCase());
+              artistName.toLowerCase().includes(songArtist.toLowerCase());
           });
 
           if (betterMatch) {
@@ -175,13 +176,13 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
 
         // Extract album information from multiple possible fields
         const albumId = bestMatch.album?.id ||
-                       bestMatch.albumId ||
-                       bestMatch.album_id ||
-                       bestMatch.more_info?.album_id;
+          bestMatch.albumId ||
+          bestMatch.album_id ||
+          bestMatch.more_info?.album_id;
 
         const albumName = bestMatch.album?.name ||
-                         bestMatch.album ||
-                         bestMatch.more_info?.album;
+          bestMatch.album ||
+          bestMatch.more_info?.album;
 
         return {
           albumId: albumId,
@@ -278,15 +279,15 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
 
     // Enhanced album ID detection with more comprehensive field checking
     let albumId = currentPlaying.albumId ||
-                  currentPlaying.album_id ||
-                  currentPlaying.album?.id ||
-                  currentPlaying.more_info?.album_id ||
-                  currentPlaying.more_info?.albumid;
+      currentPlaying.album_id ||
+      currentPlaying.album?.id ||
+      currentPlaying.more_info?.album_id ||
+      currentPlaying.more_info?.albumid;
 
     let albumName = currentPlaying.album?.name ||
-                    currentPlaying.album ||
-                    currentPlaying.more_info?.album ||
-                    'Unknown Album';
+      currentPlaying.album ||
+      currentPlaying.more_info?.album ||
+      'Unknown Album';
 
 
 
@@ -378,12 +379,33 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
 
     let finalArtistId = artistId;
 
+    // Detect if current song is from YouTube Music
+    const isYTMusic = currentPlaying?.source === 'ytmusic';
+    console.log(`📊 Song source detected: ${isYTMusic ? 'YouTube Music' : 'Saavn'}`);
+
     // If no artist ID, try to find it by searching
     if (!finalArtistId) {
       console.log('🔍 Artist ID missing for more songs, searching for:', artistName);
       ToastAndroid.show('Searching for artist...', ToastAndroid.SHORT);
 
-      finalArtistId = await findArtistId(artistName);
+      // Use appropriate search API based on source
+      if (isYTMusic) {
+        try {
+          const ytSearchResponse = await getYTMusicSearchArtistData(artistName, 1, 10);
+          if (ytSearchResponse?.success && ytSearchResponse?.data?.results?.length > 0) {
+            // Find best match
+            const bestMatch = ytSearchResponse.data.results.find(artist =>
+              artist.name.toLowerCase() === artistName.toLowerCase()
+            ) || ytSearchResponse.data.results[0];
+            finalArtistId = bestMatch.id;
+            console.log(`✅ Found YTMusic artist ID: ${finalArtistId}`);
+          }
+        } catch (error) {
+          console.log('❌ YTMusic artist search failed:', error.message);
+        }
+      } else {
+        finalArtistId = await findArtistId(artistName);
+      }
 
       if (!finalArtistId) {
         ToastAndroid.show('Could not find artist information', ToastAndroid.SHORT);
@@ -394,51 +416,87 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
     try {
       ToastAndroid.show(`Loading more songs from ${artistName}...`, ToastAndroid.SHORT);
 
-      // Try multiple API strategies to get artist songs
       let response = null;
       let songs = [];
 
-      // Strategy 1: Use getArtistSongs API
-      try {
-        response = await getArtistSongs(String(finalArtistId));
-        if (response?.success && response?.data?.songs && response.data.songs.length > 0) {
-          songs = response.data.songs;
-          console.log(`✅ Found ${songs.length} songs via getArtistSongs`);
-        }
-      } catch (error) {
-        console.log('❌ getArtistSongs failed:', error.message);
-      }
+      if (isYTMusic) {
+        // Use YouTube Music API for YTMusic tracks
+        console.log('🎵 Using YouTube Music API for artist songs...');
 
-      // Strategy 2: If first API fails, try paginated artist songs
-      if (songs.length === 0) {
         try {
-          const { getArtistSongsPaginated } = require('../../../Api/Songs');
-          response = await getArtistSongsPaginated(String(finalArtistId), 1, 20);
+          response = await getYTMusicArtistSongsPaginated(String(finalArtistId), 1, 20);
           if (response?.success && response?.data?.songs && response.data.songs.length > 0) {
             songs = response.data.songs;
-            console.log(`✅ Found ${songs.length} songs via getArtistSongsPaginated`);
+            console.log(`✅ Found ${songs.length} songs via YTMusic API`);
           }
         } catch (error) {
-          console.log('❌ getArtistSongsPaginated failed:', error.message);
+          console.log('❌ YTMusic getArtistSongs failed:', error.message);
         }
-      }
 
-      // Strategy 3: If both APIs fail, search for songs by artist name
-      if (songs.length === 0) {
+        // Fallback to Saavn search if YouTube Music returns no songs
+        if (songs.length === 0) {
+          try {
+            console.log('🔄 YTMusic returned no songs, falling back to Saavn search...');
+            const searchResponse = await getSearchSongData(artistName, 1, 20);
+            if (searchResponse?.success && searchResponse?.data?.results && searchResponse.data.results.length > 0) {
+              // Filter songs that actually match the artist
+              songs = searchResponse.data.results.filter(song => {
+                const songArtist = song.artist || song.artists?.primary?.[0]?.name || '';
+                return songArtist.toLowerCase().includes(artistName.toLowerCase()) ||
+                  artistName.toLowerCase().includes(songArtist.toLowerCase());
+              });
+              console.log(`✅ Found ${songs.length} songs via Saavn search fallback`);
+            }
+          } catch (error) {
+            console.log('❌ Saavn search fallback failed:', error.message);
+          }
+        }
+      } else {
+        // Use Saavn API for Saavn tracks (existing logic)
+        console.log('🎵 Using Saavn API for artist songs...');
+
+        // Strategy 1: Use getArtistSongs API
         try {
-          console.log('🔍 Trying song search as fallback for artist songs...');
-          const searchResponse = await getSearchSongData(artistName, 1, 20);
-          if (searchResponse?.success && searchResponse?.data?.results && searchResponse.data.results.length > 0) {
-            // Filter songs that actually match the artist
-            songs = searchResponse.data.results.filter(song => {
-              const songArtist = song.artist || song.artists?.primary?.[0]?.name || '';
-              return songArtist.toLowerCase().includes(artistName.toLowerCase()) ||
-                     artistName.toLowerCase().includes(songArtist.toLowerCase());
-            });
-            console.log(`✅ Found ${songs.length} songs via search fallback`);
+          response = await getArtistSongs(String(finalArtistId));
+          if (response?.success && response?.data?.songs && response.data.songs.length > 0) {
+            songs = response.data.songs;
+            console.log(`✅ Found ${songs.length} songs via getArtistSongs`);
           }
         } catch (error) {
-          console.log('❌ Search fallback failed:', error.message);
+          console.log('❌ getArtistSongs failed:', error.message);
+        }
+
+        // Strategy 2: If first API fails, try paginated artist songs
+        if (songs.length === 0) {
+          try {
+            const { getArtistSongsPaginated } = require('../../../Api/Songs');
+            response = await getArtistSongsPaginated(String(finalArtistId), 1, 20);
+            if (response?.success && response?.data?.songs && response.data.songs.length > 0) {
+              songs = response.data.songs;
+              console.log(`✅ Found ${songs.length} songs via getArtistSongsPaginated`);
+            }
+          } catch (error) {
+            console.log('❌ getArtistSongsPaginated failed:', error.message);
+          }
+        }
+
+        // Strategy 3: If both APIs fail, search for songs by artist name
+        if (songs.length === 0) {
+          try {
+            console.log('🔍 Trying song search as fallback for artist songs...');
+            const searchResponse = await getSearchSongData(artistName, 1, 20);
+            if (searchResponse?.success && searchResponse?.data?.results && searchResponse.data.results.length > 0) {
+              // Filter songs that actually match the artist
+              songs = searchResponse.data.results.filter(song => {
+                const songArtist = song.artist || song.artists?.primary?.[0]?.name || '';
+                return songArtist.toLowerCase().includes(artistName.toLowerCase()) ||
+                  artistName.toLowerCase().includes(songArtist.toLowerCase());
+              });
+              console.log(`✅ Found ${songs.length} songs via search fallback`);
+            }
+          } catch (error) {
+            console.log('❌ Search fallback failed:', error.message);
+          }
         }
       }
 
@@ -446,10 +504,12 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
         console.log(`✅ Total songs found: ${songs.length} from artist:`, songs.slice(0, 5).map(s => s.name || s.title));
 
         // Navigate directly to artist page to show all songs
+        // Pass the songs directly to avoid refetching
         navigation.navigate("ArtistPage", {
           artistId: String(finalArtistId),
           artistName: artistName,
-          source: 'FullScreenMusic'
+          source: isYTMusic ? 'ytmusic' : 'saavn',
+          preloadedSongs: songs // Pass the songs we already fetched
         });
 
         ToastAndroid.show(`Found ${songs.length} songs from ${artistName}`, ToastAndroid.SHORT);
@@ -461,11 +521,10 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
       console.error('❌ Error in addMoreFromSpecificArtist:', error);
       ToastAndroid.show('Failed to load artist songs', ToastAndroid.SHORT);
     }
-  }, [isOffline, navigation, findArtistId]);
+  }, [isOffline, navigation, findArtistId, currentPlaying]);
 
   // Add more songs from same artist (legacy function for single artist)
   const addMoreFromArtist = useCallback(async () => {
-    debugMenuAction('More from Artist', currentPlaying);
 
     if (!currentPlaying) {
       ToastAndroid.show('No song is currently playing', ToastAndroid.SHORT);

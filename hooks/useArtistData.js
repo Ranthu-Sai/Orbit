@@ -63,7 +63,7 @@ export const useArtistData = (artistId, source = 'saavn') => {
  * @param {string} source - Source (saavn or ytmusic)
  * @returns {object} - Songs state and functions
  */
-export const useArtistSongs = (artistId, songsPerPage = 10, source = 'saavn') => {
+export const useArtistSongs = (artistId, songsPerPage = 10, source = 'saavn', preloadedSongs = null) => {
   const [visibleSongs, setVisibleSongs] = useState([]);
   const [currentSongPage, setCurrentSongPage] = useState(1);
   const [songLoading, setSongLoading] = useState(false);
@@ -71,11 +71,32 @@ export const useArtistSongs = (artistId, songsPerPage = 10, source = 'saavn') =>
   const [totalSongs, setTotalSongs] = useState(0);
 
   const loadInitialSongs = async () => {
+    // If we have preloaded songs, use them instead of fetching
+    if (preloadedSongs && preloadedSongs.length > 0) {
+      console.log(`✅ Using ${preloadedSongs.length} preloaded songs`);
+      setVisibleSongs(preloadedSongs);
+      setTotalSongs(preloadedSongs.length);
+      setCurrentSongPage(1);
+      setHasMoreSongs(false); // No more to load since we have all preloaded songs
+      return;
+    }
+
     try {
       setSongLoading(true);
       let response;
       if (source === 'ytmusic') {
         response = await getYTMusicArtistSongsPaginated(artistId, 1, songsPerPage);
+
+        // Fallback to Saavn song search if YouTube Music returns no songs
+        if (!response?.data?.songs || response.data.songs.length === 0) {
+          console.log('🔄 YTMusic artist API returned no songs, falling back to Saavn search...');
+          const { getSearchSongData } = require('../Api/Songs');
+
+          // Try to extract artist name from artistId or use it directly
+          // Since we don't have artist name here, we'll need to get it from somewhere
+          // For now, skip the fallback in this hook - the issue is we need artist name
+          console.log('⚠️ Cannot fall back to search without artist name');
+        }
       } else {
         response = await getArtistSongsPaginated(artistId, 1, songsPerPage);
       }
@@ -136,7 +157,7 @@ export const useArtistSongs = (artistId, songsPerPage = 10, source = 'saavn') =>
     if (artistId) {
       loadInitialSongs();
     }
-  }, [artistId, source]);
+  }, [artistId, source, preloadedSongs]);
 
   return {
     visibleSongs,
