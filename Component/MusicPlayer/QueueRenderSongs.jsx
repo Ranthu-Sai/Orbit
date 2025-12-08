@@ -3,7 +3,7 @@ import { View, Text, Platform, ToastAndroid } from "react-native";
 import { EachSongQueue } from "./EachSongQueue";
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import Context from "../../Context/Context";
-import { useActiveTrack, useTrackPlayerEvents, Event, State } from "react-native-track-player";
+import { useActiveTrack, usePlaybackState, useTrackPlayerEvents, Event, State } from "react-native-track-player";
 import TrackPlayer from "react-native-track-player";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import DraggableFlatList, { ScaleDecorator } from "react-native-draggable-flatlist";
@@ -54,6 +54,7 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
   const { Queue } = useContext(Context);
   const { theme, themeMode } = useThemeContext();
   const currentPlaying = useActiveTrack();
+  const playerState = usePlaybackState(); // Call ONCE here instead of in every queue item
   const [upcomingQueue, setUpcomingQueue] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLocalSource, setIsLocalSource] = useState(false);
@@ -1078,6 +1079,8 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         songData={enhancedItem}
         onRemoveFromQueue={handleRemoveFromQueue}
         reorderMode={reorderMode}
+        playerState={playerState}
+        currentPlaying={currentPlaying}
       />
     );
   };
@@ -1141,6 +1144,8 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
               songData={enhancedItem}
               onRemoveFromQueue={handleRemoveFromQueue}
               reorderMode={reorderMode}
+              playerState={playerState}
+              currentPlaying={currentPlaying}
             />
           </ScaleDecorator>
         );
