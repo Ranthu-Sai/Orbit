@@ -14,17 +14,24 @@ import { HistoryPage } from "./HistoryPage";
 const Stack = createNativeStackNavigator();
 export const LibraryRoute = () => {
   return (
-    <Stack.Navigator screenOptions={{headerShown:false, animation:'fade_from_bottom'}}>
-      <Stack.Screen  name="LibraryPage" component={Library} />
-      <Stack.Screen  name="Playlist" component={Playlist} />
-      <Stack.Screen name={"LikedSongs"} component={LikedSongPage}/>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        animation: 'fade_from_bottom',
+        // INSTANCE REUSE: Keep screens frozen in memory for instant back navigation
+        freezeOnBlur: true,
+      }}
+    >
+      <Stack.Screen name="LibraryPage" component={Library} />
+      <Stack.Screen name="Playlist" component={Playlist} />
+      <Stack.Screen name={"LikedSongs"} component={LikedSongPage} />
       <Stack.Screen name={"CustomPlaylist"} component={CustomPlaylist} />
       <Stack.Screen name={"CustomPlaylistView"} component={CustomPlaylistView} />
-      <Stack.Screen name={"LikedPlaylists"} component={LikedPlaylistPage}/>
-      <Stack.Screen name={"AboutProject"} component={AboutProject}/>
-      <Stack.Screen name={"MyMusicPage"} component={MyMusicPage}/>
-      <Stack.Screen name={"DownloadScreen"} component={DownloadScreen}/>
-      <Stack.Screen name={"HistoryPage"} component={HistoryPage}/>
+      <Stack.Screen name={"LikedPlaylists"} component={LikedPlaylistPage} />
+      <Stack.Screen name={"AboutProject"} component={AboutProject} />
+      <Stack.Screen name={"MyMusicPage"} component={MyMusicPage} />
+      <Stack.Screen name={"DownloadScreen"} component={DownloadScreen} />
+      <Stack.Screen name={"HistoryPage"} component={HistoryPage} />
 
     </Stack.Navigator>
   );

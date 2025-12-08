@@ -1,13 +1,15 @@
 import Animated, { useAnimatedRef } from "react-native-reanimated";
 import { LikedPagesTopHeader } from "../../Component/Library/TopHeaderLikedPages";
 import { LikedDetails } from "../../Component/Library/LikedDetails";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { GetLikedPlaylist } from "../../LocalStorage/StoreLikedPlaylists";
 import { EachPlaylistCard } from "../../Component/Global/EachPlaylistCard";
-import { View, Dimensions, StyleSheet } from "react-native";
-import { useTheme, useNavigation, useFocusEffect } from "@react-navigation/native";
+import { View, Dimensions, StyleSheet, RefreshControl } from "react-native";
+import { useTheme, useNavigation } from "@react-navigation/native";
 import { PaddingConatiner } from "../../Layout/PaddingConatiner";
 import React from "react";
+import { CacheManager } from '../../Utils/NavigationCacheManager';
+import { CACHE_TTL, CACHE_KEYS } from '../../Utils/CacheConfig';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -15,52 +17,77 @@ export const LikedPlaylistPage = () => {
   const theme = useTheme()
   const AnimatedRef = useAnimatedRef()
   const [LikedPlaylist, setLikedPlaylist] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
-  
+  const isMounted = useRef(true);
+  const isInitialLoad = useRef(true);
+
   // Removed BackHandler - let RootRoute handle navigation
 
-  async function getAllLikedSongs(){
-    const Playlists = await GetLikedPlaylist()
-    const Temp = []
-    for (const [key, value] of Object.entries(Playlists.playlist)) {
-      Temp[value.count] = value
+  // CACHE-FIRST LOADING for liked playlists
+  const getAllLikedSongs = useCallback(async (forceRefresh = false) => {
+    const cacheKey = CACHE_KEYS.LIKED_PLAYLISTS;
+
+    // Check cache first (unless force refresh)
+    if (!forceRefresh) {
+      const cached = CacheManager.get(cacheKey);
+      if (cached) {
+        console.log('[LikedPlaylist] Using cached data - no refetch needed');
+        setLikedPlaylist(cached);
+        return;
+      }
     }
-    setLikedPlaylist(Temp.filter(Boolean)) // Filter out any empty entries
-    console.log('Liked playlists loaded:', Temp.filter(Boolean).length);
-  }
-  
-  // Use a focus effect to refresh the data whenever the screen comes into focus
-  useFocusEffect(
-    React.useCallback(() => {
-      console.log('LikedPlaylistPage focused, refreshing playlists');
-      getAllLikedSongs();
-      return () => {};
-    }, [])
-  );
-  
-  // Initial load
-  useEffect(() => {
-    getAllLikedSongs();
+
+    const Playlists = await GetLikedPlaylist();
+    const Temp = [];
+    for (const [key, value] of Object.entries(Playlists.playlist)) {
+      Temp[value.count] = value;
+    }
+    const result = Temp.filter(Boolean);
+
+    if (isMounted.current) {
+      setLikedPlaylist(result);
+      // Cache with 10-minute TTL
+      CacheManager.set(cacheKey, result, CACHE_TTL.LIBRARY_DATA);
+      console.log('[LikedPlaylist] Data cached');
+    }
   }, []);
 
+  // Pull to refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    CacheManager.invalidate(CACHE_KEYS.LIKED_PLAYLISTS);
+    await getAllLikedSongs(true);
+    setRefreshing(false);
+  }, [getAllLikedSongs]);
+
+  // Initial load only (NO useFocusEffect - no reload on back navigation)
+  useEffect(() => {
+    getAllLikedSongs(false);
+
+    return () => {
+      isMounted.current = false;
+    };
+  }, [getAllLikedSongs]);
+
   return (
-    <Animated.ScrollView 
-      scrollEventThrottle={16} 
-      ref={AnimatedRef} 
+    <Animated.ScrollView
+      scrollEventThrottle={16}
+      ref={AnimatedRef}
       contentContainerStyle={{
         paddingBottom: 65,
         backgroundColor: theme.colors.background,
       }}
     >
       <LikedPagesTopHeader AnimatedRef={AnimatedRef} url={require("../../Images/LikedPlaylist.png")} />
-      <LikedDetails name={"Liked Playlists"} dontShowPlayButton={true} textStyle={!theme.dark ? { color: '#FFFFFF' } : {}}/>
+      <LikedDetails name={"Liked Playlists"} dontShowPlayButton={true} textStyle={!theme.dark ? { color: '#FFFFFF' } : {}} />
       <PaddingConatiner>
         <View style={styles.playlistContainer}>
           {LikedPlaylist.map((e, i) => {
             if (e) {
               return (
                 <View key={e.id || `playlist-${i}`} style={styles.cardWrapper}>
-                  <EachPlaylistCard 
+                  <EachPlaylistCard
                     name={e.name}
                     image={e.image}
                     id={e.id}

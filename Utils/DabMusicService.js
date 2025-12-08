@@ -4,11 +4,13 @@
  * 
  * @module DabMusicService
  * @description Modular, clean service layer for DAB Music integration
+ * CACHING: Stream URLs are cached for 3 hours via NavigationCacheManager
  */
 
 import axios from 'axios';
 import { ToastAndroid } from 'react-native';
 import DabAuthService from './DabAuthService';
+import { CacheManager } from './NavigationCacheManager';
 
 // Configuration
 const DAB_API_BASE = 'https://dabmusic.xyz/api';
@@ -120,12 +122,11 @@ class DabMusicService {
             throw new Error('Track ID is required');
         }
 
-        // Check cache first
-        const cacheKey = `stream_${trackId}`;
-        const cached = this._getFromCache(this.streamCache, cacheKey);
-        if (cached) {
-            console.log('🎯 Using cached stream URL');
-            return cached;
+        // CHECK CENTRALIZED CACHE FIRST (3-hour TTL)
+        const cachedUrl = CacheManager.getStreamUrl(trackId, 'dab');
+        if (cachedUrl) {
+            console.log(`🚀 [Cache] DAB stream URL cache HIT for ${trackId}`);
+            return cachedUrl;
         }
 
         try {
@@ -168,8 +169,9 @@ class DabMusicService {
                 throw new Error('No stream URL returned');
             }
 
-            // Cache the URL (shorter cache time for streams)
-            this._setInCache(this.streamCache, cacheKey, streamUrl, 30 * 60 * 1000); // 30 min
+            // CACHE THE URL with 3-hour TTL via NavigationCacheManager
+            CacheManager.setStreamUrl(trackId, streamUrl, 'dab');
+            console.log(`📦 [Cache] DAB stream URL cached for ${trackId} (3-hour TTL)`);
 
             console.log('✅ Got DAB stream URL');
             return streamUrl;

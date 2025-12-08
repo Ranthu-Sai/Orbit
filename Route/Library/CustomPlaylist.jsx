@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { View, Modal, TextInput, Pressable, Text, FlatList, StyleSheet, Animated, Easing, ToastAndroid, Dimensions, ScrollView } from "react-native";
 import { GetCustomPlaylists, CreateCustomPlaylist } from "../../LocalStorage/CustomPlaylists";
 import { useTheme } from "@react-navigation/native";
@@ -8,9 +8,11 @@ import { Spacer } from "../../Component/Global/Spacer";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import FastImage from "react-native-fast-image";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getUserPlaylists, createPlaylist, clearPlaylistCache } from "../../Utils/PlaylistManager";
+import { CacheManager } from '../../Utils/NavigationCacheManager';
+import { CACHE_TTL, CACHE_KEYS } from '../../Utils/CacheConfig';
 
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -29,43 +31,67 @@ export const CustomPlaylist = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [animationsInitialized, setAnimationsInitialized] = useState(false);
-  
-  // Keep track of animation values for reuse
+
   const [animationValues] = useState({
     translateY: new Map(),
     opacity: new Map()
   });
 
+  // Track mount state
+  const isMounted = useRef(true);
+  const isInitialLoad = useRef(true);
+
   // Initialize animation value for an item if it doesn't exist
   const getAnimationValues = (id, index) => {
     const key = id || `item-${index}`;
-    
+
     if (!animationValues.translateY.has(key)) {
       animationValues.translateY.set(key, new Animated.Value(20));
       animationValues.opacity.set(key, new Animated.Value(0));
     }
-    
+
     return {
       translateY: animationValues.translateY.get(key),
       opacity: animationValues.opacity.get(key)
     };
   };
 
-  const loadPlaylists = async () => {
+  // CACHE-FIRST LOADING for playlists
+  const loadPlaylists = async (forceRefresh = false) => {
+    if (!isMounted.current) return;
+
+    const cacheKey = CACHE_KEYS.CUSTOM_PLAYLISTS;
+
     try {
-      setLoading(true);
+      // Check cache first (unless force refresh)
+      if (!forceRefresh) {
+        const cached = CacheManager.get(cacheKey);
+        if (cached) {
+          console.log('[CustomPlaylist] Using cached data - no API call needed');
+          setPlaylists(cached.playlists || {});
+          setUserPlaylists(cached.userPlaylists || []);
+          setHasPlaylists(cached.hasPlaylists || false);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Only show loading on initial load
+      if (isInitialLoad.current) {
+        setLoading(true);
+      }
+
       setError(null);
-      console.log('Loading playlists in CustomPlaylist component...');
-      
+      console.log('[CustomPlaylist] Fetching playlist data...');
+
       // Load legacy custom playlists
       const customPlaylists = await GetCustomPlaylists();
       setPlaylists(customPlaylists);
-      
+
       // Load user playlists from the new PlaylistManager
       const newUserPlaylists = await getUserPlaylists();
-      console.log('Loaded user playlists:', newUserPlaylists);
-      console.log('User playlists count:', newUserPlaylists?.length || 0);
-      
+      console.log('Loaded user playlists:', newUserPlaylists?.length || 0);
+
       // Ensure we're setting a valid array to state
       if (Array.isArray(newUserPlaylists)) {
         setUserPlaylists(newUserPlaylists);
@@ -73,27 +99,32 @@ export const CustomPlaylist = () => {
         console.warn('User playlists is not an array:', newUserPlaylists);
         setUserPlaylists([]);
       }
-      
+
       // Check if we have any playlists from either source
-      const hasAnyPlaylists = 
-        Object.keys(customPlaylists).length > 0 || 
+      const hasAnyPlaylists =
+        Object.keys(customPlaylists).length > 0 ||
         (Array.isArray(newUserPlaylists) && newUserPlaylists.length > 0);
-        
+
       setHasPlaylists(hasAnyPlaylists);
-      console.log('Has any playlists:', hasAnyPlaylists);
-      
-      // Debug output
-      if (Array.isArray(newUserPlaylists)) {
-        newUserPlaylists.forEach((playlist, index) => {
-          console.log(`Playlist ${index}: ${playlist.name} (${playlist.id}), Songs: ${playlist.songs?.length || 0}`);
-        });
+
+      // Cache the data
+      if (isMounted.current) {
+        CacheManager.set(cacheKey, {
+          playlists: customPlaylists,
+          userPlaylists: Array.isArray(newUserPlaylists) ? newUserPlaylists : [],
+          hasPlaylists: hasAnyPlaylists
+        }, CACHE_TTL.LIBRARY_DATA);
+        console.log('[CustomPlaylist] Data cached');
       }
     } catch (error) {
       console.error('Error loading playlists:', error);
       setError('Failed to load playlists');
       ToastAndroid.show('Failed to load playlists', ToastAndroid.SHORT);
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+        isInitialLoad.current = false;
+      }
     }
   };
 
@@ -116,7 +147,7 @@ export const CustomPlaylist = () => {
       ToastAndroid.show('Please enter a playlist name', ToastAndroid.SHORT);
     }
   };
-  
+
   // Run animations once when playlists are loaded
   useEffect(() => {
     if ((userPlaylists.length > 0 || Object.keys(playlists).length > 0) && !animationsInitialized) {
@@ -124,7 +155,7 @@ export const CustomPlaylist = () => {
       userPlaylists.forEach((item, index) => {
         const key = item.id || `item-${index}`;
         const vals = getAnimationValues(key, index);
-        
+
         Animated.timing(vals.translateY, {
           toValue: 0,
           duration: 300,
@@ -140,12 +171,12 @@ export const CustomPlaylist = () => {
           useNativeDriver: true,
         }).start();
       });
-      
+
       // Animate legacy playlists
       Object.keys(playlists).forEach((item, index) => {
         const key = item;
         const vals = getAnimationValues(key, index);
-        
+
         Animated.timing(vals.translateY, {
           toValue: 0,
           duration: 300,
@@ -161,19 +192,20 @@ export const CustomPlaylist = () => {
           useNativeDriver: true,
         }).start();
       });
-      
+
       setAnimationsInitialized(true);
     }
   }, [userPlaylists, playlists, animationsInitialized, animationValues]);
 
-  // Refresh playlists when the screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      console.log('CustomPlaylist screen focused, refreshing playlists');
-      loadPlaylists();
-      return () => {};
-    }, [])
-  );
+  // NO useFocusEffect - only load on mount (instant back navigation)
+  // Pull-to-refresh is the way to force refresh
+  useEffect(() => {
+    loadPlaylists(false);
+
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // Removed BackHandler - let RootRoute handle navigation
 
@@ -193,27 +225,27 @@ export const CustomPlaylist = () => {
     setMenuVisible(false);
     ToastAndroid.show('Playlist deleted', ToastAndroid.SHORT);
   };
-  
+
   const handleDeleteUserPlaylist = async (playlistId) => {
     try {
       // Get existing playlists
       const allPlaylists = await getUserPlaylists();
-      
+
       // Filter out the playlist to delete
       const updatedPlaylists = allPlaylists.filter(p => p.id !== playlistId);
-      
+
       // Save the updated playlists - await to ensure operation completes
       await AsyncStorage.setItem('userPlaylists', JSON.stringify(updatedPlaylists));
-      
+
       // Clear playlist cache to ensure fresh data
       clearPlaylistCache();
-      
+
       // Close modal first
       setMenuVisible(false);
-      
+
       // Show feedback
       ToastAndroid.show('Playlist deleted', ToastAndroid.SHORT);
-      
+
       // Reload playlists after a short delay to ensure AsyncStorage is updated
       setTimeout(() => {
         loadPlaylists();
@@ -238,19 +270,19 @@ export const CustomPlaylist = () => {
       ToastAndroid.show('Please enter a valid name', ToastAndroid.SHORT);
       return;
     }
-    
+
     try {
       // Handle updating user playlist vs legacy playlist
       if (typeof selectedPlaylist === 'object' && selectedPlaylist.id) {
         // This is a user playlist object
         const userPlaylists = await getUserPlaylists();
         const playlistIndex = userPlaylists.findIndex(p => p.id === selectedPlaylist.id);
-        
+
         if (playlistIndex !== -1) {
           // Update the name
           userPlaylists[playlistIndex].name = newPlaylistName.trim();
           userPlaylists[playlistIndex].lastModified = Date.now();
-          
+
           // Save updated playlists
           await AsyncStorage.setItem('userPlaylists', JSON.stringify(userPlaylists));
           loadPlaylists();
@@ -262,7 +294,7 @@ export const CustomPlaylist = () => {
         const customPlaylists = await GetCustomPlaylists();
         customPlaylists[newPlaylistName] = customPlaylists[selectedPlaylist];
         delete customPlaylists[selectedPlaylist];
-        
+
         await AsyncStorage.setItem('CustomPlaylists', JSON.stringify(customPlaylists));
         loadPlaylists();
         setEditModalVisible(false);
@@ -293,12 +325,12 @@ export const CustomPlaylist = () => {
   const renderPlaylist = ({ item, index }) => {
     // Use the pre-calculated animation values
     const animations = getAnimationValues(item, index);
-    
+
     const handlePlaylistPress = () => {
       const playlist = playlists[item];
       if (playlist) {
-        navigation.navigate("CustomPlaylistView", { 
-          songs: playlist, 
+        navigation.navigate("CustomPlaylistView", {
+          songs: playlist,
           playlistName: item,
           previousScreen: "CustomPlaylist"
         });
@@ -327,7 +359,7 @@ export const CustomPlaylist = () => {
               {playlists[item] ? playlists[item].length : 0} songs
             </Text>
           </View>
-          
+
           {/* Three-dot menu button */}
           <Pressable
             style={styles.optionsButton}
@@ -340,19 +372,19 @@ export const CustomPlaylist = () => {
       </Animated.View>
     );
   };
-  
+
   const renderUserPlaylist = ({ item, index }) => {
     // Reduce logging to avoid console spam
     // console.log(`Rendering user playlist: ${item.name} (${item.id})`);
-    
+
     // Use the pre-calculated animation values
     const animations = getAnimationValues(item.id, index);
-    
+
     const handlePlaylistPress = () => {
       // Navigate to the playlist view with the songs from this playlist
       if (item.songs && item.songs.length > 0) {
-        navigation.navigate("CustomPlaylistView", { 
-          songs: item.songs, 
+        navigation.navigate("CustomPlaylistView", {
+          songs: item.songs,
           playlistName: item.name,
           playlistId: item.id,
           previousScreen: "CustomPlaylist"
@@ -392,7 +424,7 @@ export const CustomPlaylist = () => {
               {item.songs ? item.songs.length : 0} songs
             </Text>
           </View>
-          
+
           {/* Three-dot menu button */}
           <Pressable
             style={styles.optionsButton}
@@ -411,7 +443,7 @@ export const CustomPlaylist = () => {
     const playlistNames = Object.keys(playlists);
     const hasLegacyPlaylists = playlistNames.length > 0;
     const hasNewPlaylists = userPlaylists.length > 0;
-    
+
     if (loading) {
       return (
         <View style={styles.emptyContainer}>
@@ -422,7 +454,7 @@ export const CustomPlaylist = () => {
         </View>
       );
     }
-    
+
     if (error) {
       return (
         <View style={styles.emptyContainer}>
@@ -430,7 +462,7 @@ export const CustomPlaylist = () => {
           <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
             {error}
           </Text>
-          <Pressable 
+          <Pressable
             style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
             onPress={loadPlaylists}
           >
@@ -439,7 +471,7 @@ export const CustomPlaylist = () => {
         </View>
       );
     }
-    
+
     if (!hasLegacyPlaylists && !hasNewPlaylists) {
       return (
         <View style={styles.emptyContainer}>
@@ -448,7 +480,7 @@ export const CustomPlaylist = () => {
             You don't have any playlists yet.
           </Text>
           <Spacer height={20} />
-          <Pressable 
+          <Pressable
             style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
             onPress={() => setModalVisible(true)}
             android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
@@ -461,7 +493,7 @@ export const CustomPlaylist = () => {
 
     // Use manual rendering instead of nested FlatLists
     return (
-      <ScrollView 
+      <ScrollView
         style={styles.playlistsScrollContainer}
         contentContainerStyle={styles.playlistsContentContainer}
       >
@@ -476,7 +508,7 @@ export const CustomPlaylist = () => {
             ))}
           </View>
         )}
-        
+
         {/* Legacy Playlists Section */}
         {hasLegacyPlaylists && (
           <View style={styles.playlistsSection}>
@@ -506,9 +538,9 @@ export const CustomPlaylist = () => {
       navigation.navigate('Library', { screen: 'LibraryPage' });
       return true; // Prevent default back action
     };
-    
+
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBack);
-    
+
     return () => backHandler.remove();
   }, [navigation]);
 
@@ -526,8 +558,8 @@ export const CustomPlaylist = () => {
           </Pressable>
         </View>
       </View>
-      
-      <ScrollView 
+
+      <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={true}
         contentContainerStyle={styles.contentContainer}
@@ -542,20 +574,20 @@ export const CustomPlaylist = () => {
         onRequestClose={() => setMenuVisible(false)}
         animationType="fade"
       >
-        <Pressable 
-          style={styles.menuModalOverlay} 
+        <Pressable
+          style={styles.menuModalOverlay}
           onPress={() => setMenuVisible(false)}
         >
-          <View 
+          <View
             style={[
-              styles.menuContainer, 
-              { 
+              styles.menuContainer,
+              {
                 top: menuPosition.y,
                 left: menuPosition.x
               }
             ]}
           >
-            <Pressable 
+            <Pressable
               style={styles.menuItem}
               onPress={handleEditPlaylist}
               android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
@@ -563,7 +595,7 @@ export const CustomPlaylist = () => {
               <MaterialIcons name="edit" size={24} color="white" />
               <Text style={styles.menuItemText}>Rename</Text>
             </Pressable>
-            <Pressable 
+            <Pressable
               style={styles.menuItem}
               onPress={() => {
                 // Check if this is a user playlist object or legacy playlist name
@@ -602,18 +634,18 @@ export const CustomPlaylist = () => {
               autoFocus
             />
             <View style={styles.modalButtonContainer}>
-              <Pressable 
+              <Pressable
                 style={[styles.cancelButton, { backgroundColor: theme.colors.border }]}
                 onPress={() => setModalVisible(false)}
               >
                 <Text style={[styles.cancelButtonText, { color: theme.colors.text }]}>Cancel</Text>
               </Pressable>
-            <Pressable 
-              style={[styles.createPlaylistButton, { backgroundColor: theme.colors.primary || '#1DB954' }]}
-              onPress={handleCreatePlaylist}
-            >
-              <Text style={styles.createButtonText}>Create</Text>
-            </Pressable>
+              <Pressable
+                style={[styles.createPlaylistButton, { backgroundColor: theme.colors.primary || '#1DB954' }]}
+                onPress={handleCreatePlaylist}
+              >
+                <Text style={styles.createButtonText}>Create</Text>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -639,13 +671,13 @@ export const CustomPlaylist = () => {
               autoFocus
             />
             <View style={styles.modalButtonContainer}>
-              <Pressable 
+              <Pressable
                 style={[styles.cancelButton, { backgroundColor: theme.colors.border }]}
                 onPress={() => setEditModalVisible(false)}
               >
                 <Text style={[styles.cancelButtonText, { color: theme.colors.text }]}>Cancel</Text>
               </Pressable>
-              <Pressable 
+              <Pressable
                 style={[styles.createPlaylistButton, { backgroundColor: theme.colors.primary || '#1DB954' }]}
                 onPress={handleUpdatePlaylistName}
               >

@@ -2,7 +2,7 @@ import { MainWrapper } from "../Layout/MainWrapper";
 import { PlaylistHeader } from "../Component/Playlist/PlaylistHeader";
 import { View, BackHandler, Pressable, ActivityIndicator, StyleSheet, Dimensions, Text, ScrollView } from "react-native";
 import { EachSongCard } from "../Component/Global/EachSongCard";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { getPlaylistData } from "../Api/Playlist";
 import { getYTMusicPlaylistData } from "../Api/YTMusic";
 import { LoadingComponent } from "../Component/Global/Loading";
@@ -13,6 +13,8 @@ import { useNavigation, CommonActions, useTheme } from "@react-navigation/native
 import { Spacer } from "../Component/Global/Spacer";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useActiveTrack, usePlaybackState } from "react-native-track-player";
+import { CacheManager } from '../Utils/NavigationCacheManager';
+import { CACHE_TTL, CACHE_KEYS, generateCacheKey } from '../Utils/CacheConfig';
 
 // AsyncStorage keys
 const CURRENT_PLAYLIST_ID_KEY = "orbit_current_playlist_id";
@@ -150,18 +152,42 @@ export const Playlist = ({ route }) => {
   const [source, setSource] = useState(route?.params?.source || null);
   const [navigationSource, setNavigationSource] = useState(routeNavigationSource || null);
 
-  // Memoized fetch function for playlist data to reduce API calls
-  const fetchPlaylistData = useCallback(async () => {
+  // Track mount state
+  const isMounted = useRef(true);
+  const isInitialLoad = useRef(true);
+
+  // CACHE-FIRST LOADING: Memoized fetch function for playlist data
+  const fetchPlaylistData = useCallback(async (forceRefresh = false) => {
+    if (!isMounted.current) return;
+
     try {
       // Only fetch if id is defined
       if (!id) {
-        console.log("No playlist ID available in fetchPlaylistData");
+        console.log("[Playlist] No playlist ID available");
         setLoading(false);
         return;
       }
 
-      console.log(`Fetching playlist data for ID: ${id}`);
-      setLoading(true);
+      const cacheKey = generateCacheKey(CACHE_KEYS.PLAYLIST, id);
+
+      // Step 1: Check cache first (unless force refresh)
+      if (!forceRefresh) {
+        const cachedData = CacheManager.get(cacheKey);
+        if (cachedData) {
+          console.log(`[Playlist] Cache HIT for ${id} - instant load`);
+          setData(cachedData);
+          setLoading(false);
+          isInitialLoad.current = false;
+          return; // EXIT EARLY - no API call needed
+        }
+      }
+
+      // Cache miss - show loading only on initial load
+      if (isInitialLoad.current) {
+        console.log(`[Playlist] Cache MISS - fetching ${id}`);
+        setLoading(true);
+      }
+
       let data = {};
 
       if (source === 'ytmusic') {
@@ -170,10 +196,15 @@ export const Playlist = ({ route }) => {
         data = await getPlaylistData(id);
       }
 
+      if (!isMounted.current) return;
+
       setData(data);
 
-      // If we successfully got playlist data, update the stored information
+      // Cache the data with 10-minute TTL
       if (data?.data) {
+        CacheManager.set(cacheKey, data, CACHE_TTL.PLAYLIST_DATA);
+        console.log(`[Playlist] Data cached for ${id} (10-minute TTL)`);
+
         const updatedPlaylistData = {
           id: id,
           image: image || data?.data?.image?.[2]?.url || '',
@@ -188,9 +219,12 @@ export const Playlist = ({ route }) => {
         await AsyncStorage.setItem(CURRENT_PLAYLIST_DATA_KEY, JSON.stringify(updatedPlaylistData));
       }
     } catch (e) {
-      console.error(`Error fetching playlist with ID ${id}:`, e.message);
+      console.error(`[Playlist] Error fetching ${id}:`, e.message);
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+        isInitialLoad.current = false;
+      }
     }
   }, [id, image, name, follower, source, navigationSource, route?.params]);
 
@@ -258,7 +292,7 @@ export const Playlist = ({ route }) => {
         }
 
         // After setting up the ID (either from route or storage), fetch the playlist data
-        fetchPlaylistData();
+        fetchPlaylistData(false);
 
       } catch (e) {
         console.error('Error recovering playlist data:', e);
@@ -273,6 +307,7 @@ export const Playlist = ({ route }) => {
 
     return () => {
       backHandler.remove();
+      isMounted.current = false;
     };
   }, [routeId, routeImage, routeName, routeFollower, routeNavigationSource, fetchPlaylistData, navigation]);
 

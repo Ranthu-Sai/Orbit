@@ -1,6 +1,6 @@
 /* eslint-disable keyword-spacing */
-import React, { useEffect, useState } from "react";
-import { Dimensions, FlatList, View, BackHandler, ActivityIndicator, Pressable } from "react-native";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { Dimensions, FlatList, View, BackHandler, ActivityIndicator, Pressable, RefreshControl } from "react-native";
 import { LoadingComponent } from "../Global/Loading";
 import { EachPlaylistCard } from "../Global/EachPlaylistCard";
 import { PlainText } from "../Global/PlainText";
@@ -8,10 +8,12 @@ import { SmallText } from "../Global/SmallText";
 import { getSearchPlaylistData } from "../../Api/Playlist";
 import { Heading } from "../Global/Heading";
 import { PaddingConatiner } from "../../Layout/PaddingConatiner";
-import { useNavigation, useFocusEffect, useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PlaylistItemWrapper } from "./PlaylistItemWrapper";
 import { CommonActions } from "@react-navigation/native";
+import { CacheManager } from '../../Utils/NavigationCacheManager';
+import { CACHE_TTL, CACHE_KEYS, generateCacheKey } from '../../Utils/CacheConfig';
 
 // Add a utility function to truncate text
 const truncateText = (text, limit = 22) => {
@@ -22,18 +24,20 @@ const truncateText = (text, limit = 22) => {
 // AsyncStorage key for navigation source
 const NAVIGATION_SOURCE_KEY = "orbit_navigation_source";
 
-export default function ShowPlaylistofType({route}) {
-  const {Searchtext = 'most searched', navigationSource } = route?.params || {}; // Get nav source if available
+export default function ShowPlaylistofType({ route }) {
+  const { Searchtext = 'most searched', navigationSource } = route?.params || {};
   const navigation = useNavigation();
   const currentRoute = useRoute();
   const limit = 30;
   const [Data, setData] = useState({});
-  const [Loading, setLoading] = useState(true);
-  const [isRendered, setIsRendered] = useState(false);
+  const [Loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState(null);
   const [source, setSource] = useState(null);
   const { width } = Dimensions.get("window");
-  
+  const isMounted = useRef(true);
+  const isInitialLoad = useRef(true);
+
   // Store the navigation source when component mounts
   useEffect(() => {
     const getNavigationSource = async () => {
@@ -45,18 +49,18 @@ export default function ShowPlaylistofType({route}) {
           await AsyncStorage.setItem(NAVIGATION_SOURCE_KEY, navigationSource);
           return;
         }
-        
+
         // Then check for current route state
         const routeName = currentRoute?.name;
         const parentRoute = navigation.getState()?.routes?.[0]?.name;
-        
+
         if (parentRoute && parentRoute !== 'Discover') {
           console.log(`Setting navigation source from parent route: ${parentRoute}`);
           setSource(parentRoute);
           await AsyncStorage.setItem(NAVIGATION_SOURCE_KEY, parentRoute);
           return;
         }
-        
+
         // Fallback to AsyncStorage
         const storedSource = await AsyncStorage.getItem(NAVIGATION_SOURCE_KEY);
         if (storedSource) {
@@ -73,33 +77,77 @@ export default function ShowPlaylistofType({route}) {
         setSource('Discover'); // Default fallback
       }
     };
-    
+
     getNavigationSource();
   }, [navigation, navigationSource, currentRoute]);
-  
-  // Force refresh when screen is focused (coming back from playlist)
-  useFocusEffect(
-    React.useCallback(() => {
-      console.log('ShowPlaylistofType focused with search term:', Searchtext);
-      // Reset error state when focused
-      setFetchError(null);
-      
-      // Always force a refresh when the screen is focused
-      setLoading(true);
-      setIsRendered(true);
-      addSearchData();
-      
-      return () => {
-        // Clean up here if needed
-      };
-    }, [Searchtext]) // Depend on Searchtext to refresh when it changes
-  );
-  
+
+  // CACHE-FIRST LOADING for playlist data
+  const addSearchData = useCallback(async (forceRefresh = false) => {
+    if (!isMounted.current) return;
+
+    const cacheKey = generateCacheKey(CACHE_KEYS.SEARCH, Searchtext);
+
+    try {
+      // Check cache first (unless force refresh)
+      if (!forceRefresh) {
+        const cached = CacheManager.get(cacheKey);
+        if (cached) {
+          console.log(`[ShowPlaylist] Cache HIT for ${Searchtext}`);
+          setData(cached);
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (isInitialLoad.current) {
+        setLoading(true);
+      }
+
+      console.log(`[ShowPlaylist] Fetching data for ${Searchtext}`);
+      const data = await getSearchPlaylistData(Searchtext || 'most searched', 1, limit);
+
+      if (!isMounted.current) return;
+
+      if (data?.data) {
+        setData(data);
+        CacheManager.set(cacheKey, data, CACHE_TTL.SEARCH_RESULTS);
+        setFetchError(null);
+        console.log(`[ShowPlaylist] Data cached`);
+      } else {
+        setFetchError('No results found');
+      }
+    } catch (e) {
+      console.log('Error fetching playlist data:', e);
+      setFetchError(e.message);
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+        setRefreshing(false);
+        isInitialLoad.current = false;
+      }
+    }
+  }, [Searchtext, limit]);
+
+  // Pull to refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    CacheManager.invalidate(generateCacheKey(CACHE_KEYS.SEARCH, Searchtext));
+    addSearchData(true);
+  }, [Searchtext, addSearchData]);
+
+  // Initial load only (NO useFocusEffect - instant back navigation)
+  useEffect(() => {
+    addSearchData(false);
+    return () => {
+      isMounted.current = false;
+    };
+  }, [addSearchData]);
+
   // Add back handler for hardware back button
   useEffect(() => {
     const handleBackPress = () => {
       console.log(`Back pressed in ShowPlaylistofType, source is ${source}`);
-      
+
       // Navigate based on the source instead of always going to Discover
       if (source === 'HomePage') {
         console.log('Navigating back to Home');
@@ -140,44 +188,16 @@ export default function ShowPlaylistofType({route}) {
           navigation.navigate('Discover', { screen: 'DiscoverPage' });
         }
       }
-      
+
       return true;
     };
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
-    
+
     return () => {
       backHandler.remove();
     };
   }, [navigation, source]);
-  
-  async function addSearchData(){
-    // Always try to fetch data, even with empty search text
-    try {
-      setLoading(true);
-      console.log(`Fetching playlist data for search: ${Searchtext}`);
-      const fetchdata = await getSearchPlaylistData(Searchtext || 'most searched', 1, limit);
-      if (fetchdata?.data?.results) {
-        setData(fetchdata);
-        setFetchError(null);
-      } else {
-        console.log("No results or invalid data structure:", fetchdata);
-        setFetchError("Failed to load playlist data");
-      }
-    } catch (e) {
-      console.log("Error fetching search data:", e);
-      setFetchError(e.message || "An error occurred while loading data");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // Initial load
-  useEffect(() => {
-    if (!isRendered) {
-      addSearchData();
-    }
-  }, []);
 
   // Calculate optimal card sizing based on screen width
   const getCardWidth = () => {
@@ -191,9 +211,9 @@ export default function ShowPlaylistofType({route}) {
   return (
     <View style={{ flex: 1 }}>
       <PaddingConatiner>
-        <Heading text={(Searchtext || 'Popular Playlists').toUpperCase()}/>
+        <Heading text={(Searchtext || 'Popular Playlists').toUpperCase()} />
       </PaddingConatiner>
-      
+
       {/* Improved loading state */}
       {Loading && (
         <View style={{
@@ -203,10 +223,10 @@ export default function ShowPlaylistofType({route}) {
           height: 300
         }}>
           <ActivityIndicator size="large" color="#1DB954" />
-          <PlainText text={`Loading ${Searchtext || 'playlist'} data...`} style={{marginTop: 10}} />
+          <PlainText text={`Loading ${Searchtext || 'playlist'} data...`} style={{ marginTop: 10 }} />
         </View>
       )}
-      
+
       {/* Error state */}
       {fetchError && !Loading && (
         <View style={{
@@ -216,25 +236,25 @@ export default function ShowPlaylistofType({route}) {
           height: 300,
           paddingHorizontal: 20
         }}>
-          <PlainText text={fetchError} style={{marginBottom: 10, textAlign: 'center'}} />
-          <Pressable 
+          <PlainText text={fetchError} style={{ marginBottom: 10, textAlign: 'center' }} />
+          <Pressable
             onPress={addSearchData}
             style={{
-              padding: 10, 
-              backgroundColor: '#1DB954', 
+              padding: 10,
+              backgroundColor: '#1DB954',
               borderRadius: 5,
               marginTop: 10
             }}
           >
-            <PlainText text="Retry" style={{color: 'white'}} />
+            <PlainText text="Retry" style={{ color: 'white' }} />
           </Pressable>
         </View>
       )}
-      
+
       {!Loading && !fetchError && (
         <>
           {Data?.data?.results?.length > 0 ? (
-            <FlatList 
+            <FlatList
               showsVerticalScrollIndicator={false}
               numColumns={2}
               keyExtractor={(item, index) => String(index)}
@@ -250,7 +270,7 @@ export default function ShowPlaylistofType({route}) {
               }}
               data={Data?.data?.results}
               renderItem={(item) => (
-                <PlaylistItemWrapper 
+                <PlaylistItemWrapper
                   item={item.item}
                   cardWidth={cardWidth}
                   source="ShowPlaylistofType"
@@ -266,8 +286,8 @@ export default function ShowPlaylistofType({route}) {
                   justifyContent: "center",
                   paddingHorizontal: 20,
                 }}>
-                  <PlainText text={"No Playlists Found"} style={{textAlign: 'center'}}/>
-                  <SmallText text={"Try searching for something else"} style={{textAlign: 'center'}}/>
+                  <PlainText text={"No Playlists Found"} style={{ textAlign: 'center' }} />
+                  <SmallText text={"Try searching for something else"} style={{ textAlign: 'center' }} />
                 </View>
               }
             />
@@ -279,8 +299,8 @@ export default function ShowPlaylistofType({route}) {
               justifyContent: "center",
               paddingHorizontal: 20,
             }}>
-              <PlainText text={"No Playlists Found"} style={{textAlign: 'center'}}/>
-              <SmallText text={"Try searching for something else"} style={{textAlign: 'center'}}/>
+              <PlainText text={"No Playlists Found"} style={{ textAlign: 'center' }} />
+              <SmallText text={"Try searching for something else"} style={{ textAlign: 'center' }} />
             </View>
           )}
         </>

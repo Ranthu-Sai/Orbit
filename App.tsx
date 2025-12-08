@@ -135,7 +135,9 @@ function App() {
                 >
                   <Stack.Navigator screenOptions={{
                     headerShown: false,
-                    cardStyle: { backgroundColor: theme.colors.background }
+                    cardStyle: { backgroundColor: theme.colors.background },
+                    // INSTANCE REUSE: Keep screens in memory for instant back navigation
+                    detachInactiveScreens: false,
                   }}>
                     <Stack.Screen name="Initial" component={InitialScreen} />
                     <Stack.Screen name="Onboarding" component={RouteOnboarding} />

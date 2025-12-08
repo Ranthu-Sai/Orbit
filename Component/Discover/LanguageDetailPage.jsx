@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { getHomePageData } from "../../Api/HomePage";
 import { MainWrapper } from "../../Layout/MainWrapper";
 import { LoadingComponent } from "../Global/Loading";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { FlatList, ScrollView, BackHandler, ActivityIndicator, View, Pressable } from "react-native";
+import { FlatList, ScrollView, BackHandler, ActivityIndicator, View, Pressable, RefreshControl } from "react-native";
 import { PaddingConatiner } from "../../Layout/PaddingConatiner";
 import { Heading } from "../Global/Heading";
 import { EachPlaylistCard } from "../Global/EachPlaylistCard";
@@ -11,10 +11,12 @@ import { HorizontalScrollSongs } from "../Global/HorizontalScrollSongs";
 import { EachAlbumCard } from "../Global/EachAlbumCard";
 import { RenderTopCharts } from "../Home/RenderTopCharts";
 import { Spacer } from "../Global/Spacer";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { PlainText } from "../Global/PlainText";
 import { CommonActions } from "@react-navigation/native";
 import { deduplicateAlbums } from "../../Utils/AlbumUtils";
+import { CacheManager } from '../../Utils/NavigationCacheManager';
+import { CACHE_TTL, CACHE_KEYS, generateCacheKey } from '../../Utils/CacheConfig';
 
 // Add a utility function to truncate text
 const truncateText = (text, limit = 30) => {
@@ -23,30 +25,76 @@ const truncateText = (text, limit = 30) => {
 };
 
 export const LanguageDetailPage = ({ route }) => {
-  const [Loading, setLoading] = useState(true);
+  const [Loading, setLoading] = useState(false);
   const [Data, setData] = useState({});
   const [fetchError, setFetchError] = useState(null);
-  const { language = 'hindi' } = route?.params || {}; // Default to hindi if no language specified
+  const [refreshing, setRefreshing] = useState(false);
+  const { language = 'hindi' } = route?.params || {};
   const navigation = useNavigation();
-  const [isRendered, setIsRendered] = useState(false);
+  const isMounted = useRef(true);
+  const isInitialLoad = useRef(true);
 
-  // Force refresh when screen is focused (coming back from playlist)
-  useFocusEffect(
-    React.useCallback(() => {
-      console.log(`LanguageDetailPage focused for language: ${language}`);
-      // Reset error state when focused
-      setFetchError(null);
+  // CACHE-FIRST LOADING
+  const fetchHomePageData = useCallback(async (forceRefresh = false) => {
+    if (!isMounted.current) return;
 
-      // Always force a refresh when the screen is focused
-      setLoading(true);
-      setIsRendered(true);
-      fetchHomePageData();
+    const cacheKey = generateCacheKey(CACHE_KEYS.LANGUAGE, language);
 
-      return () => {
-        // Clean up here if needed
-      };
-    }, [language]) // Depend on language to refresh when it changes
-  );
+    try {
+      // Check cache first
+      if (!forceRefresh) {
+        const cached = CacheManager.get(cacheKey);
+        if (cached) {
+          console.log(`[LanguageDetail] Cache HIT for ${language}`);
+          setData(cached);
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (isInitialLoad.current) {
+        setLoading(true);
+      }
+
+      console.log(`[LanguageDetail] Fetching data for: ${language}`);
+      const data = await getHomePageData(language || 'hindi');
+
+      if (!isMounted.current) return;
+
+      if (data?.data) {
+        setData(data);
+        CacheManager.set(cacheKey, data, CACHE_TTL.LANGUAGE_DATA);
+        setFetchError(null);
+        console.log(`[LanguageDetail] Data cached for ${language}`);
+      } else {
+        setFetchError("Failed to load music data");
+      }
+    } catch (e) {
+      console.log("Error fetching language data:", e);
+      setFetchError(e.message || "An error occurred while loading data");
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+        setRefreshing(false);
+        isInitialLoad.current = false;
+      }
+    }
+  }, [language]);
+
+  // Pull to refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    CacheManager.invalidate(generateCacheKey(CACHE_KEYS.LANGUAGE, language));
+    fetchHomePageData(true);
+  }, [language, fetchHomePageData]);
+
+  // Initial load only (NO useFocusEffect)
+  useEffect(() => {
+    fetchHomePageData(false);
+    return () => {
+      isMounted.current = false;
+    };
+  }, [fetchHomePageData]);
 
   // Add back handler for hardware back button
   useEffect(() => {
@@ -100,32 +148,11 @@ export const LanguageDetailPage = ({ route }) => {
     return string.charAt(0).toUpperCase() + string.slice(1);
   }
 
-  async function fetchHomePageData() {
-    try {
-      setLoading(true);
-      console.log(`Fetching data for language: ${language}`);
-      const data = await getHomePageData(language || 'hindi');
-      if (data?.data) {
-        setData(data);
-        setFetchError(null);
-      } else {
-        console.log("No data returned for language:", language);
-        setFetchError("Failed to load music data");
-      }
-    } catch (e) {
-      console.log("Error fetching language data:", e);
-      setFetchError(e.message || "An error occurred while loading data");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // Only run on first mount if not already rendered
-  useEffect(() => {
-    if (!isRendered) {
-      fetchHomePageData();
-    }
-  }, []);
+  // Get unique, deduplicated albums
+  const uniqueAlbums = useMemo(() => {
+    if (!Data?.data?.trending?.albums) return [];
+    return deduplicateAlbums(Data.data.trending.albums);
+  }, [Data?.data?.trending?.albums]);
 
   return (
     <MainWrapper>

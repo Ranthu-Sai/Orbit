@@ -7,17 +7,18 @@ import { PaddingConatiner } from "../../Layout/PaddingConatiner";
 import { EachAlbumCard } from "../../Component/Global/EachAlbumCard";
 import { RenderTopCharts } from "../../Component/Home/RenderTopCharts";
 import { LoadingComponent } from "../../Component/Global/Loading";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { getHomePageData } from "../../Api/HomePage";
 import { getYTMusicHomeFeed } from "../../Api/YTMusic";
 import { EachPlaylistCard } from "../../Component/Global/EachPlaylistCard";
 import { GetLanguageValue } from "../../LocalStorage/Languages";
 import { TopHeader } from "../../Component/Home/TopHeader";
 import { DisplayTopGenres } from "../../Component/Home/DisplayTopGenres";
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { YTMusicHomeSection } from '../../Component/Home/YTMusicHomeSection';
 import { deduplicateAlbums } from '../../Utils/AlbumUtils';
+import { CacheManager } from '../../Utils/NavigationCacheManager';
+import { CACHE_TTL, CACHE_KEYS, generateCacheKey } from '../../Utils/CacheConfig';
 
 // Add a utility function to truncate text
 const truncateText = (text, limit = 30) => {
@@ -67,7 +68,7 @@ const getImageUrl = (imageData) => {
 export const Home = () => {
   const [showHeader, setShowHeader] = useState(true);
   const [Language, setLanguage] = useState('english');
-  const [Loading, setLoading] = useState(true);
+  const [Loading, setLoading] = useState(false); // Default to false - show cached data immediately
   const [homeData, setHomeData] = useState({});
   const [homefeedData, setHomefeedData] = useState({ playlists: [], albums: [] });
   const [isConnected, setIsConnected] = useState(true);
@@ -76,6 +77,10 @@ export const Home = () => {
   const { width } = Dimensions.get('window');
   const [Data, setData] = useState({ data: { charts: [], playlists: [], trending: { albums: [] } } });
   const [chartIndices, setChartIndices] = useState([0, 1, 2, 3]); // Dynamic chart indices
+
+  // Track if initial load has happened
+  const isInitialLoad = useRef(true);
+  const isMounted = useRef(true);
 
   // Get random chart indices
   const randomizeCharts = useCallback((charts) => {
@@ -88,74 +93,100 @@ export const Home = () => {
     console.log('Randomized chart indices:', chartIndices);
   }, []);
 
+  // CACHE-FIRST LOADING: Check cache first, fetch only if needed
   async function fetchHomePageData(forceRefresh = false) {
+    if (!isMounted.current) return;
+
+    const cacheKey = generateCacheKey(CACHE_KEYS.HOME, 'main');
+    const homefeedCacheKey = generateCacheKey(CACHE_KEYS.HOME, 'homefeed');
+
     try {
+      // Step 1: ALWAYS check cache first (except on force refresh)
       if (!forceRefresh) {
-        setLoading(true);
+        const cachedData = CacheManager.get(cacheKey);
+        const cachedHomefeed = CacheManager.get(homefeedCacheKey);
+
+        if (cachedData) {
+          console.log('[Home] Using cached data - no API call needed');
+          setData(cachedData);
+          randomizeCharts(cachedData?.data?.charts);
+
+          if (cachedHomefeed) {
+            setHomefeedData(cachedHomefeed);
+          }
+
+          // Data loaded from cache - no loading indicator needed
+          setLoading(false);
+          isInitialLoad.current = false;
+          return; // EXIT EARLY - cache hit, no API call
+        }
+
+        // Cache miss - show loading only on cold start
+        if (isInitialLoad.current) {
+          setLoading(true);
+        }
       }
 
+      // Step 2: Check network
       const networkState = await NetInfo.fetch();
       setIsConnected(!networkState.isConnected);
       setOffline(!networkState.isConnected);
 
-      // Try to load cached data first if not forcing refresh
-      if (!forceRefresh) {
-        const cachedData = await AsyncStorage.getItem('homePageData');
-        if (cachedData) {
-          const parsedData = JSON.parse(cachedData);
-          setData(parsedData);
-          // Randomize chart indices with the cached data
-          randomizeCharts(parsedData?.data?.charts);
-        }
-
-        // Try to load cached homefeed data
-        const cachedHomefeed = await AsyncStorage.getItem('homefeedData');
-        if (cachedHomefeed) {
-          const parsedHomefeed = JSON.parse(cachedHomefeed);
-          setHomefeedData(parsedHomefeed.data || { playlists: [], albums: [] });
-        }
-      }
-
       if (networkState.isConnected) {
-        // Fetch both homepage data and homefeed data simultaneously
+        // Step 3: Fetch fresh data
         const Languages = await GetLanguageValue();
         const [data, homefeedResult] = await Promise.allSettled([
           getHomePageData(Languages),
-          getYTMusicHomeFeed(15) // Get 15 sections of homefeed
+          getYTMusicHomeFeed(15)
         ]);
 
-        if (data.status === 'fulfilled') {
+        if (!isMounted.current) return;
+
+        if (data.status === 'fulfilled' && data.value) {
           setData(data.value);
-          // Randomize chart indices with the new data
           randomizeCharts(data.value?.data?.charts);
-          // Cache the new data
-          await AsyncStorage.setItem('homePageData', JSON.stringify(data.value));
+          // Cache the data with 15-minute TTL
+          CacheManager.set(cacheKey, data.value, CACHE_TTL.HOME_DATA);
+          console.log('[Home] Data cached with 15-minute TTL');
         }
 
-        if (homefeedResult.status === 'fulfilled') {
-          setHomefeedData(homefeedResult.value?.data || { playlists: [], albums: [] });
-          // Cache the homefeed data
-          await AsyncStorage.setItem('homefeedData', JSON.stringify(homefeedResult.value));
-          console.log('Homefeed data loaded:', homefeedResult.value?.data);
+        if (homefeedResult.status === 'fulfilled' && homefeedResult.value?.data) {
+          const homefeed = homefeedResult.value.data || { playlists: [], albums: [] };
+          setHomefeedData(homefeed);
+          CacheManager.set(homefeedCacheKey, homefeed, CACHE_TTL.HOME_DATA);
+          console.log('[Home] Homefeed cached');
         }
       }
     } catch (e) {
-      console.log('Error fetching data:', e);
-      // If there's an error and we're offline, we'll continue with cached data
+      console.log('[Home] Error fetching data:', e);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isMounted.current) {
+        setLoading(false);
+        setRefreshing(false);
+        isInitialLoad.current = false;
+      }
     }
   }
 
-  // Pull to refresh handler
+  // Pull to refresh handler - ONLY way to force refresh
   const onRefresh = useCallback(() => {
     setRefreshing(true);
+    // Invalidate cache before refresh
+    CacheManager.invalidateByPrefix(CACHE_KEYS.HOME);
     fetchHomePageData(true);
   }, []);
 
+  // Cleanup on unmount
   useEffect(() => {
-    fetchHomePageData();
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Initial load - only on mount, not on focus
+  useEffect(() => {
+    fetchHomePageData(false);
   }, []);
 
   // Combine playlists from both sources

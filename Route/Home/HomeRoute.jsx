@@ -17,7 +17,15 @@ import ShowPlaylistofType from "../../Component/Discover/ShowPlaylistofType";
 const Stack = createNativeStackNavigator();
 export const HomeRoute = () => {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade_from_bottom' }}>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        animation: 'fade_from_bottom',
+        // INSTANCE REUSE: Keep screens in memory for instant back navigation
+        // This eliminates remounting on back, providing same UX as tab navigation
+        freezeOnBlur: true,  // Freeze inactive screens to save resources
+      }}
+    >
       <Stack.Screen name="HomePage" component={Home} />
       <Stack.Screen
         name="Playlist"

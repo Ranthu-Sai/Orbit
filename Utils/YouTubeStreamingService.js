@@ -1,11 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NativeStreaming from './NativeStreaming';
+import { CacheManager } from './NavigationCacheManager';
 
 /**
  * YouTube Streaming Service
  * 
  * Provides YouTube Music streaming URLs with proper authentication headers.
  * Uses Direct Native NewPipe Extraction (via StreamModule).
+ * 
+ * CACHING: Stream URLs are cached for 3 hours to avoid repeated API calls.
  */
 
 // Android client configuration for InnerTube API
@@ -25,19 +28,39 @@ class YouTubeStreamingService {
 
     /**
      * Get streaming URL using Native NewPipe Module
+     * Uses 3-hour cache to avoid repeated API calls
      * 
      * @param {string} videoId - YouTube video ID
      * @returns {Promise<{url: string, headers: object, thumbnail: string, duration: number, title: string}|null>}
      */
     async getStreamUrl(videoId) {
         try {
-            console.log(`🎯 Getting stream for video: ${videoId} using Native NewPipe...`);
+            // Step 1: CHECK CACHE FIRST (3-hour TTL)
+            const cachedUrl = CacheManager.getStreamUrl(videoId, 'ytmusic');
+            if (cachedUrl) {
+                console.log(`🚀 [Cache] Stream URL cache HIT for ${videoId}`);
+                return {
+                    url: cachedUrl,
+                    headers: {
+                        'User-Agent': ANDROID_CLIENT.headers['User-Agent'],
+                        'Range': 'bytes=0-'
+                    },
+                    fromCache: true
+                };
+            }
 
-            // Call Native Module
+            // Step 2: Cache miss - fetch from Native NewPipe
+            console.log(`🎯 [Cache MISS] Getting stream for video: ${videoId} using Native NewPipe...`);
+
             const result = await NativeStreaming.getStreamUrl(videoId);
 
             if (result && result.url) {
                 console.log('✅ Native streaming successful');
+
+                // Step 3: CACHE THE STREAM URL (3-hour TTL)
+                CacheManager.setStreamUrl(videoId, result.url, 'ytmusic');
+                console.log(`📦 [Cache] Stream URL cached for ${videoId} (3-hour TTL)`);
+
                 return {
                     url: result.url,
                     headers: {
@@ -47,7 +70,8 @@ class YouTubeStreamingService {
                     thumbnail: result.thumbnail,
                     duration: result.duration,
                     title: result.title,
-                    author: result.author
+                    author: result.author,
+                    fromCache: false
                 };
             }
 
@@ -64,3 +88,4 @@ class YouTubeStreamingService {
 const youtubeStreamingService = new YouTubeStreamingService();
 
 export default youtubeStreamingService;
+

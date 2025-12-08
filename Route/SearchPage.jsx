@@ -1,6 +1,6 @@
 import { MainWrapper } from "../Layout/MainWrapper";
 import Tabs from "../Component/Global/Tabs/Tabs";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { getSearchSongData, getSearchArtistData } from "../Api/Songs";
 import {
   getYTMusicSearchSongData,
@@ -23,6 +23,7 @@ import { GitFork } from 'lucide-react-native';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Divider } from 'react-native-paper';
 import SwipeableHistoryItem from '../Component/SearchPage/SwipeableHistoryItem';
+import { CacheManager } from '../Utils/NavigationCacheManager';
 
 const SEARCH_HISTORY_KEY = '@search_history';
 const MAX_HISTORY_ITEMS = 20;
@@ -40,6 +41,42 @@ export const SearchPage = ({ navigation }) => {
   const [selectedSource, setSelectedSource] = useState('saavn');
   const [modalVisible, setModalVisible] = useState(false);
   const limit = 20;
+
+  // Track component mount state
+  const isMounted = useRef(true);
+  const isInitialMount = useRef(true);
+
+  // RESTORE SEARCH STATE ON MOUNT (for back navigation preservation)
+  useEffect(() => {
+    const savedState = CacheManager.getSearchState();
+    if (savedState && isInitialMount.current) {
+      console.log('[SearchPage] Restoring search state from cache');
+      if (savedState.query) setQuery(savedState.query);
+      if (savedState.searchText) setSearchText(savedState.searchText);
+      if (savedState.activeTab !== undefined) setActiveTab(savedState.activeTab);
+      if (savedState.selectedSource) setSelectedSource(savedState.selectedSource);
+      if (savedState.data) setData(savedState.data);
+    }
+    isInitialMount.current = false;
+
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // SAVE SEARCH STATE on every change (for back navigation preservation)
+  useEffect(() => {
+    if (SearchText && Data?.data?.results?.length > 0) {
+      CacheManager.setSearchState({
+        query,
+        searchText: SearchText,
+        activeTab: ActiveTab,
+        selectedSource,
+        data: Data,
+      });
+      console.log('[SearchPage] Search state cached for back navigation');
+    }
+  }, [SearchText, Data, ActiveTab, selectedSource, query]);
 
   async function fetchSearchData(text) {
     if (!text) {
