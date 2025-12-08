@@ -2,12 +2,13 @@ import TrackPlayer from "react-native-track-player";
 import { setRepeatMode } from "react-native-track-player/lib/trackPlayer";
 import { GetPlaybackQuality } from "./LocalStorage/AppSettings";
 import NetInfo from "@react-native-community/netinfo";
-import { ToastAndroid, DeviceEventEmitter } from "react-native";
+import { ToastAndroid, DeviceEventEmitter, InteractionManager } from "react-native";
 import historyManager from "./Utils/HistoryManager";
 
 import dabMusicService from "./Utils/DabMusicService";
 import youtubeStreamingService from "./Utils/YouTubeStreamingService";
 import queueManager from "./Utils/QueueManager";
+import { enhanceYTMusicArtwork, getPrimaryArtworkUrl } from "./Utils/ArtworkEnhancer";
 import autoRecommendations from "./Utils/AutoRecommendations";
 import skipOperationManager from "./Utils/SkipOperationManager";
 import streamFetchManager from "./Utils/StreamFetchManager";
@@ -309,43 +310,50 @@ async function PlayOneSong(song) {
     const qualityNames = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
     const currentQuality = qualityNames[qualityIndex] || 'Unknown';
 
+    // Enhance artwork to highest quality for playing song (w500)
+    const enhancedArtwork = enhanceYTMusicArtwork(updatedSong.artwork || updatedSong.image, 'playing');
+    const playingArtwork = getPrimaryArtworkUrl(enhancedArtwork) || updatedSong.artwork || updatedSong.image;
+
     const songForPlayback = {
       ...updatedSong,
       url: playbackUrl,
-      currentPlayingQuality: currentQuality
+      currentPlayingQuality: currentQuality,
+      artwork: playingArtwork // Use enhanced w500 quality
     };
 
     await TrackPlayer.reset();
     await TrackPlayer.add([songForPlayback]);
     await TrackPlayer.play();
 
-    // NOTE: Auto-recommendations disabled here per user request
-    // User will manually trigger recommendations where needed (not for playlists)
-    // Original code for individual YTMusic song plays:
-    /*
+    // Auto-recommendations for individual YouTube Music song plays (search results, single songs)
+    // This builds the initial queue - continuous monitor will refill when low
+    // Reuse isYouTubeSong variable from line 161 (already declared)
+
     if (isYouTubeSong) {
-      setTimeout(async () => {
-        try {
-          console.log('🎵 Building queue from YTMusic recommendations for:', song.id);
-          const recommendations = await queueManager.buildQueueFromRecommendations(song.id, 'ytmusic', 30);
+      // Use InteractionManager to defer heavy recommendation fetch - prevents UI lag
+      InteractionManager.runAfterInteractions(() => {
+        setTimeout(async () => {
+          try {
+            console.log('🎵 Building queue from YTMusic recommendations for:', song.id);
+            const recommendations = await queueManager.buildQueueFromRecommendations(song.id, 'ytmusic', 20);
 
-          if (recommendations && recommendations.length > 0) {
-            // Filter out the current song from recommendations
-            const filteredRecs = recommendations.filter(rec => rec.id !== song.id);
+            if (recommendations && recommendations.length > 0) {
+              // Filter out the current song from recommendations
+              const filteredRecs = recommendations.filter(rec => rec.id !== song.id);
 
-            if (filteredRecs.length > 0) {
-              // Use AddSongsToQueue which handles stream fetching for YTMusic
-              await AddSongsToQueue(filteredRecs);
-              console.log(`✅ Added ${filteredRecs.length} recommended songs to queue`);
+              if (filteredRecs.length > 0) {
+                // Use AddSongsToQueue which handles stream fetching for YTMusic
+                await AddSongsToQueue(filteredRecs);
+                console.log(`✅ Added ${filteredRecs.length} recommended songs to queue`);
+              }
             }
+          } catch (error) {
+            console.error('Error building queue from recommendations:', error);
+            // Non-fatal - continue playing the current song
           }
-        } catch (error) {
-          console.error('Error building queue from recommendations:', error);
-          // Non-fatal - continue playing the current song
-        }
-      }, 1500); // Wait 1.5 seconds after playback starts
+        }, 1500); // Wait 1.5 seconds after playback starts
+      });
     }
-    */
 
     // Trigger prefetch for next song in queue (if any)
     setTimeout(() => {

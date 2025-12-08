@@ -5,6 +5,8 @@
  * Replaces the Python bridge for data fetching.
  */
 
+import { enhanceYTMusicArtwork } from '../Utils/ArtworkEnhancer';
+
 const INNERTUBE_API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
 const INNERTUBE_API_URL = 'https://music.youtube.com/youtubei/v1';
 
@@ -317,7 +319,8 @@ class InnerTubeClient {
             const title = header?.title?.runs?.[0]?.text;
             const artist = header?.straplineTextOne?.runs?.[0]?.text;
             const year = header?.subtitle?.runs?.[2]?.text;
-            const thumbnail = header?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails?.pop()?.url;
+            const rawThumbnail = header?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails?.pop()?.url;
+            const thumbnail = enhanceYTMusicArtwork(rawThumbnail, 'album-header'); // Skip enhancement (already good quality)
 
             const songs = tracks?.map(t => this.parseItem(t)).filter(i => i) || [];
             return { title, artist, year, thumbnail, songs };
@@ -345,11 +348,15 @@ class InnerTubeClient {
                 || "YouTube Music";
             const year = subtitleRuns?.find(r => r.text.match(/\d{4}/))?.text;
 
+            // Extract playlist thumbnail (skip enhancement - already high quality)
+            const playlistThumbnail = thumbnails?.[thumbnails.length - 1]?.url;
+
             return {
                 id: data?.header?.musicDetailHeaderRenderer?.menu?.menuRenderer?.topLevelButtons?.[0]?.buttonRenderer?.navigationEndpoint?.watchEndpoint?.playlistId,
                 title,
                 songs,
                 thumbnails,
+                thumbnail: playlistThumbnail, // Add main thumbnail field
                 description,
                 author,
                 year,
@@ -547,7 +554,7 @@ class InnerTubeClient {
                     { url: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, quality: 'hq' },
                     { url: thumbnail, quality: 'default' }
                 ] : thumbnails.map(t => ({ url: t.url, quality: 'hd' })),
-                artwork: highResThumbnail || thumbnail,  // Use high-res for artwork
+                artwork: highResThumbnail || thumbnail,  // Use original quality for cards/lists (performance optimized)
                 year: item.subtitle?.runs?.[item.subtitle.runs.length - 1]?.text || ''
             };
         } catch (e) { console.error(e); return null; }
