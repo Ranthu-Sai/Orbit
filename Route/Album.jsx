@@ -1,8 +1,8 @@
 import { MainWrapper } from "../Layout/MainWrapper";
 import { AlbumHeader } from "../Component/Album/AlbumHeader";
-import { View, BackHandler, Text, ScrollView } from "react-native";
+import { View, BackHandler, Text, FlatList, StyleSheet } from "react-native";
 import { EachSongCard } from "../Component/Global/EachSongCard";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { LoadingComponent } from "../Component/Global/Loading";
 import { useTheme, useNavigation } from "@react-navigation/native";
 import { PlainText } from "../Component/Global/PlainText";
@@ -181,11 +181,82 @@ export const Album = ({ route }) => {
     };
   }, []);
 
+  // Get songs array (handle both songs and tracks)
+  const songsArray = Data?.data?.songs || Data?.data?.tracks || [];
+
+  // Render item for FlatList
+  const renderSongItem = useCallback(({ item: e, index: i }) => {
+    // Get proper image URL - handle both array and direct URL formats
+    let imageUrl = '';
+    if (e?.image) {
+      if (Array.isArray(e.image)) {
+        const imageItem = e.image[2] || e.image[e.image.length - 1] || e.image[0];
+        imageUrl = imageItem?.url || imageItem?.link || '';
+      } else if (typeof e.image === 'string') {
+        imageUrl = e.image;
+      }
+    }
+
+    // Fallback to images property if image is not available
+    if (!imageUrl && e?.images && Array.isArray(e.images)) {
+      const imageItem = e.images[2] || e.images[e.images.length - 1] || e.images[0];
+      imageUrl = imageItem?.url || imageItem?.link || '';
+    }
+
+    // Final validation
+    imageUrl = getValidImageUrl(imageUrl);
+
+    return (
+      <EachSongCard
+        isFromPlaylist={true}
+        isFromAlbum={true}
+        Data={Data}
+        index={i}
+        artist={FormatArtist(e?.artists?.primary)}
+        language={e?.language}
+        playlist={true}
+        artistID={e?.primary_artists_id}
+        duration={e?.duration}
+        image={imageUrl}
+        id={e?.id}
+        width={"100%"}
+        title={e?.name}
+        url={e?.downloadUrl}
+        source={e?.source || 'saavn'}
+        style={styles.songCard}
+        showNumber={true}
+        activeTrackId={activeTrack?.id}
+        isPlaying={playbackState.state === "playing" || playbackState.state === 3}
+      />
+    );
+  }, [Data, activeTrack?.id, playbackState.state]);
+
+  // Key extractor for FlatList
+  const keyExtractor = useCallback((item, index) => `album-song-${item?.id || index}-${index}`, []);
+
+  // Header component for FlatList
+  const renderHeader = useCallback(() => (
+    <AlbumHeader
+      imageUrl={Data?.data?.image?.[2]?.url || Data?.data?.image?.[0]?.url || ''}
+      title={Data?.data?.name || "Album"}
+      songCount={songsArray.length}
+      albumId={Data?.data?.id || route?.params?.id}
+      year={Data?.data?.year || ""}
+      songsData={songsArray}
+      albumData={Data}
+    />
+  ), [Data, songsArray, route?.params?.id]);
+
+  // Footer component for FlatList
+  const renderFooter = useCallback(() => (
+    <View style={styles.bottomSpacer} />
+  ), []);
+
   return (
     <MainWrapper>
       {Loading &&
         <LoadingComponent loading={Loading} />}
-      {!Loading && !Data?.data?.songs?.length && (
+      {!Loading && !(Data?.data?.songs?.length || Data?.data?.tracks?.length) && (
         <View style={{
           flex: 1,
           justifyContent: 'center',
@@ -196,9 +267,14 @@ export const Album = ({ route }) => {
           <SmallText text="Please check your connection and try again" style={{ textAlign: 'center' }} />
         </View>
       )}
-      {!Loading && Data?.data?.songs?.length > 0 &&
+      {!Loading && (Data?.data?.songs?.length > 0 || Data?.data?.tracks?.length > 0) &&
         <View style={{ flex: 1, backgroundColor: theme.dark ? theme.colors.background : '#FFFFFF' }}>
-          <ScrollView
+          <FlatList
+            data={Data?.data?.songs || Data?.data?.tracks}
+            renderItem={renderSongItem}
+            keyExtractor={keyExtractor}
+            ListHeaderComponent={renderHeader}
+            ListFooterComponent={renderFooter}
             contentContainerStyle={{
               paddingBottom: 120,
               backgroundColor: theme.dark ? theme.colors.background : "#FFFFFF",
@@ -206,85 +282,30 @@ export const Album = ({ route }) => {
             style={{
               backgroundColor: theme.dark ? theme.colors.background : '#FFFFFF',
             }}
-          >
-            <AlbumHeader
-              imageUrl={Data?.data?.image?.[2]?.url || Data?.data?.image?.[0]?.url || ''}
-              title={Data?.data?.name || "Album"}
-              songCount={Data?.data?.songs?.length || 0}
-              albumId={Data?.data?.id || route?.params?.id}
-              year={Data?.data?.year || ""}
-              songsData={Data?.data?.songs}
-              albumData={Data}
-            />
-
-            <View style={{
-              paddingHorizontal: 0,
-              paddingTop: 15,
-              backgroundColor: theme.dark ? 'rgb(16,16,16)' : '#FFFFFF',
-              gap: 0,
-            }}>
-              {Data?.data?.songs?.slice(0, 100).map((e, i) => {
-                // Get proper image URL - handle both array and direct URL formats
-                let imageUrl = '';
-                if (e?.image) {
-                  if (Array.isArray(e.image)) {
-                    // If it's an array, get the highest quality (last item or index 2)
-                    const imageItem = e.image[2] || e.image[e.image.length - 1] || e.image[0];
-                    imageUrl = imageItem?.url || imageItem?.link || '';
-                  } else if (typeof e.image === 'string') {
-                    imageUrl = e.image;
-                  }
-                }
-
-                // Fallback to images property if image is not available
-                if (!imageUrl && e?.images && Array.isArray(e.images)) {
-                  const imageItem = e.images[2] || e.images[e.images.length - 1] || e.images[0];
-                  imageUrl = imageItem?.url || imageItem?.link || '';
-                }
-
-                // Final validation
-                imageUrl = getValidImageUrl(imageUrl);
-
-                return (
-                  <EachSongCard
-                    isFromPlaylist={true}
-                    isFromAlbum={true}
-                    Data={Data}
-                    index={i}
-                    artist={FormatArtist(e?.artists?.primary)}
-                    language={e?.language}
-                    playlist={true}
-                    artistID={e?.primary_artists_id}
-                    key={`album-song-${i}-${e?.id}`}
-                    duration={e?.duration}
-                    image={imageUrl}
-                    id={e?.id}
-                    width={"100%"}
-                    title={e?.name}
-                    url={e?.downloadUrl}
-                    source={e?.source || 'saavn'}
-                    style={{
-                      marginBottom: 0, // Remove bottom margin
-                      borderRadius: 0, // Remove border radius
-                      marginRight: 0
-                    }}
-                    showNumber={true} // Explicitly show numbers in album view
-                    activeTrackId={activeTrack?.id}
-                    isPlaying={playbackState.state === "playing" || playbackState.state === 3}
-                  />
-                );
-              })}
-              {Data?.data?.songs?.length > 100 && (
-                <View style={{ padding: 20, alignItems: 'center' }}>
-                  <Text style={{ color: theme.colors.text, opacity: 0.6 }}>
-                    Showing first 100 songs of {Data.data.songs.length}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </ScrollView>
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            removeClippedSubviews={true}
+            showsVerticalScrollIndicator={true}
+          />
         </View>
       }
     </MainWrapper>
   );
 };
+
+const styles = StyleSheet.create({
+  songCard: {
+    marginBottom: 0,
+    borderRadius: 0,
+    marginRight: 0
+  },
+  bottomSpacer: {
+    height: 65,
+    backgroundColor: "transparent",
+  },
+  footerText: {
+    padding: 20,
+    alignItems: 'center'
+  }
+});

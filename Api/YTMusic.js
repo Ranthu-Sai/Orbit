@@ -729,13 +729,24 @@ async function getYTMusicAlbumData(albumId) {
 
       // Use Python bridge for production
       const albumData = await PythonBridgeService.getAlbum(albumId);
+      
+      console.log(`🔍 YTMusic Album - Raw response for ${albumId}:`, {
+        hasData: !!albumData,
+        error: albumData?.error,
+        title: albumData?.title,
+        tracksCount: albumData?.tracks?.length || 0,
+        songsCount: albumData?.songs?.length || 0,
+        thumbnailsCount: albumData?.thumbnails?.length || 0
+      });
 
       if (albumData && !albumData.error) {
         // Transform the tracks data to match Saavn format
         const transformedSongs = [];
-        if (albumData.tracks && Array.isArray(albumData.tracks)) {
+        // Support both 'tracks' and 'songs' property names for compatibility
+        const tracksArray = albumData.tracks || albumData.songs || [];
+        if (tracksArray && Array.isArray(tracksArray) && tracksArray.length > 0) {
           // Limit processing to avoid excessive callbacks
-          const tracksToProcess = albumData.tracks.slice(0, 500); // Limit to 500 songs max
+          const tracksToProcess = tracksArray.slice(0, 500); // Limit to 500 songs max
 
           for (const song of tracksToProcess) {
             // Skip null/invalid songs
@@ -857,10 +868,10 @@ async function getYTMusicAlbumData(albumId) {
         };
       }
 
-      console.log('YTMusic Album - No valid data from Innertube Client');
+      console.log('YTMusic Album - No valid data from Innertube Client, albumData:', albumData);
       return {
         status: "FAILED",
-        message: albumData?.error || "No album data found",
+        message: albumData?.error || `No album data found for ID: ${albumId}`,
         data: null,
         success: false
       };

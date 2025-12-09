@@ -8,10 +8,11 @@ async function getAlbumData(id) {
 
   // Check if this is a YouTube Music album ID (various YouTube album ID patterns)
   const isYouTubeAlbum = id && (
-    id.startsWith('MPREb_') || // YouTube Music album IDs
+    id.startsWith('MPRE') ||    // YouTube Music album IDs (MPREb_, MPRE...)
+    id.startsWith('OLAK') ||    // YouTube Music album IDs (OLAK5uy_...)
+    id.startsWith('RDCLAK') ||  // YouTube Music radio/album IDs
     id.includes('youtube') ||
-    id.includes('youtu.be') ||
-    id.length > 20 // YouTube IDs are typically long
+    id.includes('youtu.be')
   );
 
   // If it's a YouTube Music album, use the YTMusic API

@@ -313,18 +313,98 @@ class InnerTubeClient {
 
     static parseAlbum(data) {
         try {
-            const header = data?.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicResponsiveHeaderRenderer;
-            const tracks = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer?.contents;
+            // Try multiple possible structures for album header
+            let header = data?.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicResponsiveHeaderRenderer;
+            
+            // Alternative structure: some albums use musicDetailHeaderRenderer
+            if (!header) {
+                header = data?.header?.musicDetailHeaderRenderer;
+            }
+            
+            // Another alternative: singleColumnBrowseResultsRenderer for some album types
+            if (!header) {
+                header = data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicResponsiveHeaderRenderer;
+            }
 
-            const title = header?.title?.runs?.[0]?.text;
-            const artist = header?.straplineTextOne?.runs?.[0]?.text;
-            const year = header?.subtitle?.runs?.[2]?.text;
-            const rawThumbnail = header?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails?.pop()?.url;
-            const thumbnail = enhanceYTMusicArtwork(rawThumbnail, 'album-header'); // Skip enhancement (already good quality)
+            // Try multiple possible structures for tracks
+            let tracksContent = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer?.contents;
+            
+            // Alternative: musicShelfRenderer
+            if (!tracksContent) {
+                tracksContent = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.[0]?.musicShelfRenderer?.contents;
+            }
+            
+            // Another alternative for single column layout
+            if (!tracksContent) {
+                const sectionContents = data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents;
+                for (const section of (sectionContents || [])) {
+                    if (section.musicShelfRenderer?.contents) {
+                        tracksContent = section.musicShelfRenderer.contents;
+                        break;
+                    }
+                    if (section.musicPlaylistShelfRenderer?.contents) {
+                        tracksContent = section.musicPlaylistShelfRenderer.contents;
+                        break;
+                    }
+                }
+            }
 
-            const songs = tracks?.map(t => this.parseItem(t)).filter(i => i) || [];
-            return { title, artist, year, thumbnail, songs };
-        } catch (e) { return null; }
+            const title = header?.title?.runs?.[0]?.text || header?.title?.simpleText;
+            
+            // Artist can be in different places
+            const artist = header?.straplineTextOne?.runs?.[0]?.text || 
+                          header?.subtitle?.runs?.[0]?.text ||
+                          header?.secondTitle?.runs?.[0]?.text;
+            
+            // Year extraction - try multiple positions
+            let year = null;
+            const subtitleRuns = header?.subtitle?.runs;
+            if (subtitleRuns && Array.isArray(subtitleRuns)) {
+                for (const run of subtitleRuns) {
+                    if (run.text && /^\d{4}$/.test(run.text)) {
+                        year = run.text;
+                        break;
+                    }
+                }
+            }
+            
+            // Get thumbnails array (not just single thumbnail)
+            const thumbnailsData = header?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || 
+                                   header?.thumbnail?.croppedSquareThumbnailRenderer?.thumbnail?.thumbnails ||
+                                   [];
+            
+            // Create thumbnails array in expected format
+            const thumbnails = thumbnailsData.map(thumb => ({
+                url: enhanceYTMusicArtwork(thumb.url, 'album-header'),
+                link: enhanceYTMusicArtwork(thumb.url, 'album-header'),
+                width: thumb.width,
+                height: thumb.height
+            }));
+
+            // Parse tracks
+            const tracks = tracksContent?.map(t => this.parseItem(t)).filter(i => i) || [];
+            
+            // Get browseId from the data if available
+            const browseId = data?.responseContext?.serviceTrackingParams?.[0]?.params?.find(p => p.key === 'browse_id')?.value;
+
+            console.log(`InnerTube parseAlbum: title="${title}", artist="${artist}", year="${year}", tracks=${tracks.length}, thumbnails=${thumbnails.length}`);
+
+            // Return in format expected by getYTMusicAlbumData
+            return { 
+                title, 
+                artist,
+                artists: artist ? [{ name: artist, id: null }] : [],
+                year, 
+                thumbnails,  // Array format expected by getYTMusicAlbumData
+                thumbnail: thumbnails[thumbnails.length - 1]?.url,  // Also include single for backward compat
+                tracks,      // 'tracks' expected by getYTMusicAlbumData
+                songs: tracks,  // Also include 'songs' for backward compat
+                browseId
+            };
+        } catch (e) { 
+            console.error('parseAlbum error:', e);
+            return null; 
+        }
     }
 
     static parsePlaylist(data) {
@@ -429,10 +509,19 @@ class InnerTubeClient {
     static parseItem(itemWrapper) {
         try {
             const item = itemWrapper.musicResponsiveListItemRenderer || itemWrapper.musicTwoRowItemRenderer || itemWrapper.playlistPanelVideoRenderer;
-            if (!item) return null;
+            if (!item) {
+                // Debug: log what keys are present in itemWrapper
+                console.log('parseItem: No recognized renderer, keys:', Object.keys(itemWrapper || {}));
+                return null;
+            }
 
             // CRITICAL: Search results store videoId in playlistItemData.videoId (OuterTune's approach)
-            const videoId = item.playlistItemData?.videoId || item.videoId || item.onTap?.watchEndpoint?.videoId || item.navigationEndpoint?.watchEndpoint?.videoId;
+            // Also try overlay for album tracks which use a different structure
+            const videoId = item.playlistItemData?.videoId || 
+                           item.videoId || 
+                           item.onTap?.watchEndpoint?.videoId || 
+                           item.navigationEndpoint?.watchEndpoint?.videoId ||
+                           item.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.videoId;
             let browseId = item.navigationEndpoint?.browseEndpoint?.browseId || item.onTap?.browseEndpoint?.browseId;
 
             // Try flexColumns first (used in search results), then fallback to direct title

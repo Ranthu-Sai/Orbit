@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   bottomSpacer: {
-    height: 60, // Reduced from 100 to 60
+    height: 65,
     backgroundColor: "transparent",
   }
 });
