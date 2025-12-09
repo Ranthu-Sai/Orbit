@@ -1,6 +1,8 @@
 /**
  * SmartPrefetchManager
  * 
+ * YOUTUBE MUSIC ONLY - Saavn doesn't need prefetching as it provides direct stream URLs
+ * 
  * Fixed prefetch strategy that PREVENTS race conditions:
  * 
  * 1. Listen for PlaybackState.Playing (not track change)
@@ -107,6 +109,12 @@ class SmartPrefetchManager {
      * Handle track changes - IMMEDIATE N+1, N+2, N+3 prefetch + queue cleanup
      */
     async _handleTrackChanged(event) {
+        // Debug: Log event to verify handler is called
+        console.log('🔔 SmartPrefetch: Track changed event', {
+            index: event.index,
+            trackId: event.track?.id
+        });
+
         if (event.index !== undefined && event.index !== null) {
             this._cancelPendingPrefetch();
             this.currentTrackIndex = event.index;

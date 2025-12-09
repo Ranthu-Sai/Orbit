@@ -325,6 +325,9 @@ async function PlayOneSong(song) {
     await TrackPlayer.add([songForPlayback]);
     await TrackPlayer.play();
 
+    // Signal that this is a single song playback (enable auto-recommendations)
+    DeviceEventEmitter.emit('playback-mode-changed', { isPlaylist: false });
+
     // Auto-recommendations for individual YouTube Music song plays (search results, single songs)
     // This builds the initial queue - continuous monitor will refill when low
     // Reuse isYouTubeSong variable from line 161 (already declared)
@@ -504,6 +507,10 @@ async function AddPlaylist(songs, startSongId = null) {
     await TrackPlayer.reset();
     await TrackPlayer.add(initialBatch);
     await TrackPlayer.play();
+
+    // Signal that this is a playlist/album playback (disable auto-recommendations)
+    DeviceEventEmitter.emit('playback-mode-changed', { isPlaylist: true });
+
     console.log(`✅ Playlist: Added initial ${initialBatch.length} songs and started playback`);
 
     // 2. Add remaining songs in background

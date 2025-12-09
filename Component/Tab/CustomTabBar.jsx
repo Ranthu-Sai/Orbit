@@ -56,7 +56,7 @@ const TabItem = React.memo(({ route, index, state, descriptors, navigation, colo
             style={[
               styles.label,
               {
-                color: isFocused ? colors.text : colors.textSecondary,
+                color: isFocused ? colors.primary : colors.textSecondary,
                 fontWeight: isFocused ? '700' : '500'
               }
             ]}
@@ -71,7 +71,7 @@ const TabItem = React.memo(({ route, index, state, descriptors, navigation, colo
 });
 
 function GetIcon(label, isFocused, colors) {
-  const activeColor = colors.text; // High contrast for active
+  const activeColor = colors.primary; // Use primary color for active state
   const inactiveColor = colors.textSecondary;
   const color = isFocused ? activeColor : inactiveColor;
   const size = 24;
@@ -127,7 +127,7 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
 
   return (
     <View style={[styles.mainContainer, {
-      backgroundColor: dark ? 'rgba(18, 18, 18, 0.95)' : 'rgba(255, 255, 255, 0.95)', // Slight transparency
+      backgroundColor: dark ? 'rgba(18, 18, 18, 0.85)' : 'rgba(255, 255, 255, 0.85)', // More transparent (reduced from 0.95)
       borderTopColor: dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
     }]}>
       {state.routes.map((route, index) => (
@@ -149,10 +149,10 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
 const styles = StyleSheet.create({
   mainContainer: {
     flexDirection: 'row',
-    height: 80, // Taller for Material 3 style
+    height: 70, // Reduced from 80
     alignItems: "center",
     paddingBottom: 4, // Spacing for home bar
-    borderTopWidth: 1,
+    borderTopWidth: 0, // Removed upper border
     position: 'absolute', // For transparency to work over content if needed, or just standard
     bottom: 0,
     left: 0,

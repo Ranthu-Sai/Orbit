@@ -24,8 +24,7 @@ export const settingsConfig = {
   // Music source options
   musicSources: [
     { label: 'Ytmusic', value: 'Ytmusic' },
-    { label: 'Savaan', value: 'Savaan' },
-    { label: 'Tidal', value: 'Tidal' }
+    { label: 'Savaan', value: 'Savaan' }
   ],
 
   // Default values

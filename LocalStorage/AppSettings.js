@@ -210,30 +210,6 @@ async function SetCustomColorsEnabled(enabled){
   }
 }
 
-// Get whether Tidal is enabled
-async function GetTidalEnabled(){
-  try {
-    const value = await AsyncStorage.getItem('TidalEnabled');
-    if (value !== null) {
-      return value === 'true';
-    } else {
-      return false; // Default to disabled
-    }
-  } catch (e) {
-    console.log("Tidal enabled read error");
-    return false; // Fallback to disabled
-  }
-}
-
-// Set whether Tidal is enabled
-async function SetTidalEnabled(enabled){
-  try {
-    await AsyncStorage.setItem('TidalEnabled', enabled ? 'true' : 'false');
-  } catch (e) {
-    console.log("Tidal enabled save error");
-  }
-}
-
 // Get music source preference
 async function GetMusicSource(){
   try {
@@ -277,8 +253,6 @@ export {
   SetAccentColor,
   GetCustomColorsEnabled,
   SetCustomColorsEnabled,
-  GetTidalEnabled,
-  SetTidalEnabled,
   GetMusicSource,
   SetMusicSource
 }

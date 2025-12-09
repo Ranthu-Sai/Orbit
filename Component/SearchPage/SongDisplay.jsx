@@ -15,8 +15,6 @@ export default function SongDisplay({ data, source = 'saavn' }) {
 
   useEffect(() => {
     setDisplayData(data);
-
-    // Tidal support removed: no preloading will occur.
   }, [data, source]);
 
   const width = Dimensions.get('window').width;

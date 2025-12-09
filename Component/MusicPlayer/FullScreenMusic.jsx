@@ -19,7 +19,6 @@ import { PlaybackControls } from "./PlaybackControls";
 import { OfflineBanner, QualityIndicator, LocalTracksList, useOffline } from "../Offline";
 import { useThemeManager } from "./ThemeManager";
 import { BlurredBackground } from "./Background";
-import { TidalSourceSwitcher, useTidalIntegration } from "./TidalIntegration";
 import { useNavigationHandler, BackButtonHandler } from "./NavigationHandler";
 
 import { useLocalTracks, LocalTracksErrorBoundary } from "./LocalTracks";
@@ -183,7 +182,6 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
     getBlurOverlayGradient,
   } = useThemeManager();
   const { isOffline } = useOffline();
-  const { shouldShowTidalFeatures } = useTidalIntegration();
   const { handlePlayerClose } = useNavigationHandler({ musicPreviousScreen });
   const iconColor = getTextColor("icon");
 
@@ -280,11 +278,6 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
           // Check for YouTube (11-character ID)
           else if (currentPlaying.id && typeof currentPlaying.id === 'string' && currentPlaying.id.length === 11) {
             source = 'youtube';
-            quality = currentPlaying.currentPlayingQuality || '';
-          }
-          // Check for Tidal
-          else if (currentPlaying.source === 'tidal' || currentPlaying.sourceType === 'tidal') {
-            source = 'tidal';
             quality = currentPlaying.currentPlayingQuality || '';
           }
           // Default to Saavn
@@ -402,13 +395,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
           </View>
 
           <View style={styles.bottomControls}>
-            {shouldShowTidalFeatures(isOffline) && (
-              <TidalSourceSwitcher
-                currentTrack={currentPlaying}
-                variant="chip"
-                size="small"
-              />
-            )}
+            {/* Bottom controls area */}
           </View>
         </View>
         <View style={styles.bottomGradientWrapper} pointerEvents="none">

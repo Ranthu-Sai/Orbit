@@ -47,6 +47,10 @@ class YouTubeMusicService {
         return await InnerTubeClient.getArtist(browseId);
     }
 
+    static async getSection(browseId, params = null, continuation = null) {
+        return await InnerTubeClient.getSection(browseId, params, continuation);
+    }
+
     static async getNext(videoId, playlistId = null, continuation = null) {
         return await InnerTubeClient.getNext(videoId, playlistId, continuation);
     }

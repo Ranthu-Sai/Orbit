@@ -490,8 +490,6 @@ export const formatSourceType = (source) => {
   switch (source.toLowerCase()) {
     case 'saavn':
       return 'JioSaavn';
-    case 'tidal':
-      return 'Tidal';
     case 'mymusic':
       return 'My Music';
     case 'local':

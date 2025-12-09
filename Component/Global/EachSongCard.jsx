@@ -17,7 +17,7 @@ import { requestStoragePermission } from '../../Utils/PermissionManager';
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
 import queueManager from '../../Utils/QueueManager';
 
-export const EachSongCard = memo(function EachSongCard({ title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', tidalUrl, truncateTitle = false, onDeleteComplete, activeTrackId, isPlaying }) {
+export const EachSongCard = memo(function EachSongCard({ title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', truncateTitle = false, onDeleteComplete, activeTrackId, isPlaying }) {
   const theme = useTheme();
   const { colors } = theme;
   const width1 = Dimensions.get("window").width;
@@ -73,8 +73,6 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
     };
 
     checkDownloadStatus();
-
-    // Note: Tidal support removed in this build.
   }, [id]);
 
   useEffect(() => {
@@ -287,10 +285,7 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
       await AddPlaylist(Final)
     } else {
       // Handle single song playback
-      if (source === 'tidal') {
-        ToastAndroid.show('Tidal support has been removed.', ToastAndroid.SHORT);
-        return;
-      } else if (source === 'ytmusic') {
+      if (source === 'ytmusic') {
         // Handle YTMusic songs - let PlayOneSong fetch the stream URL
         const song = {
           url: '', // PlayOneSong will fetch the stream URL

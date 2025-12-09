@@ -9,10 +9,10 @@ import { truncateText } from '../../Utils/FormatTitleAndArtist';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 
 export const EachArtistCardGrid = memo(function EachArtistCardGrid({
-  id, 
-  name, 
-  role, 
-  image, 
+  id,
+  name,
+  role,
+  image,
   followerCount,
   mainContainerStyle,
   source,
@@ -21,33 +21,36 @@ export const EachArtistCardGrid = memo(function EachArtistCardGrid({
   const navigation = useNavigation();
   const { theme } = useThemeContext();
   const { width } = Dimensions.get('window');
-  
+
   // Calculate responsive dimensions based on screen size
   const responsiveStyles = useMemo(() => {
-    // Base width is ~47% of screen width for better spacing
-    const cardWidth = Math.max(170, width * 0.47);
+    // Dynamic width calculation for perfect 2-column grid
+    // Screen Width - Horizontal Padding (20) - Inner Spacing (12) / 2
+    const cardWidth = (width - 32) / 2;
     // Compact height for better layout
-    const cardHeight = cardWidth + 70;
+    const cardHeight = cardWidth + 50;
 
     return {
       container: {
         width: cardWidth,
         height: cardHeight,
-        borderRadius: 12,
-        marginHorizontal: 3,
+        marginHorizontal: 0, // Remove horizontal margin, let columnWrapper handle spacing
         marginVertical: 6,
+        alignItems: 'center', // Center content horizontally
       },
       image: {
         height: cardWidth - 24,
         width: cardWidth - 24,
-        borderRadius: 10, // Square with rounded corners
+        borderRadius: (cardWidth - 24) / 2, // Circular image
         margin: 12,
       },
       textContainer: {
-        paddingHorizontal: 12,
-        paddingBottom: 12,
+        paddingHorizontal: 8,
+        paddingBottom: 4,
         height: 50,
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
+        alignItems: 'center', // Center text 
+        width: '100%',
       }
     };
   }, [width]);
@@ -78,21 +81,9 @@ export const EachArtistCardGrid = memo(function EachArtistCardGrid({
   };
 
   // Add validation for empty image URLs
-  const imageSource = image && image !== "" 
-    ? { uri: image } 
+  const imageSource = image && image !== ""
+    ? { uri: image }
     : require('../../Images/default.jpg');
-
-  // Format follower count for display
-  const formatFollowerCount = (count) => {
-    if (!count || count === 0) return 'Artist';
-    if (count >= 1000000) {
-      return `${(count / 1000000).toFixed(1)}M followers`;
-    } else if (count >= 1000) {
-      return `${(count / 1000).toFixed(1)}K followers`;
-    } else {
-      return `${count} followers`;
-    }
-  };
 
   return (
     <Pressable
@@ -100,26 +91,18 @@ export const EachArtistCardGrid = memo(function EachArtistCardGrid({
       style={{
         ...(mainContainerStyle || {}),
         ...responsiveStyles.container,
-        backgroundColor: theme.colors.card,
-        elevation: 3,
-        shadowColor: "#000",
-        shadowOffset: {
-          width: 0,
-          height: 2,
-        },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
+        // Removed background color, elevation, and shadows for cleaner look
       }}
     >
       {/* Artist Image */}
       <View style={{
         position: 'relative',
+        // Removed margins/padding here as they are handled in responsiveStyles.image
       }}>
         <FastImage
           source={imageSource}
           style={{
             ...responsiveStyles.image,
-            // Square image with rounded corners (not circular)
           }}
           resizeMode={FastImage.resizeMode.cover}
         />
@@ -135,14 +118,14 @@ export const EachArtistCardGrid = memo(function EachArtistCardGrid({
           height: 32,
           justifyContent: 'center',
           alignItems: 'center',
-          elevation: 2,
+          elevation: 4,
           shadowColor: "#000",
           shadowOffset: {
             width: 0,
-            height: 1,
+            height: 2,
           },
-          shadowOpacity: 0.22,
-          shadowRadius: 2.22,
+          shadowOpacity: 0.3,
+          shadowRadius: 3,
         }}>
           <FontAwesome5
             name="play"
@@ -156,23 +139,23 @@ export const EachArtistCardGrid = memo(function EachArtistCardGrid({
       {/* Artist Info */}
       <View style={responsiveStyles.textContainer}>
         <PlainText
-          text={truncateText(name, 18)}
+          text={truncateText(name, 20)}
           style={{
             color: theme.colors.text,
             fontSize: 15,
             fontWeight: '600',
-            textAlign: 'left',
+            textAlign: 'center', // Center text
             marginBottom: 2,
           }}
           numberOfLines={1}
         />
         <SmallText
-          text={formatFollowerCount(followerCount) || role || 'Artist'}
+          text={role || 'Artist'} // Always show 'Artist' or role, ignore follower count
           style={{
             color: theme.colors.textSecondary || theme.colors.text,
             opacity: 0.8,
-            fontSize: 12,
-            textAlign: 'left',
+            fontSize: 13,
+            textAlign: 'center', // Center text
           }}
           numberOfLines={1}
         />

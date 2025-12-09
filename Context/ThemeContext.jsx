@@ -178,11 +178,59 @@ export const ThemeProvider = ({ children }) => {
   );
 };
 
+// Provide a default context value to prevent errors when used outside provider
+ThemeContext.defaultProps = {
+  theme: darkTheme,
+  paperTheme: PaperDarkTheme,
+  themeMode: 'dark',
+  colorSchemeName: DEFAULT_COLOR_SCHEME,
+  colorScheme: getColorScheme(DEFAULT_COLOR_SCHEME),
+  fontSize: 'Medium',
+  toggleTheme: async () => {},
+  changeColorScheme: async () => {},
+  changeFontSize: async () => {},
+  isThemeLoaded: false
+};
+
 // Custom hook to use the theme context
 export const useThemeContext = () => {
   const context = useContext(ThemeContext);
   if (context === undefined) {
-    throw new Error('useThemeContext must be used within a ThemeProvider');
+    // Return fallback theme instead of throwing error
+    console.warn('useThemeContext was used outside a ThemeProvider, using fallback theme');
+    return {
+      theme: darkTheme,
+      paperTheme: PaperDarkTheme,
+      themeMode: 'dark',
+      colorSchemeName: DEFAULT_COLOR_SCHEME,
+      colorScheme: getColorScheme(DEFAULT_COLOR_SCHEME),
+      fontSize: 'Medium',
+      toggleTheme: async () => {},
+      changeColorScheme: async () => {},
+      changeFontSize: async () => {},
+      isThemeLoaded: false
+    };
+  }
+  return context;
+};
+
+// Custom hook to use the theme context with loading state check
+export const useThemeContextSafe = () => {
+  const context = useContext(ThemeContext);
+  if (context === undefined) {
+    // Return a fallback theme instead of throwing an error
+    return {
+      theme: darkTheme,
+      paperTheme: PaperDarkTheme,
+      themeMode: 'dark',
+      colorSchemeName: DEFAULT_COLOR_SCHEME,
+      colorScheme: getColorScheme(DEFAULT_COLOR_SCHEME),
+      fontSize: 'Medium',
+      toggleTheme: async () => {},
+      changeColorScheme: async () => {},
+      changeFontSize: async () => {},
+      isThemeLoaded: false
+    };
   }
   return context;
 };

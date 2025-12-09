@@ -70,8 +70,8 @@ function transformYTToSaavnArtist(artist) {
 
   return {
     id: artistId,
-    name: artist.artist || artist.name,
-    title: artist.artist || artist.name,
+    name: artist.name || artist.artist,
+    title: artist.name || artist.artist,
     subtitle: `${artist.type || "Artist"} • ${artist.subscribers || ""}`,
     type: "artist",
     image: imageArray.length > 0 ? imageArray : [{

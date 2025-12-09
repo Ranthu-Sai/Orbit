@@ -20,7 +20,7 @@ const WEB_REMIX_CONTEXT = {
     context: {
         client: {
             clientName: 'WEB_REMIX',
-            clientVersion: '1.20240422.01.00',
+            clientVersion: '1.20250310.01.00',
             originalUrl: 'https://music.youtube.com',
             hl: 'en',
             gl: 'IN'
@@ -107,6 +107,7 @@ class InnerTubeClient {
 
     static async getArtist(browseId) {
         const data = await this.request('browse', { browseId });
+
         return this.parseArtist(data);
     }
 
@@ -162,6 +163,20 @@ class InnerTubeClient {
         }
 
         return result;
+    }
+
+    /**
+     * Get Section Items (See All)
+     * Supports lazy loading via continuation
+     */
+    static async getSection(browseId, params = null, continuation = null) {
+        if (continuation) {
+            const data = await this.request('browse', { continuation });
+            return this.parseSection(data);
+        }
+
+        const data = await this.request('browse', { browseId, params });
+        return this.parseSection(data);
     }
 
     /**
@@ -278,37 +293,434 @@ class InnerTubeClient {
         return results;
     }
 
+    /**
+     * Parse Artist Page - Full implementation matching OuterTune's ArtistPage
+     * Returns: { artist, sections, description }
+     */
     static parseArtist(data) {
         try {
-            const header = data?.header?.musicImmersiveHeaderRenderer;
-            const name = header?.title?.runs?.[0]?.text;
-            const sections = data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents;
+            // Get artist header - try multiple possible renderers (OuterTune style)
+            const immersiveHeader = data?.header?.musicImmersiveHeaderRenderer;
+            const visualHeader = data?.header?.musicVisualHeaderRenderer;
+            const detailHeader = data?.header?.musicDetailHeaderRenderer;
+            const headerRenderer = data?.header?.musicHeaderRenderer;
 
+            // Extract artist name from various header types
+            const artistName = immersiveHeader?.title?.runs?.[0]?.text ||
+                visualHeader?.title?.runs?.[0]?.text ||
+                headerRenderer?.title?.runs?.[0]?.text ||
+                detailHeader?.title?.runs?.[0]?.text;
+
+            // Extract thumbnail - try all possible paths (OuterTune exact paths)
+            const immersiveThumbs = immersiveHeader?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+            const visualThumbs = visualHeader?.foregroundThumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+            const detailThumbs = detailHeader?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+
+            // Get highest quality thumbnail
+            const thumbnail = (immersiveThumbs?.length > 0 ? immersiveThumbs[immersiveThumbs.length - 1]?.url : null) ||
+                (visualThumbs?.length > 0 ? visualThumbs[visualThumbs.length - 1]?.url : null) ||
+                (detailThumbs?.length > 0 ? detailThumbs[detailThumbs.length - 1]?.url : null);
+
+            // Extract channel ID for subscription
+            const channelId = immersiveHeader?.subscriptionButton?.subscribeButtonRenderer?.channelId;
+
+            // Extract play/shuffle/radio endpoints from header
+            const playEndpoint = data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]
+                ?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicShelfRenderer
+                ?.contents?.[0]?.musicResponsiveListItemRenderer?.overlay?.musicItemThumbnailOverlayRenderer
+                ?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint;
+
+            const shuffleEndpoint = immersiveHeader?.playButton?.buttonRenderer?.navigationEndpoint?.watchEndpoint ||
+                data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer
+                    ?.contents?.[0]?.musicShelfRenderer?.contents?.[0]?.musicResponsiveListItemRenderer?.navigationEndpoint?.watchPlaylistEndpoint;
+
+            const radioEndpoint = immersiveHeader?.startRadioButton?.buttonRenderer?.navigationEndpoint?.watchEndpoint;
+
+            // Extract share link
+            const shareLink = `https://music.youtube.com/channel/${channelId || ''}`;
+
+            // Extract description
+            const description = immersiveHeader?.description?.runs?.[0]?.text;
+
+            // Build artist object (matching OuterTune's ArtistItem structure)
+            const artist = {
+                id: channelId,
+                title: artistName,
+                thumbnail,
+                channelId,
+                playEndpoint,
+                shuffleEndpoint,
+                radioEndpoint,
+                shareLink
+            };
+
+            // Parse all sections dynamically (matching OuterTune's approach)
+            const sectionContents = data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]
+                ?.tabRenderer?.content?.sectionListRenderer?.contents || [];
+
+            const sections = [];
+
+            for (const section of sectionContents) {
+                const parsedSection = this.parseArtistSection(section);
+                if (parsedSection && parsedSection.items.length > 0) {
+                    // Deduplicate items by id
+                    const seenIds = new Set();
+                    parsedSection.items = parsedSection.items.filter(item => {
+                        const id = item.videoId || item.id || item.browseId;
+                        if (!id || seenIds.has(id)) return false;
+                        seenIds.add(id);
+                        return true;
+                    });
+                    sections.push(parsedSection);
+                }
+            }
+
+            // Legacy support: also return flat arrays for backward compatibility
+            const songs = [];
             const albums = [];
             const singles = [];
-            const songs = [];
+            const videos = [];
+            const playlists = [];
+            const relatedArtists = [];
+            const seenSongIds = new Set();
 
-            sections?.forEach(sec => {
-                if (sec.musicShelfRenderer) {
-                    const title = sec.musicShelfRenderer.title?.runs?.[0]?.text;
-                    if (title === 'Songs') {
-                        sec.musicShelfRenderer.contents?.forEach(i => {
-                            const p = this.parseItem(i);
-                            if (p) songs.push(p);
-                        });
+            for (const sec of sections) {
+                const titleLower = sec.title.toLowerCase();
+                if (titleLower === 'songs' || titleLower.includes('song')) {
+                    // Deduplicate songs
+                    for (const item of sec.items) {
+                        const id = item.videoId || item.id;
+                        if (id && !seenSongIds.has(id)) {
+                            seenSongIds.add(id);
+                            songs.push(item);
+                        }
                     }
+                } else if (titleLower === 'albums') {
+                    albums.push(...sec.items);
+                } else if (titleLower === 'singles' || titleLower.includes('single') || titleLower.includes('ep')) {
+                    singles.push(...sec.items);
+                } else if (titleLower === 'videos' || titleLower.includes('video')) {
+                    videos.push(...sec.items);
+                } else if (titleLower.includes('playlist')) {
+                    playlists.push(...sec.items);
+                } else if (titleLower.includes('fans might') || titleLower.includes('similar') || titleLower.includes('like')) {
+                    relatedArtists.push(...sec.items);
                 }
-                if (sec.musicCarouselShelfRenderer) {
-                    const title = sec.musicCarouselShelfRenderer.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.[0]?.text;
-                    const items = sec.musicCarouselShelfRenderer.contents?.map(i => this.parseItem(i)).filter(i => i);
+            }
 
-                    if (title === 'Albums') albums.push(...items);
-                    if (title === 'Singles') singles.push(...items);
+            return {
+                artist,
+                sections,
+                description,
+                // Legacy flat arrays for backward compatibility
+                name: artistName,
+                songs,
+                albums,
+                singles,
+                videos,
+                playlists,
+                relatedArtists,
+                thumbnails: thumbnail ? [{ url: thumbnail }] : []
+            };
+        } catch (e) {
+            console.error('parseArtist error:', e);
+            return null;
+        }
+    }
+
+    /**
+     * Parse individual artist section (musicShelfRenderer or musicCarouselShelfRenderer)
+     * Matching OuterTune's ArtistPage.fromSectionListRendererContent
+     */
+    static parseArtistSection(section) {
+        try {
+            // Handle musicShelfRenderer (songs displayed as list)
+            if (section.musicShelfRenderer) {
+                const renderer = section.musicShelfRenderer;
+                const title = renderer.title?.runs?.[0]?.text || '';
+
+                // OuterTune uses getItems() which handles continuationItemRenderer
+                const rawContents = renderer.contents || [];
+
+                const items = rawContents.map(i => this.parseArtistSongItem(i)).filter(i => i) || [];
+                const moreEndpoint = renderer.title?.runs?.[0]?.navigationEndpoint?.browseEndpoint;
+
+                return {
+                    title,
+                    items,
+                    moreEndpoint: moreEndpoint ? {
+                        browseId: moreEndpoint.browseId,
+                        params: moreEndpoint.params
+                    } : null,
+                    type: 'songs'
+                };
+            }
+
+            // Handle musicCarouselShelfRenderer (albums, playlists, artists as horizontal scroll)
+            if (section.musicCarouselShelfRenderer) {
+                const renderer = section.musicCarouselShelfRenderer;
+                const headerRenderer = renderer.header?.musicCarouselShelfBasicHeaderRenderer;
+                const title = headerRenderer?.title?.runs?.[0]?.text || '';
+                const moreEndpoint = headerRenderer?.moreContentButton?.buttonRenderer?.navigationEndpoint?.browseEndpoint;
+
+                const rawContents = renderer.contents || [];
+
+                const items = rawContents.map(i => {
+                    if (i.musicTwoRowItemRenderer) {
+                        return this.parseMusicTwoRowItem(i.musicTwoRowItemRenderer);
+                    }
+                    if (i.musicResponsiveListItemRenderer) {
+                        return this.parseArtistSongItem(i);
+                    }
+                    return this.parseItem(i);
+                }).filter(i => i) || [];
+
+                // Determine section type based on first item's type OR title
+                let type = 'carousel';
+                const firstItem = items[0];
+                if (firstItem?.type === 'artist') type = 'artists';
+                else if (firstItem?.type === 'album') type = 'albums';
+                else if (firstItem?.type === 'playlist') type = 'playlists';
+                else if (firstItem?.type === 'song') type = 'songs';
+                else {
+                    // Fallback to title-based detection
+                    const titleLower = title.toLowerCase();
+                    if (titleLower.includes('album')) type = 'albums';
+                    else if (titleLower.includes('single') || titleLower.includes('ep')) type = 'singles';
+                    else if (titleLower.includes('video')) type = 'videos';
+                    else if (titleLower.includes('playlist')) type = 'playlists';
+                    else if (titleLower.includes('fan') || titleLower.includes('like') || titleLower.includes('similar')) type = 'artists';
+                    else if (titleLower.includes('featured')) type = 'featured';
+                    else if (titleLower.includes('live')) type = 'live';
                 }
-            });
 
-            return { name, songs, albums, singles };
-        } catch (e) { return null; }
+                return {
+                    title,
+                    items,
+                    moreEndpoint: moreEndpoint ? {
+                        browseId: moreEndpoint.browseId,
+                        params: moreEndpoint.params
+                    } : null,
+                    type
+                };
+            }
+
+            // Unknown section type
+            return null;
+        } catch (e) {
+            console.error('parseArtistSection error:', e);
+            return null;
+        }
+    }
+
+    /**
+     * Parse song item from artist's songs section (musicResponsiveListItemRenderer)
+     * Matches OuterTune's fromMusicResponsiveListItemRenderer in ArtistPage.kt
+     */
+    static parseArtistSongItem(itemWrapper) {
+        try {
+            const renderer = itemWrapper.musicResponsiveListItemRenderer;
+            if (!renderer) {
+                return this.parseItem(itemWrapper);
+            }
+
+            // OuterTune: id = renderer.playlistItemData?.videoId ?: return null
+            const videoId = renderer.playlistItemData?.videoId;
+            if (!videoId) {
+                return null;
+            }
+
+            // OuterTune: title = renderer.flexColumns.firstOrNull()?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.text
+            const title = renderer.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text;
+            if (!title) {
+                return null;
+            }
+
+            // OuterTune: artists = PageHelper.extractRuns(renderer.flexColumns, "MUSIC_PAGE_TYPE_ARTIST").oddElements()
+            // Simplified: get artists from second column, odd indices are artist names
+            const artistRuns = renderer.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+            const artists = artistRuns.filter((_, idx) => idx % 2 === 0).map(run => ({
+                name: run.text,
+                id: run.navigationEndpoint?.browseEndpoint?.browseId
+            }));
+
+            // OuterTune: album = from flexColumns using MUSIC_PAGE_TYPE_ALBUM
+            const albumRuns = renderer.flexColumns?.[2]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs ||
+                renderer.flexColumns?.[3]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs;
+            const album = albumRuns?.[0] ? {
+                name: albumRuns[0].text,
+                id: albumRuns[0].navigationEndpoint?.browseEndpoint?.browseId
+            } : null;
+
+            // OuterTune: thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl()
+            const thumbnails = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+            const thumbnail = thumbnails?.length > 0 ? thumbnails[thumbnails.length - 1]?.url : null;
+
+            const explicit = renderer.badges?.some(b => b.musicInlineBadgeRenderer?.icon?.iconType === 'MUSIC_EXPLICIT_BADGE');
+            const endpoint = renderer.overlay?.musicItemThumbnailOverlayRenderer?.content
+                ?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint;
+
+            return {
+                videoId,
+                id: videoId,
+                title,
+                name: title,
+                artists,
+                artist: artists.map(a => a.name).join(', '),
+                album,
+                thumbnail,
+                thumbnails: thumbnails || [],
+                explicit,
+                endpoint,
+                type: 'song',
+                image: [{ url: thumbnail, quality: 'hd' }],
+                artwork: thumbnail
+            };
+        } catch (e) {
+            console.error('parseArtistSongItem error:', e);
+            return this.parseItem(itemWrapper);
+        }
+    }
+
+    /**
+     * Parse musicTwoRowItemRenderer (albums, playlists, artists in carousel)
+     * Uses pageType from browseEndpointContextSupportedConfigs like OuterTune
+     */
+    static parseMusicTwoRowItem(renderer) {
+        try {
+            const title = renderer.title?.runs?.[0]?.text;
+            const thumbnails = renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+            const thumbnail = thumbnails?.length > 0 ? thumbnails[thumbnails.length - 1]?.url : null;
+            const subtitle = renderer.subtitle?.runs?.map(r => r.text).join('') || '';
+
+            const browseEndpoint = renderer.navigationEndpoint?.browseEndpoint;
+            const watchEndpoint = renderer.navigationEndpoint?.watchEndpoint;
+            const browseId = browseEndpoint?.browseId;
+
+            // Get pageType from browseEndpointContextSupportedConfigs (OuterTune method)
+            const pageType = browseEndpoint?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType;
+
+            // Song (has watchEndpoint with videoId) - OuterTune: isSong = navigationEndpoint.endpoint is WatchEndpoint
+            if (watchEndpoint?.videoId) {
+                const artistRun = renderer.subtitle?.runs?.[0];
+                return {
+                    videoId: watchEndpoint.videoId,
+                    id: watchEndpoint.videoId,
+                    title,
+                    name: title,
+                    artists: artistRun ? [{ name: artistRun.text, id: artistRun.navigationEndpoint?.browseEndpoint?.browseId }] : [],
+                    artist: artistRun?.text || 'Unknown',
+                    thumbnail,
+                    thumbnails: thumbnails || [],
+                    explicit: renderer.subtitleBadges?.some(b => b.musicInlineBadgeRenderer?.icon?.iconType === 'MUSIC_EXPLICIT_BADGE'),
+                    type: 'song',
+                    image: [{ url: thumbnail }],
+                    artwork: thumbnail
+                };
+            }
+
+            // Album - OuterTune: isAlbum = pageType == MUSIC_PAGE_TYPE_ALBUM || MUSIC_PAGE_TYPE_AUDIOBOOK
+            if (pageType === 'MUSIC_PAGE_TYPE_ALBUM' || pageType === 'MUSIC_PAGE_TYPE_AUDIOBOOK' ||
+                browseId?.startsWith('MPRE') || browseId?.startsWith('OLAK')) {
+                const playlistId = renderer.thumbnailOverlay?.musicItemThumbnailOverlayRenderer?.content
+                    ?.musicPlayButtonRenderer?.playNavigationEndpoint?.anyWatchEndpoint?.playlistId ||
+                    renderer.thumbnailOverlay?.musicItemThumbnailOverlayRenderer?.content
+                        ?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchPlaylistEndpoint?.playlistId;
+
+                const yearRun = renderer.subtitle?.runs?.slice(-1)[0];
+                const year = yearRun?.text?.match(/^\d{4}$/) ? parseInt(yearRun.text) : null;
+
+                return {
+                    browseId,
+                    id: browseId,
+                    playlistId,
+                    title,
+                    name: title,
+                    thumbnail,
+                    thumbnails: thumbnails || [],
+                    year,
+                    subtitle,
+                    explicit: renderer.subtitleBadges?.some(b => b.musicInlineBadgeRenderer?.icon?.iconType === 'MUSIC_EXPLICIT_BADGE'),
+                    type: 'album',
+                    image: [{ url: thumbnail }]
+                };
+            }
+
+            // Playlist - OuterTune: isPlaylist = pageType == MUSIC_PAGE_TYPE_PLAYLIST
+            if (pageType === 'MUSIC_PAGE_TYPE_PLAYLIST' ||
+                browseId?.startsWith('VL') || browseId?.startsWith('PL') || browseId?.startsWith('RDCLAK')) {
+                const playlistId = browseId?.startsWith('VL') ? browseId.substring(2) : browseId;
+                const authorRun = renderer.subtitle?.runs?.slice(-1)[0];
+
+                // Get play/shuffle/radio endpoints like OuterTune
+                const playEndpoint = renderer.thumbnailOverlay?.musicItemThumbnailOverlayRenderer?.content
+                    ?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchPlaylistEndpoint;
+                const menuItems = renderer.menu?.menuRenderer?.items || [];
+                const shuffleEndpoint = menuItems.find(i => i.menuNavigationItemRenderer?.icon?.iconType === 'MUSIC_SHUFFLE')
+                    ?.menuNavigationItemRenderer?.navigationEndpoint?.watchPlaylistEndpoint;
+                const radioEndpoint = menuItems.find(i => i.menuNavigationItemRenderer?.icon?.iconType === 'MIX')
+                    ?.menuNavigationItemRenderer?.navigationEndpoint?.watchPlaylistEndpoint;
+
+                return {
+                    id: playlistId,
+                    browseId,
+                    playlistId,
+                    title,
+                    name: title,
+                    thumbnail,
+                    thumbnails: thumbnails || [],
+                    author: authorRun?.text,
+                    subtitle,
+                    type: 'playlist',
+                    playEndpoint,
+                    shuffleEndpoint,
+                    radioEndpoint,
+                    image: [{ url: thumbnail }]
+                };
+            }
+
+            // Artist - OuterTune: isArtist = pageType == MUSIC_PAGE_TYPE_ARTIST
+            if (pageType === 'MUSIC_PAGE_TYPE_ARTIST' || browseId?.startsWith('UC')) {
+                const menuItems = renderer.menu?.menuRenderer?.items || [];
+                const channelId = menuItems.find(i => i.toggleMenuServiceItemRenderer?.defaultIcon?.iconType === 'SUBSCRIBE')
+                    ?.toggleMenuServiceItemRenderer?.defaultServiceEndpoint?.subscribeEndpoint?.channelIds?.[0];
+                const shuffleEndpoint = menuItems.find(i => i.menuNavigationItemRenderer?.icon?.iconType === 'MUSIC_SHUFFLE')
+                    ?.menuNavigationItemRenderer?.navigationEndpoint?.watchPlaylistEndpoint;
+                const radioEndpoint = menuItems.find(i => i.menuNavigationItemRenderer?.icon?.iconType === 'MIX')
+                    ?.menuNavigationItemRenderer?.navigationEndpoint?.watchPlaylistEndpoint;
+
+                return {
+                    id: browseId,
+                    browseId,
+                    channelId,
+                    title,
+                    name: title,
+                    thumbnail,
+                    thumbnails: thumbnails || [],
+                    subtitle,
+                    type: 'artist',
+                    shuffleEndpoint,
+                    radioEndpoint,
+                    image: [{ url: thumbnail }]
+                };
+            }
+
+            // Generic fallback
+            return {
+                id: browseId || watchEndpoint?.videoId,
+                browseId,
+                title,
+                name: title,
+                thumbnail,
+                thumbnails: thumbnails || [],
+                subtitle,
+                type: 'unknown',
+                image: [{ url: thumbnail }]
+            };
+        } catch (e) {
+            console.error('parseMusicTwoRowItem error:', e);
+            return null;
+        }
     }
 
     static parseAlbum(data) {
@@ -404,6 +816,38 @@ class InnerTubeClient {
         } catch (e) {
             console.error('parseAlbum error:', e);
             return null;
+        }
+    }
+
+    static parseSection(data) {
+        try {
+            const section = data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.gridRenderer ||
+                data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.[0]?.gridRenderer ||
+                data?.continuationContents?.gridContinuation ||
+                data?.continuationContents?.musicShelfContinuation;
+
+            const header = data?.header?.musicHeaderRenderer;
+            const title = header?.title?.runs?.[0]?.text || '';
+
+            const rawItems = section?.items || section?.contents || [];
+            const items = rawItems.map(i => {
+                if (i.musicTwoRowItemRenderer) return this.parseMusicTwoRowItem(i.musicTwoRowItemRenderer);
+                if (i.musicResponsiveListItemRenderer) return this.parseArtistSongItem(i);
+                return this.parseItem(i);
+            }).filter(i => i);
+
+            // Get continuation token
+            const continuations = section?.continuations;
+            const continuation = continuations?.[0]?.nextContinuationData?.continuation;
+
+            return {
+                title,
+                items,
+                continuation
+            };
+        } catch (e) {
+            console.error('parseSection error:', e);
+            return { items: [], continuation: null };
         }
     }
 

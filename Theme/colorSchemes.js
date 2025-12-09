@@ -2,14 +2,14 @@
 // Each scheme defines colors for icons, text, tabs, and accent (used for playing songs)
 
 export const colorSchemes = {
-  // Default green scheme
+  // Default scheme (now steel blue)
   green: {
-    name: 'Green',
-    primary: '#6CC04A',
-    iconActive: '#6CC04A',
-    textActive: '#6CC04A',
-    tabActive: '#6CC04A',
-    accent: '#6CC04A'
+    name: 'Steel Blue',
+    primary: '#4a6e8d',
+    iconActive: '#4a6e8d',
+    textActive: '#4a6e8d',
+    tabActive: '#4a6e8d',
+    accent: '#4a6e8d'
   },
   // Blue scheme
   blue: {
@@ -78,15 +78,17 @@ export const colorSchemes = {
 
 // Available colors for custom color picker
 export const availableColors = [
+  // Blues
+  { name: 'Steel Blue', value: '#4a6e8d' },
+  { name: 'Light Blue', value: '#a4c8e1' },
+  { name: 'Blue', value: '#4A90E2' },
+  { name: 'Sky Blue', value: '#00BCD4' },
+  { name: 'Navy', value: '#3498DB' },
+  
   // Greens
   { name: 'Green', value: '#6CC04A' },
   { name: 'Emerald', value: '#2ECC71' },
   { name: 'Mint', value: '#00B894' },
-  
-  // Blues
-  { name: 'Blue', value: '#4A90E2' },
-  { name: 'Sky Blue', value: '#00BCD4' },
-  { name: 'Navy', value: '#3498DB' },
   
   // Purples
   { name: 'Purple', value: '#9C27B0' },

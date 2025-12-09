@@ -1,6 +1,6 @@
 import Context from "./Context";
 import { useEffect, useState, useRef } from "react";
-import { AppState } from "react-native";
+import { AppState, DeviceEventEmitter } from "react-native";
 import TrackPlayer, { Event, useTrackPlayerEvents } from "react-native-track-player";
 import { getRecommendedSongs } from "../Api/Recommended";
 import { AddSongsToQueue } from "../MusicPlayerFunctions";
@@ -44,6 +44,9 @@ const ContextState = (props) => {
     // Add state to track liked playlists for UI updates
     const [likedPlaylists, setLikedPlaylists] = useState([]);
 
+    // Track if current playback is from a playlist/album (blocks auto-recommendations)
+    const [isPlaylistActive, setIsPlaylistActive] = useState(false);
+
     const [Queue, setQueue] = useState([]);
     async function updateTrack() {
         if (!isPlayerReady.current) return;
@@ -71,17 +74,19 @@ const ContextState = (props) => {
         if (!isPlayerReady.current) return;
 
         // 🚫 SKIP RECOMMENDATIONS for Album/Playlist playback
-        // This prevents errors when playing from albums/playlists
-        if (currentPlaylistData) {
+        // Using dedicated isPlaylistActive flag instead of currentPlaylistData
+        if (isPlaylistActive) {
             console.log('Skipping recommendations: Album/Playlist is active');
             return;
         }
 
-        // 🚫 SKIP for YouTube Music songs (they use AutoRecommendations service instead)
+        // 🚫 SKIP for YouTube Music songs
+        // YTMusic uses AutoRecommendations service (Utils/AutoRecommendations.js)
+        // This function is ONLY for Saavn songs which use the old recommendation API
         const currentTrack = await TrackPlayer.getActiveTrack();
         if (currentTrack?.isYTMusic || currentTrack?.source === 'ytmusic' ||
             (currentTrack?.id && currentTrack.id.length === 11 && !currentTrack.isLocal)) {
-            console.log('Skipping recommendations for YouTube song:', id);
+            console.log('Skipping Saavn recommendations for YouTube song:', id);
             return;
         }
 
@@ -257,6 +262,15 @@ const ContextState = (props) => {
     useEffect(() => {
         InitialSetup()
 
+        // Listen for playback mode changes from MusicPlayerFunctions
+        const playbackModeListener = DeviceEventEmitter.addListener(
+            'playback-mode-changed',
+            (event) => {
+                console.log('🎵 Playback mode changed:', event.isPlaylist ? 'Playlist/Album' : 'Single Song');
+                setIsPlaylistActive(event.isPlaylist);
+            }
+        );
+
         // Handle app state changes for history tracking
         const handleAppStateChange = (nextAppState) => {
             console.log('Context: App state changed to', nextAppState);
@@ -310,6 +324,7 @@ const ContextState = (props) => {
 
         return () => {
             subscription?.remove();
+            playbackModeListener?.remove();
             historyManager.cleanup();
         };
     }, []);
@@ -331,7 +346,9 @@ const ContextState = (props) => {
         currentPlaylistData,
         setCurrentPlaylistData,
         updateLikedPlaylist,
-        likedPlaylists
+        likedPlaylists,
+        isPlaylistActive,
+        setIsPlaylistActive
     }}>
         {props.children}
         <EachSongMenuModal setVisible={setVisible} Visible={Visible} />

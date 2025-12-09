@@ -66,7 +66,7 @@ const getImageUrl = (imageData) => {
 };
 
 export const Home = () => {
-  const [showHeader, setShowHeader] = useState(true);
+  const [showHeader, setShowHeader] = useState(false);
   const [Language, setLanguage] = useState('english');
   const [Loading, setLoading] = useState(false); // Default to false - show cached data immediately
   const [homeData, setHomeData] = useState({});
@@ -74,9 +74,12 @@ export const Home = () => {
   const [isConnected, setIsConnected] = useState(true);
   const [offline, setOffline] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const { width } = Dimensions.get('window');
+  const { width, height } = Dimensions.get('window');
   const [Data, setData] = useState({ data: { charts: [], playlists: [], trending: { albums: [] } } });
   const [chartIndices, setChartIndices] = useState([0, 1, 2, 3]); // Dynamic chart indices
+  
+  // Calculate 5% of screen height for scroll threshold
+  const scrollThreshold = height * 0.05;
 
   // Track if initial load has happened
   const isInitialLoad = useRef(true);
@@ -222,9 +225,9 @@ export const Home = () => {
           <ScrollView
             style={{ zIndex: -1 }}
             onScroll={(e) => {
-              if (e.nativeEvent.contentOffset.y > 200 && !showHeader) {
+              if (e.nativeEvent.contentOffset.y > scrollThreshold && !showHeader) {
                 setShowHeader(true)
-              } else if (e.nativeEvent.contentOffset.y < 200 && showHeader) {
+              } else if (e.nativeEvent.contentOffset.y < scrollThreshold && showHeader) {
                 setShowHeader(false)
               }
             }}
@@ -238,7 +241,7 @@ export const Home = () => {
             }
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{
-              paddingBottom: 90,
+              paddingBottom: 180, // Increased from 120 for more bottom margin
             }}
           >
             <RouteHeading showSearch={true} showSettings={true} />

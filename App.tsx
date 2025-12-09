@@ -10,6 +10,9 @@ import { RouteOnboarding } from "./Route/OnboardingScreen/RouteOnboarding";
 import { InitialScreen } from "./Route/InitialScreen";
 import { Album } from './Route/Album';
 import ArtistPage from './Route/ArtistPage';
+import ArtistSongs from './Route/ArtistSongs';
+import ArtistItems from './Route/ArtistItems';
+import SectionListPage from './Route/SectionListPage';
 import LoginScreen from './Component/Auth/LoginScreen';
 import CodePush from "react-native-code-push";
 import { useEffect, useRef } from "react";
@@ -144,6 +147,9 @@ function App() {
                     <Stack.Screen name="MainRoute" component={RootRoute} />
                     <Stack.Screen name="Album" component={Album} />
                     <Stack.Screen name="ArtistPage" component={ArtistPage} />
+                    <Stack.Screen name="ArtistSongs" component={ArtistSongs} />
+                    <Stack.Screen name="ArtistItems" component={ArtistItems} />
+                    <Stack.Screen name="SectionListPage" component={SectionListPage} />
                     <Stack.Screen name="LoginScreen" component={LoginScreen} />
                   </Stack.Navigator>
                 </NavigationContainer>

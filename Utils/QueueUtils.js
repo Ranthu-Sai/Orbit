@@ -20,7 +20,6 @@ export const TrackSourceTypes = {
   ONLINE: 'online',
   DOWNLOAD: 'download',
   MYMUSIC: 'mymusic',
-  TIDAL: 'tidal',
   LOCAL: 'local'
 };
 
@@ -57,7 +56,6 @@ export const getTrackSourceType = (track) => {
     const st = String(track.sourceType).toLowerCase();
     if (st === 'downloaded' || st === 'local') return TrackSourceTypes.DOWNLOAD;
     if (st === 'mymusic' || st === 'my_music' || st === 'my-music') return TrackSourceTypes.MYMUSIC;
-    if (st === 'tidal') return TrackSourceTypes.TIDAL;
     if (st === 'download') return TrackSourceTypes.DOWNLOAD;
     // Fall back to the value provided if it's already one of our canonical values
     return st;
@@ -65,10 +63,6 @@ export const getTrackSourceType = (track) => {
 
   if (isLocalTrack(track)) {
     return TrackSourceTypes.DOWNLOAD;
-  }
-
-  if (track.source === 'tidal' || track.sourceType === 'tidal') {
-    return TrackSourceTypes.TIDAL;
   }
 
   return TrackSourceTypes.ONLINE;
