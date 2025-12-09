@@ -46,7 +46,7 @@ const OfflineBanner = ({
   };
 
   return (
-    <View style={bannerStyle}>
+    <View style={bannerStyle} pointerEvents="none">
       {showIcon && (
         <Ionicons 
           name="cloud-offline-outline" 

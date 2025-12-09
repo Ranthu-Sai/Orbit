@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { WebView } from 'react-native-webview';
 import CookieManager from '@react-native-cookies/cookies';
@@ -8,13 +8,32 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { NativeModules } from 'react-native';
 
 const { PythonBridge } = NativeModules;
+const LOGIN_URL = 'https://accounts.google.com/ServiceLogin?service=youtube&continue=https://music.youtube.com/';
 
 const LoginScreen = () => {
     const navigation = useNavigation();
     const webViewRef = useRef(null);
+    const hasSavedCookiesRef = useRef(false);
+    const lastCookieRef = useRef('');
     const [cookieInput, setCookieInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [mode, setMode] = useState('webview'); // 'webview' or 'manual'
+
+    const stopCookieWatcher = () => {
+        webViewRef.current?.injectJavaScript(`
+            if (window.__cookieWatcher) {
+                clearInterval(window.__cookieWatcher);
+                window.__cookieWatcher = null;
+            }
+            true;
+        `);
+    };
+
+    useEffect(() => {
+        return () => {
+            stopCookieWatcher();
+        };
+    }, []);
 
     const handleCookieExtraction = async () => {
         try {
@@ -49,8 +68,14 @@ const LoginScreen = () => {
         await saveAndSendCookies(cookieInput.trim());
     };
 
-    const saveAndSendCookies = async (cookieString) => {
+    const saveAndSendCookies = async (cookieString, { fromAutoCapture = false } = {}) => {
         try {
+            if (fromAutoCapture && hasSavedCookiesRef.current) {
+                return;
+            }
+            if (cookieString === lastCookieRef.current) {
+                return;
+            }
             setLoading(true);
             // Save to AsyncStorage for persistence
             await AsyncStorage.setItem('yt_cookies', cookieString);
@@ -100,6 +125,10 @@ const LoginScreen = () => {
             // We'll assume there's a function we can call or it will pick it up on next request
             // Let's add a 'reload_session' function to youtube_api.py
 
+            hasSavedCookiesRef.current = true;
+            lastCookieRef.current = cookieString;
+            stopCookieWatcher();
+
             Alert.alert('Success', 'Login successful! You can now stream music.', [
                 { text: 'OK', onPress: () => navigation.goBack() }
             ]);
@@ -128,19 +157,21 @@ const LoginScreen = () => {
                 <>
                     <WebView
                         ref={webViewRef}
-                        source={{ uri: 'https://music.youtube.com' }}
+                        source={{ uri: LOGIN_URL }}
                         style={styles.webview}
                         injectedJavaScript={`
-                            setInterval(() => {
-                                window.ReactNativeWebView.postMessage(document.cookie);
-                            }, 1000);
+                            if (!window.__cookieWatcher) {
+                                window.__cookieWatcher = setInterval(() => {
+                                    window.ReactNativeWebView.postMessage(document.cookie || '');
+                                }, 1200);
+                            }
                             true;
                         `}
                         onMessage={(event) => {
                             const cookies = event.nativeEvent.data;
-                            if (cookies && cookies.includes('SAPISID') && !loading) {
+                            if (cookies && cookies.includes('SAPISID') && !loading && !hasSavedCookiesRef.current) {
                                 console.log('✅ Auto-detected login cookies');
-                                saveAndSendCookies(cookies);
+                                saveAndSendCookies(cookies, { fromAutoCapture: true });
                             }
                         }}
                     />

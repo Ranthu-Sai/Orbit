@@ -201,7 +201,11 @@ export const SettingsPage = ({ navigation }) => {
         <Text variant="headlineMedium" style={{ textAlign: 'left', marginBottom: 20, marginLeft: 16, color: colors.text, fontWeight: 'bold' }}>
           Settings
         </Text>
-        <ScrollView style={{ marginBottom: 52 }}>
+        <ScrollView
+          style={{ marginBottom: 52 }}
+          contentContainerStyle={{ paddingBottom: 120 }}
+          contentInsetAdjustmentBehavior="automatic"
+        >
           <View style={{ padding: 16 }}>
             <List.Item
               title="Change Name"

@@ -69,7 +69,7 @@ const QualityIndicator = ({
     };
 
     return (
-        <View style={qualityStyle}>
+        <View style={qualityStyle} pointerEvents="none">
             <Text style={textStyle}>
                 {formatQuality(quality)}
             </Text>

@@ -1,11 +1,10 @@
 import React, { useState, useContext, useMemo, useCallback } from "react";
-import { Dimensions, ImageBackground, View, StyleSheet, StatusBar, InteractionManager } from "react-native";
+import { Dimensions, View, StyleSheet, StatusBar } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useActiveTrack } from "react-native-track-player";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "react-native-paper";
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import SongInfoModal from './SongInfoModal';
 
 import { Spacer } from "../Global/Spacer";
@@ -19,6 +18,7 @@ import { SongInfoDisplay } from "./SongInfoDisplay";
 import { PlaybackControls } from "./PlaybackControls";
 import { OfflineBanner, QualityIndicator, LocalTracksList, useOffline } from "../Offline";
 import { useThemeManager } from "./ThemeManager";
+import { BlurredBackground } from "./Background";
 import { TidalSourceSwitcher, useTidalIntegration } from "./TidalIntegration";
 import { useNavigationHandler, BackButtonHandler } from "./NavigationHandler";
 
@@ -32,12 +32,7 @@ import {
 import Context from "../../Context/Context";
 import useDynamicArtwork from "../../hooks/useDynamicArtwork.js";
 import { SmartDownloadControl } from "../Download/DownloadControl";
-import {
-  Surface,
-  IconButton,
-  Portal,
-  Modal,
-} from "react-native-paper";
+import { Surface, IconButton } from "react-native-paper";
 
 const styles = StyleSheet.create({
   overlay: {
@@ -185,8 +180,8 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
     getBackgroundOverlay,
     getGradientColors,
     getBottomGradientColors,
-  } =
-    useThemeManager();
+    getBlurOverlayGradient,
+  } = useThemeManager();
   const { isOffline } = useOffline();
   const { shouldShowTidalFeatures } = useTidalIntegration();
   const { handlePlayerClose } = useNavigationHandler({ musicPreviousScreen });
@@ -246,9 +241,6 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
     }
     return Boolean(currentArtworkSource?.uri);
   }, [currentArtworkSource]);
-
-  // Constant blur radius to prevent re-renders
-  const backgroundBlurRadius = 28;
 
   const renderPlayerContent = () => (
     <View
@@ -502,28 +494,14 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
           </LocalTracksErrorBoundary>
 
           {hasArtworkBackground ? (
-            /* PERFORMANCE CRITICAL FIX:
-             * React Native's blurRadius is extremely expensive on Android.
-             * It processes the image on every render, causing massive lag.
-             * 
-             * Solution: Use a dark overlay instead of blur. This achieves
-             * a similar visual effect (subdued background) at near-zero cost.
-             * The LinearGradient overlays already provide depth and contrast.
-             */
-            <ImageBackground
-              source={currentArtworkSource}
-              style={styles.backgroundImage}
-              resizeMode="cover"
-              /* blurRadius REMOVED - was causing severe performance issues */
-              key={`bg-${currentPlaying?.id || 'default'}`}
-            >
-              {/* Dark overlay to simulate blur effect cheaply */}
-              <View style={{
-                ...StyleSheet.absoluteFillObject,
-                backgroundColor: 'rgba(0,0,0,0.6)',
-              }} />
+            <View style={styles.backgroundImage}>
+              <BlurredBackground
+                source={currentArtworkSource}
+                blurRadius={18}
+                overlayGradient={getBlurOverlayGradient()}
+              />
               {renderPlayerContent()}
-            </ImageBackground>
+            </View>
           ) : (
             <View
               style={[styles.fallbackBackground, { backgroundColor: paperTheme.colors.surface }]}

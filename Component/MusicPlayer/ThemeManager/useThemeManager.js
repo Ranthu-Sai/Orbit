@@ -80,6 +80,24 @@ export const useThemeManager = () => {
     return `rgba(255,255,255,${opacity})`;
   };
 
+  const getBlurOverlayGradient = () => {
+    return themeMode === 'light'
+      ? [
+          'rgba(255,255,255,0.05)',  // 0% - Top: minimal white
+          'rgba(255,255,255,0.02)',  // 30% - Upper area: almost clear
+          'rgba(0,0,0,0.0)',         // 60% - Start of bottom 40%: transparent
+          'rgba(0,0,0,0.40)',        // 75% - Mid-bottom: darker start
+          'rgba(0,0,0,0.70)',        // 88% - Lower: rich dark blend
+          'rgba(0,0,0,0.92)',        // 100% - Bottom: deep dark finish
+        ]
+      : [
+          'rgba(255,255,255,0.08)',  // Top: white tint for visibility
+          'rgba(255,255,255,0.03)',  // Upper-mid: subtle white fade
+          'rgba(0,0,0,0.15)',        // Lower-mid: light darkness
+          'rgba(0,0,0,0.38)',        // Bottom: dark feel
+        ];
+  };
+
   // Dynamic theme styles object
   const getThemeStyles = () => ({
     backgroundOverlay: getBackgroundOverlay(),
@@ -127,6 +145,7 @@ export const useThemeManager = () => {
     getPressedBackgroundColor,
     getButtonBackgroundColor,
     getBorderColor,
+    getBlurOverlayGradient,
     getThemeStyles,
     getConditionalStyle,
     getOpacityColor,
