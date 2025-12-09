@@ -16,7 +16,7 @@ import { AddSongsToQueue } from '../MusicPlayerFunctions';
 import YTMusic from '../Api/YTMusic';
 import { debounce } from './EventDebouncer';
 import NetInfo from '@react-native-community/netinfo';
-import PythonBridgeService from './PythonBridgeService';
+import YouTubeMusicService from './YouTubeMusicService';
 import FormatTitleAndArtist from '../Utils/FormatTitleAndArtist';
 import { upgradeArtworkQuality } from './YTMusicArtworkUtils';
 
@@ -99,7 +99,7 @@ class AutoRecommendations {
             console.log(`✨ AutoRecs: Fetching recommendations for ${this.currentVideoId}`);
 
             // Call YouTube Music's getNext API
-            const result = await PythonBridgeService.getNext(
+            const result = await YouTubeMusicService.getNext(
                 this.currentVideoId,
                 null,
                 this.continuation

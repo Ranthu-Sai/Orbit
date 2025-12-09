@@ -80,7 +80,7 @@ const LoginScreen = () => {
             // Save to AsyncStorage for persistence
             await AsyncStorage.setItem('yt_cookies', cookieString);
 
-            // Send to Python Bridge (We need to implement this method in PythonBridgeModule/youtube_api.py)
+            // Send to Native Streaming Module for VIP stream access
             // For now, we'll assume there's a method exposed or we pass it with requests
             // But based on the plan, we are updating youtube_api.py to read from a file or receive it.
             // Since we can't easily call a python function directly to set a variable without a wrapper,

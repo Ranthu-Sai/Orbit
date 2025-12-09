@@ -1,5 +1,5 @@
-import React, { memo, useState, useEffect, useRef } from 'react';
-import { Image, View, StyleSheet, InteractionManager, Animated } from 'react-native';
+import React, { memo, useEffect, useRef } from 'react';
+import { Image, View, StyleSheet } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 
 /**
@@ -7,14 +7,13 @@ import LinearGradient from 'react-native-linear-gradient';
  * 
  * Key optimizations:
  * 1. Memoized with custom comparison - only re-renders when artwork changes
- * 2. Deferred blur application - doesn't block initial render
- * 3. Smooth fade-in transition - hides blur calculation time
- * 4. Isolated from parent state changes - progress bar, controls don't trigger re-render
+ * 2. Blur applied immediately - no delay or fade effect
+ * 3. Isolated from parent state changes - progress bar, controls don't trigger re-render
  * 
  * @param {object} source - Image source (uri object or require())
  * @param {number} blurRadius - Blur intensity (default: 18)
- * @param {array} overlayGradient - Gradient colors for overlay [top, bottom]
- * @param {function} onReady - Callback when blur is applied
+ * @param {array} overlayGradient - Gradient colors for overlay
+ * @param {function} onReady - Callback when component is ready
  */
 const BlurredBackground = memo(({ 
   source, 
@@ -22,41 +21,14 @@ const BlurredBackground = memo(({
   overlayGradient,
   onReady,
 }) => {
-  const [isBlurReady, setIsBlurReady] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
   const isMounted = useRef(true);
 
   useEffect(() => {
     isMounted.current = true;
-    setIsBlurReady(false);
-    fadeAnim.setValue(0);
-
-    // Defer blur rendering until after interactions complete
-    const task = InteractionManager.runAfterInteractions(() => {
-      if (!isMounted.current) return;
-      
-      // Small delay ensures smooth transition
-      const timer = setTimeout(() => {
-        if (!isMounted.current) return;
-        
-        setIsBlurReady(true);
-        
-        // Fade in the blurred background smoothly
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }).start(() => {
-          if (onReady) onReady();
-        });
-      }, 100);
-
-      return () => clearTimeout(timer);
-    });
+    if (onReady) onReady();
 
     return () => {
       isMounted.current = false;
-      task.cancel();
     };
   }, [getSourceKey(source)]);
 
@@ -80,22 +52,13 @@ const BlurredBackground = memo(({
 
   return (
     <View style={styles.container} pointerEvents="none">
-      {/* Base image without blur - shows immediately */}
+      {/* Blurred image - shows immediately */}
       <Image
         source={source}
         style={styles.image}
         resizeMode="cover"
+        blurRadius={blurRadius}
       />
-      
-      {/* Blurred layer - fades in after ready */}
-      <Animated.View style={[styles.blurLayer, { opacity: fadeAnim }]}>
-        <Image
-          source={source}
-          style={styles.image}
-          resizeMode="cover"
-          blurRadius={isBlurReady ? blurRadius : 0}
-        />
-      </Animated.View>
       
       {/* Gradient overlay for smooth blend - renders behind content */}
       <LinearGradient
@@ -155,9 +118,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
-  },
-  blurLayer: {
-    ...StyleSheet.absoluteFillObject,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

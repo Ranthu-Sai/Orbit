@@ -5,7 +5,7 @@ import { EachPlaylistCard } from "../Global/EachPlaylistCard";
 import { EachAlbumCard } from "../Global/EachAlbumCard";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Spacer } from "../Global/Spacer";
-import PythonBridgeService from "../../Utils/PythonBridgeService";
+import YouTubeMusicService from "../../Utils/YouTubeMusicService";
 
 const { width } = Dimensions.get('window');
 
@@ -54,7 +54,7 @@ export const YTMusicHomeSection = () => {
   // Initialize Innertube Client
   const initializeInnertube = async () => {
     try {
-      const success = await PythonBridgeService.initialize();
+      const success = await YouTubeMusicService.initialize();
       if (success) {
         console.log('✅ Innertube Client initialized successfully');
         return true;
@@ -90,11 +90,11 @@ export const YTMusicHomeSection = () => {
 
       console.log('🌐 YTMusic Home - Fetching data using Innertube Client...');
 
-      // Fetch data using Python bridge
+      // Fetch data using YouTube Music Service
       // Higher limit = more sections from YT Music homefeed
       // Recommended: 50-100 for comprehensive content, 10-20 for quick loading
       const HOMEFEED_SECTION_LIMIT = 100; // Fetch up to 100 sections
-      const homeData = await PythonBridgeService.getHomeFeed(HOMEFEED_SECTION_LIMIT, forceRefresh);
+      const homeData = await YouTubeMusicService.getHomeFeed(HOMEFEED_SECTION_LIMIT, forceRefresh);
 
       console.log('📊 YTMusic Home - Innertube Response Summary:', {
         sectionsCount: Array.isArray(homeData) ? homeData.length : 0,
@@ -207,7 +207,7 @@ export const YTMusicHomeSection = () => {
       if (error.message.includes('Python') || error.message.includes('ModuleNotFoundError')) {
         console.error('Python Error Details:', {
           message: error.message,
-          suggestion: 'Check if Python dependencies are installed and Python bridge is working'
+          suggestion: 'Check if YouTube Music Service is properly configured'
         });
       }
 
@@ -237,7 +237,7 @@ export const YTMusicHomeSection = () => {
         // Step 3: Fetch fresh data with higher limit to get more sections
         await fetchYTMusicHomeData(true);
       } else {
-        console.error('❌ Python bridge initialization failed, cannot fetch YTMusic data');
+        console.error('❌ YouTube Music Service initialization failed, cannot fetch YTMusic data');
         console.log('💡 Check Python dependencies and bridge setup');
       }
     };

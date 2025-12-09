@@ -104,17 +104,26 @@ class SmartPrefetchManager {
      * Handle track changes - cancel pending prefetch
      */
     /**
-     * Handle track changes - IMMEDIATE N+1 prefetch
+     * Handle track changes - IMMEDIATE N+1, N+2, N+3 prefetch + queue cleanup
      */
     async _handleTrackChanged(event) {
         if (event.index !== undefined && event.index !== null) {
             this._cancelPendingPrefetch();
             this.currentTrackIndex = event.index;
 
-            // 🚀 IMMEDIATE ACTION: Prefetch next song (N+1) right now
-            // This ensures manual skips land on a ready track
-            console.log(`🚀 Track Changed: Immediately prefetching N+1 index ${event.index + 1}...`);
-            this._prefetchTrackAtIndex(event.index + 1);
+            // 🧹 QUEUE CLEANUP: Remove old tracks, keep only 5 previous
+            await this._cleanupOldTracks(event.index);
+
+            // 🚀 IMMEDIATE ACTION: Prefetch next 3 songs aggressively
+            // This ensures auto-recommendation songs are ready before playback
+            console.log(`🚀 Track Changed: Aggressively prefetching N+1, N+2, N+3...`);
+
+            // Prefetch in parallel for speed
+            Promise.all([
+                this._prefetchTrackAtIndex(event.index + 1),
+                this._prefetchTrackAtIndex(event.index + 2),
+                this._prefetchTrackAtIndex(event.index + 3)
+            ]).catch(err => console.log('Prefetch batch error:', err.message));
         }
     }
 
@@ -407,6 +416,37 @@ class SmartPrefetchManager {
         if (this.prefetchTimer) {
             clearTimeout(this.prefetchTimer);
             this.prefetchTimer = null;
+        }
+    }
+
+    /**
+     * 🧹 QUEUE CLEANUP: Remove old tracks to save memory and prevent queue bloat
+     * Keeps only 5 previous songs before current track
+     */
+    async _cleanupOldTracks(currentIndex) {
+        try {
+            // Only cleanup if we have more than 5 songs before current
+            if (currentIndex <= 5) return;
+
+            const tracksToRemove = currentIndex - 5;
+
+            // Remove tracks from the beginning of the queue
+            const removeIndices = [];
+            for (let i = 0; i < tracksToRemove; i++) {
+                removeIndices.push(i);
+            }
+
+            if (removeIndices.length > 0) {
+                console.log(`🧹 Queue Cleanup: Removing ${removeIndices.length} old tracks...`);
+                await TrackPlayer.remove(removeIndices);
+
+                // Update current track index after removal
+                this.currentTrackIndex = 5; // After cleanup, current is always at index 5
+
+                console.log(`✅ Queue cleaned. Current track now at index 5`);
+            }
+        } catch (error) {
+            console.error('Queue cleanup error:', error.message);
         }
     }
 

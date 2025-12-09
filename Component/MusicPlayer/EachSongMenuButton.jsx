@@ -11,7 +11,7 @@ import { AddOneSongToPlaylist } from "../../MusicPlayerFunctions";
 import PlaylistSelectorWrapper from '../Playlist/PlaylistSelectorWrapper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
-import PythonBridgeService from '../../Utils/PythonBridgeService';
+import YouTubeMusicService from '../../Utils/YouTubeMusicService';
 import dabMusicService from '../../Utils/DabMusicService';
 import youtubeStreamingService from '../../Utils/YouTubeStreamingService';
 

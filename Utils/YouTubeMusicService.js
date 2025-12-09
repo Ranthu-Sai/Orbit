@@ -2,19 +2,19 @@ import InnerTubeClient from '../Api/InnertubeClient';
 import NativeStreaming from './NativeStreaming';
 
 /**
- * PythonBridgeService Shim
+ * YouTubeMusicService
  * 
- * Migrated to Pure JS + Native Streaming.
- * Keeps the same API surface for backward compatibility.
+ * Unified service layer for YouTube Music API operations.
+ * Combines InnerTube API (JS) for metadata and Native Streaming (Kotlin) for audio URLs.
  */
-class PythonBridgeService {
+class YouTubeMusicService {
     static initialized = true;
 
     static async initialize() {
         return true;
     }
 
-    // Shim methods
+    // Stream URL extraction via native bridge
     static async getStreamUrl(videoId) {
         const stream = await NativeStreaming.getStreamUrl(videoId);
         // Map native result to expected format
@@ -70,10 +70,10 @@ class PythonBridgeService {
         return { error: "No results found" };
     }
 
-    // Legacy stubs
+    // Legacy stubs for backward compatibility
     static async clearCache() { return { status: "success" }; }
     static async resetSession() { return { status: "success" }; }
     static async getDiagnostics() { return { status: "migrated_to_js" }; }
 }
 
-export default PythonBridgeService;
+export default YouTubeMusicService;

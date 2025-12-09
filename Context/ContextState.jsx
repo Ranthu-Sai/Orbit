@@ -69,6 +69,22 @@ const ContextState = (props) => {
 
     async function AddRecommendedSongs(index, id) {
         if (!isPlayerReady.current) return;
+
+        // 🚫 SKIP RECOMMENDATIONS for Album/Playlist playback
+        // This prevents errors when playing from albums/playlists
+        if (currentPlaylistData) {
+            console.log('Skipping recommendations: Album/Playlist is active');
+            return;
+        }
+
+        // 🚫 SKIP for YouTube Music songs (they use AutoRecommendations service instead)
+        const currentTrack = await TrackPlayer.getActiveTrack();
+        if (currentTrack?.isYTMusic || currentTrack?.source === 'ytmusic' ||
+            (currentTrack?.id && currentTrack.id.length === 11 && !currentTrack.isLocal)) {
+            console.log('Skipping recommendations for YouTube song:', id);
+            return;
+        }
+
         const tracks = await TrackPlayer.getQueue();
         const totalTracks = tracks.length - 1
         if (index >= totalTracks - 2) {

@@ -1,5 +1,5 @@
 import { getCachedData, CACHE_GROUPS } from './CacheManager';
-import PythonBridgeService from '../Utils/PythonBridgeService';
+import YouTubeMusicService from '../Utils/YouTubeMusicService';
 import { upgradeArtworkQuality } from '../Utils/YTMusicArtworkUtils';
 
 
@@ -191,7 +191,7 @@ async function getYTMusicSearchSongData(searchText, page = 1, limit = 20) {
     try {
       console.log(`🌐 YTMusic Search Songs - Using Innertube Client for query: ${searchText}`);
 
-      const searchResults = await PythonBridgeService.search(searchText, 'songs', limit);
+      const searchResults = await YouTubeMusicService.search(searchText, 'songs', limit);
 
       if (searchResults && Array.isArray(searchResults)) {
         const transformedResults = searchResults.map(transformYTToSaavnSong);
@@ -255,7 +255,7 @@ async function getYTMusicSearchArtistData(searchText, page = 1, limit = 20) {
     try {
       console.log(`🌐 YTMusic Search Artists - Using Innertube Client for query: ${searchText}`);
 
-      const searchResults = await PythonBridgeService.search(searchText, 'artists', limit);
+      const searchResults = await YouTubeMusicService.search(searchText, 'artists', limit);
 
       if (searchResults && Array.isArray(searchResults)) {
         const transformedResults = searchResults.map(transformYTToSaavnArtist);
@@ -319,7 +319,7 @@ async function getYTMusicSearchAlbumData(searchText, page = 1, limit = 20) {
     try {
       console.log(`🌐 YTMusic Search Albums - Using Innertube Client for query: ${searchText}`);
 
-      const searchResults = await PythonBridgeService.search(searchText, 'albums', limit);
+      const searchResults = await YouTubeMusicService.search(searchText, 'albums', limit);
 
       if (searchResults && Array.isArray(searchResults)) {
         const transformedResults = searchResults.map(transformYTToSaavnAlbum);
@@ -383,8 +383,8 @@ async function getYTMusicSearchPlaylistData(searchText, page = 1, limit = 20) {
     try {
       console.log(`🌐 YTMusic Search Playlists - Using Innertube Client for query: ${searchText}`);
 
-      // Use Python bridge for production
-      const searchResults = await PythonBridgeService.search(searchText, 'playlists', limit);
+      // Use YouTube Music Service
+      const searchResults = await YouTubeMusicService.search(searchText, 'playlists', limit);
 
       if (searchResults && Array.isArray(searchResults)) {
         const transformedResults = searchResults.map(transformYTToSaavnPlaylist);
@@ -446,10 +446,10 @@ async function getYTMusicHomeFeed(limit = 10) {
 
   const fetchFunction = async () => {
     try {
-      // Use Python bridge for production (calls android/app/src/main/python/youtube_api.py)
+      // Use YouTube Music Service (InnerTube API)
       console.log('🌐 YTMusic Home - Using Innertube Client for homefeed...');
 
-      const homeFeedData = await PythonBridgeService.getHomeFeed(limit);
+      const homeFeedData = await YouTubeMusicService.getHomeFeed(limit);
 
       if (homeFeedData) {
         // No need to parse if it's already an object from Shim
@@ -576,8 +576,8 @@ async function getYTMusicPlaylistData(playlistId) {
     try {
       console.log(`🌐 YTMusic Playlist - Using Innertube Client for playlist: ${playlistId}`);
 
-      // Use Python bridge for production
-      const playlistData = await PythonBridgeService.getPlaylist(playlistId);
+      // Use YouTube Music Service
+      const playlistData = await YouTubeMusicService.getPlaylist(playlistId);
 
       if (playlistData && !playlistData.error) {
         // Transform the tracks data to match Saavn format
@@ -727,9 +727,9 @@ async function getYTMusicAlbumData(albumId) {
     try {
       console.log(`🌐 YTMusic Album - Using Innertube Client for album: ${albumId}`);
 
-      // Use Python bridge for production
-      const albumData = await PythonBridgeService.getAlbum(albumId);
-      
+      // Use YouTube Music Service
+      const albumData = await YouTubeMusicService.getAlbum(albumId);
+
       console.log(`🔍 YTMusic Album - Raw response for ${albumId}:`, {
         hasData: !!albumData,
         error: albumData?.error,
@@ -941,7 +941,7 @@ async function getYTMusicArtistDetails(artistId) {
     try {
       console.log(`🌐 YTMusic Artist Details - query: ${artistId}`);
 
-      const artistData = await PythonBridgeService.getArtist(artistId);
+      const artistData = await YouTubeMusicService.getArtist(artistId);
 
       if (artistData && !artistData.error) {
         return {
@@ -979,7 +979,7 @@ async function getYTMusicArtistSongsPaginated(artistId, page = 1, limit = 20) {
   const fetchFunction = async () => {
     try {
       // We have to fetch the full artist page to get songs
-      const artistData = await PythonBridgeService.getArtist(artistId);
+      const artistData = await YouTubeMusicService.getArtist(artistId);
 
       if (artistData && artistData.songs) {
         const allSongs = artistData.songs.map(transformYTToSaavnSong);
@@ -1015,7 +1015,7 @@ async function getYTMusicArtistAlbumsPaginated(artistId, page = 1, limit = 20) {
   const cacheKey = `ytmusic_artist_albums_${artistId}_page${page}_limit${limit}`;
   const fetchFunction = async () => {
     try {
-      const artistData = await PythonBridgeService.getArtist(artistId);
+      const artistData = await YouTubeMusicService.getArtist(artistId);
 
       if (artistData && artistData.albums) {
         const allAlbums = artistData.albums.map(transformYTToSaavnAlbum);

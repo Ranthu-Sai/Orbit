@@ -2,7 +2,7 @@
  * InnerTubeClient.js
  * 
  * Pure JavaScript implementation of YouTube Music InnerTube API.
- * Replaces the Python bridge for data fetching.
+ * Pure JavaScript implementation for YouTube Music InnerTube API.
  */
 
 import { enhanceYTMusicArtwork } from '../Utils/ArtworkEnhancer';
@@ -315,12 +315,12 @@ class InnerTubeClient {
         try {
             // Try multiple possible structures for album header
             let header = data?.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicResponsiveHeaderRenderer;
-            
+
             // Alternative structure: some albums use musicDetailHeaderRenderer
             if (!header) {
                 header = data?.header?.musicDetailHeaderRenderer;
             }
-            
+
             // Another alternative: singleColumnBrowseResultsRenderer for some album types
             if (!header) {
                 header = data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicResponsiveHeaderRenderer;
@@ -328,12 +328,12 @@ class InnerTubeClient {
 
             // Try multiple possible structures for tracks
             let tracksContent = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer?.contents;
-            
+
             // Alternative: musicShelfRenderer
             if (!tracksContent) {
                 tracksContent = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.[0]?.musicShelfRenderer?.contents;
             }
-            
+
             // Another alternative for single column layout
             if (!tracksContent) {
                 const sectionContents = data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents;
@@ -350,12 +350,12 @@ class InnerTubeClient {
             }
 
             const title = header?.title?.runs?.[0]?.text || header?.title?.simpleText;
-            
+
             // Artist can be in different places
-            const artist = header?.straplineTextOne?.runs?.[0]?.text || 
-                          header?.subtitle?.runs?.[0]?.text ||
-                          header?.secondTitle?.runs?.[0]?.text;
-            
+            const artist = header?.straplineTextOne?.runs?.[0]?.text ||
+                header?.subtitle?.runs?.[0]?.text ||
+                header?.secondTitle?.runs?.[0]?.text;
+
             // Year extraction - try multiple positions
             let year = null;
             const subtitleRuns = header?.subtitle?.runs;
@@ -367,12 +367,12 @@ class InnerTubeClient {
                     }
                 }
             }
-            
+
             // Get thumbnails array (not just single thumbnail)
-            const thumbnailsData = header?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || 
-                                   header?.thumbnail?.croppedSquareThumbnailRenderer?.thumbnail?.thumbnails ||
-                                   [];
-            
+            const thumbnailsData = header?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails ||
+                header?.thumbnail?.croppedSquareThumbnailRenderer?.thumbnail?.thumbnails ||
+                [];
+
             // Create thumbnails array in expected format
             const thumbnails = thumbnailsData.map(thumb => ({
                 url: enhanceYTMusicArtwork(thumb.url, 'album-header'),
@@ -383,27 +383,27 @@ class InnerTubeClient {
 
             // Parse tracks
             const tracks = tracksContent?.map(t => this.parseItem(t)).filter(i => i) || [];
-            
+
             // Get browseId from the data if available
             const browseId = data?.responseContext?.serviceTrackingParams?.[0]?.params?.find(p => p.key === 'browse_id')?.value;
 
             console.log(`InnerTube parseAlbum: title="${title}", artist="${artist}", year="${year}", tracks=${tracks.length}, thumbnails=${thumbnails.length}`);
 
             // Return in format expected by getYTMusicAlbumData
-            return { 
-                title, 
+            return {
+                title,
                 artist,
                 artists: artist ? [{ name: artist, id: null }] : [],
-                year, 
+                year,
                 thumbnails,  // Array format expected by getYTMusicAlbumData
                 thumbnail: thumbnails[thumbnails.length - 1]?.url,  // Also include single for backward compat
                 tracks,      // 'tracks' expected by getYTMusicAlbumData
                 songs: tracks,  // Also include 'songs' for backward compat
                 browseId
             };
-        } catch (e) { 
+        } catch (e) {
             console.error('parseAlbum error:', e);
-            return null; 
+            return null;
         }
     }
 
@@ -517,11 +517,11 @@ class InnerTubeClient {
 
             // CRITICAL: Search results store videoId in playlistItemData.videoId (OuterTune's approach)
             // Also try overlay for album tracks which use a different structure
-            const videoId = item.playlistItemData?.videoId || 
-                           item.videoId || 
-                           item.onTap?.watchEndpoint?.videoId || 
-                           item.navigationEndpoint?.watchEndpoint?.videoId ||
-                           item.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.videoId;
+            const videoId = item.playlistItemData?.videoId ||
+                item.videoId ||
+                item.onTap?.watchEndpoint?.videoId ||
+                item.navigationEndpoint?.watchEndpoint?.videoId ||
+                item.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.videoId;
             let browseId = item.navigationEndpoint?.browseEndpoint?.browseId || item.onTap?.browseEndpoint?.browseId;
 
             // Try flexColumns first (used in search results), then fallback to direct title
