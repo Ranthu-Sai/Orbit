@@ -1,115 +1,147 @@
 import React, { useContext, useEffect, useRef } from "react";
-import { View, StyleSheet, Pressable } from "react-native";
-import Ionicons from "react-native-vector-icons/Ionicons";
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons"
-import Animated, { withSpring, useAnimatedStyle, withTiming } from "react-native-reanimated";
+import { View, StyleSheet, Platform, Vibration, Pressable } from "react-native"; // Keep Vibration just in case user re-enables perm
+import { Home, Compass, ListMusic } from "lucide-react-native";
+import Animated, { withSpring, useAnimatedStyle, withTiming, FadeIn } from "react-native-reanimated";
 import Context from "../../Context/Context";
 import { useTheme } from "@react-navigation/native";
+import { Text } from "react-native-paper";
+
+// Extracted TabItem component to safe-guard Hooks at top level
+const TabItem = React.memo(({ route, index, state, descriptors, navigation, colors, dark }) => {
+  const { options } = descriptors[route.key];
+  const label = options.tabBarLabel ?? options.title ?? route.name;
+  const isFocused = state.index === index;
+
+  // Hooks must be at the top level of the component
+  const pillStyle = useAnimatedStyle(() => {
+    const activeColor = dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)';
+    return {
+      transform: [{ scale: withSpring(isFocused ? 1 : 0, { damping: 15, stiffness: 200 }) }],
+      opacity: withTiming(isFocused ? 1 : 0, { duration: 200 }),
+      backgroundColor: activeColor,
+    };
+  });
+
+  const labelStyle = useAnimatedStyle(() => {
+    return {
+      opacity: withTiming(isFocused ? 1 : 0.7, { duration: 200 }),
+      transform: [{ translateY: withSpring(isFocused ? 0 : 2, { damping: 15 }) }]
+    };
+  });
+
+  const onPress = () => {
+    const event = navigation.emit({
+      type: 'tabPress',
+      target: route.key,
+    });
+
+    if (!isFocused && !event.defaultPrevented) {
+      navigation.navigate(route.name);
+    }
+  };
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={styles.touchable}
+    >
+      <View style={styles.itemContent}>
+        <View style={styles.iconWrapper}>
+          <Animated.View style={[styles.pill, pillStyle]} />
+          {GetIcon(label, isFocused, colors)}
+        </View>
+
+        <Animated.View style={labelStyle}>
+          <Text
+            style={[
+              styles.label,
+              {
+                color: isFocused ? colors.text : colors.textSecondary,
+                fontWeight: isFocused ? '700' : '500'
+              }
+            ]}
+            numberOfLines={1}
+          >
+            {label === "Discover" ? "Explore" : label}
+          </Text>
+        </Animated.View>
+      </View>
+    </Pressable>
+  );
+});
+
+function GetIcon(label, isFocused, colors) {
+  const activeColor = colors.text; // High contrast for active
+  const inactiveColor = colors.textSecondary;
+  const color = isFocused ? activeColor : inactiveColor;
+  const size = 24;
+
+  // Fill effect for active state if supported by icons, or just stroke width
+  const strokeWidth = isFocused ? 2.5 : 2;
+
+  if (label === "Home") {
+    return <Home color={color} size={size} strokeWidth={strokeWidth} />
+  } else if (label === "Discover") {
+    return <Compass color={color} size={size} strokeWidth={strokeWidth} />
+  } else if (label === "Library") {
+    return <ListMusic color={color} size={size} strokeWidth={strokeWidth} />
+  }
+}
 
 export default function CustomTabBar({ state, descriptors, navigation }) {
-  const {setIndex, Index, musicPreviousScreen} = useContext(Context);
+  const { setIndex, Index, musicPreviousScreen } = useContext(Context);
   const previousFullscreenState = useRef(false);
   const previousTabIndex = useRef(state.index);
   const { colors, dark } = useTheme();
-  
-  // Track tab changes for better back navigation
+
+  // Track tab changes
   useEffect(() => {
-    // Remember previous tab for back navigation
     if (state.index !== previousTabIndex.current) {
-      console.log(`Tab changed from ${previousTabIndex.current} to ${state.index}`);
       previousTabIndex.current = state.index;
     }
   }, [state.index]);
 
-  // No longer force navigation to Library when exiting fullscreen
+  // Fullscreen exit logic
   useEffect(() => {
-    // Special handling for transitions from fullscreen to normal view
     if (previousFullscreenState.current && Index === 0) {
-      console.log('DETECTED FULLSCREEN EXIT in CustomTabBar');
-      
-      // If we've just exited fullscreen, ensure tab navigation is properly updated
-      // This helps with the first-time navigation issue
       setTimeout(() => {
         if (musicPreviousScreen) {
           const parts = musicPreviousScreen.split('/');
           const tabName = parts[0];
-          
-          // Verify we're in the correct tab after closing fullscreen
           const currentState = navigation.getState();
           const isInCorrectTab = currentState?.routes?.[currentState.index]?.state?.index !== undefined &&
-                                currentState.routes[currentState.index].state.routes.some(
-                                  route => route.name === tabName && route.state
-                                );
-          
+            currentState.routes[currentState.index].state.routes.some(
+              route => route.name === tabName && route.state
+            );
+
           if (!isInCorrectTab && tabName === 'Library') {
-            console.log('TAB SYNC: Ensuring we are in Library tab after fullscreen exit');
-            // Only update if we're not already in the correct nested state
             navigation.navigate('Library');
           }
         }
-      }, 200); // Delay to ensure other navigation has completed
+      }, 200);
     }
-    
-    // Update our tracking ref
     previousFullscreenState.current = (Index === 1);
   }, [Index, navigation, musicPreviousScreen]);
 
-  // Move animation styles outside the map
-  const getAnimatedStyle = (isFocused) => {
-    return useAnimatedStyle(() => {
-      const activeColor = dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
-      return {
-        transform: [{ scale: withSpring(isFocused ? 1.1 : 1) }],
-        opacity: withTiming(isFocused ? 1 : 0.6, { duration: 150 }),
-        backgroundColor: withTiming(isFocused ? activeColor : 'transparent', { duration: 150 })
-      };
-    });
-  };
-  function GetIcon(label, isDiabled = false) {
-    const activeColor = colors.tabBarActive;
-    const inactiveColor = colors.tabBarInactive;
-    const color = isDiabled ? inactiveColor : activeColor;
-    const size = 24;
-    
-    if (label === "Home") {
-      return <Ionicons name={isDiabled ? "headset-outline" : "headset"} color={color} size={size} />
-    } else if (label === "Discover") {
-      return <Ionicons name={isDiabled ? "compass-outline" : "compass"} color={color} size={size} />
-    } else if (label === "Library") {
-      return <MaterialCommunityIcons  name={isDiabled ? "folder-music-outline" : "folder-music"} color={color} size={size} />
-    }
-  }
   if (Index === 1) return null;
+
   return (
-    <View style={[styles.mainContainer, { backgroundColor: colors.tabBarBackground }]}>
-      {state.routes.map((route, index) => {
-        const { options } = descriptors[route.key];
-        const label = options.tabBarLabel ?? options.title ?? route.name;
-        const isFocused = state.index === index;
-        const animatedStyle = getAnimatedStyle(isFocused);
-
-        const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-          });
-          if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(route.name);
-          }
-        };
-
-        return (
-          <View key={index} style={styles.mainItemContainer}>
-            <Pressable
-              onPress={onPress}
-              style={styles.pressable}>
-              <Animated.View style={[styles.iconContainer, animatedStyle]}>
-                {GetIcon(label, !isFocused)}
-              </Animated.View>
-            </Pressable>
-          </View>
-        );
-      })}
+    <View style={[styles.mainContainer, {
+      backgroundColor: dark ? 'rgba(18, 18, 18, 0.95)' : 'rgba(255, 255, 255, 0.95)', // Slight transparency
+      borderTopColor: dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+    }]}>
+      {state.routes.map((route, index) => (
+        <TabItem
+          key={route.key}
+          route={route}
+          index={index}
+          state={state}
+          descriptors={descriptors}
+          navigation={navigation}
+          colors={colors}
+          dark={dark}
+        />
+      ))}
     </View>
   );
 }
@@ -117,27 +149,42 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
 const styles = StyleSheet.create({
   mainContainer: {
     flexDirection: 'row',
-    height: 65,
+    height: 80, // Taller for Material 3 style
     alignItems: "center",
-    paddingBottom: 10,
+    paddingBottom: 4, // Spacing for home bar
+    borderTopWidth: 1,
+    position: 'absolute', // For transparency to work over content if needed, or just standard
+    bottom: 0,
+    left: 0,
+    right: 0,
+    elevation: 0,
   },
-  mainItemContainer: {
+  touchable: {
     flex: 1,
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  pressable: {
-    backgroundColor: "rgba(0,0,0,0)",
-    borderRadius: 12,
-    padding: 8,
+  itemContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
+    width: '100%',
+    paddingTop: 8,
   },
-  iconContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 8,
-    borderRadius: 12,
-    width: 80,
-    height: 40
+  iconWrapper: {
+    width: 64, // Standard M3 pill width
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  pill: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 16, // Stadium shape
+  },
+  label: {
+    fontSize: 12,
+    letterSpacing: 0.2,
   }
-}); 
-  
+});

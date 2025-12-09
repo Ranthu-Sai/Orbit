@@ -1,8 +1,8 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { TouchableOpacity, ToastAndroid } from 'react-native';
+import { ToastAndroid } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import TrackPlayer from 'react-native-track-player';
-import { useTheme, ActivityIndicator } from 'react-native-paper';
+import { useTheme, ActivityIndicator, IconButton } from 'react-native-paper';
 
 export const ShuffleButton = ({ size = 24, color, style }) => {
   const theme = useTheme();
@@ -119,36 +119,29 @@ export const ShuffleButton = ({ size = 24, color, style }) => {
   const activeColor = theme.colors.primary;
 
   return (
-    <TouchableOpacity
-      onPress={toggleShuffle}
-      style={[
-        {
-          width: size * 1.5,
-          height: size * 1.5,
-          borderRadius: size * 0.75,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        style,
-      ]}
-      activeOpacity={0.7}
-      disabled={isShuffling}
-    >
-      {isShuffling ? (
-        <ActivityIndicator
-          size={size * 0.8}
-          color={activeColor}
-        />
-      ) : (
-        <MaterialIcons
-          name="shuffle"
-          size={size}
-          color={isShuffled ? activeColor : (color || theme.colors.text)}
-          style={{
-            opacity: isShuffled ? 1 : 0.7,
-          }}
-        />
+    <IconButton
+      icon={() => (
+        isShuffling ? (
+          <ActivityIndicator
+            size={size * 0.8}
+            color={activeColor}
+          />
+        ) : (
+          <MaterialIcons
+            name="shuffle"
+            size={size}
+            color={isShuffled ? activeColor : (color || theme.colors.text)}
+            style={{
+              opacity: isShuffled ? 1 : 0.7,
+            }}
+          />
+        )
       )}
-    </TouchableOpacity>
+      size={32}
+      onPress={toggleShuffle}
+      disabled={isShuffling}
+      style={[{ margin: 0, padding: 0 }, style]}
+      rippleColor="rgba(255, 255, 255, 0.2)"
+    />
   );
 };

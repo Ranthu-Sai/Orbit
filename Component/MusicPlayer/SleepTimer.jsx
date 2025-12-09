@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Pressable, Modal, View, Text, StyleSheet, TextInput } from 'react-native';
+import { Modal, View, Text, StyleSheet, TextInput, Pressable } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { PlaySong, PauseSong } from '../../MusicPlayerFunctions';
 import { useThemeContext } from '../../Context/ThemeContext'; // Added for theme support
 import { usePlaybackState } from 'react-native-track-player';
+import { IconButton } from 'react-native-paper';
 
 // Global timer state to persist across component unmounts
 let globalTimerRef = null;
@@ -315,28 +316,31 @@ export const SleepTimerButton = ({ size = 25, iconColor }) => {
 
   return (
     <View style={styles.container}>
-      <Pressable
-        onPress={() => (isTimerActive ? clearTimer() : setModalVisible(true))}
-        style={styles.button}
-      >
-        <MaterialCommunityIcons
-          name={isTimerActive ? (isTimerPaused ? "pause-circle-outline" : "timer-off") : "timer-outline"}
-          size={size}
-          color={isTimerActive ? theme.colors.primary : resolvedIconColor}
-        />
-
-        {isTimerActive && (
-          <Text
-            style={[
-              styles.remainingTime,
-              { color: resolvedLabelColor },
-              isTimerPaused && { color: theme.colors.notification },
-            ]}
-          >
-            {formatTime(remainingTime)} {isTimerPaused && ''}
-          </Text>
+      <IconButton
+        icon={() => (
+          <MaterialCommunityIcons
+            name={isTimerActive ? (isTimerPaused ? "pause-circle-outline" : "timer-off") : "timer-outline"}
+            size={size}
+            color={isTimerActive ? theme.colors.primary : resolvedIconColor}
+          />
         )}
-      </Pressable>
+        size={32}
+        onPress={() => (isTimerActive ? clearTimer() : setModalVisible(true))}
+        style={{ margin: 0, padding: 0 }}
+        rippleColor="rgba(255, 255, 255, 0.2)"
+      />
+
+      {isTimerActive && (
+        <Text
+          style={[
+            styles.remainingTime,
+            { color: resolvedLabelColor },
+            isTimerPaused && { color: theme.colors.notification },
+          ]}
+        >
+          {formatTime(remainingTime)} {isTimerPaused && ''}
+        </Text>
+      )}
 
       <Modal
         animationType="slide"

@@ -327,6 +327,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
             onPress={() => setIndex(0)}
             iconColor={iconColor}
             style={styles.closeButton}
+            rippleColor="rgba(255, 255, 255, 0.2)"
           />
 
           <View style={styles.headerActions}>
@@ -337,7 +338,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
               currentArtworkSource={currentArtworkSource}
               iconColor={iconColor}
             />
-            <View style={{ width: 8 }} />
+            <View style={{ width: 2 }} />
             <FullScreenMusicMenuButton onPress={showMenu} size={25} color={iconColor} />
           </View>
         </View>

@@ -2,7 +2,8 @@ import { useTheme } from "@react-navigation/native";
 import AntDesign from "react-native-vector-icons/AntDesign";
 import { memo, useContext, useEffect, useState, useRef, useCallback } from "react";
 import { DeleteALikedSong, GetLikedSongs, SetLikedSongs } from "../../LocalStorage/StoreLikedSongs";
-import { Pressable, Animated, InteractionManager } from "react-native";
+import { Animated, InteractionManager } from "react-native";
+import { IconButton } from "react-native-paper";
 import Context from "../../Context/Context";
 
 export const LikeSongButton = memo(function LikeSongButton({ size = 24, color }) {
@@ -74,28 +75,23 @@ export const LikeSongButton = memo(function LikeSongButton({ size = 24, color })
     return () => task.cancel();
   }, [currentPlaying, getIsLiked]);
 
-  const buttonSize = 44; // Match the size of other player controls
   const iconSize = size || 20;
 
   return (
-    <Pressable
-      onPress={handlePress}
-      style={({ pressed }) => ({
-        width: buttonSize,
-        height: buttonSize,
-        borderRadius: buttonSize / 2,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: pressed ? 'rgba(200, 200, 200, 0.3)' : 'transparent',
-      })}
-    >
-      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-        <AntDesign
-          name={Liked ? "heart" : "hearto"}
-          size={iconSize}
-          color={Liked ? 'rgb(230, 28, 28)' : (color || theme.colors.text)}
-        />
-      </Animated.View>
-    </Pressable>
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <IconButton
+        icon={() => (
+          <AntDesign
+            name={Liked ? "heart" : "hearto"}
+            size={iconSize}
+            color={Liked ? 'rgb(230, 28, 28)' : (color || theme.colors.text)}
+          />
+        )}
+        size={32}
+        onPress={handlePress}
+        style={{ margin: 0, padding: 0 }}
+        rippleColor="rgba(255, 255, 255, 0.2)"
+      />
+    </Animated.View>
   );
 });

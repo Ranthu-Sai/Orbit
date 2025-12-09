@@ -52,7 +52,13 @@ class YouTubeStreamingService {
             // Step 2: Cache miss - fetch from Native NewPipe
             console.log(`🎯 [Cache MISS] Getting stream for video: ${videoId} using Native NewPipe...`);
 
-            const result = await NativeStreaming.getStreamUrl(videoId);
+            // Orbit VIP Mode: Inject Cookies if available
+            const cookies = await AsyncStorage.getItem('yt_cookies');
+            if (cookies) {
+                console.log('🍪 Using VIP Cookies for stream fetch');
+            }
+
+            const result = await NativeStreaming.getStreamUrl(videoId, cookies || '');
 
             if (result && result.url) {
                 console.log('✅ Native streaming successful');

@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, TouchableOpacity, Pressable } from 'react-native';
+import { View, TouchableOpacity } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useThemeContext } from '../../Context/ThemeContext';
 import { DownloadProgressIndicator } from './DownloadProgressIndicator';
+import { IconButton } from 'react-native-paper';
 
 /**
  * DownloadControl - Renders the appropriate download button state
@@ -77,25 +78,20 @@ export const DownloadControl = ({
 
   // Regular download button
   return (
-    <Pressable
-      style={({ pressed }) => [
-        controlIconStyle,
-        {
-          backgroundColor: pressed ? pressedBackgroundColor : 'transparent',
-          borderRadius: 20,
-          padding: 8,
-          overflow: 'hidden'
-        }
-      ]}
+    <IconButton
+      icon={() => (
+        <MaterialIcons
+          name="file-download"
+          size={size}
+          color={resolvedDownloadColor}
+        />
+      )}
+      size={32}
       onPress={onDownloadPress}
       disabled={disabled || isOffline || isDownloading}
-    >
-      <MaterialIcons
-        name="file-download"
-        size={size}
-        color={resolvedDownloadColor}
-      />
-    </Pressable>
+      style={{ margin: 0, padding: 0 }}
+      rippleColor="rgba(255, 255, 255, 0.2)"
+    />
   );
 };
 

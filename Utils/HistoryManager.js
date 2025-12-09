@@ -27,7 +27,7 @@ const createWeeklyStats = () => {
   const now = new Date();
   const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
   startOfWeek.setHours(0, 0, 0, 0);
-  
+
   return {
     weekStart: startOfWeek.getTime(),
     totalListenTime: 0,
@@ -44,13 +44,10 @@ class HistoryManager {
     this.isPaused = false; // Track if tracking is paused
     this.pausedDuration = 0; // Total time spent paused
     this.pauseStartTime = null; // When the current pause started
-    this.trackingInterval = null;
     this.lastSavedDuration = 0;
-    this.saveThreshold = 5000; // Save every 5 seconds
     this.minListenDuration = 10000; // 10 seconds minimum to count as "listened"
     this.hasCountedPlay = false; // Flag to ensure we only count play once per session
     this.isBackgroundMode = false; // Track if app is in background
-    this.backgroundSaveInterval = null; // Separate interval for background saves
   }
 
   // Getter for external access to tracking state
@@ -106,13 +103,9 @@ class HistoryManager {
 
       console.log(`HistoryManager: Started tracking "${song.title}" (continuation: ${isRecentPlay})`);
 
-      // Start periodic saving
-      this.trackingInterval = setInterval(() => {
-        if (!this.isPaused) {
-          this.saveProgress();
-        }
-      }, this.saveThreshold);
+      console.log(`HistoryManager: Started tracking "${song.title}" (continuation: ${isRecentPlay})`);
 
+      // No interval - purely event-driven now per user request for performance
     } catch (error) {
       console.error('HistoryManager: Error starting tracking:', error);
     }
@@ -161,11 +154,6 @@ class HistoryManager {
       this.startTime = null;
       this.lastSavedDuration = 0;
       this.hasCountedPlay = false; // Reset play count flag
-
-      if (this.trackingInterval) {
-        clearInterval(this.trackingInterval);
-        this.trackingInterval = null;
-      }
 
       console.log(`HistoryManager: Stopped tracking, duration: ${listenDuration}ms`);
 
@@ -473,19 +461,6 @@ class HistoryManager {
     }
   }
 
-  // Clear all history
-  async clearHistory() {
-    try {
-      await AsyncStorage.removeItem(HISTORY_STORAGE_KEY);
-      await AsyncStorage.removeItem(WEEKLY_STATS_KEY);
-      console.log('HistoryManager: History cleared');
-      return true;
-    } catch (error) {
-      console.error('HistoryManager: Error clearing history:', error);
-      return false;
-    }
-  }
-
   // Reset play counts for testing
   async resetPlayCounts() {
     try {
@@ -639,17 +614,6 @@ class HistoryManager {
         });
       }
 
-      // Clear all intervals
-      if (this.trackingInterval) {
-        clearInterval(this.trackingInterval);
-        this.trackingInterval = null;
-      }
-
-      if (this.backgroundSaveInterval) {
-        clearInterval(this.backgroundSaveInterval);
-        this.backgroundSaveInterval = null;
-      }
-
       this.isTracking = false;
       this.isPaused = false;
       this.pausedDuration = 0;
@@ -705,39 +669,7 @@ class HistoryManager {
     this.isBackgroundMode = isBackground;
     console.log(`HistoryManager: Background mode ${isBackground ? 'enabled' : 'disabled'}`);
 
-    if (isBackground) {
-      this.startBackgroundSaving();
-    } else {
-      this.stopBackgroundSaving();
-    }
-  }
-
-  // Start background saving with more frequent intervals
-  startBackgroundSaving() {
-    if (this.backgroundSaveInterval) {
-      clearInterval(this.backgroundSaveInterval);
-    }
-
-    this.backgroundSaveInterval = setInterval(async () => {
-      try {
-        if (this.isTracking) {
-          await this.saveProgressBackground();
-        }
-      } catch (error) {
-        console.error('HistoryManager: Error in background save interval:', error);
-      }
-    }, 3000); // Save every 3 seconds in background
-
-    console.log('HistoryManager: Background saving started');
-  }
-
-  // Stop background saving
-  stopBackgroundSaving() {
-    if (this.backgroundSaveInterval) {
-      clearInterval(this.backgroundSaveInterval);
-      this.backgroundSaveInterval = null;
-      console.log('HistoryManager: Background saving stopped');
-    }
+    // Intervals removed for performance
   }
 
   // Get tracking state
@@ -802,8 +734,8 @@ class HistoryManager {
         item &&
         item.id &&
         (item.title?.toLowerCase().includes(searchTerm) ||
-         item.artist?.toLowerCase().includes(searchTerm) ||
-         item.album?.toLowerCase().includes(searchTerm))
+          item.artist?.toLowerCase().includes(searchTerm) ||
+          item.album?.toLowerCase().includes(searchTerm))
       );
     } catch (error) {
       console.error('HistoryManager: Error searching history:', error);

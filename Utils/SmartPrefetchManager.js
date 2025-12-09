@@ -35,6 +35,10 @@ class SmartPrefetchManager {
 
         // Error handling
         this.errorHandlerRegistered = false;
+
+        // Circuit Breaker (Prevent looping storms)
+        this.consecutiveErrors = 0;
+        this.lastErrorTimestamp = 0;
     }
 
     // ==========================================
@@ -69,6 +73,10 @@ class SmartPrefetchManager {
      * Handle playback state changes
      * Triggers prefetch 2 seconds after playback starts
      */
+    /**
+     * Handle playback state changes
+     * Triggers N+2 prefetch 2 seconds after playback starts
+     */
     async _handlePlaybackState(event) {
         if (event.state === State.Playing) {
             // Get current track index
@@ -80,13 +88,13 @@ class SmartPrefetchManager {
             // Store current index for validation
             this.currentTrackIndex = currentIndex;
 
-            // Wait 2 seconds, then prefetch next song
+            // Wait 2 seconds, then prefetch N+2 song (buffer)
             this.prefetchTimer = setTimeout(async () => {
                 // Validate we're still on the same track
                 const nowPlaying = await TrackPlayer.getActiveTrackIndex();
                 if (nowPlaying === this.currentTrackIndex) {
-                    console.log(`🎵 2s after playing index ${nowPlaying}, prefetching next...`);
-                    await this._prefetchNextSong(nowPlaying);
+                    console.log(`🎵 Buffered Strategy: Prefetching N+2 index ${nowPlaying + 2}...`);
+                    await this._prefetchTrackAtIndex(nowPlaying + 2);
                 }
             }, PREFETCH_DELAY_MS);
         }
@@ -95,10 +103,18 @@ class SmartPrefetchManager {
     /**
      * Handle track changes - cancel pending prefetch
      */
+    /**
+     * Handle track changes - IMMEDIATE N+1 prefetch
+     */
     async _handleTrackChanged(event) {
         if (event.index !== undefined && event.index !== null) {
             this._cancelPendingPrefetch();
             this.currentTrackIndex = event.index;
+
+            // 🚀 IMMEDIATE ACTION: Prefetch next song (N+1) right now
+            // This ensures manual skips land on a ready track
+            console.log(`🚀 Track Changed: Immediately prefetching N+1 index ${event.index + 1}...`);
+            this._prefetchTrackAtIndex(event.index + 1);
         }
     }
 
@@ -108,11 +124,30 @@ class SmartPrefetchManager {
      * we fetch on-demand and retry playback
      */
     async _handlePlaybackError(event) {
-        console.log('🔴 PlaybackError detected, attempting recovery...');
+        const now = Date.now();
+
+        // Circuit Breaker Reset (if error was long ago)
+        if (now - this.lastErrorTimestamp > 5000) {
+            this.consecutiveErrors = 0;
+        }
+
+        this.lastErrorTimestamp = now;
+        this.consecutiveErrors++;
+
+        console.log(`🔴 PlaybackError detected (Count: ${this.consecutiveErrors})`);
+
+        // STOP if looping too fast (Max 3 retries in 5 seconds)
+        if (this.consecutiveErrors > 3) {
+            console.error('⚡ CIRCUIT BREAKER TRIPPED: Stopping playback to prevent freeze.');
+            await TrackPlayer.pause();
+            this.consecutiveErrors = 0;
+            return;
+        }
 
         try {
             const currentTrack = await TrackPlayer.getActiveTrack();
             const currentIndex = await TrackPlayer.getActiveTrackIndex();
+            // ... (rest of logic)
 
             if (!currentTrack) {
                 console.log('⚠️ No current track during error');
@@ -219,35 +254,35 @@ class SmartPrefetchManager {
     // ==========================================
 
     /**
-     * Replace a track in queue with updated URL (non-blocking)
+     * Replace a track and WAIT for completion (for manual skips)
+     * Wraps in InteractionManager but returns Promise that resolves after
      */
-    async _replaceTrackInQueue(index, originalTrack, streamData) {
-        try {
-            const currentIndex = await TrackPlayer.getActiveTrackIndex();
-
-            // Don't replace the currently playing track (use _replaceAndPlayTrack for that)
-            if (index === currentIndex) {
-                console.log(`⚠️ Can't replace currently playing track via prefetch`);
-                return;
-            }
-
-            const updatedTrack = this._createUpdatedTrack(originalTrack, streamData);
-
-            // ✅ Wrap in InteractionManager to prevent UI blocking
+    async replaceTrackAndWait(index, originalTrack, streamData) {
+        return new Promise((resolve) => {
             InteractionManager.runAfterInteractions(async () => {
                 try {
+                    const updatedTrack = this._createUpdatedTrack(originalTrack, streamData);
+
                     // Remove old track and insert new one at same position
                     await TrackPlayer.remove(index);
                     await TrackPlayer.add(updatedTrack, index);
-                    console.log(`🔄 Replaced track at index ${index}`);
-                } catch (err) {
-                    console.error('Error in queue replacement:', err.message);
+
+                    console.log(`🔄 Replaced track at index ${index} (Wait Mode)`);
+                } catch (error) {
+                    console.error('Error replacing track:', error.message);
+                } finally {
+                    resolve();
                 }
             });
+        });
+    }
 
-        } catch (error) {
-            console.error('Error replacing track:', error.message);
-        }
+    /**
+     * Replace a track in queue with updated URL (non-blocking, fire-and-forget)
+     */
+    async _replaceTrackInQueue(index, originalTrack, streamData) {
+        // Reuse the wait logic but don't await it (fire and forget for background)
+        this.replaceTrackAndWait(index, originalTrack, streamData);
     }
 
     /**
@@ -255,6 +290,13 @@ class SmartPrefetchManager {
      */
     async _replaceAndPlayTrack(index, originalTrack, streamData) {
         try {
+            // RACE CONDITION CHECK: Ensure index is still valid
+            const currentQ = await TrackPlayer.getQueue();
+            if (!currentQ[index] || currentQ[index].id !== originalTrack.id) {
+                console.warn('⚠️ Race condition prevented: Queue changed during fetch');
+                return;
+            }
+
             const updatedTrack = this._createUpdatedTrack(originalTrack, streamData);
 
             // Remove current track
@@ -269,6 +311,9 @@ class SmartPrefetchManager {
 
             console.log(`✅ Replaced and playing track at index ${index}`);
 
+            // Success - Reset breaker
+            this.consecutiveErrors = 0;
+
         } catch (error) {
             console.error('Error in replaceAndPlayTrack:', error.message);
         }
@@ -278,8 +323,14 @@ class SmartPrefetchManager {
      * Skip to next valid track when current one fails completely
      */
     async _skipToNextValidTrack(failedIndex) {
+        // Delay to prevent CPU spike (Cool-down)
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         try {
             const queue = await TrackPlayer.getQueue();
+
+            // Safety check
+            if (failedIndex >= queue.length) return;
 
             // Remove the failed track
             await TrackPlayer.remove(failedIndex);

@@ -42,14 +42,14 @@ export const RootRoute = () => {
   const isFullscreenActive = useRef(false);
   const previousTabName = useRef(null);
   const backPressedOnce = useRef(false);
-  
+
   // Track fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
   const prevFullscreenState = useRef(false);
-  
+
   // Track screen before entering fullscreen
   const [previousFullscreenScreen, setPreviousFullscreenScreen] = useState(null);
-  
+
   // Global back button handler to ensure proper navigation hierarchy
   useEffect(() => {
     const handleBackPress = () => {
@@ -57,19 +57,19 @@ export const RootRoute = () => {
       if (isFullscreenActive.current) {
         return false;
       }
-      
+
       // Get current navigation state
       const currentState = navigation.getState();
       if (!currentState) return false;
-      
+
       // Get the current active tab
       const currentActiveTab = currentState.routes[currentState.index];
       if (!currentActiveTab) return false;
-      
+
       // Handle Home tab - exit app if at root
       if (currentActiveTab.name === 'Home') {
         const homeState = currentActiveTab.state;
-        
+
         // If we're at the root of Home tab (or no nested state), show exit confirmation
         if (!homeState || homeState.index === 0) {
           if (backPressedOnce.current) {
@@ -80,30 +80,30 @@ export const RootRoute = () => {
             // First press - show toast and set flag
             backPressedOnce.current = true;
             ToastAndroid.show('Press back again to exit', ToastAndroid.SHORT);
-            
+
             // Reset flag after 2 seconds
             setTimeout(() => {
               backPressedOnce.current = false;
             }, 2000);
-            
+
             return true; // Prevent default action on first press
           }
         }
-        
+
         // Otherwise let default back navigation handle it
         return false;
       }
-      
+
       // Handle back navigation for LibraryRoute
       if (currentActiveTab.name === 'Library') {
         const libraryState = currentActiveTab.state;
-        
+
         // If we're on a nested screen in Library
         if (libraryState && libraryState.index > 0) {
           // Let the system handle regular back within the stack
           return false;
         }
-        
+
         // If we're at the main Library screen (index 0)
         if (libraryState && libraryState.index === 0) {
           // If the first screen is not LibraryPage, navigate to LibraryPage
@@ -116,7 +116,7 @@ export const RootRoute = () => {
             );
             return true;
           }
-          
+
           // If we're at LibraryPage and there's a previous tab, go back to that tab
           if (previousTabName.current && previousTabName.current !== 'Library') {
             console.log('At LibraryPage, returning to previous tab:', previousTabName.current);
@@ -125,15 +125,15 @@ export const RootRoute = () => {
           }
         }
       }
-      
+
       // Remember current tab before changing
       previousTabName.current = currentActiveTab.name;
-      
+
       return false;
     };
-    
+
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
-    
+
     return () => backHandler.remove();
   }, [navigation]);
 
@@ -141,85 +141,98 @@ export const RootRoute = () => {
   useEffect(() => {
     // Update fullscreen active ref for back handling
     isFullscreenActive.current = (Index === 1);
-    
+
     // When entering fullscreen mode, save the current screen
     if (Index === 1 && !prevFullscreenState.current) {
       // Store current screen information before entering fullscreen
       const state = navigation.getState();
       const routes = state?.routes || [];
       const currentRoute = routes.find(r => r.name === 'MainRoute');
-      
+
       // Capture screen details
       if (currentRoute && currentRoute.state) {
         const tabRoutes = currentRoute.state.routes;
         const currentTab = tabRoutes[currentRoute.state.index];
-        
+
         if (currentTab) {
           const tabName = currentTab.name;
           let screenName = '';
           let screenParams = {};
-          
+
           // Get current screen details
           if (currentTab.state && currentTab.state.routes && currentTab.state.routes.length > 0) {
             const currentScreen = currentTab.state.routes[currentTab.state.index];
             screenName = currentScreen.name;
             screenParams = currentScreen.params || {};
           }
-          
+
           // Save screen info to restore later
           const screenInfo = {
             tab: tabName,
             screen: screenName,
             params: screenParams
           };
-          
+
           console.log('Saving screen before fullscreen:', JSON.stringify(screenInfo));
           setPreviousFullscreenScreen(screenInfo);
         }
       }
     }
-    
+
     // Track changes in fullscreen state
     if (Index === 0) {
       // Not in fullscreen
       if (prevFullscreenState.current && previousFullscreenScreen) {
         console.log('Exited fullscreen player, restoring previous screen:', JSON.stringify(previousFullscreenScreen));
-        
+
         // Restore previous screen after short delay to ensure proper navigation
         setTimeout(() => {
           const { tab, screen, params } = previousFullscreenScreen;
-          
+
           // Skip navigation if we're already on the correct screen
           const currentState = navigation.getState();
           const currentTabIndex = currentState?.index || 0;
           const currentTab = currentState?.routes?.[currentTabIndex];
-          
+
           // Extract current screen info
           const currentTabName = currentTab?.name;
           const currentNestedState = currentTab?.state;
           const currentScreenName = currentNestedState?.routes?.[currentNestedState.index]?.name;
           const currentParams = currentNestedState?.routes?.[currentNestedState.index]?.params;
-          
+
           // Log current location
           console.log(`Currently at: Tab=${currentTabName}, Screen=${currentScreenName}`);
           console.log(`Want to go to: Tab=${tab}, Screen=${screen}`);
-          
+
           // Check if we're already on the target screen
+          // Optimized: Use shallow comparison instead of heavy JSON.stringify to prevent frame drops
+          const areParamsEqual = (p1, p2) => {
+            if (p1 === p2) return true;
+            if (!p1 || !p2) return false;
+            const keys1 = Object.keys(p1);
+            const keys2 = Object.keys(p2);
+            if (keys1.length !== keys2.length) return false;
+            for (let key of keys1) {
+              if (p1[key] !== p2[key]) return false;
+            }
+            return true;
+          };
+
           const alreadyOnTargetScreen = (
-            currentTabName === tab && 
-            currentScreenName === screen && 
-            JSON.stringify(currentParams) === JSON.stringify(params)
+            currentTabName === tab &&
+            currentScreenName === screen &&
+            areParamsEqual(currentParams, params)
           );
-          
+
           if (alreadyOnTargetScreen) {
             console.log('Already on the target screen, skipping navigation');
             return;
           }
-          
+
           // Special handling for CustomPlaylistView to ensure we have the right data
           if (screen === 'CustomPlaylistView') {
             console.log('Navigating to CustomPlaylistView with params', params);
-            
+
             // Function to proceed with navigation once we have the data
             const navigateWithParams = (navigationParams) => {
               // Force update the navigation
@@ -246,11 +259,11 @@ export const RootRoute = () => {
                 })
               );
             };
-            
+
             // If we already have params, use them
             if (params && Object.keys(params).length > 0) {
               navigateWithParams(params);
-            } 
+            }
             // Otherwise try to retrieve from storage
             else {
               AsyncStorage.getItem('last_viewed_custom_playlist')
@@ -269,7 +282,7 @@ export const RootRoute = () => {
                   navigateWithParams({});
                 });
             }
-          } 
+          }
           // Handle different screen types
           else if (screen === 'Album') {
             console.log(`Navigating to Album in ${tab} tab with params:`, params);
@@ -368,8 +381,8 @@ export const RootRoute = () => {
               fullNavPath = `${currentTabRoute.name}/${activeNestedRoute.name}/${deepNestedRoute.name}`;
 
             } else {
-            // Store the full navigation path (tab/screen)
-            fullNavPath = `${currentTabRoute.name}/${activeNestedRoute.name}`;
+              // Store the full navigation path (tab/screen)
+              fullNavPath = `${currentTabRoute.name}/${activeNestedRoute.name}`;
             }
           }
 
@@ -455,7 +468,7 @@ export const RootRoute = () => {
       if (previousTabName.current !== null && previousTabName.current !== Tabs[Index]) {
         try {
           console.log(`Tab changed from ${previousTabName.current} to ${Tabs[Index]}, clearing stored screen data`);
-          
+
           // Clear all stored navigation data to prevent incorrect behavior
           await Promise.all([
             AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
@@ -463,7 +476,7 @@ export const RootRoute = () => {
             AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY),
             AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY)
           ]);
-          
+
           console.log('Successfully cleared all stored navigation data');
         } catch (error) {
           console.error('Error clearing stored screen data:', error);
@@ -471,7 +484,7 @@ export const RootRoute = () => {
       }
       previousTabName.current = Tabs[Index];
     };
-    
+
     asyncFunction();
   }, [Index]);
 
@@ -484,14 +497,14 @@ export const RootRoute = () => {
         const currentState = navigation.getState();
         if (currentState && currentState.routes) {
           const libraryTab = currentState.routes.find(route => route.name === 'Library');
-          
+
           // If we have nested state in Library tab and it's not the main screen
-          if (libraryTab && 
-              libraryTab.state && 
-              libraryTab.state.routes && 
-              libraryTab.state.routes.length > 0 &&
-              libraryTab.state.routes[0].name !== 'LibraryPage') {
-            
+          if (libraryTab &&
+            libraryTab.state &&
+            libraryTab.state.routes &&
+            libraryTab.state.routes.length > 0 &&
+            libraryTab.state.routes[0].name !== 'LibraryPage') {
+
             // Clear any special navigation flags
             AsyncStorage.removeItem('came_from_fullscreen_player')
               .then(() => {
@@ -500,7 +513,7 @@ export const RootRoute = () => {
               .catch(error => {
                 console.error('Error clearing navigation flag:', error);
               });
-            
+
             // Navigate to main Library page instead of the sub-screen
             e.preventDefault();
             navigation.navigate('Library', { screen: 'LibraryPage' });
@@ -508,7 +521,7 @@ export const RootRoute = () => {
         }
       }
     });
-    
+
     return unsubscribe;
   }, [navigation]);
 
@@ -523,7 +536,7 @@ export const RootRoute = () => {
             tabBar={(props) => (
               <>
                 <BottomSheetMusic />
-                <CustomTabBar {...props}/>
+                <CustomTabBar {...props} />
               </>
             )}
             screenOptions={{

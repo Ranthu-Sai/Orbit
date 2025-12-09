@@ -496,9 +496,39 @@ async function AddPlaylist(songs, startSongId = null) {
       };
     }));
 
+    // BATCHED PLAYLIST ADDITION
+    // 1. Add first batch for instant playback
+    const INITIAL_BATCH_SIZE = 20;
+    const initialBatch = processedSongs.slice(0, INITIAL_BATCH_SIZE);
+
     await TrackPlayer.reset();
-    await TrackPlayer.add(processedSongs);
+    await TrackPlayer.add(initialBatch);
     await TrackPlayer.play();
+    console.log(`✅ Playlist: Added initial ${initialBatch.length} songs and started playback`);
+
+    // 2. Add remaining songs in background
+    const remainingSongs = processedSongs.slice(INITIAL_BATCH_SIZE);
+
+    if (remainingSongs.length > 0) {
+      InteractionManager.runAfterInteractions(async () => {
+        try {
+          const BATCH_SIZE = 50;
+          for (let i = 0; i < remainingSongs.length; i += BATCH_SIZE) {
+            const batch = remainingSongs.slice(i, i + BATCH_SIZE);
+
+            // Small pause to let UI breathe
+            if (i > 0) await new Promise(resolve => setTimeout(resolve, 50));
+
+            await TrackPlayer.add(batch);
+            console.log(`✅ Playlist: Added background batch ${i / BATCH_SIZE + 1}`);
+          }
+
+          DeviceEventEmitter.emit('queue-updated', { count: processedSongs.length });
+        } catch (batchError) {
+          console.error('❌ Error adding background playlist batch:', batchError);
+        }
+      });
+    }
 
     // Prefetch next song check
     setTimeout(() => {
@@ -567,12 +597,41 @@ async function AddSongsToQueue(songs) {
 
   if (processedSongs.length > 0) {
     try {
-      // Add ALL songs at once - no batches!
-      await TrackPlayer.add(processedSongs);
-      console.log(`✅ Queue: Added ${processedSongs.length} songs instantly (Lazy Mode)`);
+      // BATCHED ADDITION STRATEGY
+      // 1. Add first small batch immediately for instant UI response
+      const INITIAL_BATCH_SIZE = 20;
+      const initialBatch = processedSongs.slice(0, INITIAL_BATCH_SIZE);
 
-      // Emit event to refresh UI
-      DeviceEventEmitter.emit('queue-updated', { count: processedSongs.length });
+      await TrackPlayer.add(initialBatch);
+      console.log(`✅ Queue: Added initial ${initialBatch.length} songs instantly`);
+
+      // Emit event to update UI immediately
+      DeviceEventEmitter.emit('queue-updated', { count: initialBatch.length });
+
+      // 2. Add remaining songs in background batches
+      const remainingSongs = processedSongs.slice(INITIAL_BATCH_SIZE);
+
+      if (remainingSongs.length > 0) {
+        InteractionManager.runAfterInteractions(async () => {
+          try {
+            const BATCH_SIZE = 50;
+            for (let i = 0; i < remainingSongs.length; i += BATCH_SIZE) {
+              const batch = remainingSongs.slice(i, i + BATCH_SIZE);
+
+              // Small delay to allow UI frame updates between batches
+              if (i > 0) await new Promise(resolve => setTimeout(resolve, 50));
+
+              await TrackPlayer.add(batch);
+              console.log(`✅ Queue: Added background batch ${i / BATCH_SIZE + 1} (${batch.length} songs)`);
+            }
+
+            // Final event to ensuring everything is synced
+            DeviceEventEmitter.emit('queue-updated', { count: processedSongs.length });
+          } catch (batchError) {
+            console.error('❌ Error adding background batch:', batchError);
+          }
+        });
+      }
     } catch (error) {
       console.error('❌ Failed to add songs to queue:', error.message);
     }
@@ -652,17 +711,8 @@ async function PlayNextSong() {
         }
 
         if (streamData && streamData.url) {
-          // Replace track in queue with valid URL
-          const updatedTrack = {
-            ...nextTrack,
-            url: streamData.url,
-            headers: streamData.headers,
-            _needsStream: false,
-            _prefetched: true
-          };
-
-          await TrackPlayer.remove(nextTrackIndex);
-          await TrackPlayer.add(updatedTrack, nextTrackIndex);
+          // Replace track in queue with valid URL using SAFE non-blocking method
+          await smartPrefetchManager.replaceTrackAndWait(nextTrackIndex, nextTrack, streamData);
           console.log('✅ Track replaced with valid URL');
         } else {
           // Failed to get stream - skip this track entirely
@@ -791,17 +841,8 @@ async function SkipToTrack(trackIndex) {
       }
 
       if (streamData && streamData.url) {
-        // Replace track in queue with valid URL
-        const updatedTrack = {
-          ...targetTrack,
-          url: streamData.url,
-          headers: streamData.headers,
-          _needsStream: false,
-          _prefetched: true
-        };
-
-        await TrackPlayer.remove(validIndex);
-        await TrackPlayer.add(updatedTrack, validIndex);
+        // Replace track in queue with valid URL using SAFE non-blocking method
+        await smartPrefetchManager.replaceTrackAndWait(validIndex, targetTrack, streamData);
         console.log('✅ Track replaced for random selection');
       } else {
         console.error('❌ Failed to get stream for random track');

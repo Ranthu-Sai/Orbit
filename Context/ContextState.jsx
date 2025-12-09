@@ -1,5 +1,5 @@
 import Context from "./Context";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { AppState } from "react-native";
 import TrackPlayer, { Event, useTrackPlayerEvents } from "react-native-track-player";
 import { getRecommendedSongs } from "../Api/Recommended";
@@ -35,6 +35,9 @@ const ContextState = (props) => {
     // Dedicated state for music player navigation - won't be affected by general navigation
     const [musicPreviousScreen, setMusicPreviousScreen] = useState("");
 
+    // State for tracking player initialization to prevent race conditions
+    const isPlayerReady = useRef(false);
+
     // Add state to track the current playlist information
     const [currentPlaylistData, setCurrentPlaylistData] = useState(null);
 
@@ -43,6 +46,7 @@ const ContextState = (props) => {
 
     const [Queue, setQueue] = useState([]);
     async function updateTrack() {
+        if (!isPlayerReady.current) return;
         try {
             const tracks = await TrackPlayer.getQueue();
             // await SetQueueSongs(tracks)
@@ -64,6 +68,7 @@ const ContextState = (props) => {
     }
 
     async function AddRecommendedSongs(index, id) {
+        if (!isPlayerReady.current) return;
         const tracks = await TrackPlayer.getQueue();
         const totalTracks = tracks.length - 1
         if (index >= totalTracks - 2) {
@@ -92,6 +97,12 @@ const ContextState = (props) => {
     }
 
     useTrackPlayerEvents(events, async (event) => {
+        // CRITICAL ROOT FIX: Prevent any handling before player is explicitly ready
+        if (!isPlayerReady.current) {
+            console.log('Race condition prevented: Event ignored because player is not ready.', event.type);
+            return;
+        }
+
         try {
             if (event.type === Event.PlaybackError) {
                 console.warn('An error occured while playing the current track.');
@@ -185,6 +196,7 @@ const ContextState = (props) => {
             try {
                 await TrackPlayer.getPlaybackState();
                 console.log('Player already initialized in Context');
+                isPlayerReady.current = true; // Mark ready immediately
             } catch (playerError) {
                 // Player not initialized, set it up
                 await TrackPlayer.setupPlayer({
@@ -196,22 +208,28 @@ const ContextState = (props) => {
                     autoUpdateMetadata: true,
                 });
                 console.log('Player initialized successfully in Context');
+                isPlayerReady.current = true; // Mark ready after setup
             }
         } catch (error) {
             console.error('Error in InitialSetup:', error);
+            // Even if error, if we can correct it, we might set ready, but safer to leave false
         }
 
         // Add delay before accessing TrackPlayer to ensure it's ready
-        setTimeout(async () => {
-            try {
-                await updateTrack();
-                await getCurrentSong();
-            } catch (error) {
-                console.error('Error in delayed setup:', error);
-            }
-        }, 500);
+        // Only run if we marked it as ready
+        if (isPlayerReady.current) {
+            setTimeout(async () => {
+                try {
+                    await updateTrack();
+                    await getCurrentSong();
+                } catch (error) {
+                    console.error('Error in delayed setup:', error);
+                }
+            }, 500);
+        }
     }
     async function getCurrentSong() {
+        if (!isPlayerReady.current) return;
         try {
             const song = await TrackPlayer.getActiveTrack();
             setCurrentPlaying(song);

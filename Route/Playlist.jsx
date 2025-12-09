@@ -1,6 +1,6 @@
 import { MainWrapper } from "../Layout/MainWrapper";
 import { PlaylistHeader } from "../Component/Playlist/PlaylistHeader";
-import { View, BackHandler, Pressable, ActivityIndicator, StyleSheet, Dimensions, Text, ScrollView } from "react-native";
+import { View, BackHandler, Pressable, ActivityIndicator, StyleSheet, Dimensions, Text, ScrollView, FlatList } from "react-native";
 import { EachSongCard } from "../Component/Global/EachSongCard";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { getPlaylistData } from "../Api/Playlist";
@@ -491,6 +491,77 @@ export const Playlist = ({ route }) => {
     );
   }
 
+  // Render item for FlatList to improve performance
+  const renderSongItem = useCallback(({ item: e, index: i }) => {
+    // Process artist data to avoid [object Object] display
+    const artistData = e?.artists || e?.primary_artists;
+    const formattedArtist = formatArtistData(artistData);
+
+    // Get proper image URL - handle both array and direct URL formats
+    let imageUrl = '';
+    if (e?.image) {
+      if (Array.isArray(e.image)) {
+        // If it's an array, get the highest quality (last item or index 2)
+        const imageItem = e.image[2] || e.image[e.image.length - 1] || e.image[0];
+        imageUrl = imageItem?.url || imageItem?.link || '';
+      } else if (typeof e.image === 'string') {
+        imageUrl = e.image;
+      }
+    }
+
+    // Fallback to images property if image is not available
+    if (!imageUrl && e?.images && Array.isArray(e.images)) {
+      const imageItem = e.images[2] || e.images[e.images.length - 1] || e.images[0];
+      imageUrl = imageItem?.url || imageItem?.link || '';
+    }
+
+    // Final validation
+    imageUrl = getValidImageUrl(imageUrl);
+
+    // Get download URL properly for menu options
+    const downloadUrlData = e?.downloadUrl || e?.download_url;
+
+    return (
+      <EachSongCard
+        isFromPlaylist={true}
+        Data={Data}
+        index={i}
+        artist={formattedArtist}
+        language={e?.language}
+        artistID={e?.artist_id || e?.primary_artists_id}
+        duration={e?.duration}
+        image={imageUrl}
+        id={e?.id}
+        url={downloadUrlData}
+        title={truncateText(e?.song || e?.name, 22)}
+        source={e?.source || 'saavn'}
+        style={styles.songCard}
+        showNumber={true}
+        activeTrackId={activeTrack?.id}
+        isPlaying={playbackState.state === "playing" || playbackState.state === 3}
+      />
+    );
+  }, [Data, activeTrack?.id, playbackState.state, theme]);
+
+  // Header component for FlatList
+  const renderHeader = useCallback(() => (
+    <>
+      <PlaylistHeader
+        imageUrl={image || Data?.data?.songs?.[0]?.image?.[2]?.url || Data?.data?.songs?.[0]?.images?.[2]?.url || ''}
+        title={name || Data?.data?.name || "Playlist"}
+        songCount={Data?.data?.songs?.length || 0}
+        playlistId={id ? id.replace('album_', '') : id}
+        follower={follower || Data?.data?.follower || ""}
+        songsData={Data?.data?.songs}
+        playlistData={Data}
+      />
+      <View style={{ height: 15 }} />
+    </>
+  ), [image, Data, name, id, follower]);
+
+  // key extractor
+  const keyExtractor = useCallback((item, index) => `song-${item?.id || index}-${index}`, []);
+
   return (
     <MainWrapper>
       {Loading && <LoadingComponent loading={Loading} />}
@@ -501,88 +572,28 @@ export const Playlist = ({ route }) => {
         </View>
       )}
       {!Loading && Data?.data?.songs && Data?.data?.songs?.length > 0 && (
-        <ScrollView
-          contentContainerStyle={{
-            paddingBottom: 120,
-            backgroundColor: theme.dark ? theme.colors.background : "#FFFFFF",
-          }}
-          style={{
-            backgroundColor: theme.dark ? theme.colors.background : '#FFFFFF',
-          }}
-        >
-          <PlaylistHeader
-            imageUrl={image || Data?.data?.songs?.[0]?.image?.[2]?.url || Data?.data?.songs?.[0]?.images?.[2]?.url || ''}
-            title={name || Data?.data?.name || "Playlist"}
-            songCount={Data?.data?.songs?.length || 0}
-            playlistId={id ? id.replace('album_', '') : id}
-            follower={follower || Data?.data?.follower || ""}
-            songsData={Data?.data?.songs}
-            playlistData={Data}
+        <View style={{ flex: 1, backgroundColor: theme.dark ? theme.colors.background : '#FFFFFF' }}>
+          <FlatList
+            data={Data.data.songs}
+            renderItem={renderSongItem}
+            keyExtractor={keyExtractor}
+            ListHeaderComponent={renderHeader}
+            contentContainerStyle={{
+              paddingBottom: 120,
+              backgroundColor: theme.dark ? theme.colors.background : "#FFFFFF",
+            }}
+            style={{
+              paddingHorizontal: 15,
+              backgroundColor: "transparent",
+            }}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            removeClippedSubviews={true}
+            showsVerticalScrollIndicator={true}
+            ListFooterComponent={<View style={styles.bottomSpacer} />}
           />
-
-          <View style={[styles.songsContainer, { backgroundColor: theme.dark ? 'rgb(16,16,16)' : '#FFFFFF' }]}>
-            {Data?.data?.songs?.slice(0, 1000).map((e, i) => {
-              // Process artist data to avoid [object Object] display
-              const artistData = e?.artists || e?.primary_artists;
-              const formattedArtist = formatArtistData(artistData);
-
-              // Get proper image URL - handle both array and direct URL formats
-              let imageUrl = '';
-              if (e?.image) {
-                if (Array.isArray(e.image)) {
-                  // If it's an array, get the highest quality (last item or index 2)
-                  const imageItem = e.image[2] || e.image[e.image.length - 1] || e.image[0];
-                  imageUrl = imageItem?.url || imageItem?.link || '';
-                } else if (typeof e.image === 'string') {
-                  imageUrl = e.image;
-                }
-              }
-
-              // Fallback to images property if image is not available
-              if (!imageUrl && e?.images && Array.isArray(e.images)) {
-                const imageItem = e.images[2] || e.images[e.images.length - 1] || e.images[0];
-                imageUrl = imageItem?.url || imageItem?.link || '';
-              }
-
-              // Final validation
-              imageUrl = getValidImageUrl(imageUrl);
-
-              // Get download URL properly for menu options
-              const downloadUrlData = e?.downloadUrl || e?.download_url;
-
-              return (
-                <EachSongCard
-                  isFromPlaylist={true}
-                  Data={Data}
-                  index={i}
-                  artist={formattedArtist}
-                  language={e?.language}
-                  artistID={e?.artist_id || e?.primary_artists_id}
-                  key={`song-${i}-${e?.id}`}
-                  duration={e?.duration}
-                  image={imageUrl}
-                  id={e?.id}
-                  url={downloadUrlData}
-                  title={truncateText(e?.song || e?.name, 22)} // Update to 22 chars to match other truncations
-                  source={e?.source || 'saavn'}
-                  style={styles.songCard}
-                  showNumber={true} // Explicitly show numbers in playlist view
-                  activeTrackId={activeTrack?.id}
-                  isPlaying={playbackState.state === "playing" || playbackState.state === 3} // Handle both string and enum
-                />
-              );
-            })}
-            {Data?.data?.songs?.length > 100 && (
-              <View style={{ padding: 20, alignItems: 'center' }}>
-                <Text style={{ color: theme.colors.text, opacity: 0.6 }}>
-                  Showing first 100 songs of {Data.data.songs.length}
-                </Text>
-              </View>
-            )}
-            {/* Add view to hide the "No music" player at bottom */}
-            <View style={styles.bottomSpacer} />
-          </View>
-        </ScrollView>
+        </View>
       )}
     </MainWrapper>
   );

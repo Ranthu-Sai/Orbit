@@ -1,7 +1,7 @@
 import React from "react";
-import { Pressable } from "react-native";
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { useTheme } from "@react-navigation/native";
+import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
+import { IconButton } from "react-native-paper";
 
 /**
  * FullScreenMusicMenuButton - Three-dot menu button for FullScreenMusic
@@ -15,18 +15,14 @@ export const FullScreenMusicMenuButton = ({ onPress, size = 25, color }) => {
   const iconColor = color || theme.colors.text;
 
   return (
-    <Pressable
+    <IconButton
+      icon={() => (
+        <MaterialCommunityIcons name="dots-vertical" size={size} color={iconColor} />
+      )}
+      size={28}
       onPress={onPress}
-      style={({ pressed }) => ({
-        paddingVertical: 8,
-        paddingLeft: 8,
-        paddingRight: 4,
-        borderRadius: 20,
-        backgroundColor: pressed ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-      })}
-      hitSlop={8}
-    >
-      <MaterialCommunityIcons name="dots-vertical" size={size} color={iconColor} />
-    </Pressable>
+      style={{ margin: 0, padding: 0 }}
+      rippleColor="rgba(255, 255, 255, 0.2)"
+    />
   );
 };

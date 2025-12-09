@@ -130,18 +130,28 @@ const LoginScreen = () => {
                         ref={webViewRef}
                         source={{ uri: 'https://music.youtube.com' }}
                         style={styles.webview}
-                        onNavigationStateChange={(navState) => {
-                            // Optional: Auto-detect login success based on URL
+                        injectedJavaScript={`
+                            setInterval(() => {
+                                window.ReactNativeWebView.postMessage(document.cookie);
+                            }, 1000);
+                            true;
+                        `}
+                        onMessage={(event) => {
+                            const cookies = event.nativeEvent.data;
+                            if (cookies && cookies.includes('SAPISID') && !loading) {
+                                console.log('✅ Auto-detected login cookies');
+                                saveAndSendCookies(cookies);
+                            }
                         }}
                     />
                     <TouchableOpacity style={styles.captureButton} onPress={handleCookieExtraction}>
-                        {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.captureText}>I have Logged In (Capture Cookies)</Text>}
+                        {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.captureText}>Manual Capture (Backup)</Text>}
                     </TouchableOpacity>
                 </>
             ) : (
                 <View style={styles.manualContainer}>
                     <Text style={styles.instruction}>
-            Paste your "Cookie" header string here. You can get this from your browser's developer tools (Network tab -> request to music.youtube.com).
+                        Paste your "Cookie" header string here. You can get this from your browser's developer tools (Network tab to request to music.youtube.com).
                     </Text>
                     <TextInput
                         style={styles.input}

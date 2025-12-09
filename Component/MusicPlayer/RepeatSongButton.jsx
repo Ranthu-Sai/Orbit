@@ -2,7 +2,7 @@ import { useTheme } from "@react-navigation/native";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { useContext } from "react";
 import Context from "../../Context/Context";
-import { Pressable } from "react-native";
+import { IconButton } from "react-native-paper";
 // Repeat constants
 const Repeats = {
     NoRepeat: "repeat-off",
@@ -29,12 +29,18 @@ export const RepeatSongButton = ({ size, color }) => {
     }
   }
   return (
-    <Pressable onPress={onRepeatPress}>
-      <MaterialCommunityIcons
-        name={Repeat}
-        size={size ? size : 15}
-        color={Repeat === Repeats.NoRepeat ? (color || theme.colors.text) : theme.colors.primary}
-      />
-    </Pressable>
+    <IconButton
+      icon={() => (
+        <MaterialCommunityIcons
+          name={Repeat}
+          size={size ? size : 15}
+          color={Repeat === Repeats.NoRepeat ? (color || theme.colors.text) : theme.colors.primary}
+        />
+      )}
+      size={32}
+      onPress={onRepeatPress}
+      style={{ margin: 0, padding: 0 }}
+      rippleColor="rgba(255, 255, 255, 0.2)"
+    />
   );
 };

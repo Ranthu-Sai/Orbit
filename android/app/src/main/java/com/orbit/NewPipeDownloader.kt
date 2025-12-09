@@ -10,6 +10,12 @@ import java.io.IOException
 
 class NewPipeDownloader(private val client: OkHttpClient) : Downloader() {
 
+    private var cookies: String? = null
+
+    fun setCookies(cookies: String) {
+        this.cookies = cookies
+    }
+
     @Throws(IOException::class, ReCaptchaException::class)
     override fun execute(request: Request): Response {
         val httpMethod = request.httpMethod()
@@ -30,6 +36,11 @@ class NewPipeDownloader(private val client: OkHttpClient) : Downloader() {
             } else if (headerValueList.size == 1) {
                 requestBuilder.header(headerName, headerValueList[0])
             }
+        }
+
+        // Inject cookies if available (VIP Mode)
+        if (cookies != null && cookies!!.isNotEmpty()) {
+            requestBuilder.addHeader("Cookie", cookies!!)
         }
 
         val response = client.newCall(requestBuilder.build()).execute()

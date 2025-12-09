@@ -1,23 +1,20 @@
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import React from "react";
 import { useTheme } from "@react-navigation/native";
-import { Pressable } from "react-native";
+import { IconButton } from "react-native-paper";
 
 export const GetLyricsButton = ({ onPress, color }) => {
   const theme = useTheme();
   const iconColor = color || theme.colors.text;
   return (
-    <Pressable
+    <IconButton
+      icon={() => (
+        <MaterialIcons name={"lyrics"} size={25} color={iconColor} />
+      )}
+      size={32}
       onPress={onPress}
-      style={({ pressed }) => ({
-        paddingVertical: 8,
-        paddingLeft: 8,
-        paddingRight: 4,
-        borderRadius: 20,
-        backgroundColor: pressed ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-      })}
-    >
-      <MaterialIcons name={"lyrics"} size={25} color={iconColor} />
-    </Pressable>
+      style={{ margin: 0, padding: 0 }}
+      rippleColor="rgba(255, 255, 255, 0.2)"
+    />
   );
 };
