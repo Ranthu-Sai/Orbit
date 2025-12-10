@@ -21,7 +21,6 @@ export const Library = () => {
           <EachLibraryCard text={"Playlists"} icon={"music-box-multiple"} navigate={"CustomPlaylist"} />
           <EachLibraryCard text={"My Music"} icon={"music-note"} navigate={"MyMusicPage"} />
           <EachLibraryCard text={"Downloads"} icon={"download"} navigate={"DownloadScreen"} />
-          <EachLibraryCard text={"Fav Playlists"} icon={"playlist-music"} navigate={"LikedPlaylists"} />
           <EachLibraryCard text={"About Developer"} icon={"information"} navigate={"AboutProject"} />
           <View style={{ width: width * 0.45 }} />
         </View>

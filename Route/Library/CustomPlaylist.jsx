@@ -1,18 +1,21 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { View, Modal, TextInput, Pressable, Text, FlatList, StyleSheet, Animated, Easing, ToastAndroid, Dimensions, ScrollView, BackHandler } from "react-native";
 import { GetCustomPlaylists, CreateCustomPlaylist } from "../../LocalStorage/CustomPlaylists";
+import { GetLikedPlaylist } from "../../LocalStorage/StoreLikedPlaylists";
 import { useTheme } from "@react-navigation/native";
 import { Heading } from "../../Component/Global/Heading";
 import { SmallText } from "../../Component/Global/SmallText";
 import { Spacer } from "../../Component/Global/Spacer";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
+import { FileInput } from "lucide-react-native";
 import FastImage from "react-native-fast-image";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getUserPlaylists, createPlaylist, clearPlaylistCache } from "../../Utils/PlaylistManager";
 import { CacheManager } from '../../Utils/NavigationCacheManager';
 import { CACHE_TTL, CACHE_KEYS } from '../../Utils/CacheConfig';
+import { ImportPlaylistModal } from "../../Component/Playlist/ImportPlaylistModal";
 
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -24,10 +27,12 @@ export const CustomPlaylist = () => {
   const navigation = useNavigation();
   const theme = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
+  const [importModalVisible, setImportModalVisible] = useState(false);
   const [playlistName, setPlaylistName] = useState('');
   const [playlists, setPlaylists] = useState({});
   const [hasPlaylists, setHasPlaylists] = useState(false);
   const [userPlaylists, setUserPlaylists] = useState([]);
+  const [likedPlaylists, setLikedPlaylists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [animationsInitialized, setAnimationsInitialized] = useState(false);
@@ -70,6 +75,7 @@ export const CustomPlaylist = () => {
           console.log('[CustomPlaylist] Using cached data - no API call needed');
           setPlaylists(cached.playlists || {});
           setUserPlaylists(cached.userPlaylists || []);
+          setLikedPlaylists(cached.likedPlaylists || []);
           setHasPlaylists(cached.hasPlaylists || false);
           setLoading(false);
           return;
@@ -100,10 +106,24 @@ export const CustomPlaylist = () => {
         setUserPlaylists([]);
       }
 
-      // Check if we have any playlists from either source
+      // Load liked playlists
+      const likedPlaylistsData = await GetLikedPlaylist();
+      const likedPlaylistsArray = [];
+
+      // Convert liked playlists object to array
+      for (const [key, value] of Object.entries(likedPlaylistsData.playlist || {})) {
+        likedPlaylistsArray[value.count] = value;
+      }
+      const filteredLikedPlaylists = likedPlaylistsArray.filter(Boolean);
+
+      console.log('Loaded liked playlists:', filteredLikedPlaylists.length);
+      setLikedPlaylists(filteredLikedPlaylists);
+
+      // Check if we have any playlists from all sources
       const hasAnyPlaylists =
         Object.keys(customPlaylists).length > 0 ||
-        (Array.isArray(newUserPlaylists) && newUserPlaylists.length > 0);
+        (Array.isArray(newUserPlaylists) && newUserPlaylists.length > 0) ||
+        filteredLikedPlaylists.length > 0;
 
       setHasPlaylists(hasAnyPlaylists);
 
@@ -112,6 +132,7 @@ export const CustomPlaylist = () => {
         CacheManager.set(cacheKey, {
           playlists: customPlaylists,
           userPlaylists: Array.isArray(newUserPlaylists) ? newUserPlaylists : [],
+          likedPlaylists: filteredLikedPlaylists,
           hasPlaylists: hasAnyPlaylists
         }, CACHE_TTL.LIBRARY_DATA);
         console.log('[CustomPlaylist] Data cached');
@@ -148,9 +169,36 @@ export const CustomPlaylist = () => {
     }
   };
 
+  const handleImportPlaylist = async (playlistLink) => {
+    try {
+      // TODO: Implement backend integration to fetch Spotify playlist data
+      // For now, show a message that the feature is pending implementation
+      console.log('Import playlist link:', playlistLink);
+
+      ToastAndroid.show(
+        'Import feature coming soon! Backend integration pending.',
+        ToastAndroid.LONG
+      );
+
+      // Future implementation would:
+      // 1. Call API to fetch Spotify playlist data
+      // 2. Convert to app format
+      // 3. Save to liked playlists or user playlists
+      // 4. Reload playlists
+      // Example:
+      // const playlistData = await fetchSpotifyPlaylist(playlistLink);
+      // await savePlaylist(playlistData);
+      // await loadPlaylists(true);
+
+    } catch (error) {
+      console.error('Error importing playlist:', error);
+      throw new Error('Failed to import playlist');
+    }
+  };
+
   // Run animations once when playlists are loaded
   useEffect(() => {
-    if ((userPlaylists.length > 0 || Object.keys(playlists).length > 0) && !animationsInitialized) {
+    if ((userPlaylists.length > 0 || Object.keys(playlists).length > 0 || likedPlaylists.length > 0) && !animationsInitialized) {
       // Animate user playlists
       userPlaylists.forEach((item, index) => {
         const key = item.id || `item-${index}`;
@@ -172,9 +220,9 @@ export const CustomPlaylist = () => {
         }).start();
       });
 
-      // Animate legacy playlists
-      Object.keys(playlists).forEach((item, index) => {
-        const key = item;
+      // Animate liked playlists
+      likedPlaylists.forEach((item, index) => {
+        const key = `liked-${item.id}`;
         const vals = getAnimationValues(key, index);
 
         Animated.timing(vals.translateY, {
@@ -193,9 +241,30 @@ export const CustomPlaylist = () => {
         }).start();
       });
 
+      // Animate legacy playlists
+      Object.keys(playlists).forEach((item, index) => {
+        const key = item;
+        const vals = getAnimationValues(key, index);
+
+        Animated.timing(vals.translateY, {
+          toValue: 0,
+          duration: 300,
+          easing: Easing.out(Easing.cubic),
+          delay: index * 100 + (userPlaylists.length * 100) + (likedPlaylists.length * 100), // Start after liked playlists
+          useNativeDriver: true,
+        }).start();
+
+        Animated.timing(vals.opacity, {
+          toValue: 1,
+          duration: 300,
+          delay: index * 100 + (userPlaylists.length * 100) + (likedPlaylists.length * 100),
+          useNativeDriver: true,
+        }).start();
+      });
+
       setAnimationsInitialized(true);
     }
-  }, [userPlaylists, playlists, animationsInitialized, animationValues]);
+  }, [userPlaylists, playlists, likedPlaylists, animationsInitialized, animationValues]);
 
   // NO useFocusEffect - only load on mount (instant back navigation)
   // Pull-to-refresh is the way to force refresh
@@ -438,11 +507,79 @@ export const CustomPlaylist = () => {
     );
   };
 
+  const renderLikedPlaylist = ({ item, index }) => {
+    // Use animation values for liked playlists
+    const animations = getAnimationValues(`liked-${item.id}`, index);
+
+    const handlePlaylistPress = () => {
+      // Navigate to the playlist screen with the playlist ID
+      if (item.id) {
+        navigation.navigate("Playlist", {
+          id: item.id,
+          name: item.name,
+          previousScreen: "CustomPlaylist"
+        });
+      } else {
+        ToastAndroid.show('Invalid playlist', ToastAndroid.SHORT);
+      }
+    };
+
+    // Extract image URL from various formats
+    const getImageUrl = (imageData) => {
+      if (!imageData) return null;
+      if (typeof imageData === 'string') return imageData;
+      if (Array.isArray(imageData) && imageData.length > 0) {
+        return imageData[imageData.length - 1]?.url || imageData[0]?.url || null;
+      }
+      if (typeof imageData === 'object' && imageData.url) return imageData.url;
+      return null;
+    };
+
+    const imageUrl = getImageUrl(item.image);
+
+    return (
+      <Animated.View style={{ transform: [{ translateY: animations.translateY }], opacity: animations.opacity, width: '100%' }}>
+        <Pressable
+          style={styles.playlistItem}
+          onPress={handlePlaylistPress}
+          android_ripple={{ color: theme.colors.card, borderless: false }}
+        >
+          {imageUrl ? (
+            <FastImage
+              source={{ uri: imageUrl }}
+              style={styles.playlistCover}
+              resizeMode={FastImage.resizeMode.cover}
+            />
+          ) : (
+            <View style={styles.playlistCoverContainer}>
+              <FastImage
+                source={DEFAULT_WAVE_IMAGE}
+                style={styles.playlistCover}
+                resizeMode={FastImage.resizeMode.cover}
+              />
+            </View>
+          )}
+          <View style={styles.playlistDetails}>
+            <Text style={[styles.playlistName, { color: theme.colors.text }]}>
+              {item.name}
+            </Text>
+            <Text style={[styles.songCount, { color: theme.colors.textSecondary }]}>
+              {item.follower ? `${item.follower} followers` : 'Playlist'}
+            </Text>
+          </View>
+
+          {/* Liked playlists don't have edit/delete options since they're from external sources */}
+        </Pressable>
+      </Animated.View>
+    );
+  };
+
   const renderPlaylists = () => {
     // Convert object keys to array for legacy playlists
     const playlistNames = Object.keys(playlists);
     const hasLegacyPlaylists = playlistNames.length > 0;
     const hasNewPlaylists = userPlaylists.length > 0;
+    const hasLikedPlaylists = likedPlaylists.length > 0;
 
     if (loading) {
       return (
@@ -472,7 +609,7 @@ export const CustomPlaylist = () => {
       );
     }
 
-    if (!hasLegacyPlaylists && !hasNewPlaylists) {
+    if (!hasLegacyPlaylists && !hasNewPlaylists && !hasLikedPlaylists) {
       return (
         <View style={styles.emptyContainer}>
           <MaterialIcons name="playlist-add" size={64} color="#6E6E6E" />
@@ -491,36 +628,34 @@ export const CustomPlaylist = () => {
       );
     }
 
-    // Use manual rendering instead of nested FlatLists
+    // Render all playlists in one unified section
     return (
       <ScrollView
         style={styles.playlistsScrollContainer}
         contentContainerStyle={styles.playlistsContentContainer}
       >
-        {/* New Playlists Section */}
-        {hasNewPlaylists && (
-          <View style={styles.playlistsSection}>
-            {/* <Heading text="Your Playlists" /> */}
-            {userPlaylists.map((item, index) => (
-              <View key={item.id || `user-playlist-${index}`}>
-                {renderUserPlaylist({ item, index })}
-              </View>
-            ))}
-          </View>
-        )}
+        <View style={styles.playlistsSection}>
+          {/* Render user-created playlists */}
+          {userPlaylists.map((item, index) => (
+            <View key={item.id || `user-playlist-${index}`}>
+              {renderUserPlaylist({ item, index })}
+            </View>
+          ))}
 
-        {/* Legacy Playlists Section */}
-        {hasLegacyPlaylists && (
-          <View style={styles.playlistsSection}>
-            {hasNewPlaylists && <Spacer height={20} />}
-            <Heading text="Legacy Playlists" />
-            {playlistNames.map((item, index) => (
-              <View key={item || `legacy-playlist-${index}`}>
-                {renderPlaylist({ item, index })}
-              </View>
-            ))}
-          </View>
-        )}
+          {/* Render liked/favorited playlists */}
+          {likedPlaylists.map((item, index) => (
+            <View key={item.id || `liked-playlist-${index}`}>
+              {renderLikedPlaylist({ item, index: index + userPlaylists.length })}
+            </View>
+          ))}
+
+          {/* Render legacy playlists */}
+          {playlistNames.map((item, index) => (
+            <View key={item || `legacy-playlist-${index}`}>
+              {renderPlaylist({ item, index: index + userPlaylists.length + likedPlaylists.length })}
+            </View>
+          ))}
+        </View>
       </ScrollView>
     );
   };
@@ -547,8 +682,15 @@ export const CustomPlaylist = () => {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
-        <Heading text="Your Playlists" />
+        <Heading text="Playlists" nospace={true} style={{ marginLeft: 0, paddingLeft: 12, fontSize: 28, fontWeight: '900' }} />
         <View style={styles.headerButtons}>
+          <Pressable
+            style={styles.addButton}
+            onPress={() => setImportModalVisible(true)}
+            android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: true, radius: 20 }}
+          >
+            <FileInput size={26} color={theme.colors.primary} />
+          </Pressable>
           <Pressable
             style={styles.addButton}
             onPress={() => setModalVisible(true)}
@@ -688,6 +830,12 @@ export const CustomPlaylist = () => {
         </View>
       </Modal>
 
+      {/* Import Playlist Modal */}
+      <ImportPlaylistModal
+        visible={importModalVisible}
+        onClose={() => setImportModalVisible(false)}
+        onImport={handleImportPlaylist}
+      />
 
     </View>
   );
@@ -703,7 +851,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginVertical: 16,
-    paddingHorizontal: 16,
+    paddingLeft: 8,
+    paddingRight: 8,
   },
   headerButtons: {
     flexDirection: 'row',
@@ -722,7 +871,7 @@ const styles = StyleSheet.create({
 
   content: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
   },
   contentContainer: {
     paddingBottom: 50, // Add padding for the minimized player
@@ -747,11 +896,11 @@ const styles = StyleSheet.create({
   playlistItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    padding: 10,
     marginVertical: 6,
     borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.05)',
-    marginHorizontal: 2,
+    marginHorizontal: 0,
   },
   playlistIcon: {
     width: 50,
