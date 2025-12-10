@@ -13,6 +13,7 @@ import autoRecommendations from "./Utils/AutoRecommendations";
 import skipOperationManager from "./Utils/SkipOperationManager";
 import streamFetchManager from "./Utils/StreamFetchManager";
 import smartPrefetchManager from "./Utils/SmartPrefetchManager";
+import FormatArtist from "./Utils/FormatArtists";
 
 let isPlayerInitialized = false;
 
@@ -314,6 +315,26 @@ async function PlayOneSong(song) {
     const enhancedArtwork = enhanceYTMusicArtwork(updatedSong.artwork || updatedSong.image, 'playing');
     const playingArtwork = getPrimaryArtworkUrl(enhancedArtwork) || updatedSong.artwork || updatedSong.image;
 
+    // NORMALIZE METADATA (Critical for Saavn/Standard tracks)
+    // 1. Ensure Title
+    if (!updatedSong.title && updatedSong.name) {
+      updatedSong.title = String(updatedSong.name).replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'");
+    }
+    if (!updatedSong.title) {
+      updatedSong.title = 'Unknown Title';
+    }
+
+    // 2. Ensure Artist
+    if (!updatedSong.artist) {
+      if (updatedSong.artists && updatedSong.artists.primary) {
+        updatedSong.artist = FormatArtist(updatedSong.artists.primary);
+      } else if (song.artists && song.artists.primary) {
+        updatedSong.artist = FormatArtist(song.artists.primary);
+      } else {
+        updatedSong.artist = 'Unknown Artist';
+      }
+    }
+
     const songForPlayback = {
       ...updatedSong,
       url: playbackUrl,
@@ -480,23 +501,45 @@ async function AddPlaylist(songs, startSongId = null) {
           // console.error('❌ Error fetching DAB stream (soft fail):', error.message);
         }
       } else {
-        // Standard file/download URL logic
+        // Standard file/download URL logic (Saavn, etc.)
         if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
           updatedSong.url = song.downloadUrl[qualityIndex]?.url || song.downloadUrl.find(d => d?.url)?.url || song.url;
         } else if (song.download_url && Array.isArray(song.download_url)) {
           updatedSong.url = song.download_url[qualityIndex]?.url || song.download_url.find(d => d?.url)?.url || song.url;
         }
+
+        // CRITICAL: Check if we have a valid media URL
+        playbackUrl = updatedSong.url;
+
+        // Debug logging for Saavn/Standard tracks
+        if (index === 0) {
+          console.log(`[AddPlaylist] Processing first ${song.type || 'unknown'} track:`, {
+            id: song.id,
+            name: song.name,
+            hasDownloadUrl: !!(song.downloadUrl || song.download_url),
+            extractedUrl: playbackUrl
+          });
+
+          if (playbackUrl && (playbackUrl.includes('jiosaavn.com/song/') || playbackUrl.includes('jiosaavn.com/album/'))) {
+            console.warn('⚠️ WARNING: Extracted URL appears to be a web page, not a media stream:', playbackUrl);
+          }
+        }
       }
 
       const artworkUrl = extractArtwork(song) || extractArtwork(updatedSong);
 
-      return {
+      // Normalize Saavn song data (Saavn uses 'name' instead of 'title')
+      const normalizedSong = {
         ...updatedSong,
         url: playbackUrl || updatedSong.url,
+        title: updatedSong.title || updatedSong.name || song.name || 'Unknown',
+        artist: updatedSong.artist || (song.artists?.primary ? FormatArtist(song.artists.primary) : 'Unknown Artist'),
         artwork: artworkUrl,
         image: artworkUrl,
         currentPlayingQuality: currentQuality
       };
+
+      return normalizedSong;
     }));
 
     // BATCHED PLAYLIST ADDITION
@@ -597,6 +640,39 @@ async function AddSongsToQueue(songs) {
         processedSong.url = song.download_url[qualityIndex]?.url || song.download_url.find(d => d?.url)?.url || song.url;
       }
       processedSong.currentPlayingQuality = currentQuality;
+    }
+
+    // CRITICAL: Check if valid URL for standard tracks
+    if (processedSong.url && (processedSong.url.includes('jiosaavn.com/song/') || processedSong.url.includes('jiosaavn.com/album/'))) {
+      console.warn(`⚠️ AddSongsToQueue: URL looks like a web page for ${song.name || song.title}`, processedSong.url);
+    }
+
+    // NORMALIZE METADATA (Critical for Saavn/Standard tracks)
+    // 1. Ensure Title
+    if (!processedSong.title && processedSong.name) {
+      processedSong.title = String(processedSong.name).replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'");
+    }
+    if (!processedSong.title) {
+      processedSong.title = 'Unknown Title';
+    }
+
+    // 2. Ensure Artist
+    if (!processedSong.artist) {
+      if (processedSong.artists && processedSong.artists.primary) {
+        processedSong.artist = FormatArtist(processedSong.artists.primary);
+      } else {
+        processedSong.artist = 'Unknown Artist';
+      }
+    }
+
+    // 3. Ensure Artwork is a string URL
+    if (!processedSong.artwork || typeof processedSong.artwork !== 'string') {
+      const extracted = extractArtwork(processedSong);
+      if (extracted) {
+        processedSong.artwork = extracted;
+        // Also set image for compatibility
+        processedSong.image = extracted;
+      }
     }
 
     processedSongs.push(processedSong);

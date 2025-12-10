@@ -214,7 +214,7 @@ const ArtistPage = () => {
             <View style={[styles.heroImage, { backgroundColor: theme.colors.card }]} />
           )}
           <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.95)']}
+            colors={['rgba(0,0,0,0.6)', 'transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.6)', '#000000']}
             style={styles.heroGradient}
           />
 
@@ -601,10 +601,10 @@ const styles = StyleSheet.create({
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
 
   // Hero
-  heroContainer: { height: 380, position: 'relative', paddingTop: StatusBar.currentHeight || 0 },
+  heroContainer: { height: 350, position: 'relative', paddingTop: StatusBar.currentHeight || 0 },
   heroImage: { width: '100%', height: '100%', position: 'absolute' },
   heroGradient: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
-  heroContent: { position: 'absolute', bottom: 32, left: 24, right: 24 },
+  heroContent: { position: 'absolute', bottom: 64, left: 24, right: 24 },
   artistNameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
   artistName: { color: '#fff', fontSize: 36, fontWeight: 'bold', maxWidth: '90%' },
   followerText: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 4, marginBottom: 16 },
@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
   buttonContent: { height: 48 },
 
   // Sections
-  section: { marginTop: 32, paddingHorizontal: 0 },
+  section: { marginTop: 4, paddingHorizontal: 0 },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',

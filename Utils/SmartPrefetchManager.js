@@ -81,6 +81,13 @@ class SmartPrefetchManager {
      */
     async _handlePlaybackState(event) {
         if (event.state === State.Playing) {
+            // EARLY EXIT: Check if current track is YouTube Music
+            const currentTrack = await TrackPlayer.getActiveTrack();
+            if (currentTrack && !this.needsStream(currentTrack)) {
+                // Silently skip - not a YouTube Music track
+                return;
+            }
+
             // Get current track index
             const currentIndex = await TrackPlayer.getActiveTrackIndex();
 
@@ -109,7 +116,13 @@ class SmartPrefetchManager {
      * Handle track changes - IMMEDIATE N+1, N+2, N+3 prefetch + queue cleanup
      */
     async _handleTrackChanged(event) {
-        // Debug: Log event to verify handler is called
+        // EARLY EXIT: Skip non-YouTube Music tracks entirely (e.g., Saavn)
+        if (event.track && !this.needsStream(event.track)) {
+            // Silently skip - this is not a YouTube Music track
+            return;
+        }
+
+        // Debug: Log event to verify handler is called (only for YTMusic)
         console.log('🔔 SmartPrefetch: Track changed event', {
             index: event.index,
             trackId: event.track?.id

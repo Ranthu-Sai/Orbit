@@ -13,10 +13,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  */
 
 export const useNavigationHandler = (options = {}) => {
-  const { 
+  const {
     musicPreviousScreen = null,
     onNavigationChange = null,
-    preserveParams = true 
+    preserveParams = true
   } = options;
 
   const navigation = useNavigation();
@@ -25,19 +25,18 @@ export const useNavigationHandler = (options = {}) => {
   const handlePlayerClose = useCallback(() => {
     try {
       console.log('useNavigationHandler: Closing fullscreen player, previous screen:', musicPreviousScreen);
-      
+
       const navigationState = navigation.getState();
-      console.log('useNavigationHandler: Current navigation state:', JSON.stringify(navigationState));
 
       if (musicPreviousScreen) {
         let cleanPath = musicPreviousScreen;
         if (cleanPath.startsWith('MainRoute/')) {
           cleanPath = cleanPath.replace('MainRoute/', '');
         }
-        
+
         const parts = cleanPath.split('/');
         console.log('useNavigationHandler: Navigation path parts:', parts);
-        
+
         // Special handling for Search
         if (parts.length >= 1 && parts[0] === 'Search') {
           console.log('useNavigationHandler: Returning to Search screen');
@@ -47,7 +46,7 @@ export const useNavigationHandler = (options = {}) => {
               timestamp: Date.now()
             }
           });
-          
+
           if (onNavigationChange) {
             onNavigationChange('Home/Search', { timestamp: Date.now() });
           }
@@ -60,24 +59,24 @@ export const useNavigationHandler = (options = {}) => {
           navigation.navigate('MainRoute', {
             screen: 'Library'
           });
-          
+
           if (onNavigationChange) {
             onNavigationChange('MainRoute/Library');
           }
           return;
         }
-        
+
         if (parts.length >= 2) {
           const tabName = parts[0];
           const screenName = parts[1];
-          
+
           // Special handling for CustomPlaylistView
           if (screenName === 'CustomPlaylistView' && preserveParams) {
             AsyncStorage.getItem('last_viewed_custom_playlist')
               .then(storedPlaylist => {
                 if (storedPlaylist) {
                   const playlistData = JSON.parse(storedPlaylist);
-                  
+
                   navigation.navigate('MainRoute', {
                     screen: tabName,
                     params: {
@@ -85,11 +84,11 @@ export const useNavigationHandler = (options = {}) => {
                       params: playlistData
                     }
                   });
-                  
+
                   if (onNavigationChange) {
                     onNavigationChange(`MainRoute/${tabName}/${screenName}`, playlistData);
                   }
-                  
+
                   console.log('useNavigationHandler: Restored CustomPlaylistView with data');
                 } else {
                   navigation.navigate('MainRoute', {
@@ -98,7 +97,7 @@ export const useNavigationHandler = (options = {}) => {
                       screen: screenName
                     }
                   });
-                  
+
                   if (onNavigationChange) {
                     onNavigationChange(`MainRoute/${tabName}/${screenName}`);
                   }
@@ -107,16 +106,16 @@ export const useNavigationHandler = (options = {}) => {
               .catch(error => {
                 console.error('useNavigationHandler: Error retrieving playlist data:', error);
                 navigation.navigate('MainRoute', { screen: tabName });
-                
+
                 if (onNavigationChange) {
                   onNavigationChange(`MainRoute/${tabName}`);
                 }
               });
-          } 
+          }
           // For all other screens
           else {
             let existingParams = null;
-            
+
             if (preserveParams && navigationState && navigationState.routes) {
               for (const route of navigationState.routes) {
                 if (route.name === 'MainRoute' && route.state) {
@@ -131,7 +130,7 @@ export const useNavigationHandler = (options = {}) => {
                 }
               }
             }
-            
+
             navigation.navigate('MainRoute', {
               screen: tabName,
               params: screenName !== tabName ? {
@@ -139,7 +138,7 @@ export const useNavigationHandler = (options = {}) => {
                 params: existingParams
               } : undefined
             });
-            
+
             if (onNavigationChange) {
               onNavigationChange(`MainRoute/${tabName}/${screenName}`, existingParams);
             }
@@ -149,7 +148,7 @@ export const useNavigationHandler = (options = {}) => {
           navigation.navigate('MainRoute', {
             screen: parts[0]
           });
-          
+
           if (onNavigationChange) {
             onNavigationChange(`MainRoute/${parts[0]}`);
           }
@@ -159,7 +158,7 @@ export const useNavigationHandler = (options = {}) => {
         navigation.navigate('MainRoute', {
           screen: 'Library'
         });
-        
+
         if (onNavigationChange) {
           onNavigationChange('MainRoute/Library');
         }
@@ -212,7 +211,7 @@ export const useNavigationHandler = (options = {}) => {
 
         // Special handling for download screen
         if (parts.length >= 2 && parts[0] === 'Library' &&
-           (parts[1] === 'DownloadScreen' || parts[1] === 'DownloadSongsPage')) {
+          (parts[1] === 'DownloadScreen' || parts[1] === 'DownloadSongsPage')) {
           console.log('useNavigationHandler: Back to DownloadScreen');
 
           setTimeout(() => {
@@ -338,7 +337,7 @@ export const useNavigationHandler = (options = {}) => {
   const navigateToScreen = useCallback((screenPath, params = {}) => {
     try {
       const parts = screenPath.split('/');
-      
+
       if (parts.length === 1) {
         navigation.navigate(parts[0], params);
       } else if (parts.length === 2) {
@@ -355,7 +354,7 @@ export const useNavigationHandler = (options = {}) => {
           }
         });
       }
-      
+
       if (onNavigationChange) {
         onNavigationChange(screenPath, params);
       }
