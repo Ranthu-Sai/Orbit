@@ -507,12 +507,12 @@ async function getYTMusicHomeFeed(limit = 10) {
           console.log(`YTMusic homefeed processed: ${playlists.length} playlists, ${albums.length} albums`);
 
           // Log sample data for debugging
-          if (playlists.length > 0) {
-            console.log('Sample playlist:', JSON.stringify(playlists[0], null, 2));
-          }
-          if (albums.length > 0) {
-            console.log('Sample album:', JSON.stringify(albums[0], null, 2));
-          }
+          // if (playlists.length > 0) {
+          //   console.log('Sample playlist:', JSON.stringify(playlists[0], null, 2));
+          // }
+          // if (albums.length > 0) {
+          //   console.log('Sample album:', JSON.stringify(albums[0], null, 2));
+          // }
 
           const finalPlaylists = playlists.slice(0, 20);
           const finalAlbums = albums.slice(0, 20);

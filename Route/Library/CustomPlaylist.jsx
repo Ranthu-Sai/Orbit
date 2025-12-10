@@ -16,6 +16,8 @@ import { getUserPlaylists, createPlaylist, clearPlaylistCache } from "../../Util
 import { CacheManager } from '../../Utils/NavigationCacheManager';
 import { CACHE_TTL, CACHE_KEYS } from '../../Utils/CacheConfig';
 import { ImportPlaylistModal } from "../../Component/Playlist/ImportPlaylistModal";
+import { DeviceEventEmitter, RefreshControl } from "react-native";
+import { Playlist } from "../Playlist";
 
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -35,7 +37,13 @@ export const CustomPlaylist = () => {
   const [likedPlaylists, setLikedPlaylists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [animationsInitialized, setAnimationsInitialized] = useState(false);
+
+  // State for embedded playlist view
+  const [showPlaylistDetail, setShowPlaylistDetail] = useState(false);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState(null);
+  const [selectedPlaylistData, setSelectedPlaylistData] = useState(null);
 
   const [animationValues] = useState({
     translateY: new Map(),
@@ -108,13 +116,11 @@ export const CustomPlaylist = () => {
 
       // Load liked playlists
       const likedPlaylistsData = await GetLikedPlaylist();
-      const likedPlaylistsArray = [];
 
-      // Convert liked playlists object to array
-      for (const [key, value] of Object.entries(likedPlaylistsData.playlist || {})) {
-        likedPlaylistsArray[value.count] = value;
-      }
-      const filteredLikedPlaylists = likedPlaylistsArray.filter(Boolean);
+      // Convert liked playlists object to array (robust conversion)
+      const filteredLikedPlaylists = Object.values(likedPlaylistsData.playlist || {})
+        .filter(Boolean)
+        .sort((a, b) => (a.count || 0) - (b.count || 0));
 
       console.log('Loaded liked playlists:', filteredLikedPlaylists.length);
       setLikedPlaylists(filteredLikedPlaylists);
@@ -144,10 +150,25 @@ export const CustomPlaylist = () => {
     } finally {
       if (isMounted.current) {
         setLoading(false);
+        setRefreshing(false);
         isInitialLoad.current = false;
       }
     }
   };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    // Hard refresh: Clear cache, animations, and force reload
+    CacheManager.invalidate(CACHE_KEYS.CUSTOM_PLAYLISTS);
+    clearPlaylistCache();
+    setAnimationsInitialized(false);
+    animationValues.translateY.clear();
+    animationValues.opacity.clear();
+    // Load fresh data
+    loadPlaylists(true);
+  }, [animationValues]);
+
+  // ...
 
   const handleCreatePlaylist = async () => {
     if (playlistName.trim()) {
@@ -169,32 +190,13 @@ export const CustomPlaylist = () => {
     }
   };
 
-  const handleImportPlaylist = async (playlistLink) => {
-    try {
-      // TODO: Implement backend integration to fetch Spotify playlist data
-      // For now, show a message that the feature is pending implementation
-      console.log('Import playlist link:', playlistLink);
-
-      ToastAndroid.show(
-        'Import feature coming soon! Backend integration pending.',
-        ToastAndroid.LONG
-      );
-
-      // Future implementation would:
-      // 1. Call API to fetch Spotify playlist data
-      // 2. Convert to app format
-      // 3. Save to liked playlists or user playlists
-      // 4. Reload playlists
-      // Example:
-      // const playlistData = await fetchSpotifyPlaylist(playlistLink);
-      // await savePlaylist(playlistData);
-      // await loadPlaylists(true);
-
-    } catch (error) {
-      console.error('Error importing playlist:', error);
-      throw new Error('Failed to import playlist');
-    }
-  };
+  const onImportSuccess = useCallback(() => {
+    console.log('Import successful, refreshing playlists...');
+    // Clear cache and reload immediately
+    CacheManager.invalidate(CACHE_KEYS.CUSTOM_PLAYLISTS);
+    clearPlaylistCache();
+    loadPlaylists(true);
+  }, []);
 
   // Run animations once when playlists are loaded
   useEffect(() => {
@@ -229,7 +231,7 @@ export const CustomPlaylist = () => {
           toValue: 0,
           duration: 300,
           easing: Easing.out(Easing.cubic),
-          delay: index * 100 + (userPlaylists.length * 100), // Start after user playlists
+          delay: index * 100 + (userPlaylists.length * 100),
           useNativeDriver: true,
         }).start();
 
@@ -250,7 +252,7 @@ export const CustomPlaylist = () => {
           toValue: 0,
           duration: 300,
           easing: Easing.out(Easing.cubic),
-          delay: index * 100 + (userPlaylists.length * 100) + (likedPlaylists.length * 100), // Start after liked playlists
+          delay: index * 100 + (userPlaylists.length * 100) + (likedPlaylists.length * 100),
           useNativeDriver: true,
         }).start();
 
@@ -266,13 +268,25 @@ export const CustomPlaylist = () => {
     }
   }, [userPlaylists, playlists, likedPlaylists, animationsInitialized, animationValues]);
 
-  // NO useFocusEffect - only load on mount (instant back navigation)
-  // Pull-to-refresh is the way to force refresh
+  // Listen for playlist updates (imports, creates, deletes)
   useEffect(() => {
+    // Reset animations on mount to ensure they run even with cached data
+    setAnimationsInitialized(false);
+    animationValues.translateY.clear();
+    animationValues.opacity.clear();
+
+    const subscription = DeviceEventEmitter.addListener('playlist-updated', () => {
+      console.log('Playlist update event received, refreshing...');
+      CacheManager.invalidate(CACHE_KEYS.CUSTOM_PLAYLISTS);
+      clearPlaylistCache();
+      loadPlaylists(true);
+    });
+
     loadPlaylists(false);
 
     return () => {
       isMounted.current = false;
+      subscription.remove();
     };
   }, []);
 
@@ -429,14 +443,14 @@ export const CustomPlaylist = () => {
             </Text>
           </View>
 
-          {/* Three-dot menu button */}
-          <Pressable
+          {/* Three-dot menu button - REMOVED */}
+          {/* <Pressable
             style={styles.optionsButton}
             onPress={(event) => handlePlaylistOptions(item, event)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <MaterialCommunityIcons name="dots-vertical" size={24} color={theme.colors.text} />
-          </Pressable>
+          </Pressable> */}
         </Pressable>
       </Animated.View>
     );
@@ -494,14 +508,14 @@ export const CustomPlaylist = () => {
             </Text>
           </View>
 
-          {/* Three-dot menu button */}
-          <Pressable
+          {/* Three-dot menu button - REMOVED */}
+          {/* <Pressable
             style={styles.optionsButton}
             onPress={(event) => handlePlaylistOptions(item, event)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <MaterialCommunityIcons name="dots-vertical" size={24} color={theme.colors.text} />
-          </Pressable>
+          </Pressable> */}
         </Pressable>
       </Animated.View>
     );
@@ -512,13 +526,26 @@ export const CustomPlaylist = () => {
     const animations = getAnimationValues(`liked-${item.id}`, index);
 
     const handlePlaylistPress = () => {
-      // Navigate to the playlist screen with the playlist ID
+      // Instead of navigating, toggle embedded view
       if (item.id) {
-        navigation.navigate("Playlist", {
+        // Check if it's a YouTube Music ID (typically starts with VL, PL, RD, OL, UC or is long)
+        const isYT = item.id.length > 20 ||
+          item.id.startsWith('PL') ||
+          item.id.startsWith('VL') ||
+          item.id.startsWith('RD') ||
+          item.id.startsWith('OL') ||
+          item.id.startsWith('UC');
+
+        // Store playlist data for embedded view
+        setSelectedPlaylistId(item.id);
+        setSelectedPlaylistData({
           id: item.id,
           name: item.name,
-          previousScreen: "CustomPlaylist"
+          image: item.image,
+          follower: item.follower,
+          source: isYT ? 'ytmusic' : 'saavn',
         });
+        setShowPlaylistDetail(true);
       } else {
         ToastAndroid.show('Invalid playlist', ToastAndroid.SHORT);
       }
@@ -564,7 +591,7 @@ export const CustomPlaylist = () => {
               {item.name}
             </Text>
             <Text style={[styles.songCount, { color: theme.colors.textSecondary }]}>
-              {item.follower ? `${item.follower} followers` : 'Playlist'}
+              {item.follower || 'Playlist'}
             </Text>
           </View>
 
@@ -633,6 +660,14 @@ export const CustomPlaylist = () => {
       <ScrollView
         style={styles.playlistsScrollContainer}
         contentContainerStyle={styles.playlistsContentContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            progressBackgroundColor={theme.colors.card}
+          />
+        }
       >
         <View style={styles.playlistsSection}>
           {/* Render user-created playlists */}
@@ -660,16 +695,20 @@ export const CustomPlaylist = () => {
     );
   };
 
-  // Add a separate useEffect for loadPlaylists
-  useEffect(() => {
-    loadPlaylists();
-  }, []);
-
-  // Add back handler to ensure we go back to Library
+  // Add back handler to handle embedded view and library navigation
   useEffect(() => {
     const handleBack = () => {
       console.log('Back pressed in CustomPlaylist');
-      // Navigate back to Library main screen
+
+      // If showing playlist detail, return to list view
+      if (showPlaylistDetail) {
+        setShowPlaylistDetail(false);
+        setSelectedPlaylistId(null);
+        setSelectedPlaylistData(null);
+        return true; // Prevent default back action
+      }
+
+      // Otherwise, navigate back to Library main screen
       navigation.navigate('Library', { screen: 'LibraryPage' });
       return true; // Prevent default back action
     };
@@ -677,37 +716,66 @@ export const CustomPlaylist = () => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBack);
 
     return () => backHandler.remove();
-  }, [navigation]);
+  }, [navigation, showPlaylistDetail]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.header}>
-        <Heading text="Playlists" nospace={true} style={{ marginLeft: 0, paddingLeft: 12, fontSize: 28, fontWeight: '900' }} />
-        <View style={styles.headerButtons}>
-          <Pressable
-            style={styles.addButton}
-            onPress={() => setImportModalVisible(true)}
-            android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: true, radius: 20 }}
-          >
-            <FileInput size={26} color={theme.colors.primary} />
-          </Pressable>
-          <Pressable
-            style={styles.addButton}
-            onPress={() => setModalVisible(true)}
-            android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: true, radius: 20 }}
-          >
-            <MaterialIcons name="playlist-add" size={30} color={theme.colors.primary} />
-          </Pressable>
-        </View>
-      </View>
+      {/* Conditional rendering: Show playlist detail or list */}
+      {showPlaylistDetail && selectedPlaylistData ? (
+        <Playlist
+          id={selectedPlaylistData.id}
+          name={selectedPlaylistData.name}
+          image={
+            typeof selectedPlaylistData.image === 'string'
+              ? selectedPlaylistData.image
+              : Array.isArray(selectedPlaylistData.image)
+                ? selectedPlaylistData.image[selectedPlaylistData.image.length - 1]?.url ||
+                selectedPlaylistData.image[0]?.url || ''
+                : selectedPlaylistData.image?.url || ''
+          }
+          follower={selectedPlaylistData.follower}
+          source={selectedPlaylistData.source}
+          isEmbedded={true}
+          onBackPress={() => {
+            setShowPlaylistDetail(false);
+            setSelectedPlaylistId(null);
+            setSelectedPlaylistData(null);
+          }}
+        />
+      ) : (
+        <>
+          <View style={styles.header}>
+            <Heading text="Playlists" nospace={true} style={{ marginLeft: 0, paddingLeft: 12, fontSize: 28, fontWeight: '900' }} />
+            <View style={styles.headerButtons}>
+              <Pressable
+                style={styles.addButton}
+                onPress={() => setImportModalVisible(true)}
+                android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: true, radius: 20 }}
+              >
+                <FileInput size={26} color={theme.colors.primary} />
+              </Pressable>
+              <Pressable
+                style={styles.addButton}
+                onPress={() => setModalVisible(true)}
+                android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: true, radius: 20 }}
+              >
+                <MaterialIcons name="playlist-add" size={30} color={theme.colors.primary} />
+              </Pressable>
+            </View>
+          </View>
 
-      <ScrollView
-        style={styles.content}
-        showsVerticalScrollIndicator={true}
-        contentContainerStyle={styles.contentContainer}
-      >
-        {renderPlaylists()}
-      </ScrollView>
+          <View style={[styles.content, { flex: 1 }]}>
+            {renderPlaylists()}
+          </View>
+        </>
+      )}
+
+      {/* Import Playlist Modal */}
+      <ImportPlaylistModal
+        visible={importModalVisible}
+        onClose={() => setImportModalVisible(false)}
+        onImportSuccess={onImportSuccess}
+      />
 
       {/* Options Menu Modal */}
       <Modal
@@ -834,7 +902,7 @@ export const CustomPlaylist = () => {
       <ImportPlaylistModal
         visible={importModalVisible}
         onClose={() => setImportModalVisible(false)}
-        onImport={handleImportPlaylist}
+        onImportSuccess={onImportSuccess}
       />
 
     </View>

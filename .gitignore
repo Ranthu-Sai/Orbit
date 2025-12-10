@@ -67,5 +67,7 @@ yarn-error.log
 
 # Environment files
 .env
-
 # Embedded repositories
+ArchiveTune/
+OuterTune/
+Utils/secrets.js

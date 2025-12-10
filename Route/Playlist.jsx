@@ -131,7 +131,7 @@ const formatArtistData = (artistData) => {
   return "Unknown Artist";
 };
 
-export const Playlist = ({ route }) => {
+export const Playlist = ({ route, id: propId, name: propName, image: propImage, follower: propFollower, source: propSource, onBackPress: propOnBackPress, isEmbedded = false }) => {
   const [Loading, setLoading] = useState(true);
   const [Data, setData] = useState({});
   const navigation = useNavigation();
@@ -143,13 +143,13 @@ export const Playlist = ({ route }) => {
   // Safely destructure route.params with default values
   const { id: routeId, image: routeImage, name: routeName, follower: routeFollower, navigationSource: routeNavigationSource } = route?.params || {};
 
-  // State to hold the actual ID we'll use (either from route or storage)
-  const [id, setId] = useState(routeId);
-  const [image, setImage] = useState(routeImage);
-  const [name, setName] = useState(routeName);
-  const [follower, setFollower] = useState(routeFollower);
+  // Prioritize props over route params (for embedded mode)
+  const [id, setId] = useState(propId || routeId);
+  const [image, setImage] = useState(propImage || routeImage);
+  const [name, setName] = useState(propName || routeName);
+  const [follower, setFollower] = useState(propFollower || routeFollower);
   // Add source tracking
-  const [source, setSource] = useState(route?.params?.source || null);
+  const [source, setSource] = useState(propSource || route?.params?.source || null);
   const [navigationSource, setNavigationSource] = useState(routeNavigationSource || null);
 
   // Track mount state
@@ -296,11 +296,19 @@ export const Playlist = ({ route }) => {
 
       } catch (e) {
         console.error('Error recovering playlist data:', e);
-        navigation.navigate('Home', { screen: 'HomePage' });
+        if (!isEmbedded) {
+          navigation.navigate('Home', { screen: 'HomePage' });
+        }
       }
     };
 
-    recoverPlaylistData();
+    // Only run recovery logic if not in embedded mode
+    if (!isEmbedded) {
+      recoverPlaylistData();
+    } else {
+      // In embedded mode, props are already set, just fetch data
+      fetchPlaylistData(false);
+    }
 
     // Set up back handler
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
@@ -313,6 +321,12 @@ export const Playlist = ({ route }) => {
 
   // Function to handle back button press
   const handleBackPress = async () => {
+    // If embedded mode and custom back handler provided, use it
+    if (isEmbedded && propOnBackPress) {
+      propOnBackPress();
+      return true;
+    }
+
     // Clear navigation data when leaving the playlist
     try {
       await AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY);
@@ -322,9 +336,9 @@ export const Playlist = ({ route }) => {
     }
 
     // Get the source and navigation source parameters from the route
-    const source = route.params?.source;
-    const navigationSource = route.params?.navigationSource;
-    const previousScreen = route.params?.previousScreen;
+    const source = route?.params?.source;
+    const navigationSource = route?.params?.navigationSource;
+    const previousScreen = route?.params?.previousScreen;
 
     console.log(`Back pressed in Playlist. Source: ${source}, NavigationSource: ${navigationSource}, PreviousScreen: ${previousScreen}`);
 

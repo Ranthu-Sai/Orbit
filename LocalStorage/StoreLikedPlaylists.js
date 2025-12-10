@@ -1,14 +1,15 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { DeviceEventEmitter } from "react-native";
 
-async function GetLikedPlaylist(){
+async function GetLikedPlaylist() {
   try {
     const value = await AsyncStorage.getItem('LikedPlaylists');
     if (value !== null) {
       return JSON.parse(value)
     } else {
       return {
-        playlist:{},
-        count:0,
+        playlist: {},
+        count: 0,
       }
     }
   } catch (e) {
@@ -16,23 +17,24 @@ async function GetLikedPlaylist(){
   }
 }
 
-async function SetLikedPlaylist(image, name, follower, id){
+async function SetLikedPlaylist(image, name, follower, id) {
   const stored_value = await GetLikedPlaylist()
   const count = stored_value.count + 1
   const value = {
     ...stored_value,
     count,
   }
-  value.playlist[id] = {image, name, follower, id, count}
+  value.playlist[id] = { image, name, follower, id, count }
   try {
     const jsonValue = JSON.stringify(value);
     await AsyncStorage.setItem('LikedPlaylists', jsonValue);
+    DeviceEventEmitter.emit('playlist-updated');
   } catch (e) {
     console.log("Liked Song Save Error");
   }
 }
 
-async function DeleteALikedPlaylist(id){
+async function DeleteALikedPlaylist(id) {
   const stored_value = await GetLikedPlaylist()
   const value = {
     ...stored_value,
@@ -41,9 +43,10 @@ async function DeleteALikedPlaylist(id){
   try {
     const jsonValue = JSON.stringify(value);
     await AsyncStorage.setItem('LikedPlaylists', jsonValue);
+    DeviceEventEmitter.emit('playlist-updated');
   } catch (e) {
     console.log("Liked Playlist Save Error");
   }
 }
 
-export {GetLikedPlaylist, SetLikedPlaylist, DeleteALikedPlaylist}
+export { GetLikedPlaylist, SetLikedPlaylist, DeleteALikedPlaylist }

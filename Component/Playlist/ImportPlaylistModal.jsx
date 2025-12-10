@@ -1,53 +1,66 @@
 import React, { useState } from 'react';
-import { View, Modal, TextInput, Pressable, Text, StyleSheet, ToastAndroid } from 'react-native';
+import { Modal, View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, ToastAndroid } from 'react-native';
 import { useTheme } from '@react-navigation/native';
+import { importSpotifyPlaylist } from '../../Utils/PlaylistImportLogic';
 import { Heading } from '../Global/Heading';
 import { SmallText } from '../Global/SmallText';
+
 
 /**
  * Reusable modal component for importing Spotify playlists
  * @param {boolean} visible - Controls modal visibility
  * @param {function} onClose - Callback when modal is closed
- * @param {function} onImport - Callback when import is submitted with playlist link
+ * @param {function} onImport - **Deprecated** - Handling import internally now, but can be used for cleanup
  */
-export const ImportPlaylistModal = ({ visible, onClose, onImport }) => {
+export const ImportPlaylistModal = ({ visible, onClose, onImportSuccess }) => {
     const theme = useTheme();
     const [playlistLink, setPlaylistLink] = useState('');
     const [isImporting, setIsImporting] = useState(false);
 
+    // Progress State
+    const [progress, setProgress] = useState({ current: 0, total: 0, message: '' }); // Updated initial state
+    // Removed statusMessage state as it's now part of progress
+
     const handleImport = async () => {
         const trimmedLink = playlistLink.trim();
-
         if (!trimmedLink) {
             ToastAndroid.show('Please enter a playlist link', ToastAndroid.SHORT);
             return;
         }
 
-        // Basic Spotify playlist URL validation
+        // Basic validation for Spotify URL
         const spotifyPlaylistRegex = /^https?:\/\/(open\.)?spotify\.com\/playlist\/[a-zA-Z0-9]+/;
-
         if (!spotifyPlaylistRegex.test(trimmedLink)) {
             ToastAndroid.show('Please enter a valid Spotify playlist link', ToastAndroid.SHORT);
             return;
         }
 
         setIsImporting(true);
+        setProgress({ current: 0, total: 0, message: 'Starting import...' });
 
         try {
-            await onImport(trimmedLink);
-            setPlaylistLink(''); // Clear input on success
+            await importSpotifyPlaylist(trimmedLink, (current, total, message) => {
+                setProgress({ current, total, message });
+            });
+
+            if (onImportSuccess) {
+                onImportSuccess();
+            }
+            ToastAndroid.show('Playlist imported successfully!', ToastAndroid.SHORT);
             onClose();
         } catch (error) {
             console.error('Error importing playlist:', error);
-            ToastAndroid.show(error.message || 'Failed to import playlist', ToastAndroid.SHORT);
+            ToastAndroid.show(error.message || 'Failed to import playlist', ToastAndroid.LONG);
         } finally {
             setIsImporting(false);
+            setProgress({ current: 0, total: 0, message: '' });
         }
     };
 
     const handleClose = () => {
         if (!isImporting) {
             setPlaylistLink('');
+            setProgress({ current: 0, total: 0, message: '' });
             onClose();
         }
     };
@@ -62,32 +75,50 @@ export const ImportPlaylistModal = ({ visible, onClose, onImport }) => {
             <View style={[styles.modalContainer, { backgroundColor: theme.colors.backdrop || 'rgba(0,0,0,0.7)' }]}>
                 <View style={[styles.modalContent, { backgroundColor: theme.colors.card }]}>
                     <Heading text="Import Playlist" />
-                    <SmallText
-                        text="Paste a public Spotify playlist link"
-                        style={[styles.modalLabel, { color: theme.colors.textSecondary || theme.colors.text }]}
-                    />
-                    <TextInput
-                        placeholder="Paste public Spotify playlist link"
-                        placeholderTextColor={theme.dark ? 'rgba(255,255,255,0.5)' : '#000000'}
-                        value={playlistLink}
-                        onChangeText={setPlaylistLink}
-                        style={[
-                            styles.input,
-                            {
-                                color: theme.colors.text,
-                                backgroundColor: theme.dark ? (theme.colors.input || theme.colors.border) : '#F0F0F0',
-                                borderColor: theme.colors.border
-                            }
-                        ]}
-                        autoFocus
-                        editable={!isImporting}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        keyboardType="url"
-                    />
+
+                    {!isImporting ? (
+                        <>
+                            <SmallText
+                                text="Paste a public Spotify playlist link"
+                                style={[styles.modalLabel, { color: theme.colors.textSecondary || theme.colors.text, opacity: 0.7 }]}
+                            />
+                            <TextInput
+                                placeholder="Paste public Spotify playlist link"
+                                placeholderTextColor={theme.dark ? 'rgba(255,255,255,0.5)' : '#000000'}
+                                value={playlistLink}
+                                onChangeText={setPlaylistLink}
+                                style={[
+                                    styles.input,
+                                    {
+                                        color: theme.colors.text,
+                                        backgroundColor: theme.dark ? (theme.colors.input || '#333') : '#F0F0F0',
+                                        borderColor: theme.colors.border || '#444'
+                                    }
+                                ]}
+                                autoFocus
+                                editable={!isImporting}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                keyboardType="url"
+                            />
+                        </>
+                    ) : (
+                        <View style={styles.progressContainer}>
+                            <ActivityIndicator size="large" color={theme.colors.primary} />
+                            <Text style={[styles.progressText, { color: theme.colors.text }]}>
+                                {progress.message}
+                            </Text>
+                            {progress.total > 0 && (
+                                <Text style={[styles.countText, { color: theme.colors.primary }]}>
+                                    {progress.current} / {progress.total}
+                                </Text>
+                            )}
+                        </View>
+                    )}
+
                     <View style={styles.modalButtonContainer}>
                         <Pressable
-                            style={[styles.cancelButton, { backgroundColor: theme.colors.border }]}
+                            style={[styles.cancelButton, { backgroundColor: theme.colors.border || '#444' }]}
                             onPress={handleClose}
                             disabled={isImporting}
                         >
@@ -98,15 +129,16 @@ export const ImportPlaylistModal = ({ visible, onClose, onImport }) => {
                                 styles.importButton,
                                 {
                                     backgroundColor: isImporting
-                                        ? theme.colors.border
-                                        : (theme.colors.primary || '#1DB954')
+                                        ? (theme.colors.border || '#666')
+                                        : (theme.colors.primary || '#1DB954'),
+                                    opacity: isImporting ? 0.7 : 1
                                 }
                             ]}
                             onPress={handleImport}
                             disabled={isImporting}
                         >
                             <Text style={styles.importButtonText}>
-                                {isImporting ? 'Importing...' : 'Import'}
+                                {isImporting ? 'Processing...' : 'Import'}
                             </Text>
                         </Pressable>
                     </View>
@@ -128,46 +160,43 @@ const styles = StyleSheet.create({
         maxWidth: 400,
         backgroundColor: '#1E1E1E',
         borderRadius: 12,
-        padding: 20,
+        padding: 24,
         elevation: 5,
     },
     modalLabel: {
-        marginTop: 20,
-        marginBottom: 10,
-        color: 'rgba(255,255,255,0.7)',
-        fontSize: 16,
+        marginTop: 16,
+        marginBottom: 8,
+        fontSize: 14,
     },
     input: {
         height: 50,
         borderWidth: 1,
-        borderColor: '#333',
         borderRadius: 8,
-        paddingHorizontal: 12,
-        color: 'white',
-        backgroundColor: '#333',
-        marginTop: 12,
+        paddingHorizontal: 16,
         fontSize: 16,
+        marginBottom: 8,
     },
     modalButtonContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginTop: 20,
+        marginTop: 24,
+        gap: 12,
     },
     importButton: {
         flex: 1,
         backgroundColor: '#1DB954',
-        padding: 15,
+        paddingVertical: 12,
         alignItems: 'center',
-        borderRadius: 12,
-        marginLeft: 8,
+        borderRadius: 8,
+        justifyContent: 'center'
     },
     cancelButton: {
         flex: 1,
         backgroundColor: '#444',
-        padding: 15,
+        paddingVertical: 12,
         alignItems: 'center',
-        borderRadius: 12,
-        marginRight: 8,
+        borderRadius: 8,
+        justifyContent: 'center'
     },
     importButtonText: {
         color: 'white',
@@ -179,4 +208,20 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '500',
     },
+    progressContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 20,
+        gap: 12
+    },
+    progressText: {
+        fontSize: 16,
+        textAlign: 'center',
+        marginTop: 10
+    },
+    countText: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        textAlign: 'center'
+    }
 });

@@ -224,18 +224,12 @@ class InnerTubeClient {
     static parseSearch(data, filter) {
         const results = [];
         try {
-            // Dump entire response for debugging
-            console.log('=== FULL SEARCH RESPONSE ===');
-            console.log(JSON.stringify(data, null, 2).substring(0, 5000)); // First 5000 chars
-            console.log('=== END RESPONSE ===');
 
             const contents = data?.contents?.tabbedSearchResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents;
             if (!contents) {
                 console.log('InnerTube Search: No contents found');
                 return [];
             }
-
-            console.log(`InnerTube Search: Found ${contents.length} sections`);
 
             // YouTube wraps results in itemSectionRenderer - need to look inside
             let musicShelfRenderer = null;
@@ -276,13 +270,10 @@ class InnerTubeClient {
                 return [];
             }
 
-            console.log(`InnerTube Search: Processing ${musicShelfRenderer.contents?.length || 0} items`);
-
             if (musicShelfRenderer?.contents) {
                 musicShelfRenderer.contents.forEach((item, idx) => {
                     const parsed = this.parseItem(item);
                     if (parsed) {
-                        console.log(`✓ ${parsed.title}`);
                         results.push(parsed);
                     }
                 });
@@ -293,10 +284,6 @@ class InnerTubeClient {
         return results;
     }
 
-    /**
-     * Parse Artist Page - Full implementation matching OuterTune's ArtistPage
-     * Returns: { artist, sections, description }
-     */
     static parseArtist(data) {
         try {
             // Get artist header - try multiple possible renderers (OuterTune style)
