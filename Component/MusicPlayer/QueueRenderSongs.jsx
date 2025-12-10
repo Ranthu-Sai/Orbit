@@ -744,10 +744,9 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
     }
   }, []);
 
-  // Complete rewrite of the queue repositioning system using IDs not indices
+  // Optimized queue reordering using TrackPlayer.move() - no playback interruption
   const handleDragEnd = useCallback(async (params) => {
     try {
-      // Destructure params
       const { from, to, data } = params;
 
       // Skip if positions are the same
@@ -756,233 +755,93 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         return;
       }
 
-      // Set operation flag to prevent interference
       operationInProgressRef.current = true;
 
-      // Filter out any duplicates that might have been created during dragging
+      // Filter out duplicates and update UI immediately
       const uniqueIds = new Set();
       const uniqueData = data.filter(track => {
         if (!track.id || uniqueIds.has(track.id)) return false;
         uniqueIds.add(track.id);
         return true;
       });
-
-      // Update UI immediately for responsiveness
       setUpcomingQueue(uniqueData);
 
       // Get the track being moved
-      const movedTrack = data[to];
-      if (!movedTrack || !movedTrack.id) {
+      const movedTrack = uniqueData[to];
+      if (!movedTrack?.id) {
         console.error('Could not identify the moved track');
         setIsDragging(false);
         operationInProgressRef.current = false;
         return;
       }
 
-      // Get the full queue from TrackPlayer
+      // Get the full TrackPlayer queue
       const fullQueue = await TrackPlayer.getQueue();
-      if (!fullQueue || !fullQueue.length) {
+      if (!fullQueue?.length) {
         console.error('TrackPlayer queue is empty');
         setIsDragging(false);
         operationInProgressRef.current = false;
         return;
       }
 
-      // Get currently playing track information and save it
-      const currentTrackIndex = await TrackPlayer.getCurrentTrack();
-      const currentTrack = currentTrackIndex !== null ? fullQueue[currentTrackIndex] : null;
-
-      // Log current state for debugging
-      console.log('Drag operation info:', {
-        isOffline,
-        moveFrom: from,
-        moveTo: to,
-        currentTrackIndex,
-        movedTrackId: movedTrack.id,
-        movedTrackTitle: movedTrack.title,
-        currentTrackId: currentTrack?.id,
-        currentTrackTitle: currentTrack?.title
-      });
-
-      // Check if the current track remains in the queue
-      const currentTrackStillInQueue = currentTrack && data.some(track => track.id === currentTrack.id);
-
-      // Check if current track is being moved - important to know for playback
-      const isCurrentTrackBeingMoved = currentTrack && currentTrack.id === movedTrack.id;
-
-      // MORE ROBUST: Store current state with explicit state checks
-      let wasPlaying = false;
-      let position = 0;
-
-      try {
-        // Check for playback state more thoroughly
-        if (currentTrackStillInQueue) {
-          // Get state using two methods for redundancy
-          const playbackState = await TrackPlayer.getState();
-          const playerState = await TrackPlayer.getPlaybackState();
-
-          // Check if either indicates playing (3 = playing in both APIs)
-          wasPlaying = playbackState === 3 || (playerState && playerState.state === 3);
-
-          // Double-check through the state name if available
-          if (playerState && playerState.state && !wasPlaying) {
-            wasPlaying = playerState.state === 'playing' || playerState.state === 'ready';
-          }
-
-          // Get current position with error handling
-          try {
-            position = await TrackPlayer.getPosition() || 0;
-          } catch (e) {
-            console.warn('Could not get position:', e);
-            position = 0;
-          }
-
-          // Pause if playing - we'll resume after queue manipulation
-          if (wasPlaying) {
-            await TrackPlayer.pause();
-          }
-        }
-      } catch (error) {
-        console.error('Error saving playback state:', error);
-        // Default to assuming it was playing if we can't determine
-        wasPlaying = true;
+      // Find actual indices in TrackPlayer queue
+      const trackAtFromPosition = data[from];
+      const actualFromIndex = fullQueue.findIndex(t => t.id === trackAtFromPosition?.id);
+      
+      // Calculate target index in actual queue
+      // We need to find where this track should go in the full queue
+      let actualToIndex;
+      
+      if (to === 0) {
+        // Moving to first position in visible queue
+        // Find the first track of same source type in full queue
+        const currentTrack = await TrackPlayer.getActiveTrack();
+        const currentSourceType = currentTrack?.sourceType || (isLocalTrack(currentTrack) ? 'download' : 'online');
+        actualToIndex = fullQueue.findIndex(t => {
+          const tSourceType = t.sourceType || (isLocalTrack(t) ? 'download' : 'online');
+          return tSourceType === currentSourceType;
+        });
+      } else {
+        // Find the track that will be before us in the new order
+        const trackBeforeTarget = uniqueData[to - 1];
+        const beforeIndex = fullQueue.findIndex(t => t.id === trackBeforeTarget?.id);
+        actualToIndex = beforeIndex !== -1 ? beforeIndex + 1 : actualFromIndex;
       }
 
-      // APPROACH: Create a new queue with the right order and replace entire queue
-      try {
-        // 1. Map visual indices to track IDs
-        const oldOrder = data.map(track => track.id);
+      // Adjust if moving down (indices shift after removal)
+      if (actualFromIndex < actualToIndex) {
+        actualToIndex--;
+      }
 
-        // 2. Create new array with same tracks but in the new order
-        const newOrder = [...fullQueue];
+      console.log('Queue move operation:', {
+        visualFrom: from,
+        visualTo: to,
+        actualFrom: actualFromIndex,
+        actualTo: actualToIndex,
+        trackTitle: movedTrack.title
+      });
 
-        // Get the current track's source type for filtering
-        const currentSourceType = currentTrack ?
-          (currentTrack.sourceType || (isLocalTrack(currentTrack) ? 'download' : 'online')) :
-          null;
+      // Use TrackPlayer.move() - this doesn't interrupt playback!
+      if (actualFromIndex !== -1 && actualToIndex !== -1 && actualFromIndex !== actualToIndex) {
+        await TrackPlayer.move(actualFromIndex, actualToIndex);
+        console.log('Track moved successfully without playback interruption');
+      }
 
-        // Log the source type we're using for filtering
-        console.log('Drag reordering using sourceType:', currentSourceType);
+      // Refresh the filtered view
+      const refreshedTrack = await TrackPlayer.getActiveTrack();
+      const refreshedQueue = await filterQueueBySource(refreshedTrack);
 
-        // 3. Sort the full queue according to the visual order
-        newOrder.sort((a, b) => {
-          // Get source types with fallback
-          const aSourceType = a.sourceType || (isLocalTrack(a) ? 'download' : 'online');
-          const bSourceType = b.sourceType || (isLocalTrack(b) ? 'download' : 'online');
-
-          // Only reorder tracks that match the current track's source type
-          const aMatchesCurrentSource = aSourceType === currentSourceType;
-          const bMatchesCurrentSource = bSourceType === currentSourceType;
-
-          // Don't reorder tracks of different source types
-          if (!aMatchesCurrentSource || !bMatchesCurrentSource) {
-            return 0;
-          }
-
-          // Now get the indexes in our visual queue for matching tracks
-          const aIndex = oldOrder.indexOf(a.id);
-          const bIndex = oldOrder.indexOf(b.id);
-
-          // If we can't find one in our order, leave it where it is
-          if (aIndex === -1 || bIndex === -1) return 0;
-
-          // Otherwise sort by the visual order
-          return aIndex - bIndex;
-        });
-
-        // 4. Replace the entire queue with our reordered queue
-        await TrackPlayer.reset(); // Clear the queue
-        await TrackPlayer.add(newOrder); // Add all tracks in the new order
-
-        // 5. Resume playback of the proper track
-        if (currentTrackStillInQueue) {
-          // Find where the previously playing track is now
-          const newCurrentIndex = newOrder.findIndex(track => track.id === currentTrack.id);
-
-          if (newCurrentIndex !== -1) {
-            // Skip to the track that was playing before
-            await TrackPlayer.skip(newCurrentIndex);
-
-            // Restore position with safety check
-            if (position > 0) {
-              try {
-                await TrackPlayer.seekTo(position);
-              } catch (e) {
-                console.warn('Could not seek to position:', e);
-              }
-            }
-
-            // Enhanced playback restoration with multiple attempts
-            if (wasPlaying) {
-              // First attempt immediately
-              try {
-                await TrackPlayer.play();
-              } catch (e) {
-                console.warn('First play attempt failed, trying again:', e);
-
-                // Second attempt with delay
-                setTimeout(async () => {
-                  try {
-                    const state = await TrackPlayer.getState();
-                    // Only play if not already playing
-                    if (state !== 3) {
-                      await TrackPlayer.play();
-                    }
-                  } catch (error) {
-                    console.error('Failed to resume playback on second attempt:', error);
-
-                    // Final attempt with longer delay
-                    setTimeout(async () => {
-                      try {
-                        await TrackPlayer.play();
-                      } catch (finalError) {
-                        console.error('All playback restoration attempts failed:', finalError);
-                      }
-                    }, 500);
-                  }
-                }, 300);
-              }
-            }
-          }
-        }
-
-        // 6. Update our filtered view
-        const refreshedTrack = await TrackPlayer.getActiveTrack();
-        console.log('Refreshing queue after drag with active track:', refreshedTrack?.title);
-        const refreshedQueue = await filterQueueBySource(refreshedTrack);
-
-        // Log the refreshed queue for debugging
-        console.log(`Drag completed - refreshed queue contains ${refreshedQueue.length} tracks`);
-        if (refreshedQueue.length > 0) {
-          const sourceTypes = {};
-          refreshedQueue.forEach(track => {
-            const trackSourceType = track.sourceType || (isLocalTrack(track) ? 'download' : 'online');
-            sourceTypes[trackSourceType] = (sourceTypes[trackSourceType] || 0) + 1;
+      console.log(`Drag completed - refreshed queue contains ${refreshedQueue.length} tracks`);
+      if (refreshedQueue.length > 0) {
+        const sourceTypes = {};
+        refreshedQueue.forEach(track => {
+          const trackSourceType = track.sourceType || (isLocalTrack(track) ? 'download' : 'online');
+          sourceTypes[trackSourceType] = (sourceTypes[trackSourceType] || 0) + 1;
           });
           console.log('Refreshed queue source types:', sourceTypes);
         }
 
-        setUpcomingQueue(refreshedQueue);
-      } catch (error) {
-        console.error('Error during queue repositioning:', error);
-
-        // Attempt emergency playback restoration if everything fails
-        if (wasPlaying && currentTrack) {
-          setTimeout(async () => {
-            try {
-              // Try to find and play the track that was playing before
-              const recovery = await TrackPlayer.getQueue();
-              const recoveryIndex = recovery.findIndex(t => t.id === currentTrack.id);
-              if (recoveryIndex >= 0) {
-                await TrackPlayer.skip(recoveryIndex);
-                await TrackPlayer.play();
-              }
-            } catch (e) {
-              console.error('Emergency playback restoration failed:', e);
-            }
-          }, 800);
-        }
-      }
+      setUpcomingQueue(refreshedQueue);
     } catch (error) {
       console.error('Error in drag end handler:', error);
     } finally {

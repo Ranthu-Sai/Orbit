@@ -1,5 +1,5 @@
-import React, { useContext, useEffect, useRef } from "react";
-import { View, StyleSheet, Platform, Vibration, Pressable } from "react-native"; // Keep Vibration just in case user re-enables perm
+import React, { useContext, useEffect, useRef, useState } from "react";
+import { View, StyleSheet, Platform, Vibration, Pressable, Keyboard } from "react-native"; // Keep Vibration just in case user re-enables perm
 import { Home, Compass, ListMusic } from "lucide-react-native";
 import Animated, { withSpring, useAnimatedStyle, withTiming, FadeIn } from "react-native-reanimated";
 import Context from "../../Context/Context";
@@ -93,6 +93,24 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
   const previousFullscreenState = useRef(false);
   const previousTabIndex = useRef(state.index);
   const { colors, dark } = useTheme();
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  // Track keyboard visibility to hide tab bar when keyboard is open
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   // Track tab changes
   useEffect(() => {
@@ -123,7 +141,8 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
     previousFullscreenState.current = (Index === 1);
   }, [Index, navigation, musicPreviousScreen]);
 
-  if (Index === 1) return null;
+  // Hide tab bar when in fullscreen mode OR when keyboard is visible
+  if (Index === 1 || isKeyboardVisible) return null;
 
   return (
     <View style={[styles.mainContainer, {

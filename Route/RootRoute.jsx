@@ -9,19 +9,12 @@ import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityI
 import { useTheme } from "@react-navigation/native";
 import CustomTabBar from '../Component/Tab/CustomTabBar.jsx';
 import BottomSheetMusic from '../Component/MusicPlayer/BottomSheetMusic.jsx';
-import { View, TouchableOpacity, ToastAndroid } from 'react-native';
+import { View, ToastAndroid } from 'react-native';
 import { useNavigation, useFocusEffect, CommonActions } from '@react-navigation/native';
 import { BackHandler } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NavigationContainer } from '@react-navigation/native';
-import Icons from 'react-native-vector-icons/Ionicons';
 import Context from '../Context/Context';
 import { FullScreenMusic } from '../Component/MusicPlayer/FullScreenMusic';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MusicMain } from './MusicIndex';
-import { MainRoute } from './MainRoute';
-import { LogBox } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
 import { PlaylistSelectorBottomSheetWrapper } from '../Component/Playlist/PlaylistSelectorBottomSheetWrapper';
 
 const Tab = createBottomTabNavigator();

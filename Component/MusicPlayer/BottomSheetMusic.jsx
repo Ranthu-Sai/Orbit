@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useEffect, useRef, useState, useMemo } from "react";
-import { BackHandler, StyleSheet, Text } from "react-native";
+import { BackHandler, StyleSheet, Text, Keyboard, Platform } from "react-native";
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import { MinimizedMusic } from "./MinimizedMusic";
 import { FullScreenMusic } from "./FullScreenMusic";
@@ -18,6 +18,24 @@ const BottomSheetMusic = React.memo(({ color }) => {
   const playbackState = usePlaybackState();
   const [hasQueue, setHasQueue] = useState(false);
   const [isMusicActive, setIsMusicActive] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  // Track keyboard visibility to hide minimized player when keyboard is open
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   // Memoized functions to prevent re-renders
   const handleSheetChanges = useCallback((index) => {
@@ -83,11 +101,14 @@ const BottomSheetMusic = React.memo(({ color }) => {
   }, [playbackState?.state]);
 
   // Memoized visibility calculation - computed only when dependencies change
+  // Hide when keyboard is visible (except in fullscreen mode)
   const shouldShowPlayer = useMemo(() => {
+    // Hide minimized player when keyboard is visible
+    if (isKeyboardVisible && Index !== 1) return false;
     return currentPlaying || hasQueue || isMusicActive ||
       (playbackState?.state === 'playing' || playbackState?.state === 'paused') ||
       Index === 1;
-  }, [currentPlaying, hasQueue, isMusicActive, playbackState?.state, Index]);
+  }, [currentPlaying, hasQueue, isMusicActive, playbackState?.state, Index, isKeyboardVisible]);
 
   // Function to specifically navigate to MyMusicPage
   const navigateToMyMusicPage = useCallback(() => {
@@ -315,6 +336,9 @@ const BottomSheetMusic = React.memo(({ color }) => {
       enableContentPanningGesture={false}
       detached={false}
       enableOverDrag={false}
+      keyboardBehavior="interactive"
+      keyboardBlurBehavior="restore"
+      android_keyboardInputMode="adjustNothing"
       handleIndicatorStyle={{
         height: 0,
         width: 0,
