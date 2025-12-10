@@ -236,8 +236,8 @@ const ArtistPage = () => {
                 mode="contained"
                 icon="shuffle"
                 onPress={shufflePlay}
-                style={styles.shuffleButton}
-                labelStyle={styles.buttonLabel}
+                style={[styles.shuffleButton, { backgroundColor: theme.colors.primary }]}
+                labelStyle={[styles.buttonLabel, { color: '#fff' }]}
                 contentStyle={styles.buttonContent}
               >
                 Shuffle
@@ -468,9 +468,15 @@ const ArtistSection = React.memo(({ section, theme, navigation, activeTrack, pla
 
   // Videos/Live - wider cards
   if (isVideosSection) {
+    const isLive = title.toLowerCase().includes('live');
     return (
       <View style={styles.section}>
-        <SectionHeader title={title} hasMore={!!moreEndpoint} theme={theme} onViewMore={handleSeeAll} />
+        <SectionHeader
+          title={title}
+          hasMore={!isLive && !!moreEndpoint}
+          theme={theme}
+          onViewMore={handleSeeAll}
+        />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
           {items.map((item, index) => (
             <VideoCard key={`${item.id}-${index}`} item={item} onPress={() => handleItemPress(item)} theme={theme} />
@@ -603,7 +609,7 @@ const styles = StyleSheet.create({
   artistName: { color: '#fff', fontSize: 36, fontWeight: 'bold', maxWidth: '90%' },
   followerText: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 4, marginBottom: 16 },
   actionButtons: { flexDirection: 'row', gap: 12, marginTop: 24 },
-  shuffleButton: { flex: 1, borderRadius: 32, backgroundColor: '#fff' },
+  shuffleButton: { flex: 1, borderRadius: 32 },
   radioButton: { flex: 1, borderRadius: 32, borderColor: 'rgba(255,255,255,0.5)' },
   buttonLabel: { fontSize: 16, fontWeight: '600', color: '#000' },
   buttonContent: { height: 48 },

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, FlatList, StyleSheet, StatusBar, ActivityIndicator } from 'react-native';
+import { View, FlatList, StyleSheet, StatusBar, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { useTheme, useNavigation, useRoute } from '@react-navigation/native';
 import { usePlaybackState, useActiveTrack } from 'react-native-track-player';
@@ -205,8 +205,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 8,
         paddingHorizontal: 4,
-        elevation: 4,
-        zIndex: 10,
+        // elevation: 0, // Removed elevation
+        // zIndex: 10,
     },
     headerTitle: {
         fontSize: 20,
