@@ -12,6 +12,7 @@ import FormatArtist from "../Utils/FormatArtists";
 import { useNavigation, CommonActions, useTheme } from "@react-navigation/native";
 import { Spacer } from "../Component/Global/Spacer";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { GetLikedPlaylist, SetLikedPlaylist } from "../LocalStorage/StoreLikedPlaylists";
 import { useActiveTrack, usePlaybackState } from "react-native-track-player";
 import { CacheManager } from '../Utils/NavigationCacheManager';
 import { CACHE_TTL, CACHE_KEYS, generateCacheKey } from '../Utils/CacheConfig';
@@ -217,6 +218,28 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
         };
 
         await AsyncStorage.setItem(CURRENT_PLAYLIST_DATA_KEY, JSON.stringify(updatedPlaylistData));
+
+        // Update liked playlist follower if this playlist is liked (fixes stale description issue)
+        if (data?.data?.follower && id) {
+          try {
+            const likedPlaylists = await GetLikedPlaylist();
+            if (likedPlaylists?.playlist?.[id]) {
+              const likedItem = likedPlaylists.playlist[id];
+              // Only update if follower value has changed
+              if (likedItem.follower !== data.data.follower) {
+                await SetLikedPlaylist(
+                  likedItem.image || image || data?.data?.image?.[2]?.url || '',
+                  likedItem.name || data?.data?.name || name || 'Playlist',
+                  data.data.follower,
+                  id
+                );
+                console.log(`[Playlist] Updated liked playlist follower for ${id}`);
+              }
+            }
+          } catch (likeErr) {
+            console.log('[Playlist] Error updating liked playlist follower:', likeErr.message);
+          }
+        }
       }
     } catch (e) {
       console.error(`[Playlist] Error fetching ${id}:`, e.message);
@@ -565,7 +588,7 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
         title={name || Data?.data?.name || "Playlist"}
         songCount={Data?.data?.songs?.length || 0}
         playlistId={id ? id.replace('album_', '') : id}
-        follower={follower || Data?.data?.follower || ""}
+        follower={Data?.data?.follower || follower || ""}
         songsData={Data?.data?.songs}
         playlistData={Data}
       />
