@@ -426,8 +426,27 @@ const ArtistSection = React.memo(({ section, theme, navigation, activeTrack, pla
   const isVideosSection = type === 'videos' || type === 'live' ||
     title.toLowerCase().includes('video') || title.toLowerCase().includes('live');
 
-  // Check if grid card content
-  // const isGridSection = !isSongsSection && !isArtistsSection && !isVideosSection;
+
+  // Videos/Live - wider cards
+  if (isVideosSection) {
+    const isLive = title.toLowerCase().includes('live');
+    return (
+      <View style={styles.section}>
+        <SectionHeader
+          title={title}
+          hasMore={!isLive && !!moreEndpoint}
+          theme={theme}
+          onViewMore={handleSeeAll}
+        />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
+          {items.map((item, index) => (
+            <VideoCard key={`${item.id}-${index}`} item={item} onPress={() => handleItemPress(item)} theme={theme} />
+          ))}
+        </ScrollView>
+      </View>
+    );
+  }
+
 
   // Songs section - vertical list (like OuterTune)
   if (isSongsSection) {
@@ -466,25 +485,6 @@ const ArtistSection = React.memo(({ section, theme, navigation, activeTrack, pla
     );
   }
 
-  // Videos/Live - wider cards
-  if (isVideosSection) {
-    const isLive = title.toLowerCase().includes('live');
-    return (
-      <View style={styles.section}>
-        <SectionHeader
-          title={title}
-          hasMore={!isLive && !!moreEndpoint}
-          theme={theme}
-          onViewMore={handleSeeAll}
-        />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
-          {items.map((item, index) => (
-            <VideoCard key={`${item.id}-${index}`} item={item} onPress={() => handleItemPress(item)} theme={theme} />
-          ))}
-        </ScrollView>
-      </View>
-    );
-  }
 
   // Default carousel (Albums, Singles, Playlists, Featured) - LazyRow in OuterTune
   return (

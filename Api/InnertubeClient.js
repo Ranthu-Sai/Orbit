@@ -821,10 +821,26 @@ class InnerTubeClient {
 
     static parseSection(data) {
         try {
-            const section = data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.gridRenderer ||
-                data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.[0]?.gridRenderer ||
-                data?.continuationContents?.gridContinuation ||
+            // Check for various renderer types
+            const sectionList = data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents;
+            const secondaryContents = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents;
+
+            // Grid Renderer
+            const gridRenderer = sectionList?.[0]?.gridRenderer ||
+                secondaryContents?.[0]?.gridRenderer ||
+                data?.continuationContents?.gridContinuation;
+
+            // Music Shelf Renderer (List of Songs)
+            const musicShelfRenderer = sectionList?.[0]?.musicShelfRenderer ||
+                secondaryContents?.[0]?.musicShelfRenderer ||
                 data?.continuationContents?.musicShelfContinuation;
+
+            // Playlist Shelf Renderer (Playlist content)
+            const musicPlaylistShelfRenderer = sectionList?.[0]?.musicPlaylistShelfRenderer ||
+                secondaryContents?.[0]?.musicPlaylistShelfRenderer ||
+                data?.continuationContents?.musicPlaylistShelfContinuation;
+
+            const section = gridRenderer || musicShelfRenderer || musicPlaylistShelfRenderer;
 
             const header = data?.header?.musicHeaderRenderer;
             const title = header?.title?.runs?.[0]?.text || '';
@@ -836,7 +852,7 @@ class InnerTubeClient {
                 return this.parseItem(i);
             }).filter(i => i);
 
-            // Get continuation token
+            // Get continuation token - check multiple locations
             const continuations = section?.continuations;
             const continuation = continuations?.[0]?.nextContinuationData?.continuation;
 
