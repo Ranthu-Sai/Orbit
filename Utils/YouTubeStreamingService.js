@@ -35,8 +35,8 @@ class YouTubeStreamingService {
      */
     async getStreamUrl(videoId) {
         try {
-            // Step 1: CHECK CACHE FIRST (3-hour TTL)
-            const cachedUrl = CacheManager.getStreamUrl(videoId, 'ytmusic');
+            // Step 1: CHECK CACHE FIRST (Hybrid: RAM -> Disk)
+            const cachedUrl = await CacheManager.getStreamUrlAsync(videoId, 'ytmusic');
             if (cachedUrl) {
                 console.log(`🚀 [Cache] Stream URL cache HIT for ${videoId}`);
                 return {

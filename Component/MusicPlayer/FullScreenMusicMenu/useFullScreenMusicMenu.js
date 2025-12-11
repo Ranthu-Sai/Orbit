@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useContext } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { ToastAndroid } from 'react-native';
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
@@ -6,7 +6,7 @@ import { useTheme } from "@react-navigation/native";
 import { AddOneSongToPlaylist } from '../../../MusicPlayerFunctions';
 import { getArtistSongs, getAlbumSongs, getSearchSongData, getSearchArtistData } from '../../../Api/Songs';
 import { getYTMusicArtistSongsPaginated, getYTMusicSearchArtistData } from '../../../Api/YTMusic';
-
+import Context from '../../../Context/Context';
 
 /**
  * useFullScreenMusicMenu - Custom hook for managing FullScreen music menu functionality
@@ -22,6 +22,9 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
   const navigation = useNavigation();
   const theme = useTheme();
   const { colors } = theme;
+
+  // Get context to track navigation from FullScreenMusic
+  const { setFullScreenNavigationTarget, setIndex } = useContext(Context);
 
 
 
@@ -238,17 +241,28 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
     }
 
     try {
-      // Navigate directly to ArtistPage like albums do
-      navigation.navigate("ArtistPage", {
-        artistId: String(finalArtistId),
-        artistName: artistName,
-        source: 'FullScreenMusic'
-      });
+      // CRITICAL: Track that we're navigating FROM FullScreenMusic
+      // This allows proper back navigation to return to FullScreenMusic
+      setFullScreenNavigationTarget('ArtistPage');
+
+      // Close FullScreenMusic first (Index = 0), then navigate
+      setIndex(0);
+
+      // Small delay to ensure FullScreen closes before navigation
+      setTimeout(() => {
+        navigation.navigate("ArtistPage", {
+          artistId: String(finalArtistId),
+          artistName: artistName,
+          source: 'FullScreenMusic',
+          returnToFullScreen: true  // Flag to indicate we should return to FullScreen
+        });
+      }, 50);
+
       ToastAndroid.show(`Opening ${artistName} page`, ToastAndroid.SHORT);
     } catch (error) {
       ToastAndroid.show('Failed to open artist page', ToastAndroid.SHORT);
     }
-  }, [currentPlaying, navigation, findArtistId]);
+  }, [currentPlaying, navigation, findArtistId, setFullScreenNavigationTarget, setIndex]);
 
   // Navigate to Artist screen (legacy function for single artist)
   const navigateToArtist = useCallback(async () => {
@@ -331,17 +345,28 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
     try {
       console.log('🧭 Navigating to album:', { albumId, albumName });
 
-      navigation.navigate("Album", {
-        id: String(albumId), // Ensure ID is string for consistency
-        name: albumName,
-        source: 'FullScreenMusic'
-      });
+      // CRITICAL: Track that we're navigating FROM FullScreenMusic
+      setFullScreenNavigationTarget('Album');
+
+      // Close FullScreenMusic first (Index = 0), then navigate
+      setIndex(0);
+
+      // Small delay to ensure FullScreen closes before navigation
+      setTimeout(() => {
+        navigation.navigate("Album", {
+          id: String(albumId),
+          name: albumName,
+          source: 'FullScreenMusic',
+          returnToFullScreen: true
+        });
+      }, 50);
+
       ToastAndroid.show(`Opening ${albumName} album`, ToastAndroid.SHORT);
     } catch (error) {
       console.error('❌ Error navigating to album:', error);
       ToastAndroid.show('Failed to open album page', ToastAndroid.SHORT);
     }
-  }, [currentPlaying, navigation, findSongDetails]);
+  }, [currentPlaying, navigation, findSongDetails, setFullScreenNavigationTarget, setIndex]);
 
   // Add to playlist functionality
   const addToPlaylist = useCallback(async () => {
@@ -503,14 +528,23 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
       if (songs.length > 0) {
         console.log(`✅ Total songs found: ${songs.length} from artist:`, songs.slice(0, 5).map(s => s.name || s.title));
 
+        // CRITICAL: Track that we're navigating FROM FullScreenMusic
+        setFullScreenNavigationTarget('ArtistPage');
+
+        // Close FullScreenMusic first (Index = 0), then navigate
+        setIndex(0);
+
         // Navigate directly to artist page to show all songs
         // Pass the songs directly to avoid refetching
-        navigation.navigate("ArtistPage", {
-          artistId: String(finalArtistId),
-          artistName: artistName,
-          source: isYTMusic ? 'ytmusic' : 'saavn',
-          preloadedSongs: songs // Pass the songs we already fetched
-        });
+        setTimeout(() => {
+          navigation.navigate("ArtistPage", {
+            artistId: String(finalArtistId),
+            artistName: artistName,
+            source: isYTMusic ? 'ytmusic' : 'saavn',
+            preloadedSongs: songs,
+            returnToFullScreen: true
+          });
+        }, 50);
 
         ToastAndroid.show(`Found ${songs.length} songs from ${artistName}`, ToastAndroid.SHORT);
       } else {
@@ -521,7 +555,7 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
       console.error('❌ Error in addMoreFromSpecificArtist:', error);
       ToastAndroid.show('Failed to load artist songs', ToastAndroid.SHORT);
     }
-  }, [isOffline, navigation, findArtistId, currentPlaying]);
+  }, [isOffline, navigation, findArtistId, currentPlaying, setFullScreenNavigationTarget, setIndex]);
 
   // Add more songs from same artist (legacy function for single artist)
   const addMoreFromArtist = useCallback(async () => {

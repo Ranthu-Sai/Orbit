@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { SearchPage } from "../SearchPage";
 import { Album } from "../Album";
 import ArtistPage from "../ArtistPage";
+import SectionListPage from "../SectionListPage"; // ADDED: For Artist TopSongs/Albums navigation
 import { LikedSongPage } from "../Library/LikedSongPage";
 import { LikedPlaylistPage } from "../Library/LikedPlaylistPage";
 import { SettingsPage } from "./SettingsPage";
@@ -24,6 +25,7 @@ export const HomeRoute = () => {
         // INSTANCE REUSE: Keep screens in memory for instant back navigation
         // This eliminates remounting on back, providing same UX as tab navigation
         freezeOnBlur: true,  // Freeze inactive screens to save resources
+        detachInactiveScreens: false, // CRITICAL: Keep screens mounted to preserve state
       }}
     >
       <Stack.Screen name="HomePage" component={Home} />
@@ -63,6 +65,7 @@ export const HomeRoute = () => {
       />
       <Stack.Screen name="Search" component={SearchPage} />
       <Stack.Screen name="ArtistPage" component={ArtistPage} />
+      <Stack.Screen name="SectionListPage" component={SectionListPage} />
       <Stack.Screen name={"LikedSongs"} component={LikedSongPage} />
       <Stack.Screen name={"LikedPlaylists"} component={LikedPlaylistPage} />
       <Stack.Screen name={"Settings"} component={SettingsPage} />

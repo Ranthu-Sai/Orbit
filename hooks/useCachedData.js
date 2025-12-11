@@ -70,7 +70,8 @@ export function useCachedData({
 
         // Check cache first (unless force refresh)
         if (!forceRefresh) {
-            const cachedData = CacheManager.get(cacheKey);
+            // HYBRID CACHE: Check RAM -> Disk
+            const cachedData = await CacheManager.getAsync(cacheKey);
 
             if (cachedData !== null) {
                 console.log(`[useCachedData] Cache HIT for ${cacheKey}`);

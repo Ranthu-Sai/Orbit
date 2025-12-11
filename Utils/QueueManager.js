@@ -4,6 +4,7 @@ import youtubeStreamingService from './YouTubeStreamingService';
 import dabMusicService from './DabMusicService';
 import { getIndexQuality } from '../MusicPlayerFunctions';
 import InnerTubeClient from '../Api/InnertubeClient';
+import { CacheManager } from './NavigationCacheManager';
 
 /**
  * QueueManager - Centralized queue management with lazy stream loading
@@ -12,7 +13,7 @@ import InnerTubeClient from '../Api/InnertubeClient';
 class QueueManager {
     constructor() {
         this.prefetchInProgress = false;
-        this.streamCache = new Map(); // Cache fetched streams to avoid re-fetching
+        // Centralized cache used instead of local Map
     }
 
     /**
@@ -192,11 +193,27 @@ class QueueManager {
 
             const track = queue[trackIndex];
 
-            // Check cache first
-            if (this.streamCache.has(track.id)) {
-                const cached = this.streamCache.get(track.id);
-                console.log(`✅ Using cached stream for: ${track.title}`);
-                return cached;
+            // Check central cache first (Hybrid)
+            const cachedUrl = await CacheManager.getStreamUrlAsync(track.id, track.source || 'ytmusic');
+            if (cachedUrl) {
+                console.log(`✅ Using centralized cached stream for: ${track.title}`);
+                // Return structure matching _fetchStreamForSong output, or just URL if that's what caller expects?
+                // Caller expects an object with .url properties potentially?
+                // Looking at _fetchStreamForSong, it returns { url, headers, ... }
+                // Looking at usage: if (streamData && streamData.url)
+
+                // We should reconstruct the object somewhat, or store full object in cache?
+                // NavigationCacheManager stores: { url, timestamp, ttl, source }
+                // It returns just 'url' string from getStreamUrlAsync currently!
+                // We might need headers. YouTubeStreamingService CACHES headers? No, it reconstructs them.
+                // YouTubeStreamingService.getStreamUrl returns { url, headers, ... }
+
+                // So if we get URL, we need to add standard headers.
+                // QueueManager uses it to update metadata.
+                return {
+                    url: cachedUrl,
+                    headers: { 'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 12; en_IN)', 'Range': 'bytes=0-' }
+                };
             }
 
             console.log(`🔄 Fetching stream on-demand for: ${track.title}`);
@@ -216,8 +233,8 @@ class QueueManager {
                     userAgent: streamData.headers?.['User-Agent']
                 });
 
-                // Cache the stream (will expire in 2 minutes)
-                this.streamCache.set(track.id, streamData);
+                // Cache the stream centrally!
+                CacheManager.setStreamUrl(track.id, streamData.url, track.source || 'ytmusic');
                 console.log(`✅ Fetched and updated stream for: ${track.title}`);
                 return streamData;
             }
@@ -399,8 +416,8 @@ class QueueManager {
      * Clear the stream cache
      */
     clearCache() {
-        this.streamCache.clear();
-        console.log('🗑️ Stream cache cleared');
+        CacheManager.clearStreamCache();
+        console.log('🗑️ Stream cache cleared (Centralized)');
     }
 }
 

@@ -2,9 +2,9 @@ import { MainWrapper } from "../Layout/MainWrapper";
 import { AlbumHeader } from "../Component/Album/AlbumHeader";
 import { View, BackHandler, Text, FlatList, StyleSheet } from "react-native";
 import { EachSongCard } from "../Component/Global/EachSongCard";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useContext } from "react";
 import { LoadingComponent } from "../Component/Global/Loading";
-import { useTheme, useNavigation } from "@react-navigation/native";
+import { useTheme, useNavigation, useFocusEffect } from "@react-navigation/native";
 import { PlainText } from "../Component/Global/PlainText";
 import { SmallText } from "../Component/Global/SmallText";
 import { getAlbumData } from "../Api/Album";
@@ -13,6 +13,7 @@ import { getYTMusicAlbumData } from "../Api/YTMusic";
 import FormatArtist from "../Utils/FormatArtists";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useActiveTrack, usePlaybackState } from "react-native-track-player";
+import Context from "../Context/Context";
 
 
 
@@ -41,12 +42,46 @@ export const Album = ({ route }) => {
   const activeTrack = useActiveTrack();
   const playbackState = usePlaybackState();
 
+  // Get context for FullScreen navigation handling
+  const { fullScreenNavigationTarget, setFullScreenNavigationTarget, setIndex } = useContext(Context);
+
   // Safely destructure route.params with default values
   const routeId = route?.params?.id;
+  const returnToFullScreen = route?.params?.returnToFullScreen || false;
 
   // State to hold the actual ID we'll use (either from route or storage)
   const [id, setId] = useState(routeId);
   const [source, setSource] = useState(route?.params?.source || null);
+
+  // Handle back navigation - return to FullScreenMusic if we came from there
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        // Check if we should return to FullScreenMusic
+        if (returnToFullScreen || fullScreenNavigationTarget === 'Album') {
+          console.log('[Album] Returning to FullScreenMusic');
+          // Clear the navigation target
+          setFullScreenNavigationTarget(null);
+
+          // CRITICAL: First go back in navigation stack to remove Album
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          }
+
+          // Then reopen FullScreenMusic
+          setTimeout(() => {
+            setIndex(1);
+          }, 50);
+
+          return true; // Prevent default back behavior
+        }
+        return false; // Let default back behavior happen
+      };
+
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => backHandler.remove();
+    }, [returnToFullScreen, fullScreenNavigationTarget, setFullScreenNavigationTarget, setIndex, navigation])
+  );
 
 
 

@@ -9,7 +9,7 @@ import {
   getYTMusicSearchArtistData
 } from "../Api/YTMusic";
 import dabMusicService from "../Utils/DabMusicService";
-import { View, TouchableOpacity, TextInput, Pressable, Dimensions, FlatList, StyleSheet, Text, Modal, Alert } from "react-native";
+import { View, TouchableOpacity, TextInput, Pressable, Dimensions, FlatList, StyleSheet, Text, Modal, Alert, BackHandler } from "react-native";
 import SongDisplay from "../Component/SearchPage/SongDisplay";
 import { LoadingComponent } from "../Component/Global/Loading";
 import { getSearchPlaylistData } from "../Api/Playlist";
@@ -18,7 +18,7 @@ import { getSearchAlbumData } from "../Api/Album";
 import AlbumsDisplay from "../Component/SearchPage/AlbumDisplay";
 import ArtistDisplay from "../Component/SearchPage/ArtistDisplay";
 import { Spacer } from "../Component/Global/Spacer";
-import { useTheme } from "@react-navigation/native";
+import { useTheme, useFocusEffect } from "@react-navigation/native";
 import { GitFork } from 'lucide-react-native';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Divider } from 'react-native-paper';
@@ -77,6 +77,21 @@ export const SearchPage = ({ navigation }) => {
       console.log('[SearchPage] Search state cached for back navigation');
     }
   }, [SearchText, Data, ActiveTab, selectedSource, query]);
+
+  // Handle back navigation - go to HomePage instead of exiting app
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        // Navigate to HomePage instead of default back (which might exit app)
+        console.log('[SearchPage] Back pressed, navigating to HomePage');
+        navigation.navigate('HomePage');
+        return true; // Prevent default back behavior
+      };
+
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => backHandler.remove();
+    }, [navigation])
+  );
 
   async function fetchSearchData(text) {
     if (!text) {

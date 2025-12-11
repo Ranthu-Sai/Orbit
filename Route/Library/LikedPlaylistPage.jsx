@@ -28,9 +28,9 @@ export const LikedPlaylistPage = () => {
   const getAllLikedSongs = useCallback(async (forceRefresh = false) => {
     const cacheKey = CACHE_KEYS.LIKED_PLAYLISTS;
 
-    // Check cache first (unless force refresh)
+    // Check cache first (unless force refresh) - HYBRID: RAM -> Disk
     if (!forceRefresh) {
-      const cached = CacheManager.get(cacheKey);
+      const cached = await CacheManager.getAsync(cacheKey);
       if (cached) {
         console.log('[LikedPlaylist] Using cached data - no refetch needed');
         setLikedPlaylist(cached);

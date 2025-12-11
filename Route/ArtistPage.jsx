@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import {
   View,
   ScrollView,
@@ -9,9 +9,10 @@ import {
   StyleSheet,
   Share,
   StatusBar,
+  BackHandler,
 } from 'react-native';
 import { Text, IconButton, Button } from 'react-native-paper';
-import { useTheme as useNavigationTheme, useRoute, useNavigation } from '@react-navigation/native';
+import { useTheme as useNavigationTheme, useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import PlaylistSelectorWrapper from '../Component/Playlist/PlaylistSelectorWrapper';
 import FastImage from 'react-native-fast-image';
 import LinearGradient from 'react-native-linear-gradient';
@@ -28,6 +29,7 @@ import YouTubeMusicService from '../Utils/YouTubeMusicService';
 
 import { useArtistData, useArtistSongs, useArtistAlbums } from '../hooks/useArtistData';
 import { validateRouteParams, formatSongsForPlaylist, getValidImageUrl, safeString, formatFollowerCount } from '../Utils/ArtistUtils';
+import Context from '../Context/Context';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const CARD_WIDTH = 140;
@@ -39,15 +41,67 @@ const ArtistPage = () => {
   const activeTrack = useActiveTrack();
   const playbackState = usePlaybackState();
 
+  // Get context for FullScreen navigation handling
+  const { fullScreenNavigationTarget, setFullScreenNavigationTarget, setIndex } = useContext(Context);
+
   const routeParams = route.params || {};
   const { safeArtistId, safeArtistName } = validateRouteParams(routeParams);
   const source = routeParams.source || 'saavn';
   const preloadedSongs = routeParams.preloadedSongs || null;
+  const returnToFullScreen = routeParams.returnToFullScreen || false;
 
   // YTMusic specific state for full sections
   const [ytSections, setYtSections] = useState([]);
   const [ytArtist, setYtArtist] = useState(null);
   const [ytLoading, setYtLoading] = useState(false);
+
+  // Track if we pushed a screen from this ArtistPage (like SectionListPage)
+  // When we return from that screen, we should NOT immediately return to FullScreen
+  const pushedNestedScreen = React.useRef(false);
+
+  // Handle back navigation - return to FullScreenMusic if we came from there
+  // Only return to FullScreen if we're at the direct entry point from FullScreen
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        // If we just returned from a nested screen we pushed, don't go to FullScreen yet
+        if (pushedNestedScreen.current) {
+          pushedNestedScreen.current = false;
+          // Let default back behavior happen (but it won't since we're already back here)
+          return false;
+        }
+
+        // Check if we should return to FullScreenMusic
+        if (returnToFullScreen || fullScreenNavigationTarget === 'ArtistPage') {
+          console.log('[ArtistPage] Returning to FullScreenMusic');
+          // Clear the navigation target
+          setFullScreenNavigationTarget(null);
+
+          // CRITICAL: First go back in navigation stack to remove ArtistPage
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          }
+
+          // Then reopen FullScreenMusic
+          setTimeout(() => {
+            setIndex(1);
+          }, 50);
+
+          return true; // Prevent default back behavior
+        }
+        return false; // Let default back behavior happen
+      };
+
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => backHandler.remove();
+    }, [returnToFullScreen, fullScreenNavigationTarget, setFullScreenNavigationTarget, setIndex, navigation])
+  );
+
+  // Track when we push a nested screen
+  const navigateToSectionList = useCallback((endpoint, title, type) => {
+    pushedNestedScreen.current = true;
+    navigation.navigate('SectionListPage', { endpoint, title, type });
+  }, [navigation]);
 
   // Use existing hooks for data (works for both Saavn and YTMusic)
   const { artistData, loading, refreshing, onRefresh } = useArtistData(safeArtistId, source);
@@ -267,6 +321,7 @@ const ArtistPage = () => {
             playbackState={playbackState}
             onAlbumPress={navigateToAlbum}
             onArtistPress={navigateToArtist}
+            onSectionSeeAll={navigateToSectionList}
             source={source}
           />
         ))}
@@ -378,7 +433,7 @@ const ArtistPage = () => {
   );
 };
 
-const ArtistSection = React.memo(({ section, theme, navigation, activeTrack, playbackState, onAlbumPress, onArtistPress, source }) => {
+const ArtistSection = React.memo(({ section, theme, navigation, activeTrack, playbackState, onAlbumPress, onArtistPress, onSectionSeeAll, source }) => {
   const { title, items, type, moreEndpoint } = section;
 
   if (!items || items.length === 0) return null;
@@ -403,13 +458,16 @@ const ArtistSection = React.memo(({ section, theme, navigation, activeTrack, pla
     }
   };
 
-  // Generic "See All" Handler
+  // Generic "See All" Handler - uses callback to track nested navigation
   const handleSeeAll = () => {
-    if (moreEndpoint) {
+    if (moreEndpoint && onSectionSeeAll) {
+      onSectionSeeAll(moreEndpoint, title, type === 'songs' ? 'song' : type);
+    } else if (moreEndpoint) {
+      // Fallback to direct navigation if callback not provided
       navigation.navigate('SectionListPage', {
         title: title,
         endpoint: moreEndpoint,
-        type: type === 'songs' ? 'song' : type // Pass type hint
+        type: type === 'songs' ? 'song' : type
       });
     }
   };

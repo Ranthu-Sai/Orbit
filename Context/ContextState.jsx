@@ -8,7 +8,8 @@ import FormatArtist from "../Utils/FormatArtists";
 
 import { SetQueueSongs } from "../LocalStorage/storeQueue";
 import { EachSongMenuModal } from "../Component/Global/EachSongMenuModal";
-import { CacheManager } from "../Utils/CacheManager";
+import { CacheManager as LegacyCacheManager } from "../Utils/CacheManager";
+import { CacheManager } from "../Utils/NavigationCacheManager";
 import historyManager from "../Utils/HistoryManager";
 
 // Repeat constants
@@ -46,6 +47,10 @@ const ContextState = (props) => {
 
     // Track if current playback is from a playlist/album (blocks auto-recommendations)
     const [isPlaylistActive, setIsPlaylistActive] = useState(false);
+
+    // Track navigation FROM FullScreenMusic to other screens (Artist/Album)
+    // When set, back navigation should return to FullScreenMusic first
+    const [fullScreenNavigationTarget, setFullScreenNavigationTarget] = useState(null);
 
     const [Queue, setQueue] = useState([]);
     async function updateTrack() {
@@ -166,6 +171,12 @@ const ContextState = (props) => {
 
                 // Only process if it's actually a different track
                 if (currentTrackId !== newTrackId) {
+                    // ✅ SAVE PLAYER STATE (Persistence)
+                    // Save async to avoid blocking UI
+                    TrackPlayer.getQueue().then(queue => {
+                        CacheManager.setPlayerState(queue, event.track, event.index);
+                    }).catch(e => console.warn('Failed to save player state', e));
+
                     // ✅ Run history tracking in background (non-blocking)
                     // Don't await - let it run async to avoid UI freeze
                     Promise.all([
@@ -208,10 +219,21 @@ const ContextState = (props) => {
     async function InitialSetup() {
         try {
             // Clear old cache entries to prevent storage full errors
-            await CacheManager.clearOldCacheEntries();
+            await LegacyCacheManager.clearOldCacheEntries();
 
             // Initialize history manager
             await historyManager.initialize();
+
+            // 1. RESTORE SAVED PLAYER STATE (Instant UI)
+            const savedState = await CacheManager.getPlayerStateAsync();
+            if (savedState) {
+                console.log('💾 Restoring saved player state...');
+                setQueue(savedState.queue);
+                setCurrentPlaying(savedState.activeTrack);
+                setIndex(savedState.activeIndex);
+                // Note: We don't set isPlayerReady=true here because TrackPlayer native isn't ready.
+                // But setting React state ensures MiniPlayer appears immediately.
+            }
 
             // Check if player is already initialized
             try {
@@ -230,11 +252,26 @@ const ContextState = (props) => {
                 });
                 console.log('Player initialized successfully in Context');
                 isPlayerReady.current = true; // Mark ready after setup
+
+                // 2. RESTORE TRACKPLAYER BACKEND
+                if (savedState && savedState.queue.length > 0) {
+                    try {
+                        console.log('🎵 Restoring queue to TrackPlayer...');
+                        await TrackPlayer.add(savedState.queue);
+                        if (savedState.activeIndex >= 0) {
+                            await TrackPlayer.skip(savedState.activeIndex);
+                        }
+                        // Don't auto-play, let user click play (as requested: "just one click and song play")
+                    } catch (restoreError) {
+                        console.warn('Failed to restore TrackPlayer queue', restoreError);
+                    }
+                }
             }
         } catch (error) {
             console.error('Error in InitialSetup:', error);
             // Even if error, if we can correct it, we might set ready, but safer to leave false
         }
+
 
         // Add delay before accessing TrackPlayer to ensure it's ready
         // Only run if we marked it as ready
@@ -348,7 +385,9 @@ const ContextState = (props) => {
         updateLikedPlaylist,
         likedPlaylists,
         isPlaylistActive,
-        setIsPlaylistActive
+        setIsPlaylistActive,
+        fullScreenNavigationTarget,
+        setFullScreenNavigationTarget
     }}>
         {props.children}
         <EachSongMenuModal setVisible={setVisible} Visible={Visible} />

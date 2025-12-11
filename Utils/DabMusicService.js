@@ -122,8 +122,8 @@ class DabMusicService {
             throw new Error('Track ID is required');
         }
 
-        // CHECK CENTRALIZED CACHE FIRST (3-hour TTL)
-        const cachedUrl = CacheManager.getStreamUrl(trackId, 'dab');
+        // CHECK CENTRALIZED CACHE FIRST (Hybrid: RAM -> Disk)
+        const cachedUrl = await CacheManager.getStreamUrlAsync(trackId, 'dab');
         if (cachedUrl) {
             console.log(`🚀 [Cache] DAB stream URL cache HIT for ${trackId}`);
             return cachedUrl;

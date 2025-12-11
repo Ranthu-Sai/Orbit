@@ -20,6 +20,7 @@ export const LibraryRoute = () => {
         animation: 'fade_from_bottom',
         // INSTANCE REUSE: Keep screens frozen in memory for instant back navigation
         freezeOnBlur: true,
+        detachInactiveScreens: false, // CRITICAL: Keep screens mounted to preserve state
       }}
     >
       <Stack.Screen name="LibraryPage" component={Library} />

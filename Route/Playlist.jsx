@@ -171,15 +171,29 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
 
       const cacheKey = generateCacheKey(CACHE_KEYS.PLAYLIST, id);
 
-      // Step 1: Check cache first (unless force refresh)
+      // Step 1: SYNC RAM CHECK (Instant - prevents loading flash)
       if (!forceRefresh) {
-        const cachedData = CacheManager.get(cacheKey);
-        if (cachedData) {
-          console.log(`[Playlist] Cache HIT for ${id} - instant load`);
-          setData(cachedData);
+        const ramData = CacheManager.get(cacheKey);
+        if (ramData) {
+          console.log(`[Playlist] RAM cache HIT for ${id} - instant load`);
+          setData(ramData);
           setLoading(false);
           isInitialLoad.current = false;
-          return; // EXIT EARLY - no API call needed
+          return; // EXIT - RAM hit
+        }
+
+        // Step 2: ASYNC DISK CHECK
+        if (isInitialLoad.current) {
+          setLoading(true);
+        }
+
+        const diskData = await CacheManager.getAsync(cacheKey);
+        if (diskData) {
+          console.log(`[Playlist] Disk cache HIT for ${id}`);
+          setData(diskData);
+          setLoading(false);
+          isInitialLoad.current = false;
+          return; // EXIT - Disk hit
         }
       }
 

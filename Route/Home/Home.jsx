@@ -77,7 +77,7 @@ export const Home = () => {
   const { width, height } = Dimensions.get('window');
   const [Data, setData] = useState({ data: { charts: [], playlists: [], trending: { albums: [] } } });
   const [chartIndices, setChartIndices] = useState([0, 1, 2, 3]); // Dynamic chart indices
-  
+
   // Calculate 5% of screen height for scroll threshold
   const scrollThreshold = height * 0.05;
 
@@ -104,30 +104,47 @@ export const Home = () => {
     const homefeedCacheKey = generateCacheKey(CACHE_KEYS.HOME, 'homefeed');
 
     try {
-      // Step 1: ALWAYS check cache first (except on force refresh)
+      // Step 1: SYNCHRONOUS RAM CHECK (Instant - prevents empty flash)
+      // Check RAM immediately before any async operation
       if (!forceRefresh) {
-        const cachedData = CacheManager.get(cacheKey);
-        const cachedHomefeed = CacheManager.get(homefeedCacheKey);
+        const ramData = CacheManager.get(cacheKey);
+        const ramHomefeed = CacheManager.get(homefeedCacheKey);
 
-        if (cachedData) {
-          console.log('[Home] Using cached data - no API call needed');
-          setData(cachedData);
-          randomizeCharts(cachedData?.data?.charts);
-
-          if (cachedHomefeed) {
-            setHomefeedData(cachedHomefeed);
+        if (ramData) {
+          console.log('[Home] RAM cache HIT - instant load');
+          setData(ramData);
+          // DON'T shuffle on cache hit - preserve original order
+          if (ramHomefeed) {
+            setHomefeedData(ramHomefeed);
           }
-
-          // Data loaded from cache - no loading indicator needed
           setLoading(false);
           isInitialLoad.current = false;
-          return; // EXIT EARLY - cache hit, no API call
+          return; // EXIT - RAM hit
         }
 
-        // Cache miss - show loading only on cold start
+        // Step 2: ASYNC DISK CHECK (50-100ms)
+        // Only show loading if RAM missed and this is initial load
         if (isInitialLoad.current) {
           setLoading(true);
         }
+
+        const diskData = await CacheManager.getAsync(cacheKey);
+        const diskHomefeed = await CacheManager.getAsync(homefeedCacheKey);
+
+        if (diskData) {
+          console.log('[Home] Disk cache HIT - restored');
+          setData(diskData);
+          // DON'T shuffle on cache hit - preserve order
+          if (diskHomefeed) {
+            setHomefeedData(diskHomefeed);
+          }
+          setLoading(false);
+          isInitialLoad.current = false;
+          return; // EXIT - Disk hit
+        }
+
+        // Cache miss - continue to network fetch
+        console.log('[Home] Cache MISS - fetching from network');
       }
 
       // Step 2: Check network
@@ -192,21 +209,22 @@ export const Home = () => {
     fetchHomePageData(false);
   }, []);
 
-  // Combine playlists from both sources
+  // Combine playlists from both sources - NO SHUFFLE (preserve consistent order)
   const allPlaylists = useMemo(() => {
     const regularPlaylists = Data?.data?.playlists || [];
     const homefeedPlaylists = homefeedData?.playlists || [];
-    return shuffleArray([...regularPlaylists, ...homefeedPlaylists]).slice(0, 20);
+    // Combine without shuffle - consistent order on every render
+    return [...regularPlaylists, ...homefeedPlaylists].slice(0, 20);
   }, [Data?.data?.playlists, homefeedData?.playlists]);
 
-  // Combine albums from both sources and remove duplicates
+  // Combine albums from both sources and remove duplicates - NO SHUFFLE
   const allAlbums = useMemo(() => {
     const regularAlbums = Data?.data?.trending?.albums || [];
     const homefeedAlbums = homefeedData?.albums || [];
     const combined = [...regularAlbums, ...homefeedAlbums];
-    // Apply deduplication (prioritizes Saavn over YTMusic)
+    // Apply deduplication (prioritizes Saavn over YTMusic) - NO shuffle
     const deduplicated = deduplicateAlbums(combined);
-    return shuffleArray(deduplicated).slice(0, 20);
+    return deduplicated.slice(0, 20);
   }, [Data?.data?.trending?.albums, homefeedData?.albums]);
 
   // Get a chart ID safely

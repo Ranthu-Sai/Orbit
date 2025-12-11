@@ -88,9 +88,9 @@ export default function ShowPlaylistofType({ route }) {
     const cacheKey = generateCacheKey(CACHE_KEYS.SEARCH, Searchtext);
 
     try {
-      // Check cache first (unless force refresh)
+      // Check cache first (unless force refresh) - HYBRID: RAM -> Disk
       if (!forceRefresh) {
-        const cached = CacheManager.get(cacheKey);
+        const cached = await CacheManager.getAsync(cacheKey);
         if (cached) {
           console.log(`[ShowPlaylist] Cache HIT for ${Searchtext}`);
           setData(cached);

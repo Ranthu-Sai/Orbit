@@ -8,21 +8,25 @@
 // Time-To-Live configurations (in milliseconds)
 export const CACHE_TTL = {
     // Screen data caches
-    HOME_DATA: 15 * 60 * 1000,           // 15 minutes - home page data
-    PLAYLIST_DATA: 10 * 60 * 1000,       // 10 minutes - playlist details
-    ALBUM_DATA: 10 * 60 * 1000,          // 10 minutes - album details
-    SEARCH_RESULTS: 5 * 60 * 1000,       // 5 minutes - search results
-    LANGUAGE_DATA: 15 * 60 * 1000,       // 15 minutes - language-specific data
-    LIBRARY_DATA: 10 * 60 * 1000,        // 10 minutes - library screens
-    ARTIST_DATA: 10 * 60 * 1000,         // 10 minutes - artist details
+    HOME_DATA: 24 * 60 * 60 * 1000,      // 24 hours - home page data (Persistence)
+    PLAYLIST_DATA: 24 * 60 * 60 * 1000,  // 24 hours - playlist details (Match Home)
+    ALBUM_DATA: 24 * 60 * 60 * 1000,     // 24 hours - album details (Match Home)
+    LANGUAGE_DATA: 24 * 60 * 60 * 1000,  // 24 hours - language data
+    LIBRARY_DATA: 10 * 60 * 1000,        // 10 minutes - library screens (Keep short for user updates)
+    ARTIST_DATA: 24 * 60 * 60 * 1000,    // 24 hours - artist details
 
-    // Stream URL caches (longer TTL as specified by user)
-    YTMUSIC_STREAM: 3 * 60 * 60 * 1000,  // 3 hours - YouTube Music stream URLs
-    DAB_STREAM: 3 * 60 * 60 * 1000,      // 3 hours - DAB stream URLs
+    // Search Caches
+    SEARCH_RESULTS: 4 * 60 * 60 * 1000,      // 4 hours - default search songs
+    SEARCH_PLAYLIST_ALBUM: 6 * 60 * 60 * 1000, // 6 hours - search playlists/albums
+
+    // Stream URL caches
+    YTMUSIC_STREAM: 4 * 60 * 60 * 1000,  // 4 hours - YouTube Music stream URLs
+    DAB_STREAM: 4 * 60 * 60 * 1000,      // 4 hours - DAB stream URLs
+    PREFETCH_STREAM: 4 * 60 * 60 * 1000, // 4 hours - Prefetch/On-demand URLs
 
     // UI State caches
     SCROLL_POSITION: 30 * 60 * 1000,     // 30 minutes - scroll positions
-    SEARCH_QUERY: 30 * 60 * 1000,        // 30 minutes - search query state
+    SEARCH_QUERY: 24 * 60 * 60 * 1000,   // 24 hours - search query state (Better UX on restart)
 
     // Default fallback
     DEFAULT: 5 * 60 * 1000,              // 5 minutes - default TTL

@@ -11,9 +11,11 @@
  * - Stream URL caching (3 hours for YTMusic/DAB)
  * - Scroll position preservation
  * - Search state persistence
+ * - Hybrid Caching (RAM + Disk) for restart persistence
  */
 
 import { CACHE_TTL, CACHE_LIMITS, isCacheStale } from './CacheConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 class NavigationCacheManager {
     constructor() {
@@ -31,6 +33,22 @@ class NavigationCacheManager {
 
         // Access order for LRU eviction
         this.accessOrder = [];
+
+        // Initialize disk cache lazy loading
+        this._initializeDiskCache();
+    }
+
+    /**
+     * Load critical persistent data into RAM on startup
+     * @private
+     */
+    async _initializeDiskCache() {
+        try {
+            // Pre-load Home Feed if available (fast startup)
+            // We can implement strict preload here if needed, but getAsync handles it lazily
+        } catch (e) {
+            console.warn('[CacheManager] Failed to initialize disk cache:', e);
+        }
     }
 
     // ============================================
@@ -43,27 +61,61 @@ class NavigationCacheManager {
      * @returns {any|null} - Cached data or null if not found/stale
      */
     get(key) {
+        // Fast path: RAM only
         const entry = this.cache.get(key);
+        if (!entry) return null;
 
-        if (!entry) {
-            return null;
-        }
-
-        // Check if cache is stale
         if (isCacheStale(entry.timestamp, entry.ttl)) {
             this.cache.delete(key);
             this._removeFromAccessOrder(key);
+            // Fire-and-forget: clear disk cache too
+            AsyncStorage.removeItem(`cache_${key}`).catch(e => console.warn('Failed to clear disk cache', e));
             return null;
         }
 
-        // Update access order for LRU
         this._updateAccessOrder(key);
-
         return entry.data;
     }
 
     /**
-     * Set cache data with TTL
+     * Get cached data (Hybrid: RAM -> Disk)
+     * @param {string} key - Cache key
+     * @returns {Promise<any|null>}
+     */
+    async getAsync(key) {
+        // 1. Try RAM first (Instant)
+        const ramData = this.get(key);
+        if (ramData) return ramData;
+
+        // 2. Try Disk (Persistence)
+        try {
+            const diskData = await AsyncStorage.getItem(`cache_${key}`);
+            if (diskData) {
+                const entry = JSON.parse(diskData);
+
+                // Check expiry
+                if (isCacheStale(entry.timestamp, entry.ttl)) {
+                    // Stale - cleanup
+                    await AsyncStorage.removeItem(`cache_${key}`);
+                    return null;
+                }
+
+                // Restore to RAM for next time
+                this.cache.set(key, entry);
+                this._updateAccessOrder(key);
+                console.log(`[CacheManager] Restored ${key} from disk`);
+
+                return entry.data;
+            }
+        } catch (e) {
+            console.warn(`[CacheManager] Disk read failed for ${key}`, e);
+        }
+
+        return null;
+    }
+
+    /**
+     * Set cache data (Hybrid: RAM + Disk)
      * @param {string} key - Cache key
      * @param {any} data - Data to cache
      * @param {number} ttl - Time-to-live in milliseconds
@@ -72,13 +124,20 @@ class NavigationCacheManager {
         // Enforce cache size limit
         this._enforceLimit();
 
-        this.cache.set(key, {
+        const entry = {
             data,
             timestamp: Date.now(),
             ttl,
-        });
+        };
 
+        // 1. Write to RAM (Sync/Instant)
+        this.cache.set(key, entry);
         this._updateAccessOrder(key);
+
+        // 2. Write to Disk (Async/Background)
+        // Store keys with prefix to avoid collisions
+        AsyncStorage.setItem(`cache_${key}`, JSON.stringify(entry))
+            .catch(e => console.warn(`[CacheManager] Disk write failed for ${key}`, e));
     }
 
     /**
@@ -97,6 +156,8 @@ class NavigationCacheManager {
     invalidate(key) {
         this.cache.delete(key);
         this._removeFromAccessOrder(key);
+        // Clear disk cache as well
+        AsyncStorage.removeItem(`cache_${key}`).catch(() => { });
     }
 
     /**
@@ -108,6 +169,11 @@ class NavigationCacheManager {
             if (key.startsWith(prefix)) {
                 this.cache.delete(key);
                 this._removeFromAccessOrder(key);
+                // We should also clear from disk, but mapping prefixes to disk keys is harder without storing a list of keys.
+                // For now, we rely on TTL expiry or manual precise invalidation for disk.
+                // Or we could scan all AsyncStorage keys, but that is expensive.
+                // Given the requirement, meaningful invalidation usually targets specific keys (like 'home_data').
+                AsyncStorage.removeItem(`cache_${key}`).catch(() => { });
             }
         }
     }
@@ -118,6 +184,10 @@ class NavigationCacheManager {
     invalidateAll() {
         this.cache.clear();
         this.accessOrder = [];
+        // Note: This doesn't clear AsyncStorage to avoid wiping non-cache data.
+        // Ideally we prefixes all cache keys with a specific namespace to allow bulk clear.
+        // Current keys start with 'cache_' or 'stream_'.
+        // For strict "clear all", we would need to scan keys.
     }
 
     // ============================================
@@ -131,25 +201,56 @@ class NavigationCacheManager {
      * @returns {string|null} - Cached URL or null
      */
     getStreamUrl(videoId, source = 'ytmusic') {
+        // RAM only (Legacy/Fast)
         const key = `${source}_${videoId}`;
         const entry = this.streamCache.get(key);
+        if (!entry) return null;
 
-        if (!entry) {
-            return null;
-        }
-
-        // Check if stream cache is stale
         if (isCacheStale(entry.timestamp, entry.ttl)) {
             this.streamCache.delete(key);
+            // Fire-and-forget: clear disk cache
+            AsyncStorage.removeItem(`stream_${key}`).catch(() => { });
             return null;
         }
-
-        console.log(`[CacheManager] Stream URL cache HIT for ${source}:${videoId}`);
         return entry.url;
     }
 
     /**
-     * Cache stream URL with 3-hour TTL
+     * Get stream URL (Hybrid: RAM -> Disk)
+     * @param {string} videoId 
+     * @param {string} source 
+     * @returns {Promise<string|null>}
+     */
+    async getStreamUrlAsync(videoId, source = 'ytmusic') {
+        const key = `${source}_${videoId}`;
+
+        // 1. RAM Check
+        const ramUrl = this.getStreamUrl(videoId, source);
+        if (ramUrl) return ramUrl;
+
+        // 2. Disk Check
+        try {
+            const diskData = await AsyncStorage.getItem(`stream_${key}`);
+            if (diskData) {
+                const entry = JSON.parse(diskData);
+                if (isCacheStale(entry.timestamp, entry.ttl)) {
+                    await AsyncStorage.removeItem(`stream_${key}`);
+                    return null;
+                }
+
+                // Restore to RAM
+                this.streamCache.set(key, entry);
+                console.log(`[CacheManager] Restored stream ${key} from disk`);
+                return entry.url;
+            }
+        } catch (e) {
+            console.warn(`[CacheManager] Stream disk read error:`, e);
+        }
+        return null;
+    }
+
+    /**
+     * Cache stream URL with specific TTL
      * @param {string} videoId - Video/track ID
      * @param {string} url - Stream URL
      * @param {string} source - 'ytmusic' or 'dab'
@@ -159,19 +260,24 @@ class NavigationCacheManager {
             console.warn('[CacheManager] Cannot cache stream URL: missing videoId or url');
             return;
         }
-
-        // Enforce stream cache limit
         this._enforceStreamLimit();
 
         const ttl = source === 'ytmusic' ? CACHE_TTL.YTMUSIC_STREAM : CACHE_TTL.DAB_STREAM;
         const key = `${source}_${videoId}`;
 
-        this.streamCache.set(key, {
+        const entry = {
             url,
             timestamp: Date.now(),
             ttl,
             source,
-        });
+        };
+
+        // 1. RAM
+        this.streamCache.set(key, entry);
+
+        // 2. Disk
+        AsyncStorage.setItem(`stream_${key}`, JSON.stringify(entry))
+            .catch(e => console.warn('[CacheManager] Failed to persist stream url', e));
 
         console.log(`[CacheManager] Stream URL cached for ${source}:${videoId} (TTL: ${ttl / 1000 / 60} minutes)`);
     }
@@ -249,32 +355,56 @@ class NavigationCacheManager {
     // ============================================
 
     /**
-     * Get saved search state
-     * @returns {object|null} - Search state or null
+     * Get saved search state (Hybrid)
+     * @returns {Promise<object|null>}
+     */
+    async getSearchStateAsync() {
+        // 1. Memory check
+        if (this.searchState) {
+            if (!isCacheStale(this.searchState.timestamp, CACHE_TTL.SEARCH_QUERY)) {
+                return this.searchState;
+            }
+            this.searchState = null;
+        }
+
+        // 2. Disk check
+        try {
+            const diskState = await AsyncStorage.getItem('cache_search_state');
+            if (diskState) {
+                const state = JSON.parse(diskState);
+                if (!isCacheStale(state.timestamp, CACHE_TTL.SEARCH_QUERY)) {
+                    this.searchState = state; // Restore RAM
+                    return state;
+                }
+                // Stale
+                await AsyncStorage.removeItem('cache_search_state');
+            }
+        } catch (e) {
+            console.warn('[CacheManager] Search state read failed', e);
+        }
+        return null;
+    }
+
+    /**
+     * Get saved search state (Sync RAM check for legacy)
+     * @returns {object|null}
      */
     getSearchState() {
-        if (!this.searchState) {
-            return null;
-        }
-
-        // Check if search state is stale
-        if (isCacheStale(this.searchState.timestamp, CACHE_TTL.SEARCH_QUERY)) {
-            this.searchState = null;
-            return null;
-        }
-
+        if (!this.searchState) return null;
         return this.searchState;
     }
 
     /**
-     * Save search state
-     * @param {object} state - Search state to save
+     * Save search state (Hybrid)
+     * @param {object} state 
      */
     setSearchState(state) {
-        this.searchState = {
+        const entry = {
             ...state,
             timestamp: Date.now(),
         };
+        this.searchState = entry;
+        AsyncStorage.setItem('cache_search_state', JSON.stringify(entry)).catch(() => { });
     }
 
     /**
@@ -282,6 +412,49 @@ class NavigationCacheManager {
      */
     clearSearchState() {
         this.searchState = null;
+        AsyncStorage.removeItem('cache_search_state').catch(() => { });
+    }
+
+    // ============================================
+    // PLAYER STATE METHODS
+    // ============================================
+
+    /**
+     * Get saved player state (Queue + Active Track)
+     * @returns {Promise<{queue: Array, activeTrack: Object, activeIndex: number}|null>}
+     */
+    async getPlayerStateAsync() {
+        try {
+            const data = await AsyncStorage.getItem('cache_player_state');
+            if (data) {
+                return JSON.parse(data);
+            }
+        } catch (e) {
+            console.warn('[CacheManager] Failed to load player state', e);
+        }
+        return null;
+    }
+
+    /**
+     * Save player state
+     * @param {Array} queue 
+     * @param {Object} activeTrack 
+     * @param {number} activeIndex 
+     */
+    setPlayerState(queue, activeTrack, activeIndex) {
+        if (!queue || queue.length === 0) return;
+
+        // Optimize: Don't save if queue is huge, maybe trim or just save? 
+        // For now, save full queue as user wants seamless resume.
+        const state = {
+            queue,
+            activeTrack,
+            activeIndex,
+            timestamp: Date.now()
+        };
+
+        AsyncStorage.setItem('cache_player_state', JSON.stringify(state))
+            .catch(e => console.warn('[CacheManager] Failed to save player state', e));
     }
 
     // ============================================
@@ -317,6 +490,9 @@ class NavigationCacheManager {
             const oldestKey = this.accessOrder.shift();
             this.cache.delete(oldestKey);
             console.log(`[CacheManager] LRU eviction: removed ${oldestKey}`);
+            // Note: We don't strictly enforce clearing disk cache on LRU to keep more history on disk than RAM
+            // But if we wanted to sync them 1:1, we would remove from AsyncStorage here too.
+            // For now, let's keep disk cache slightly larger than RAM is fine, or rely on expiry.
         }
     }
 
@@ -328,7 +504,11 @@ class NavigationCacheManager {
         if (this.streamCache.size >= CACHE_LIMITS.MAX_STREAM_ENTRIES) {
             // Remove oldest entries (first inserted)
             const keysToRemove = Array.from(this.streamCache.keys()).slice(0, 10);
-            keysToRemove.forEach(key => this.streamCache.delete(key));
+            keysToRemove.forEach(key => {
+                this.streamCache.delete(key);
+                // Also clear from disk if enforcing strict limit
+                AsyncStorage.removeItem(`stream_${key}`).catch(() => { });
+            });
             console.log(`[CacheManager] Stream cache cleanup: removed ${keysToRemove.length} entries`);
         }
     }

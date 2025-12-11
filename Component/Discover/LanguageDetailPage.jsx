@@ -41,9 +41,9 @@ export const LanguageDetailPage = ({ route }) => {
     const cacheKey = generateCacheKey(CACHE_KEYS.LANGUAGE, language);
 
     try {
-      // Check cache first
+      // Check cache first - HYBRID: RAM -> Disk
       if (!forceRefresh) {
-        const cached = CacheManager.get(cacheKey);
+        const cached = await CacheManager.getAsync(cacheKey);
         if (cached) {
           console.log(`[LanguageDetail] Cache HIT for ${language}`);
           setData(cached);

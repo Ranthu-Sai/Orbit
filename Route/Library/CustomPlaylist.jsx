@@ -76,9 +76,9 @@ export const CustomPlaylist = () => {
     const cacheKey = CACHE_KEYS.CUSTOM_PLAYLISTS;
 
     try {
-      // Check cache first (unless force refresh)
+      // Check cache first (unless force refresh) - HYBRID: RAM -> Disk
       if (!forceRefresh) {
-        const cached = CacheManager.get(cacheKey);
+        const cached = await CacheManager.getAsync(cacheKey);
         if (cached) {
           console.log('[CustomPlaylist] Using cached data - no API call needed');
           setPlaylists(cached.playlists || {});
