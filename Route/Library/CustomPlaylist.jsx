@@ -752,7 +752,7 @@ export const CustomPlaylist = () => {
                 onPress={() => setImportModalVisible(true)}
                 android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: true, radius: 20 }}
               >
-                <FileInput size={26} color={theme.colors.primary} />
+                <MaterialCommunityIcons name="playlist-music" size={30} color={theme.colors.primary} />
               </Pressable>
               <Pressable
                 style={styles.addButton}

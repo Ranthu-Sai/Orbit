@@ -17,6 +17,7 @@ import { getUserPlaylists, clearPlaylistCache } from '../../Utils/PlaylistManage
 import { Animated } from 'react';
 import { SmallText } from '../Global/SmallText';
 import { CustomPlaylistPlay } from './CustomPlaylistPlay';
+import { PlaylistHeader } from './PlaylistHeader';
 
 // Default image constants moved outside component to prevent re-creation
 const DEFAULT_MUSIC_IMAGE = require('../../Images/default.jpg');
@@ -918,32 +919,14 @@ export const CustomPlaylistView = (props) => {
         windowSize={11}
         removeClippedSubviews={true}
         ListHeaderComponent={
-          <View style={[staticStyles.coverContainer, { borderBottomColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
-            <View style={staticStyles.playlistInfoSection}>
-              <FastImage
-                source={getSafeImageSource(Songs[0] || {})}
-                style={staticStyles.coverImage}
-                defaultSource={LOCAL_MUSIC_IMAGE}
-              />
-              <View style={staticStyles.playlistInfoContainer}>
-                <Text
-                  style={[staticStyles.playlistTitle, { color: theme.colors.text }]}
-                  numberOfLines={2}
-                >
-                  {truncateText(playlistName, 40)}
-                </Text>
-                <Text style={[staticStyles.songCount, { color: theme.colors.textSecondary }]}>
-                  {Songs.length} {Songs.length === 1 ? 'song' : 'songs'}
-                </Text>
-                <CustomPlaylistPlay
-                  onPress={AddAllSongsToQueue}
-                  songs={Songs}
-                  playlistId={playlistId || ""}
-                  playlistName={playlistName || "Playlist"}
-                />
-              </View>
-            </View>
-          </View>
+          <PlaylistHeader
+            imageUrl={getSafeImageSource(Songs[0] || {})?.uri || getSafeImageSource(Songs[0] || {})}
+            title={playlistName}
+            songCount={Songs.length}
+            playlistId={playlistId}
+            follower={isUserPlaylist ? "User Playlist" : "Imported Playlist"}
+            songsData={Songs}
+          />
         }
         ListFooterComponent={
           chunkLoading && visibleSongs.length < Songs.length ? (
