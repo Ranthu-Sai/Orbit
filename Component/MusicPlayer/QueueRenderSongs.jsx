@@ -64,6 +64,7 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
   const [isPendingAction, setIsPendingAction] = useState(false);
   const flatListRef = useRef(null);
   const operationInProgressRef = useRef(false);
+  const skipNextQueueInitRef = useRef(false); // Skip queue re-init after reorder
 
   // Check network status on component mount
   useEffect(() => {
@@ -111,7 +112,7 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       const allMetadata = await StorageManager.getAllDownloadedSongsMetadata();
 
       if (!allMetadata || Object.keys(allMetadata).length === 0) {
-        console.log('No downloaded songs metadata found in queue');
+        // No downloaded songs metadata found
         return [];
       }
 
@@ -287,6 +288,9 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
     // Skip if dragging or operation in progress
     if (isDragging || operationInProgressRef.current) return;
 
+    // Skip if reorder just completed (let the reordered state persist)
+    if (skipNextQueueInitRef.current) return;
+
     // Debounce rapid updates
     const now = Date.now();
     if (now - lastTrackUpdateRef.current < TRACK_UPDATE_DEBOUNCE) {
@@ -305,8 +309,7 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
 
           // Get the source type for the current track
           const sourceType = track.sourceType || (isLocalTrack(track) ? 'download' : 'online');
-          console.log('Track changed - source type:', sourceType);
-          console.log('Track changed - offline mode:', isOffline);
+          // Track changed - silently update
 
           // Log track details for debugging
           console.log('New track details:', {
@@ -374,6 +377,13 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
   useEffect(() => {
     const initializeQueue = async () => {
       if (isDragging || operationInProgressRef.current) return; // Don't update during operations
+
+      // Skip this init if it was triggered by drag end (queue already reordered)
+      if (skipNextQueueInitRef.current) {
+        skipNextQueueInitRef.current = false;
+        console.log('Skipping queue init - reorder just completed');
+        return;
+      }
 
       try {
         if (currentPlaying) {
@@ -757,18 +767,17 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
 
       operationInProgressRef.current = true;
 
-      // Filter out duplicates and update UI immediately
+      // Filter out duplicates
       const uniqueIds = new Set();
       const uniqueData = data.filter(track => {
         if (!track.id || uniqueIds.has(track.id)) return false;
         uniqueIds.add(track.id);
         return true;
       });
-      setUpcomingQueue(uniqueData);
 
-      // Get the track being moved
-      const movedTrack = uniqueData[to];
-      if (!movedTrack?.id) {
+      // Get the track that was moved (from original position in params.data)
+      const movedTrackId = data[from]?.id;
+      if (!movedTrackId) {
         console.error('Could not identify the moved track');
         setIsDragging(false);
         operationInProgressRef.current = false;
@@ -784,33 +793,59 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         return;
       }
 
-      // Find actual indices in TrackPlayer queue
-      const trackAtFromPosition = data[from];
-      const actualFromIndex = fullQueue.findIndex(t => t.id === trackAtFromPosition?.id);
-      
-      // Calculate target index in actual queue
-      // We need to find where this track should go in the full queue
-      let actualToIndex;
-      
-      if (to === 0) {
-        // Moving to first position in visible queue
-        // Find the first track of same source type in full queue
-        const currentTrack = await TrackPlayer.getActiveTrack();
-        const currentSourceType = currentTrack?.sourceType || (isLocalTrack(currentTrack) ? 'download' : 'online');
-        actualToIndex = fullQueue.findIndex(t => {
-          const tSourceType = t.sourceType || (isLocalTrack(t) ? 'download' : 'online');
-          return tSourceType === currentSourceType;
-        });
-      } else {
-        // Find the track that will be before us in the new order
-        const trackBeforeTarget = uniqueData[to - 1];
-        const beforeIndex = fullQueue.findIndex(t => t.id === trackBeforeTarget?.id);
-        actualToIndex = beforeIndex !== -1 ? beforeIndex + 1 : actualFromIndex;
+      // Find the actual index of the track being moved in TrackPlayer queue
+      const actualFromIndex = fullQueue.findIndex(t => t.id === movedTrackId);
+
+      if (actualFromIndex === -1) {
+        console.error('Track not found in TrackPlayer queue');
+        setIsDragging(false);
+        operationInProgressRef.current = false;
+        return;
       }
 
-      // Adjust if moving down (indices shift after removal)
-      if (actualFromIndex < actualToIndex) {
-        actualToIndex--;
+      // NEW APPROACH: Calculate destination based on the track that will be AFTER the moved track
+      // In uniqueData (the post-drag order), the track at position 'to' is our moved track
+      // The track at position 'to + 1' (if exists) is what should come after it
+      let actualToIndex;
+
+      // Get track that should be at position AFTER our moved track in the new order
+      const trackAfterMoved = uniqueData[to + 1];
+
+      if (trackAfterMoved) {
+        // Find where this "after" track is in the full queue - our moved track goes before it
+        const afterIndex = fullQueue.findIndex(t => t.id === trackAfterMoved.id);
+        if (afterIndex !== -1) {
+          // We want to be right before this track
+          // But if we're moving from below, the index will shift
+          if (actualFromIndex < afterIndex) {
+            actualToIndex = afterIndex - 1;
+          } else {
+            actualToIndex = afterIndex;
+          }
+        } else {
+          // Fallback: no movement if we can't find anchor
+          actualToIndex = actualFromIndex;
+        }
+      } else {
+        // Moving to the end of the visible queue
+        // Find the last visible track and place after it
+        const lastVisibleTrack = uniqueData[uniqueData.length - 1];
+        if (lastVisibleTrack && lastVisibleTrack.id !== movedTrackId) {
+          const lastIndex = fullQueue.findIndex(t => t.id === lastVisibleTrack.id);
+          if (lastIndex !== -1) {
+            // Move to position after the last track
+            if (actualFromIndex <= lastIndex) {
+              actualToIndex = lastIndex;
+            } else {
+              actualToIndex = lastIndex + 1;
+            }
+          } else {
+            actualToIndex = actualFromIndex;
+          }
+        } else {
+          // If the last track IS the moved track, we're already at the end
+          actualToIndex = actualFromIndex;
+        }
       }
 
       console.log('Queue move operation:', {
@@ -818,37 +853,61 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         visualTo: to,
         actualFrom: actualFromIndex,
         actualTo: actualToIndex,
-        trackTitle: movedTrack.title
+        trackTitle: uniqueData[to]?.title || movedTrackId
       });
 
       // Use TrackPlayer.move() - this doesn't interrupt playback!
       if (actualFromIndex !== -1 && actualToIndex !== -1 && actualFromIndex !== actualToIndex) {
         await TrackPlayer.move(actualFromIndex, actualToIndex);
         console.log('Track moved successfully without playback interruption');
+
+        // Small delay to let TrackPlayer queue settle before any follow-up operations
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Update UI with the new order from DraggableFlatList
+        setUpcomingQueue(uniqueData);
+      } else {
+        console.log('No move executed (indices same or invalid) - syncing UI with TrackPlayer');
+        // If no move was needed or possible, sync with actual TrackPlayer state
+        const freshQueue = await TrackPlayer.getQueue();
+        const currentTrack = await TrackPlayer.getActiveTrack();
+        if (freshQueue && currentTrack) {
+          const currentIndex = freshQueue.findIndex(t => t.id === currentTrack.id);
+          // Get just the upcoming tracks (after current)
+          const upcoming = currentIndex >= 0 ? freshQueue.slice(currentIndex) : freshQueue;
+          setUpcomingQueue(upcoming);
+        }
       }
 
-      // Refresh the filtered view
-      const refreshedTrack = await TrackPlayer.getActiveTrack();
-      const refreshedQueue = await filterQueueBySource(refreshedTrack);
+      console.log(`Drag completed - queue updated with ${uniqueData.length} tracks`);
 
-      console.log(`Drag completed - refreshed queue contains ${refreshedQueue.length} tracks`);
-      if (refreshedQueue.length > 0) {
-        const sourceTypes = {};
-        refreshedQueue.forEach(track => {
-          const trackSourceType = track.sourceType || (isLocalTrack(track) ? 'download' : 'online');
-          sourceTypes[trackSourceType] = (sourceTypes[trackSourceType] || 0) + 1;
-          });
-          console.log('Refreshed queue source types:', sourceTypes);
+      // Trigger prefetch for the new next track after reorder
+      // This ensures prefetching works correctly after queue reorder
+      try {
+        const smartPrefetchManager = require('../../Utils/SmartPrefetchManager').default;
+        const currentIndex = await TrackPlayer.getActiveTrackIndex();
+        if (currentIndex !== null && currentIndex !== undefined) {
+          // Prefetch next 2 tracks after reorder
+          smartPrefetchManager._prefetchTrackAtIndex(currentIndex + 1);
+          smartPrefetchManager._prefetchTrackAtIndex(currentIndex + 2);
         }
-
-      setUpcomingQueue(refreshedQueue);
+      } catch (prefetchError) {
+        console.log('Prefetch after reorder error (non-fatal):', prefetchError.message);
+      }
     } catch (error) {
       console.error('Error in drag end handler:', error);
     } finally {
       // Always clean up
+      // Set skip flag BEFORE changing isDragging to prevent useEffect from re-initializing queue
+      skipNextQueueInitRef.current = true;
       setIsDragging(false);
       operationInProgressRef.current = false;
       setLastDraggedSongId(null);
+
+      // Auto-clear the skip flag after a short delay so future track changes work
+      setTimeout(() => {
+        skipNextQueueInitRef.current = false;
+      }, 500);
     }
   }, [isLocalSource, isLocalTrack, isOffline, filterQueueBySource]);
 

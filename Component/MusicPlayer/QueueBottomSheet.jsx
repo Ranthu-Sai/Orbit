@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect } from "react";
+import React, { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import BottomSheet from "@gorhom/bottom-sheet";
 import QueueRenderSongs from "./QueueRenderSongs";
 import { PlainText } from "../Global/PlainText";
@@ -19,6 +19,9 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
   const [reorderMode, setReorderMode] = useState(false);
   const [isSmartShuffleActive, setIsSmartShuffleActive] = useState(false);
   const [isShuffling, setIsShuffling] = useState(false);
+
+  // Memoize snap points
+  const snapPoints = useMemo(() => [40, '20%', '60%'], []);
 
   // Theme-aware colors
   const getBackgroundColor = () => {
@@ -93,7 +96,7 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
       onChange={onChange}
       enablePanDownToClose={enablePanDownToClose}
       animateOnMount={true}
-      snapPoints={[40, '20%', '60%']}
+      snapPoints={snapPoints}
       ref={bottomSheetRef}
       style={{
         backgroundColor: getBackgroundColor(),

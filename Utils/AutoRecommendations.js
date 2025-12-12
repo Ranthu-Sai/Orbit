@@ -132,6 +132,7 @@ class AutoRecommendations {
                     id: songId,
                     language: '',
                     source: 'ytmusic',
+                    sourceType: 'online', // CRITICAL: Set for queue filtering and prefetch
                     isYTMusic: true,
                     isRecommendation: true,
                     _needsStream: true,

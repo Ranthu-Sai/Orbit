@@ -82,6 +82,7 @@ class QueueManager {
                             language: 'unknown',
                             downloadUrl: videoId,
                             source: 'ytmusic',
+                            sourceType: 'online', // CRITICAL: Set for queue filtering and prefetch
                             isYTMusic: true,
                             _needsStream: true // Mark for on-demand fetching
                         };

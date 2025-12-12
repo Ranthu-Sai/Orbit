@@ -20,12 +20,10 @@ const QualityIndicator = ({
     zIndex = 10
 }) => {
     // Don't render if no quality info
-    console.log('🎵 QualityIndicator component called:', { quality, source, top });
     if (!quality) {
-        console.log('⚠️ QualityIndicator: No quality provided, returning null');
         return null;
     }
-    console.log('✅ QualityIndicator: Rendering with quality:', quality);
+    // Rendering quality indicator
 
     // Format quality text with "Now Playing -" prefix
     const formatQuality = (qual) => {

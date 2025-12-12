@@ -419,9 +419,18 @@ class SmartPrefetchManager {
     needsStream(track) {
         if (!track) return false;
 
+        // Explicit flags take priority (set by AddSongsToQueue, AutoRecommendations)
+        if (track._prefetched === true) return false;
+        if (track._needsStream === true) return true;
+
         // Check if it's a YouTube track needing stream
-        const isYTMusic = track.id && typeof track.id === 'string' &&
+        // Check multiple indicators: ID length, isYTMusic flag, source property
+        const hasYouTubeIdFormat = track.id && typeof track.id === 'string' &&
             track.id.length === 11 && !track.isLocalMusic;
+        const hasYTMusicFlag = track.isYTMusic === true;
+        const hasYTMusicSource = track.source === 'ytmusic';
+
+        const isYTMusic = hasYouTubeIdFormat || hasYTMusicFlag || hasYTMusicSource;
 
         if (!isYTMusic) return false;
 

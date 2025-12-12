@@ -78,7 +78,7 @@ class HistoryManager {
 
       // Check if we're already tracking this same song
       if (this.isTracking && this.currentTrack && this.currentTrack.id === song.id) {
-        console.log(`HistoryManager: Already tracking "${song.title}"`);
+        // Already tracking this song - silently return
         return;
       }
 

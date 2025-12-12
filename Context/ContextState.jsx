@@ -58,7 +58,6 @@ const ContextState = (props) => {
         try {
             const tracks = await TrackPlayer.getQueue();
             // await SetQueueSongs(tracks)
-            console.log(tracks);
             const ids = tracks.map((e) => e.id)
             const queuesId = Queue.map((e) => e.id)
             if (JSON.stringify(ids) !== JSON.stringify(queuesId)) {
@@ -125,7 +124,7 @@ const ContextState = (props) => {
     useTrackPlayerEvents(events, async (event) => {
         // CRITICAL ROOT FIX: Prevent any handling before player is explicitly ready
         if (!isPlayerReady.current) {
-            console.log('Race condition prevented: Event ignored because player is not ready.', event.type);
+            // Silently ignore events when player is not ready (prevents log spam)
             return;
         }
 
@@ -230,7 +229,10 @@ const ContextState = (props) => {
                 console.log('💾 Restoring saved player state...');
                 setQueue(savedState.queue);
                 setCurrentPlaying(savedState.activeTrack);
-                setIndex(savedState.activeIndex);
+                // Clamp index to valid range (0-1) for BottomSheetMusic which has 2 snap points
+                // This prevents crash when restoring old cached state with index 2
+                const clampedIndex = Math.min(Math.max(savedState.activeIndex || 0, 0), 1);
+                setIndex(clampedIndex);
                 // Note: We don't set isPlayerReady=true here because TrackPlayer native isn't ready.
                 // But setting React state ensures MiniPlayer appears immediately.
             }

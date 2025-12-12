@@ -11,7 +11,7 @@ import { useQueueManager } from './useQueueManager';
  * - Error state handling
  */
 
-export const QueueStateManager = ({ 
+export const QueueStateManager = ({
   children,
   onQueueChange = null,
   onQueueEmpty = null,
@@ -69,10 +69,10 @@ export const QueueStateManager = ({
           isLocalSource,
           timestamp: Date.now()
         };
-        
+
         // Store in AsyncStorage or similar
         // This would need to be implemented based on storage preference
-        console.log('QueueStateManager: Persisting queue data', queueData);
+        // console.log('QueueStateManager: Persisting queue data', queueData);
       } catch (error) {
         console.error('Error persisting queue:', error);
         if (onQueueError) {
@@ -90,7 +90,7 @@ export const QueueStateManager = ({
           // This would restore from AsyncStorage or similar
           // Implementation depends on storage preference
           console.log('QueueStateManager: Attempting to restore queue');
-          
+
           // For now, just reinitialize
           await initializeQueue();
         } catch (error) {
@@ -100,7 +100,7 @@ export const QueueStateManager = ({
           }
         }
       };
-      
+
       restoreQueue();
     }
   }, [autoRestore, upcomingQueue.length, initializeQueue, onQueueError]);

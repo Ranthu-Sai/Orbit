@@ -465,6 +465,8 @@ async function AddPlaylist(songs, startSongId = null) {
           playbackUrl = `ytmusic://${song.id || song.videoId}`;
           updatedSong._needsStream = true;
           updatedSong.isYTMusic = true;
+          updatedSong.source = 'ytmusic';
+          updatedSong.sourceType = 'online'; // CRITICAL: Set sourceType for queue filtering
           updatedSong.url = playbackUrl;
           updatedSong.currentPlayingQuality = currentQuality;
         }
@@ -616,6 +618,7 @@ async function AddSongsToQueue(songs) {
         _needsStream: true,
         isYTMusic: true,
         source: 'ytmusic',
+        sourceType: 'online', // CRITICAL: Set sourceType for queue filtering
         currentPlayingQuality: currentQuality,
         // Ensure artwork is set correctly using helper
         artwork: extractArtwork(song),
