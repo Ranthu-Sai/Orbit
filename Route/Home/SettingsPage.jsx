@@ -17,6 +17,10 @@ import {
   SetThemePreference,
   SetColorScheme,
   SetMusicSource,
+  GetLyricsProvider,
+  SetLyricsProvider,
+  GetLyricsAnimationStyle,
+  SetLyricsAnimationStyle,
 } from "../../LocalStorage/AppSettings";
 import { useEffect, useState } from "react";
 import { useTheme } from "@react-navigation/native";
@@ -34,17 +38,20 @@ export const SettingsPage = ({ navigation }) => {
   const [themePreference, setThemePreference] = useState(settingsConfig.defaults.themePreference);
   const [colorScheme, setColorScheme] = useState(settingsConfig.defaults.colorScheme);
   const [musicSource, setMusicSource] = useState(settingsConfig.defaults.musicSource);
+  const [lyricsProvider, setLyricsProvider] = useState(settingsConfig.defaults.lyricsProvider);
+  const [lyricsAnimationStyle, setLyricsAnimationStyle] = useState(settingsConfig.defaults.lyricsAnimationStyle);
   const [downloadPathInfo, setDownloadPathInfo] = useState(null);
 
   async function loadSettings() {
     try {
-      const [fontSize, playbackQuality, downloadPath, themePref, colorSchemePref, musicSourcePref] = await Promise.all([
+      const [fontSize, playbackQuality, downloadPath, themePref, colorSchemePref, musicSourcePref, lyricsProviderPref] = await Promise.all([
         GetFontSizeValue(),
         GetPlaybackQuality(),
         GetDownloadPath(),
         GetThemePreference(),
         GetColorScheme(),
-        GetMusicSource()
+        GetMusicSource(),
+        GetLyricsProvider()
       ]);
 
       setFont(fontSize || settingsConfig.defaults.fontSize);
@@ -53,6 +60,22 @@ export const SettingsPage = ({ navigation }) => {
       setThemePreference(themePref || settingsConfig.defaults.themePreference);
       setColorScheme(colorSchemePref || settingsConfig.defaults.colorScheme);
       setMusicSource(musicSourcePref || settingsConfig.defaults.musicSource);
+      setMusicSource(musicSourcePref || settingsConfig.defaults.musicSource);
+      setLyricsProvider(lyricsProviderPref || settingsConfig.defaults.lyricsProvider);
+
+      const loadedLyricsAnimationStyle = await GetLyricsAnimationStyle();
+      setLyricsAnimationStyle(loadedLyricsAnimationStyle || settingsConfig.defaults.lyricsAnimationStyle);
+
+      if (fontSize && fontSize !== undefined) setFont(fontSize);
+      if (playbackQuality && playbackQuality !== undefined) setPlayback(playbackQuality);
+      // Simplified loaded logic for new params:
+      // The array destructuring above maps the resolved promises. 
+      // The last element (added) corresponds to GetLyricsProvider().
+      // Let's correct the index access or just use the destructured variables properly.
+      // Wait, let's fix the destructuring in line 41 first.
+
+      // Let's rewrite the loadSettings simpler to match the structure.
+
 
       // Load download path information
       const pathInfo = await StorageManager.getDownloadPathInfo();
@@ -184,6 +207,44 @@ export const SettingsPage = ({ navigation }) => {
       console.error('Error updating music source:', error);
       ToastAndroid.showWithGravity(
         'Failed to update music source',
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+    }
+  }
+
+  async function handleLyricsProviderChange(value) {
+    try {
+      await SetLyricsProvider(value);
+      setLyricsProvider(value);
+      ToastAndroid.showWithGravity(
+        `Lyrics provider changed to ${value}`,
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+    } catch (error) {
+      console.error('Error updating lyrics provider:', error);
+      ToastAndroid.showWithGravity(
+        'Failed to update lyrics provider',
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+    }
+  }
+
+  async function handleLyricsAnimationStyleChange(value) {
+    try {
+      await SetLyricsAnimationStyle(value);
+      setLyricsAnimationStyle(value);
+      ToastAndroid.showWithGravity(
+        `Lyrics animation style changed to ${value}`,
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+    } catch (error) {
+      console.error('Error updating lyrics animation style:', error);
+      ToastAndroid.showWithGravity(
+        'Failed to update lyrics animation style',
         ToastAndroid.SHORT,
         ToastAndroid.CENTER,
       );
@@ -330,6 +391,20 @@ export const SettingsPage = ({ navigation }) => {
             data={settingsConfig.musicSources}
             selectedValue={musicSource}
             onSelect={handleMusicSourceChange}
+          />
+          <DropDownMenu
+            title="Lyrics Provider"
+            icon="text-box-search"
+            data={settingsConfig.lyricsProviders}
+            selectedValue={lyricsProvider}
+            onSelect={handleLyricsProviderChange}
+          />
+          <DropDownMenu
+            title="Lyrics Animation"
+            icon="animation-play"
+            data={settingsConfig.lyricsAnimationStyles}
+            selectedValue={lyricsAnimationStyle}
+            onSelect={handleLyricsAnimationStyleChange}
           />
 
           <View style={{ padding: 16 }}>

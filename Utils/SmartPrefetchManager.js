@@ -308,11 +308,14 @@ class SmartPrefetchManager {
     }
 
     /**
-     * Replace a track in queue with updated URL (non-blocking, fire-and-forget)
+     * Replace a track in queue with updated URL
+     * CRITICAL FIX: MUST await completion to prevent playback errors
      */
     async _replaceTrackInQueue(index, originalTrack, streamData) {
-        // Reuse the wait logic but don't await it (fire and forget for background)
-        this.replaceTrackAndWait(index, originalTrack, streamData);
+        // WAIT for replacement to complete - this is CRITICAL
+        // Previous fire-and-forget caused race conditions where player
+        // would advance to tracks before their URLs were updated
+        await this.replaceTrackAndWait(index, originalTrack, streamData);
     }
 
     /**

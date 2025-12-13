@@ -12,7 +12,7 @@ async function getSearchSongData(searchText, page, limit) {
       if (error.response && error.response.status >= 500) {
         console.error(`Server error fetching search data for "${searchText}":`, error.response.data);
         return { success: false, results: [], error: 'Server Error' };
-      } 
+      }
       throw error;
     }
   };
@@ -177,8 +177,8 @@ function filterValidArtists(artists) {
 
     // Filter out obvious collaborative/dummy artists by name patterns
     const isDummyArtist = artist?.name?.includes('&') ||
-                         artist?.name?.includes(',') ||
-                         artist?.name?.includes('amp;');
+      artist?.name?.includes(',') ||
+      artist?.name?.includes('amp;');
 
     return hasValidImage && !isDummyArtist;
   });
@@ -206,7 +206,7 @@ async function getSearchArtistData(searchText, page, limit) {
       method: 'get',
       maxBodyLength: Infinity,
       url: `https://jiosavan-api-with-playlist.vercel.app/api/search/artists?query=${searchText}&page=${page}&limit=${limit}`,
-      headers: { },
+      headers: {},
     };
 
     try {
@@ -370,4 +370,118 @@ async function getLyricsFromLrcLib(artist, title) {
   return getCachedData(cacheKey, fetchFunction, 1440, CACHE_GROUPS.LYRICS);
 }
 
-export { getSearchSongData, getArtistSongs, getArtistSongsPaginated, getAlbumSongs, getSearchArtistData, getArtistDetails, getArtistAlbums, getArtistAlbumsPaginated, validateArtist, filterValidArtists, getLyricsFromLrcLib };
+export { getSearchSongData, getArtistSongs, getArtistSongsPaginated, getAlbumSongs, getSearchArtistData, getArtistDetails, getArtistAlbums, getArtistAlbumsPaginated, validateArtist, filterValidArtists, getLyricsFromLrcLib, getLyricsFromBetterLyrics, getUnifiedLyrics };
+
+// TTML Parser Helper
+function parseTTML(ttml) {
+  try {
+    const lyrics = [];
+    const lines = ttml.match(/<p\s+begin="([^"]+)"[^>]*>(.*?)<\/p>/g);
+
+    if (!lines) return [];
+
+    lines.forEach(line => {
+      const match = line.match(/<p\s+begin="([^"]+)"[^>]*>(.*?)<\/p>/);
+      if (match) {
+        const timeStr = match[1];
+        const textContent = match[2];
+
+        // Parse time (MM:SS.mmm or HH:MM:SS.mmm)
+        let time = 0;
+        const timeParts = timeStr.split(':');
+        if (timeParts.length === 2) {
+          time = (parseInt(timeParts[0]) * 60 * 1000) + (parseFloat(timeParts[1]) * 1000);
+        } else if (timeParts.length === 3) {
+          time = (parseInt(timeParts[0]) * 3600 * 1000) + (parseInt(timeParts[1]) * 60 * 1000) + (parseFloat(timeParts[2]) * 1000);
+        }
+
+        // Clean up text (remove span tags if any)
+        const text = textContent.replace(/<span[^>]*>/g, '').replace(/<\/span>/g, '').trim();
+
+        if (text) {
+          // Format to LRC timestamp [MM:SS.xx]
+          const mm = Math.floor(time / 60000).toString().padStart(2, '0');
+          const ss = Math.floor((time % 60000) / 1000).toString().padStart(2, '0');
+          const xx = Math.floor((time % 1000) / 10).toString().padStart(2, '0');
+
+          lyrics.push(`[${mm}:${ss}.${xx}]${text}`);
+        }
+      }
+    });
+
+    return lyrics.join('\n');
+  } catch (error) {
+    console.error('Error parsing TTML:', error);
+    return '';
+  }
+}
+
+async function getLyricsFromBetterLyrics(artist, title, duration) {
+  if (!artist || !title) {
+    return { success: false, message: 'Missing artist or title' };
+  }
+
+  // Extract the main song name
+  const cleanTitle = title
+    .split('(')[0]
+    .split('[')[0]
+    .replace(/\.{3}$/g, '')
+    .trim();
+
+  const cleanArtist = artist.split(',')[0].trim();
+  const cacheKey = `better_lyrics_${cleanArtist.toLowerCase()}_${cleanTitle.toLowerCase()}`;
+
+  const fetchFunction = async () => {
+    try {
+      const url = `https://lyrics-api-go-better-lyrics-api-pr-12.up.railway.app/getLyrics?s=${encodeURIComponent(cleanTitle)}&a=${encodeURIComponent(cleanArtist)}${duration ? `&d=${Math.floor(duration * 1000)}` : ''}`;
+      console.log('Fetching BetterLyrics from:', url);
+
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.ttml) {
+          const syncedLyrics = parseTTML(data.ttml);
+          if (syncedLyrics) {
+            return {
+              success: true,
+              data: {
+                syncedLyrics: syncedLyrics,
+                plainLyrics: syncedLyrics.replace(/\[\d{2}:\d{2}\.\d{2,3}\]/g, '')
+              }
+            };
+          }
+        }
+      }
+    } catch (error) {
+      console.error('BetterLyrics fetch failed:', error);
+    }
+    return { success: false, message: 'No lyrics found on BetterLyrics' };
+  };
+
+  return getCachedData(cacheKey, fetchFunction, 1440, CACHE_GROUPS.LYRICS);
+}
+
+// Unified lyrics fetcher with fallback logic
+async function getUnifiedLyrics(artist, title, duration, preferredProvider = 'LrcLib') {
+  console.log(`Getting unified lyrics. Preferred: ${preferredProvider}`);
+
+  let primaryProvider = getLyricsFromLrcLib;
+  let secondaryProvider = getLyricsFromBetterLyrics;
+
+  if (preferredProvider === 'BetterLyrics') {
+    primaryProvider = getLyricsFromBetterLyrics;
+    secondaryProvider = getLyricsFromLrcLib;
+  }
+
+  // Try primary provider
+  const primaryResult = await primaryProvider(artist, title, duration);
+  if (primaryResult.success) {
+    return primaryResult;
+  }
+
+  console.log(`${preferredProvider} failed. Trying fallback.`);
+
+  // Try secondary provider
+  const secondaryResult = await secondaryProvider(artist, title, duration);
+  return secondaryResult;
+}

@@ -231,8 +231,8 @@ const ContextState = (props) => {
                 setCurrentPlaying(savedState.activeTrack);
                 // Clamp index to valid range (0-1) for BottomSheetMusic which has 2 snap points
                 // This prevents crash when restoring old cached state with index 2
-                const clampedIndex = Math.min(Math.max(savedState.activeIndex || 0, 0), 1);
-                setIndex(clampedIndex);
+                // Always start with MiniPlayer (Index 0), regardless of which song was playing
+                setIndex(0);
                 // Note: We don't set isPlayerReady=true here because TrackPlayer native isn't ready.
                 // But setting React state ensures MiniPlayer appears immediately.
             }

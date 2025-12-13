@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useContext, useCallback } from 'react';
-import { ShowLyrics } from './ShowLyrics';
+import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
+import LyricsPage from './LyricsPage';
 import { GetLyricsButton } from './GetLyricsButton';
-import { getLyricsFromLrcLib } from '../../Api/Songs';
+import { getUnifiedLyrics } from '../../Api/Songs';
+import { GetLyricsProvider } from '../../LocalStorage/AppSettings';
 
 // Constants for error messages
 const ERROR_MESSAGES = {
@@ -12,18 +13,42 @@ const ERROR_MESSAGES = {
   FETCH_ERROR: 'Could not fetch lyrics. Please try again.'
 };
 
+const parseLRC = (lrcString) => {
+  if (!lrcString) return [];
+  const lines = lrcString.split('\n');
+  const lyrics = [];
+  const timeRegex = /^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$/;
+
+  lines.forEach(line => {
+    const match = line.match(timeRegex);
+    if (match) {
+      const minutes = parseInt(match[1], 10);
+      const seconds = parseInt(match[2], 10);
+      const msString = match[3];
+      const milliseconds = parseInt(msString.length === 2 ? msString + '0' : msString, 10);
+      const time = (minutes * 60 * 1000) + (seconds * 1000) + milliseconds;
+      const text = match[4].trim();
+      if (text) {
+        lyrics.push({ time, text });
+      }
+    }
+  });
+  return lyrics.sort((a, b) => a.time - b.time);
+};
+
 /**
  * Handles fetching and displaying lyrics for the currently playing track
  */
-export const LyricsHandler = ({ 
-  currentPlayingTrack, 
-  isOffline, 
-  onLyricsVisibilityChange, 
+export const LyricsHandler = ({
+  currentPlayingTrack,
+  isOffline,
+  onLyricsVisibilityChange,
   currentArtworkSource,
   iconColor,
 }) => {
   const [showDialog, setShowDialog] = useState(false);
-  const [lyric, setLyric] = useState(null);
+  const [lyricData, setLyricData] = useState([]); // Array of {time, text} or empty
+  const [errorMessage, setErrorMessage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   // Notify parent component about dialog visibility changes
@@ -34,7 +59,8 @@ export const LyricsHandler = ({
   // Clear lyrics when dialog is closed to prevent stale data
   useEffect(() => {
     if (!showDialog) {
-      setLyric(null);
+      setLyricData([]);
+      setErrorMessage(null);
     }
   }, [currentPlayingTrack?.id, showDialog]);
 
@@ -43,41 +69,49 @@ export const LyricsHandler = ({
    */
   const fetchLyrics = useCallback(async () => {
     if (!currentPlayingTrack?.title || !currentPlayingTrack?.artist) {
-      setLyric({ plain: ERROR_MESSAGES.NO_TRACK });
+      setErrorMessage(ERROR_MESSAGES.NO_TRACK);
       setShowDialog(true);
       return;
     }
 
     setShowDialog(true);
     setIsLoading(true);
-    setLyric(null);
+    setLyricData([]);
+    setErrorMessage(null);
 
     try {
       if (isOffline) {
-        setLyric({ plain: ERROR_MESSAGES.OFFLINE });
+        setErrorMessage(ERROR_MESSAGES.OFFLINE);
         return;
       }
 
-      const { artist, title } = currentPlayingTrack;
-      const lyricsData = await getLyricsFromLrcLib(artist, title);
+      const { artist, title, duration } = currentPlayingTrack;
+      const providerPreference = await GetLyricsProvider();
+      const lyricsData = await getUnifiedLyrics(artist, title, duration, providerPreference);
 
       if (!lyricsData?.success) {
-        setLyric({ plain: lyricsData?.message || ERROR_MESSAGES.NOT_FOUND });
+        setErrorMessage(lyricsData?.message || ERROR_MESSAGES.NOT_FOUND);
         return;
       }
 
       const { syncedLyrics, plainLyrics } = lyricsData.data || {};
-      
+
       if (syncedLyrics) {
-        setLyric({ synced: syncedLyrics, plain: plainLyrics });
+        setLyricData(parseLRC(syncedLyrics));
       } else if (plainLyrics) {
-        setLyric({ plain: plainLyrics });
+        // Handle plain lyrics by creating a single item or just splitting by newline without time
+        // For now, LyricsPage expects distinct lines with time. 
+        // We can create dummy time or handle plain text display in LyricsPage.
+        // Let's split plain text into lines with 0 time for now, or handle specifically.
+        // Actually, let's just use 0 time for all to show them in list.
+        const lines = plainLyrics.split('\n').filter(t => t.trim()).map(text => ({ time: 0, text }));
+        setLyricData(lines);
       } else {
-        setLyric({ plain: ERROR_MESSAGES.EMPTY_LYRICS });
+        setErrorMessage(ERROR_MESSAGES.EMPTY_LYRICS);
       }
     } catch (error) {
       console.error('Error fetching lyrics:', error);
-      setLyric({ plain: ERROR_MESSAGES.FETCH_ERROR });
+      setErrorMessage(ERROR_MESSAGES.FETCH_ERROR);
     } finally {
       setIsLoading(false);
     }
@@ -86,12 +120,12 @@ export const LyricsHandler = ({
   return (
     <>
       <GetLyricsButton onPress={fetchLyrics} color={iconColor} />
-      <ShowLyrics
-        ShowDailog={showDialog}
-        Loading={isLoading}
-        Lyric={lyric}
-        setShowDailog={setShowDialog}
-        currentArtworkSource={currentArtworkSource}
+      <LyricsPage
+        visible={showDialog}
+        onClose={() => setShowDialog(false)}
+        currentSong={currentPlayingTrack}
+        lyrics={errorMessage ? [{ time: 0, text: errorMessage }] : lyricData}
+        isLoading={isLoading}
       />
     </>
   );

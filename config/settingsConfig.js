@@ -6,7 +6,7 @@ export const settingsConfig = {
     { label: 'Medium', value: 'Medium' },
     { label: 'Large', value: 'Large' }
   ],
-  
+
   // Playback quality options (in kbps)
   playbackQualities: [
     { label: '(48 kbps)', value: '48kbps' },
@@ -14,7 +14,7 @@ export const settingsConfig = {
     { label: '(160 kbps)', value: '160kbps' },
     { label: '(320 kbps)', value: '320kbps' }
   ],
-  
+
   // Download path options
   downloadPaths: [
     { label: 'Music', value: 'Music' },
@@ -24,7 +24,20 @@ export const settingsConfig = {
   // Music source options
   musicSources: [
     { label: 'Ytmusic', value: 'Ytmusic' },
-    { label: 'Savaan', value: 'Savaan' }
+    { label: 'Saavn', value: 'Savaan' }
+  ],
+
+  // Lyrics provider options
+  lyricsProviders: [
+    { label: 'LrcLib (Default)', value: 'LrcLib' },
+    { label: 'BetterLyrics', value: 'BetterLyrics' }
+  ],
+
+  // Lyrics animation styles
+  lyricsAnimationStyles: [
+    { label: 'Smooth (Default)', value: 'Smooth' },
+    { label: 'Fade', value: 'Fade' },
+    { label: 'None', value: 'None' }
   ],
 
   // Default values
@@ -34,7 +47,9 @@ export const settingsConfig = {
     downloadPath: 'Downloads',
     themePreference: 'dark',
     colorScheme: 'default',
-    musicSource: 'Ytmusic'
+    musicSource: 'Ytmusic',
+    lyricsProvider: 'LrcLib',
+    lyricsAnimationStyle: 'Smooth'
   }
 };
 
