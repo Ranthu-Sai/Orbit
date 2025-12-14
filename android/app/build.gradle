@@ -138,17 +138,27 @@ android {
                 exclude "**/libhermes.so"
                 exclude "**/libhermes-executor-debug.so"
                 exclude "**/libhermes-executor-release.so"
-                
-                // More specific exclude for CodePushHash
-                exclude "**/CodePushHash"
-                exclude "assets/CodePushHash"
-                exclude "assets/**/CodePushHash"
                 doNotStrip "*/armeabi-v7a/libcodepush.so"
                 doNotStrip "*/arm64-v8a/libcodepush.so"
                 doNotStrip "*/x86/libcodepush.so"
                 doNotStrip "*/x86_64/libcodepush.so"
-                resources {
-                    excludes += ['**/CodePushHash', 'assets/CodePushHash']
+            }
+        }
+    }
+    
+    // Task to clean duplicate CodePushHash files before merging assets
+    afterEvaluate {
+        tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.each { mergeTask ->
+            mergeTask.doFirst {
+                def assetsDir = file("$buildDir/generated/assets")
+                if (assetsDir.exists()) {
+                    def codePushHashFiles = fileTree(assetsDir) {
+                        include "**/CodePushHash"
+                    }
+                    codePushHashFiles.each { file ->
+                        println "Deleting duplicate CodePushHash: ${file.absolutePath}"
+                        file.delete()
+                    }
                 }
             }
         }

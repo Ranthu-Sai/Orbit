@@ -255,26 +255,32 @@ const getAllDownloadedSongsMetadata = async () => {
 // Removes a song's metadata and its associated files
 const removeDownloadedSongMetadata = async (songId) => {
   try {
-    // Remove from AsyncStorage
+    // Get metadata BEFORE deletion to access song info
     const allMetadata = await getAllDownloadedSongsMetadata();
+    const metadata = allMetadata[songId];
+
+    // Delete song and artwork files from external storage
+    if (metadata) {
+      const songPath = await getSongPath(songId, metadata.title);
+      const artworkPath = await getArtworkPath(songId);
+
+      if (await safeExists(songPath)) {
+        await RNFS.unlink(songPath);
+        console.log(`Deleted song file: ${songPath}`);
+      }
+      if (await safeExists(artworkPath)) {
+        await RNFS.unlink(artworkPath);
+        console.log(`Deleted artwork file: ${artworkPath}`);
+      }
+    }
+
+    // Remove from AsyncStorage after files are deleted
     if (allMetadata[songId]) {
       delete allMetadata[songId];
       await AsyncStorage.setItem(
         STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
         JSON.stringify(allMetadata),
       );
-    }
-
-    // Delete song and artwork files
-    const metadata = allMetadata[songId];
-    const songPath = await getSongPath(songId, metadata?.title);
-    const artworkPath = await getArtworkPath(songId);
-
-    if (await safeExists(songPath)) {
-      await RNFS.unlink(songPath);
-    }
-    if (await safeExists(artworkPath)) {
-      await RNFS.unlink(artworkPath);
     }
   } catch (error) {
     console.error(`Error removing downloaded song ${songId}:`, error);
