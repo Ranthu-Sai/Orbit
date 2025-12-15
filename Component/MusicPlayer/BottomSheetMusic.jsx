@@ -360,13 +360,12 @@ const BottomSheetMusic = React.memo(({ color }) => {
       <BottomSheetView
         style={{
           ...styles.contentContainer,
-          backgroundColor: color || colors.musicPlayerBg,
         }}
       >
         {Index !== 1 ? (
           <MinimizedMusic
             setIndex={updateIndex}
-            color={colors.musicPlayerBg}
+            color="transparent"
           />
         ) : (
           <FullScreenMusic

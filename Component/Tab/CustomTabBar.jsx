@@ -4,6 +4,7 @@ import { Home, Compass, ListMusic } from "lucide-react-native";
 import Animated, { withSpring, useAnimatedStyle, withTiming, FadeIn } from "react-native-reanimated";
 import Context from "../../Context/Context";
 import { useTheme } from "@react-navigation/native";
+import { useActiveTrack } from "react-native-track-player";
 import { Text } from "react-native-paper";
 
 // Extracted TabItem component to safe-guard Hooks at top level
@@ -141,12 +142,15 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
     previousFullscreenState.current = (Index === 1);
   }, [Index, navigation, musicPreviousScreen]);
 
+  const activeTrack = useActiveTrack();
+  const isPlayerActive = activeTrack != null;
+
   // Hide tab bar when in fullscreen mode OR when keyboard is visible
   if (Index === 1 || isKeyboardVisible) return null;
 
   return (
     <View style={[styles.mainContainer, {
-      backgroundColor: dark ? 'rgba(18, 18, 18, 0.85)' : 'rgba(255, 255, 255, 0.85)', // More transparent (reduced from 0.95)
+      backgroundColor: isPlayerActive ? 'transparent' : (dark ? 'rgba(18, 18, 18, 0.90)' : 'rgba(255, 255, 255, 0.90)'), // Transparent if player provides background
       borderTopColor: dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
     }]}>
       {state.routes.map((route, index) => (
