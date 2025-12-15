@@ -80,7 +80,7 @@ export const Slide2 = ({ navigation }) => {
     } else {
       const Lang = selectedLanguages.join(",");
       await SetLanguageValue(Lang);
-      navigation.replace("Slide3");
+      navigation.replace("MainRoute");
     }
   };
 
