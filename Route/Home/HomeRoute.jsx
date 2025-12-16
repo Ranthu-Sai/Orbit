@@ -14,6 +14,7 @@ import { RegisterScreen } from "../RegisterScreen";
 import { ChangeName } from "./ChangeName";
 import { SelectLanguages } from "./SelectLanguages";
 import ShowPlaylistofType from "../../Component/Discover/ShowPlaylistofType";
+import { HistoryPage } from "../Library/HistoryPage";
 
 const Stack = createNativeStackNavigator();
 export const HomeRoute = () => {
@@ -69,6 +70,7 @@ export const HomeRoute = () => {
       <Stack.Screen name={"LikedSongs"} component={LikedSongPage} />
       <Stack.Screen name={"LikedPlaylists"} component={LikedPlaylistPage} />
       <Stack.Screen name={"Settings"} component={SettingsPage} />
+      <Stack.Screen name={"HistoryPage"} component={HistoryPage} />
       <Stack.Screen
         name={"Login"}
         component={LoginScreen}
