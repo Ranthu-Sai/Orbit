@@ -1,5 +1,6 @@
 import { getCachedData, CACHE_GROUPS } from './CacheManager';
 import YouTubeMusicService from '../Utils/YouTubeMusicService';
+import InnerTubeClient from './InnertubeClient';
 import { upgradeArtworkQuality } from '../Utils/YTMusicArtworkUtils';
 
 
@@ -1045,6 +1046,259 @@ async function getYTMusicArtistAlbumsPaginated(artistId, page = 1, limit = 20) {
   }
 }
 
+// New function to get new releases (albums AND singles) using OuterTune/ArchiveTune approach
+async function getYTMusicNewReleases(limit = 20, forceRefresh = false) {
+  const cacheKey = `ytmusic_new_releases_limit_${limit}`;
+
+  const fetchFunction = async () => {
+    try {
+      console.log('🌐 YTMusic New Releases - Fetching from FEmusic_explore...');
+
+      // Use the explore endpoint to get both albums and singles
+      const data = await InnerTubeClient.request('browse', {
+        browseId: 'FEmusic_explore'
+      });
+
+      if (data && data.contents) {
+        console.log('📦 YTMusic New Releases - Received explore response');
+
+        const allAlbums = [];
+
+        // Parse all carousel sections from explore
+        const sections = data.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]
+          ?.tabRenderer?.content?.sectionListRenderer?.contents || [];
+
+        console.log(`📋 Found ${sections.length} sections in explore`);
+
+        sections.forEach((section, sectionIdx) => {
+          const carousel = section.musicCarouselShelfRenderer;
+
+          if (carousel) {
+            const sectionTitle = carousel.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.[0]?.text || '';
+            const browseEndpoint = carousel.header?.musicCarouselShelfBasicHeaderRenderer?.moreContentButton?.buttonRenderer?.navigationEndpoint?.browseEndpoint?.browseId;
+
+            // Look for new releases sections (albums or singles)
+            if (browseEndpoint && browseEndpoint.includes('new_releases')) {
+              console.log(`  Section ${sectionIdx}: "${sectionTitle}" (${carousel.contents?.length || 0} items)`);
+
+              carousel.contents?.forEach((item, idx) => {
+                const renderer = item.musicTwoRowItemRenderer;
+
+                if (renderer) {
+                  const title = renderer.title?.runs?.[0]?.text;
+                  const browseId = renderer.navigationEndpoint?.browseEndpoint?.browseId;
+                  const thumbnails = renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+                  const subtitleRuns = renderer.subtitle?.runs || [];
+
+                  // Check if album has a playlistId (indicates it has playable songs)
+                  const playlistId = renderer.thumbnailOverlay?.musicItemThumbnailOverlayRenderer?.content
+                    ?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchPlaylistEndpoint?.playlistId;
+
+                  // Extract artist and year from subtitle
+                  const subtitle = subtitleRuns.map(r => r.text).join('');
+                  const year = subtitleRuns[subtitleRuns.length - 1]?.text?.match(/^\d{4}$/)
+                    ? subtitleRuns[subtitleRuns.length - 1].text
+                    : '';
+
+                  // Only include albums with playlistId (playable albums)
+                  if (browseId && title && playlistId) {
+                    const itemType = browseEndpoint.includes('singles') ? 'single' : 'album';
+                    console.log(`    ${idx}: "${title}" (${itemType}, ${subtitle}) ✓ playable`);
+
+                    const album = transformYTToSaavnAlbum({
+                      id: browseId,
+                      browseId: browseId,
+                      title: title,
+                      thumbnails: thumbnails || [],
+                      artist: subtitle,
+                      year: year
+                    });
+                    allAlbums.push(album);
+                  } else if (browseId && title && !playlistId) {
+                    console.log(`    ${idx}: "${title}" ✗ skipped (no playlistId)`);
+                  }
+                }
+              });
+            }
+          }
+        });
+
+        console.log(`✅ YTMusic New Releases - Transformed ${allAlbums.length} items (albums + singles)`);
+
+        // Limit the results
+        const limitedAlbums = allAlbums.slice(0, limit);
+
+        return {
+          status: "SUCCESS",
+          message: `Found ${limitedAlbums.length} new releases`,
+          data: limitedAlbums,
+          success: true
+        };
+      }
+
+      console.log('⚠️ YTMusic New Releases - No explore data found');
+      return {
+        status: "SUCCESS",
+        message: "No new releases found",
+        data: [],
+        success: false
+      };
+    } catch (error) {
+      console.error('❌ YTMusic new releases error:', error);
+      return {
+        status: "FAILED",
+        message: error.message || "Failed to fetch new releases",
+        data: [],
+        success: false
+      };
+    }
+  };
+
+  try {
+    return await getCachedData(cacheKey, fetchFunction, 3600, CACHE_GROUPS.HOME, forceRefresh); // Cache for 1 hour
+  } catch (error) {
+    console.error('Error getting YTMusic new releases:', error);
+    return {
+      success: false,
+      data: [],
+      error: error.message || 'Network or Cache Error'
+    };
+  }
+}
+
+// Function to fetch Charts (Top Songs, Top Videos, Trending, etc.)
+async function getYTMusicCharts(forceRefresh = false) {
+  const cacheKey = `ytmusic_charts_v2`;
+
+  const fetchFunction = async () => {
+    try {
+      console.log(`🌐 YTMusic Charts - Fetching global/local charts...`);
+
+      // Just fetch the charts page with default context
+      const data = await InnerTubeClient.request('browse', {
+        browseId: 'FEmusic_charts',
+        params: 'ggMGCgQIgAQ%3D'
+      });
+
+      if (data && data.contents) {
+        console.log('📦 YTMusic Charts - Received response');
+
+        const charts = [];
+        const artists = [];
+        const seenIds = new Set(); // Prevent duplicates
+
+        // Parse sections for charts
+        const sections = data.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]
+          ?.tabRenderer?.content?.sectionListRenderer?.contents || [];
+
+        console.log('🔍 Analyzing response sections:', sections.length);
+
+        sections.forEach(section => {
+          let sectionTitle = '';
+          let items = [];
+
+          // 1. CAROUSEL
+          if (section.musicCarouselShelfRenderer) {
+            const r = section.musicCarouselShelfRenderer;
+            sectionTitle = r.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.[0]?.text;
+            items = r.contents || [];
+          }
+          // 2. SHELF (Vertical List)
+          else if (section.musicShelfRenderer) {
+            const r = section.musicShelfRenderer;
+            sectionTitle = r.header?.musicShelfRendererHeader?.title?.runs?.[0]?.text
+              || r.title?.runs?.[0]?.text;
+            items = r.contents || [];
+          }
+          // 3. GRID
+          else if (section.gridRenderer) {
+            const r = section.gridRenderer;
+            sectionTitle = r.header?.gridHeaderRenderer?.title?.runs?.[0]?.text;
+            items = r.items || [];
+          }
+
+          // Process items found in this section
+          items.forEach(item => {
+            // Extract data from whatever renderer is used
+            const renderer = item.musicTwoRowItemRenderer || item.musicResponsiveListItemRenderer;
+
+            if (renderer) {
+              let title = renderer.title?.runs?.[0]?.text;
+              let browseId = renderer.navigationEndpoint?.browseEndpoint?.browseId;
+              let playlistId = renderer.navigationEndpoint?.watchPlaylistEndpoint?.playlistId;
+              let thumbnails = renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails
+                || renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+
+              // Special handling for ResponsiveListItem (often used for Artists)
+              if (item.musicResponsiveListItemRenderer) {
+                const flex0 = renderer.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer;
+                title = flex0?.text?.runs?.[0]?.text;
+                browseId = renderer.navigationEndpoint?.browseEndpoint?.browseId;
+                playlistId = renderer.navigationEndpoint?.watchPlaylistEndpoint?.playlistId
+                  || renderer.playlistItemData?.videoId;
+                thumbnails = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+              }
+
+              const uniqueId = browseId || playlistId;
+
+              // If valid item and unique
+              if (uniqueId && title && !seenIds.has(uniqueId)) {
+                seenIds.add(uniqueId);
+
+                // Check if it's an Artist or Chart
+                // Artists usually have browseId starting with 'UC' or section title "Top artists"
+                const isArtist = (browseId && browseId.startsWith('UC')) ||
+                  (sectionTitle && sectionTitle.toLowerCase().includes('artist'));
+
+                if (isArtist) {
+                  console.log(`      Found ARTIST: "${title}" (${sectionTitle})`);
+                  artists.push(transformYTToSaavnArtist({
+                    browseId: browseId,
+                    name: title,
+                    thumbnails: thumbnails || []
+                  }));
+                } else {
+                  // It's a Chart (Playlist/Video)
+                  console.log(`      Found CHART: "${title}" (${sectionTitle})`);
+                  charts.push(transformYTToSaavnAlbum({
+                    id: uniqueId,
+                    browseId: uniqueId,
+                    type: 'playlist',
+                    title: title,
+                    subtitle: sectionTitle || 'Chart',
+                    thumbnails: thumbnails || [],
+                    artist: 'YouTube Music'
+                  }));
+                }
+              }
+            }
+          });
+        });
+
+        console.log(`✅ YTMusic Charts - Found ${charts.length} charts and ${artists.length} artists`);
+        return {
+          status: "SUCCESS",
+          message: `Found ${charts.length} charts and ${artists.length} artists`,
+          data: { charts, artists }, // Return object with both arrays
+          success: true
+        };
+      }
+
+      return { success: false, data: { charts: [], artists: [] } };
+    } catch (error) {
+      console.error('❌ YTMusic Charts error:', error);
+      return { success: false, data: { charts: [], artists: [] }, error: error.message };
+    }
+  };
+
+  try {
+    // Cache for 24 hours
+    return await getCachedData(cacheKey, fetchFunction, 86400, CACHE_GROUPS.HOME, forceRefresh);
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
 export {
   getYTMusicSearchSongData,
   getYTMusicSearchArtistData,
@@ -1055,5 +1309,7 @@ export {
   getYTMusicAlbumData,
   getYTMusicArtistDetails,
   getYTMusicArtistSongsPaginated,
-  getYTMusicArtistAlbumsPaginated
+  getYTMusicArtistAlbumsPaginated,
+  getYTMusicNewReleases,
+  getYTMusicCharts
 };

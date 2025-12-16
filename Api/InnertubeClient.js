@@ -33,23 +33,40 @@ class InnerTubeClient {
     /**
      * Helper to make API requests
      */
-    static async request(endpoint, body) {
+    static async request(endpoint, body, gl = 'IN') {
         try {
             const url = `${INNERTUBE_API_URL}/${endpoint}?key=${INNERTUBE_API_KEY}`;
             console.log('🌐 InnerTube request:', {
                 endpoint,
                 url,
+                gl, // Log the country code
+                hl: 'en',
                 INNERTUBE_API_URL,
                 INNERTUBE_API_KEY: INNERTUBE_API_KEY ? 'present' : 'missing'
             });
+
+            // Create context with dynamic GL
+            // IMPORTANT: "gl" in the top level context object is critical
+            const requestContext = {
+                context: {
+                    client: {
+                        ...WEB_REMIX_CONTEXT.context.client,
+                        gl: gl,
+                        hl: 'en' // Force English language
+                    },
+                    user: {
+                        lockedSafetyMode: false
+                    }
+                }
+            };
 
             const response = await fetch(url, {
                 method: 'POST',
                 headers: HEADERS,
                 body: JSON.stringify({
-                    ...WEB_REMIX_CONTEXT,
+                    ...requestContext,
                     ...body
-                })
+                }),
             });
 
             const data = await response.json();

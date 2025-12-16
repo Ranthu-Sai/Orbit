@@ -1,21 +1,105 @@
 import { MainWrapper } from "../../Layout/MainWrapper";
 import { DiscoverCard } from "../../Component/Discover/DiscoverCard";
-import { Dimensions, ScrollView, View } from "react-native";
+import { AlbumCard } from "../../Component/Discover/AlbumCard";
+import { View, Text, ScrollView, Dimensions, ActivityIndicator, RefreshControl } from "react-native";
 import { Spacer } from "../../Component/Global/Spacer";
 import { Heading } from "../../Component/Global/Heading";
 import { PaddingConatiner } from "../../Layout/PaddingConatiner";
 import { BundleEachLanguage } from "../../Component/Discover/BundleEachLanguage";
 import { BundleEachMomentanGenres } from "../../Component/Discover/BundleEachMomentanGenres";
 import { RouteHeading } from "../../Component/Home/RouteHeading";
-import { useEffect } from "react";
-import { useNavigation } from "@react-navigation/native";
+import React, { useEffect, useState } from 'react';
+import { useNavigation, useTheme } from "@react-navigation/native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TrendingUp, BarChart3, Music, Headphones, Mic, Sparkles } from "lucide-react-native";
+import { getYTMusicNewReleases, getYTMusicCharts } from "../../Api/YTMusic";
 
 export const Discover = () => {
   const width = Dimensions.get("window").width;
   const navigation = useNavigation();
+  const theme = useTheme();
+  const { dark } = theme;
 
-  // Clear any nested navigation params when Discover screen is focused
+  // State for new releases
+  const [newReleases, setNewReleases] = useState([]);
+  const [loadingReleases, setLoadingReleases] = useState(true);
+
+  // State for charts & artists
+  const [charts, setCharts] = useState([]);
+  const [artists, setArtists] = useState([]);
+  const [loadingCharts, setLoadingCharts] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Fetch new releases with caching
+  useEffect(() => {
+    const CACHE_KEY = '@discover_new_releases';
+    const CACHE_EXPIRY = 3600000; // 1 hour in milliseconds
+
+    const fetchNewReleases = async () => {
+      try {
+        // Try to load from cache first
+        const cachedData = await AsyncStorage.getItem(CACHE_KEY);
+        if (cachedData) {
+          const { data, timestamp } = JSON.parse(cachedData);
+          const now = Date.now();
+
+          // Use cached data if not expired
+          if (now - timestamp < CACHE_EXPIRY) {
+            console.log('📦 Using cached new releases');
+            setNewReleases(data);
+            setLoadingReleases(false);
+            return;
+          }
+        }
+
+        // Fetch fresh data
+        setLoadingReleases(true);
+        const response = await getYTMusicNewReleases(50);
+        if (response.success && response.data) {
+          setNewReleases(response.data);
+
+          // Save to cache
+          await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({
+            data: response.data,
+            timestamp: Date.now()
+          }));
+          console.log('💾 Cached new releases');
+        }
+      } catch (error) {
+        console.error('Error fetching new releases:', error);
+      } finally {
+        setLoadingReleases(false);
+      }
+    };
+
+    fetchNewReleases();
+  }, []);
+
+  // Fetch Charts
+  useEffect(() => {
+    const fetchCharts = async () => {
+      try {
+        setLoadingCharts(true);
+        console.log('📈 Fetching charts...');
+        const response = await getYTMusicCharts();
+
+        if (response.success && response.data) {
+          setCharts(response.data.charts || []);
+          setArtists(response.data.artists || []);
+        } else {
+          console.log('⚠️ No charts found');
+        }
+      } catch (error) {
+        console.error('Error fetching charts:', error);
+      } finally {
+        setLoadingCharts(false);
+      }
+    };
+
+    fetchCharts();
+  }, []);
+
+  // Clear any nested navigation params when Discover screen is focused  
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       console.log('Discover screen focused - ensuring clean navigation state');
@@ -42,9 +126,56 @@ export const Discover = () => {
     return unsubscribe;
   }, [navigation]);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // Clear caches
+      await AsyncStorage.removeItem('@discover_new_releases');
+
+      // Refetch data
+      setLoadingReleases(true);
+      setLoadingCharts(true);
+
+      // Pass true to force refresh charts
+      const [releasesResponse, chartsResponse] = await Promise.all([
+        getYTMusicNewReleases(50, true), // Force refresh with limit 50 (same as initial load)
+        getYTMusicCharts(true) // Force refresh for charts
+      ]);
+
+      // Update New Releases
+      if (releasesResponse.success && releasesResponse.data) {
+        setNewReleases(releasesResponse.data);
+        // Re-save to cache
+        await AsyncStorage.setItem('@discover_new_releases', JSON.stringify({
+          data: releasesResponse.data,
+          timestamp: Date.now()
+        }));
+      }
+
+      // Update Charts & Artists
+      if (chartsResponse.success && chartsResponse.data) {
+        setCharts(chartsResponse.data.charts || []);
+        setArtists(chartsResponse.data.artists || []);
+      }
+
+    } catch (error) {
+      console.error("Error refreshing discover page:", error);
+    } finally {
+      setLoadingReleases(false);
+      setLoadingCharts(false);
+      setRefreshing(false);
+    }
+  };
+
   return (
     <MainWrapper>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
+        }
+      >
         <RouteHeading bottomText={"Discover music"} showSearch={true} />
         <View style={{
           flexDirection: "row",
@@ -72,6 +203,60 @@ export const Discover = () => {
           <DiscoverCard text={"Podcasts"} icon={Mic} width={width * 0.46} navigate={"podcasts"} />
           <DiscoverCard text={"New Release"} icon={Sparkles} width={width * 0.46} navigate={"new release"} />
         </View>
+
+        {/* New Releases Section */}
+        <Spacer />
+        <PaddingConatiner>
+          <Heading text={"New Albums & Singles"} />
+          {loadingReleases ? (
+            <View style={{ paddingVertical: 20, alignItems: "center" }}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            </View>
+          ) : newReleases.length > 0 ? (
+            <ScrollView
+              horizontal={true}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingVertical: 8 }}
+            >
+              {newReleases.map((album, index) => (
+                <AlbumCard key={index} album={album} width={140} />
+              ))}
+            </ScrollView>
+          ) : (
+            <Text style={{ color: dark ? "#999" : "#666", fontSize: 13, paddingVertical: 8 }}>
+              No new releases available
+            </Text>
+          )}
+
+        </PaddingConatiner>
+
+        {/* Charts Section */}
+        <Spacer />
+        <PaddingConatiner>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <Heading text={"Top Charts"} nospace={true} />
+          </View>
+
+          {loadingCharts ? (
+            <View style={{ paddingVertical: 20, alignItems: "center" }}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            </View>
+          ) : charts.length > 0 ? (
+            <ScrollView
+              horizontal={true}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingVertical: 8 }}
+            >
+              {charts.map((chart, index) => (
+                <AlbumCard key={index} album={chart} width={140} />
+              ))}
+            </ScrollView>
+          ) : (
+            <Text style={{ color: dark ? "#999" : "#666", fontSize: 13, paddingVertical: 8, paddingHorizontal: 12 }}>
+              No charts available
+            </Text>
+          )}
+        </PaddingConatiner>
         <PaddingConatiner>
           <Heading text={"Languages"} />
           <ScrollView showsHorizontalScrollIndicator={false} horizontal={true} contentContainerStyle={{ gap: 10 }}>
@@ -83,6 +268,39 @@ export const Discover = () => {
             <BundleEachLanguage languages={["Malayalam", "Urdu"]} />
             <BundleEachLanguage languages={["Odia", "Assamese"]} />
           </ScrollView>
+
+          {/* Top Artists Section */}
+          {artists.length > 0 && (
+            <>
+              <Heading text={"Top Artists"} />
+              {loadingCharts ? (
+                <View style={{ paddingVertical: 20, alignItems: "center" }}>
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                </View>
+              ) : (
+                <ScrollView
+                  horizontal={true}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingVertical: 8 }}
+                >
+                  {artists.map((artist, index) => (
+                    <AlbumCard
+                      key={index}
+                      album={artist}
+                      width={140}
+                      isArtist={true}
+                      onPress={() => navigation.navigate("ArtistPage", {
+                        artistId: artist.id || artist.browseId,
+                        artistName: artist.name || artist.title,
+                        source: 'ytmusic'
+                      })}
+                    />
+                  ))}
+                </ScrollView>
+              )}
+            </>
+          )}
+
           <Heading text={"Moments"} />
           <ScrollView showsHorizontalScrollIndicator={false} horizontal={true} contentContainerStyle={{ gap: 10 }}>
             <BundleEachMomentanGenres list={["Workout", "Focus"]} color={["rgb(220,123,123)", "rgb(137,87,65)"]} />
