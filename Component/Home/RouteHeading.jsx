@@ -7,7 +7,7 @@ import { GetCurrentDaytime } from "../../Utils/GetCurrentDaytime";
 import { useGetUserName } from "../../hooks/useGetUserName";
 import { History } from "lucide-react-native";
 
-export const RouteHeading = ({ bottomText, showSearch, showSettings, topText, onSearchPress }) => {
+export const RouteHeading = ({ bottomText, showSearch, showSettings, showAbout, topText, onSearchPress }) => {
   const userName = useGetUserName()
   const theme = useTheme()
   const width = Dimensions.get("window").width
@@ -68,6 +68,15 @@ export const RouteHeading = ({ bottomText, showSearch, showSettings, topText, on
           borderRadius: 10,
         }}>
           <SimpleLineIcons name={"settings"} size={width * 0.055} color={theme.colors.text} />
+        </Pressable>}
+        {showAbout && <Pressable onPress={() => {
+          navigation.navigate("AboutProject")
+        }} style={{
+          padding: 5,
+          backgroundColor: "rgba(0,0,0,0)",
+          borderRadius: 10,
+        }}>
+          <Feather name={"info"} size={width * 0.055} color={theme.colors.text} />
         </Pressable>}
       </View>
       <Spacer />

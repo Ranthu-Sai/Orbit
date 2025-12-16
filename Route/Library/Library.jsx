@@ -13,7 +13,7 @@ export const Library = () => {
 
   return (
     <MainWrapper>
-      <RouteHeading bottomText={"Your Library"} />
+      <RouteHeading bottomText={"Your Library"} showAbout={true} />
       <ScrollView>
         <View style={{ flexWrap: 'wrap', flexDirection: "row", width: width, justifyContent: "space-evenly" }}>
 
@@ -21,8 +21,6 @@ export const Library = () => {
           <EachLibraryCard text={"Playlists"} icon={"music-box-multiple"} navigate={"CustomPlaylist"} />
           <EachLibraryCard text={"My Music"} icon={"music-note"} navigate={"MyMusicPage"} />
           <EachLibraryCard text={"Downloads"} icon={"download"} navigate={"DownloadScreen"} />
-          <EachLibraryCard text={"About Developer"} icon={"information"} navigate={"AboutProject"} />
-          <View style={{ width: width * 0.45 }} />
         </View>
       </ScrollView>
     </MainWrapper>
