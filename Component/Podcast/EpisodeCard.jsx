@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable, Text, View, Image, StyleSheet } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import { Play, Clock } from 'lucide-react-native';
+import FastImage from 'react-native-fast-image';
 
 /**
  * EpisodeCard - Horizontal card component for displaying podcast episodes
@@ -49,6 +50,8 @@ export const EpisodeCard = ({ episode, onPress, onPlay }) => {
         }
     };
 
+    const imageUrl = episode.image || episode.feedImage || 'https://via.placeholder.com/300';
+
     return (
         <Pressable
             onPress={handlePress}
@@ -72,13 +75,18 @@ export const EpisodeCard = ({ episode, onPress, onPlay }) => {
                     backgroundColor: dark ? '#2E2E2E' : '#E5E5E5',
                 }}
             >
-                <Image
-                    source={{ uri: episode.image || episode.feedImage }}
+                <FastImage
+                    source={{
+                        uri: imageUrl,
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        }
+                    }}
                     style={{
                         width: '100%',
                         height: '100%',
                     }}
-                    resizeMode="cover"
+                    resizeMode={FastImage.resizeMode.cover}
                 />
 
                 {/* Play overlay button */}
@@ -177,6 +185,8 @@ export const EpisodeCardHorizontal = ({ episode, width = 280, onPress, onPlay })
         }
     };
 
+    const imageUrl = episode.image || episode.feedImage || 'https://via.placeholder.com/300';
+
     return (
         <Pressable
             onPress={handlePress}
@@ -200,10 +210,15 @@ export const EpisodeCardHorizontal = ({ episode, width = 280, onPress, onPlay })
                     backgroundColor: dark ? '#2E2E2E' : '#E5E5E5',
                 }}
             >
-                <Image
-                    source={{ uri: episode.image || episode.feedImage }}
+                <FastImage
+                    source={{
+                        uri: imageUrl,
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        }
+                    }}
                     style={{ width: '100%', height: '100%' }}
-                    resizeMode="cover"
+                    resizeMode={FastImage.resizeMode.cover}
                 />
             </View>
 

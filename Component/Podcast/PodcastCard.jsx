@@ -1,6 +1,10 @@
-import React from 'react';
-import { Pressable, Text, View, Image, StyleSheet } from 'react-native';
+import React, { useState, memo } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { useNavigation, useTheme } from '@react-navigation/native';
+import { Mic } from 'lucide-react-native';
+import FastImage from 'react-native-fast-image';
+
+const FALLBACK_IMAGE = 'https://via.placeholder.com/300?text=Podcast';
 
 /**
  * PodcastCard - Square card component for displaying podcasts
@@ -13,6 +17,22 @@ export const PodcastCard = ({ podcast, width = 140, onPress, noMargin = false })
     const navigation = useNavigation();
     const theme = useTheme();
     const { dark } = theme;
+    const [imageError, setImageError] = useState(false);
+
+    // Get the best available image URL
+    const getImageUrl = () => {
+        const url = podcast.artwork || podcast.image || podcast.imageUrl || '';
+
+        // Validate URL
+        if (!url || typeof url !== 'string' || url.trim() === '') {
+            return null;
+        }
+
+        return url;
+    };
+
+    const imageUrl = getImageUrl();
+    const hasValidImage = imageUrl && !imageError;
 
     const handlePress = () => {
         if (onPress) {
@@ -23,6 +43,11 @@ export const PodcastCard = ({ podcast, width = 140, onPress, noMargin = false })
                 podcast: podcast,
             });
         }
+    };
+
+    const handleImageError = () => {
+        console.log('🖼️ FastImage failed for:', podcast.title?.substring(0, 30));
+        setImageError(true);
     };
 
     return (
@@ -49,14 +74,35 @@ export const PodcastCard = ({ podcast, width = 140, onPress, noMargin = false })
                     shadowRadius: 4,
                 }}
             >
-                <Image
-                    source={{ uri: podcast.artwork || podcast.image }}
-                    style={{
+                {!hasValidImage ? (
+                    // Show placeholder icon when no image or image failed
+                    <View style={{
                         width: '100%',
                         height: '100%',
-                    }}
-                    resizeMode="cover"
-                />
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: dark ? '#3E3E3E' : '#D5D5D5',
+                    }}>
+                        <Mic size={width * 0.35} color={dark ? '#666' : '#999'} />
+                    </View>
+                ) : (
+                    <FastImage
+                        source={{
+                            uri: imageUrl,
+                            priority: FastImage.priority.normal,
+                            headers: {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                                'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+                            },
+                        }}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                        }}
+                        resizeMode={FastImage.resizeMode.cover}
+                        onError={handleImageError}
+                    />
+                )}
             </View>
 
             {/* Podcast Title */}

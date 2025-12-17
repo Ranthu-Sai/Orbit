@@ -70,6 +70,29 @@ const apiRequest = async (endpoint, params = {}) => {
  * @returns {Object} Transformed podcast
  */
 const transformPodcast = (podcast) => {
+    // Handle various image field names from PodcastIndex API
+    let artworkUrl = podcast.artwork ||
+        podcast.image ||
+        podcast.imageUrl ||
+        podcast.originalUrl ||
+        'https://via.placeholder.com/300';
+
+    // Sanitize URL: Remove trailing "?" junk common in Buzzsprout URLs that causes failures
+    if (typeof artworkUrl === 'string' && artworkUrl.includes('?')) {
+        const parts = artworkUrl.split('?');
+        // If it's something like url?.jpg or url?v=1
+        if (parts[1] && (parts[1].toLowerCase().endsWith('.jpg') || parts[1].toLowerCase().endsWith('.png'))) {
+            // It's url.jpg?.... or similar, usually safe to strip after ? if it's just junk
+            // But Buzzsprout does url?.jpg which is weird. 
+            // Let's try to reconstruct a clean URL if it's a known problematic pattern
+            if (artworkUrl.includes('buzzsprout.com') && parts[1].startsWith('.')) {
+                artworkUrl = parts[0] + parts[1].substring(1); // Remove the ? but keep the .jpg
+            } else {
+                artworkUrl = parts[0];
+            }
+        }
+    }
+
     return {
         id: podcast.id || podcast.feedId,
         feedId: podcast.id || podcast.feedId,
@@ -77,8 +100,8 @@ const transformPodcast = (podcast) => {
         name: podcast.title || 'Unknown Podcast',
         author: podcast.author || podcast.ownerName || 'Unknown Author',
         description: podcast.description || '',
-        image: podcast.artwork || podcast.image || 'https://via.placeholder.com/300',
-        artwork: podcast.artwork || podcast.image || 'https://via.placeholder.com/300',
+        image: artworkUrl,
+        artwork: artworkUrl,
         url: podcast.url || '',
         link: podcast.link || '',
         language: podcast.language || 'en',
@@ -141,6 +164,18 @@ export const getTrendingPodcasts = async (max = 20, lang = null, cat = null) => 
             const response = await apiRequest('/podcasts/trending', params);
 
             if (response.status === 'true' && response.feeds) {
+                // Debug: Log first podcast raw data to check artwork fields
+                if (response.feeds.length > 0) {
+                    const sample = response.feeds[0];
+                    console.log('🔍 Sample raw podcast data:', {
+                        title: sample.title,
+                        artwork: sample.artwork,
+                        image: sample.image,
+                        imageUrl: sample.imageUrl,
+                        originalUrl: sample.originalUrl,
+                    });
+                }
+
                 const podcasts = response.feeds.map(transformPodcast);
                 console.log(`✅ Found ${podcasts.length} trending podcasts`);
 
