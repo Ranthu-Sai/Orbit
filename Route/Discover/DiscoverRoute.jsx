@@ -4,6 +4,8 @@ import { Discover } from "./Discover";
 import { SearchPage } from "../SearchPage";
 import { LanguageDetailPage } from "../../Component/Discover/LanguageDetailPage";
 import ShowPlaylistofType from "../../Component/Discover/ShowPlaylistofType";
+import { PodcastScreen } from "./PodcastScreen";
+import { PodcastDetailScreen } from "./PodcastDetailScreen";
 const Stack = createStackNavigator();
 
 export const DiscoverRoute = () => {
@@ -21,6 +23,9 @@ export const DiscoverRoute = () => {
       <Stack.Screen name="Search" component={SearchPage} />
       <Stack.Screen name="LanguageDetail" component={LanguageDetailPage} />
       <Stack.Screen name="ShowPlaylistofType" component={ShowPlaylistofType} />
+      <Stack.Screen name="PodcastScreen" component={PodcastScreen} />
+      <Stack.Screen name="PodcastDetail" component={PodcastDetailScreen} />
     </Stack.Navigator>
   );
 };
+

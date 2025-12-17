@@ -26,6 +26,7 @@
     "axios": "^1.6.7",
     "base-64": "^1.0.0",
     "jiosavan": "^1.0.4",
+    "js-sha1": "^0.7.0",
     "js-sha256": "^0.11.1",
     "lodash": "^4.17.21",
     "lucide-react-native": "^0.552.0",

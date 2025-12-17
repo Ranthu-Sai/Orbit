@@ -6,11 +6,18 @@ export const DiscoverCard = ({ width, icon: Icon, text, navigate }) => {
     const theme = useTheme();
     const { dark } = theme;
 
+    const handlePress = () => {
+        // Special handling for podcasts
+        if (navigate.toLowerCase() === 'podcasts') {
+            navigation.navigate("PodcastScreen");
+        } else {
+            navigation.navigate("ShowPlaylistofType", { Searchtext: navigate.toLowerCase() });
+        }
+    };
+
     return (
         <Pressable
-            onPress={() => {
-                navigation.navigate("ShowPlaylistofType", { Searchtext: navigate.toLowerCase() });
-            }}
+            onPress={handlePress}
             style={({ pressed }) => ({
                 width: width,
                 height: 100,
@@ -48,3 +55,4 @@ export const DiscoverCard = ({ width, icon: Icon, text, navigate }) => {
         </Pressable>
     );
 };
+

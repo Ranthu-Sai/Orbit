@@ -158,8 +158,12 @@ async function PlayOneSong(song) {
     let playbackUrl = song.url;
     let updatedSong = { ...song };
 
+    // Check if this is a podcast episode - skip all stream processing
+    const isPodcast = song.isPodcast || song.type === 'podcast';
+
     // Check if this is a YouTube song (has videoId/id that looks like YouTube video ID)
-    const isYouTubeSong = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
+    // Podcasts should NOT be treated as YouTube songs even if ID length matches
+    const isYouTubeSong = !isPodcast && song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
 
     if (isYouTubeSong) {
       try {
@@ -431,8 +435,11 @@ async function AddPlaylist(songs, startSongId = null) {
       let playbackUrl = song.url;
       let updatedSong = { ...song };
 
-      // Check if this is a YouTube song
-      const isYouTubeSong = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
+      // Check if this is a podcast episode - skip all stream processing
+      const isPodcast = song.isPodcast || song.type === 'podcast';
+
+      // Check if this is a YouTube song (podcasts excluded)
+      const isYouTubeSong = !isPodcast && song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
 
       if (isYouTubeSong) {
         // Only fetch stream for the FIRST song immediately
