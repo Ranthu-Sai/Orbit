@@ -34,10 +34,10 @@ export const NextSongButton = ({ size = 28, color, style }) => {
         console.log("Error playing next song:", error);
       })
       .finally(() => {
-        // Match SkipOperationManager's debounce (300ms)
+        // Match SkipOperationManager's debounce (50ms)
         setTimeout(() => {
           isProcessingRef.current = false;
-        }, 350);
+        }, 100);
       });
   }, [scaleAnim]);
 

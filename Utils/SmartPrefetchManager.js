@@ -41,6 +41,9 @@ class SmartPrefetchManager {
         // Circuit Breaker (Prevent looping storms)
         this.consecutiveErrors = 0;
         this.lastErrorTimestamp = 0;
+
+        // Recovery lock - prevents queue cleanup during error recovery
+        this.isRecovering = false;
     }
 
     // ==========================================
@@ -133,7 +136,12 @@ class SmartPrefetchManager {
             this.currentTrackIndex = event.index;
 
             // 🧹 QUEUE CLEANUP: Remove old tracks, keep only 5 previous
-            await this._cleanupOldTracks(event.index);
+            // CRITICAL: Skip cleanup if we're in recovery mode to prevent index shifts
+            if (!this.isRecovering) {
+                await this._cleanupOldTracks(event.index);
+            } else {
+                console.log('⏳ Skipping queue cleanup - recovery in progress');
+            }
 
             // 🚀 IMMEDIATE ACTION: Prefetch next 3 songs aggressively
             // This ensures auto-recommendation songs are ready before playback
@@ -171,16 +179,19 @@ class SmartPrefetchManager {
             console.error('⚡ CIRCUIT BREAKER TRIPPED: Stopping playback to prevent freeze.');
             await TrackPlayer.pause();
             this.consecutiveErrors = 0;
+            this.isRecovering = false;
             return;
         }
 
+        // Set recovery lock to prevent queue cleanup during recovery
+        this.isRecovering = true;
+
         try {
             const currentTrack = await TrackPlayer.getActiveTrack();
-            const currentIndex = await TrackPlayer.getActiveTrackIndex();
-            // ... (rest of logic)
 
             if (!currentTrack) {
                 console.log('⚠️ No current track during error');
+                this.isRecovering = false;
                 return;
             }
 
@@ -192,17 +203,23 @@ class SmartPrefetchManager {
                 const streamData = await this.fetchOnDemand(currentTrack.id);
 
                 if (streamData && streamData.url) {
-                    // Replace current track with valid URL
-                    await this._replaceAndPlayTrack(currentIndex, currentTrack, streamData);
+                    // Replace current track with valid URL using ID-based lookup
+                    await this._replaceAndPlayTrackById(currentTrack, streamData);
                     console.log('✅ Auto-recovery successful');
+                    this.consecutiveErrors = 0; // Reset on success
                 } else {
                     // Failed to get stream - skip to next
                     console.log('⚠️ Recovery failed, skipping to next track');
-                    await this._skipToNextValidTrack(currentIndex);
+                    await this._skipToNextValidTrackById(currentTrack.id);
                 }
             }
         } catch (error) {
             console.error('❌ Error in playback error handler:', error.message);
+        } finally {
+            // Release recovery lock after a delay to let queue stabilize
+            setTimeout(() => {
+                this.isRecovering = false;
+            }, 500);
         }
     }
 
@@ -320,50 +337,89 @@ class SmartPrefetchManager {
 
     /**
      * Replace CURRENT track and restart playback (for error recovery)
+     * @deprecated Use _replaceAndPlayTrackById instead for race-condition safety
      */
     async _replaceAndPlayTrack(index, originalTrack, streamData) {
+        // Delegate to ID-based method for safety
+        await this._replaceAndPlayTrackById(originalTrack, streamData);
+    }
+
+    /**
+     * Replace track by ID and restart playback (race-condition safe)
+     * Finds track by ID instead of relying on index which may shift
+     */
+    async _replaceAndPlayTrackById(originalTrack, streamData) {
         try {
-            // RACE CONDITION CHECK: Ensure index is still valid
-            const currentQ = await TrackPlayer.getQueue();
-            if (!currentQ[index] || currentQ[index].id !== originalTrack.id) {
-                console.warn('⚠️ Race condition prevented: Queue changed during fetch');
+            const queue = await TrackPlayer.getQueue();
+
+            // Find track by ID - this is stable even if queue indices shift
+            const currentIndex = queue.findIndex(t => t.id === originalTrack.id);
+
+            if (currentIndex === -1) {
+                console.warn('⚠️ Track no longer in queue:', originalTrack.id);
+                // Track was removed - try to play whatever is current
+                await TrackPlayer.play();
                 return;
             }
 
             const updatedTrack = this._createUpdatedTrack(originalTrack, streamData);
 
-            // Remove current track
-            await TrackPlayer.remove(index);
-
-            // Add updated track at same position
-            await TrackPlayer.add(updatedTrack, index);
+            // Remove old track and insert new one at same position
+            await TrackPlayer.remove(currentIndex);
+            await TrackPlayer.add(updatedTrack, currentIndex);
 
             // Skip to it and play
-            await TrackPlayer.skip(index);
+            await TrackPlayer.skip(currentIndex);
             await TrackPlayer.play();
 
-            console.log(`✅ Replaced and playing track at index ${index}`);
-
-            // Success - Reset breaker
-            this.consecutiveErrors = 0;
+            console.log(`✅ Replaced and playing track at index ${currentIndex} (ID: ${originalTrack.id})`);
 
         } catch (error) {
-            console.error('Error in replaceAndPlayTrack:', error.message);
+            console.error('Error in replaceAndPlayTrackById:', error.message);
+            // Last resort - try to just play
+            try {
+                await TrackPlayer.play();
+            } catch (e) {
+                console.error('Failed to resume playback:', e.message);
+            }
         }
     }
 
     /**
      * Skip to next valid track when current one fails completely
+     * @deprecated Use _skipToNextValidTrackById instead
      */
     async _skipToNextValidTrack(failedIndex) {
-        // Delay to prevent CPU spike (Cool-down)
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Find track ID at that index first
+        try {
+            const queue = await TrackPlayer.getQueue();
+            if (queue[failedIndex]) {
+                await this._skipToNextValidTrackById(queue[failedIndex].id);
+            }
+        } catch (e) {
+            console.error('Error in legacy skipToNextValidTrack:', e.message);
+        }
+    }
+
+    /**
+     * Skip to next valid track when current one fails completely (ID-based)
+     */
+    async _skipToNextValidTrackById(failedTrackId) {
+        // Short delay to prevent CPU spike
+        await new Promise(resolve => setTimeout(resolve, 300));
 
         try {
             const queue = await TrackPlayer.getQueue();
 
-            // Safety check
-            if (failedIndex >= queue.length) return;
+            // Find the failed track by ID
+            const failedIndex = queue.findIndex(t => t.id === failedTrackId);
+
+            if (failedIndex === -1) {
+                // Track already removed - just try to play current
+                console.log('⏭️ Failed track already removed, playing current');
+                await TrackPlayer.play();
+                return;
+            }
 
             // Remove the failed track
             await TrackPlayer.remove(failedIndex);
@@ -377,24 +433,29 @@ class SmartPrefetchManager {
                 return;
             }
 
-            // Try to play the next track (now at same index)
-            const nextTrack = newQueue[failedIndex] || newQueue[0];
+            // Try to play the next track (now at same index or first)
+            const nextIndex = Math.min(failedIndex, newQueue.length - 1);
+            const nextTrack = newQueue[nextIndex];
 
             if (nextTrack && this.needsStream(nextTrack)) {
                 // Fetch stream on-demand for next track
                 const streamData = await this.fetchOnDemand(nextTrack.id);
                 if (streamData && streamData.url) {
-                    const nextIndex = failedIndex < newQueue.length ? failedIndex : 0;
-                    await this._replaceAndPlayTrack(nextIndex, nextTrack, streamData);
+                    await this._replaceAndPlayTrackById(nextTrack, streamData);
                     return;
                 }
             }
 
-            // Just try to play whatever is next
+            // Just try to skip and play
+            await TrackPlayer.skip(nextIndex);
             await TrackPlayer.play();
 
         } catch (error) {
             console.error('Error skipping to next valid track:', error.message);
+            // Last resort
+            try {
+                await TrackPlayer.play();
+            } catch (e) { }
         }
     }
 

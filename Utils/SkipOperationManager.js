@@ -18,7 +18,7 @@ class SkipOperationManager {
         this.abortController = null;
         this.consecutiveSkipErrors = 0;
         this.maxConsecutiveErrors = 3;
-        this.debounceDelay = 300; // ms
+        this.debounceDelay = 50; // ms - Reduced for instant response
     }
 
     /**
