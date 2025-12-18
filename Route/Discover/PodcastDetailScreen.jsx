@@ -92,11 +92,23 @@ export const PodcastDetailScreen = () => {
 
     // Play episode handler
     const handlePlayEpisode = async (episode) => {
-        const track = episodeToTrack(episode);
-        console.log('🎙️ Playing podcast episode:', track.title);
+        // Find the index of the clicked episode
+        const episodeIndex = episodes.findIndex(ep => ep.id === episode.id || ep.guid === episode.guid);
+
+        if (episodeIndex === -1) {
+            console.error('Episode not found in list');
+            return;
+        }
+
+        console.log('🎙️ Playing podcast episode:', episode.title);
+        console.log('📋 Adding', episodes.length - episodeIndex, 'episodes to queue');
 
         try {
-            await PlayOneSong(track);
+            // Transform episodes starting from the clicked one
+            const tracksFromEpisode = episodes.slice(episodeIndex).map(episodeToTrack);
+
+            // Use AddPlaylist to add all episodes from this point onwards
+            await AddPlaylist(tracksFromEpisode);
             setIndex(1);
         } catch (error) {
             console.error('Error playing podcast episode:', error);
