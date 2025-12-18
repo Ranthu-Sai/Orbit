@@ -35,12 +35,20 @@ const ProgressBar = () => {
   }, [currentTrack?.id]);
 
   const formatTime = (val) => {
-    if (isNaN(val) || val < 0) return "0:00"; // Handle NaN and negative values
-    // Round to nearest second for more accurate display
+    if (isNaN(val) || val < 0) return "0:00";
     const time = Math.round(parseFloat(val));
-    const minutes = Math.floor(time / 60);
+    const hours = Math.floor(time / 3600);
+    const minutes = Math.floor((time % 3600) / 60);
     const seconds = time % 60;
-    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`; // Format time as mm:ss
+
+    const formattedSeconds = seconds < 10 ? `0${seconds}` : seconds;
+
+    if (hours > 0) {
+      const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes;
+      return `${hours}:${formattedMinutes}:${formattedSeconds}`;
+    }
+
+    return `${minutes}:${formattedSeconds}`;
   };
 
   // Get accurate duration - prefer track metadata over useProgress
@@ -122,13 +130,13 @@ const ProgressBar = () => {
 
         {/* Time Stamps */}
         <View style={styles.timeContainer}>
-          <View style={styles.timeTextWrapper}>
-            <Text variant="bodySmall" style={[styles.timeText, { color: theme.dark ? theme.colors.onSurface : 'white' }]}>
+          <View style={[styles.timeTextWrapper, { alignItems: 'flex-start' }]}>
+            <Text variant="bodySmall" numberOfLines={1} style={[styles.timeText, { color: theme.dark ? theme.colors.onSurface : 'white' }]}>
               {formatTime(isSliding ? sliderValue : Math.max(position || 0, 0))}
             </Text>
           </View>
-          <View style={styles.timeTextWrapper}>
-            <Text variant="bodySmall" style={[styles.timeText, { color: theme.dark ? theme.colors.onSurface : 'white' }]}>
+          <View style={[styles.timeTextWrapper, { alignItems: 'flex-end' }]}>
+            <Text variant="bodySmall" numberOfLines={1} style={[styles.timeText, { color: theme.dark ? theme.colors.onSurface : 'white' }]}>
               {formatTime(accurateDuration)}
             </Text>
           </View>
@@ -153,11 +161,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     width: '100%',
     marginTop: 4,
+    paddingHorizontal: 2,
   },
   timeTextWrapper: {
-    width: 45, // Reduced from 60 for better spacing
-    alignItems: 'center',
-    marginHorizontal: 6, // Reduced from 12 for better spacing
+    minWidth: 45,
+    justifyContent: 'center',
   },
   slider: {
     width: '100%',
@@ -167,10 +175,10 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   timeText: {
-    fontSize: 16,  // Increased from 14 to 16
-    opacity: 1,  // More visible
-    fontWeight: '600',  // Bolder
-    letterSpacing: 0.2,  // Slightly more spacing between letters
+    fontSize: 15, // Reduced slightly from 16 for better fit
+    opacity: 1,
+    fontWeight: '600',
+    letterSpacing: 0.1,
   },
 });
 

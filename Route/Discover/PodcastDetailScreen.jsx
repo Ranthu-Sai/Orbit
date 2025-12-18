@@ -8,10 +8,10 @@ import {
     ActivityIndicator,
     FlatList,
     RefreshControl,
+    StatusBar,
 } from 'react-native';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import { ArrowLeft, Play, Shuffle, Share2 } from 'lucide-react-native';
-import { MainWrapper } from '../../Layout/MainWrapper';
 import { EpisodeCard } from '../../Component/Podcast/EpisodeCard';
 import { Spacer } from '../../Component/Global/Spacer';
 import {
@@ -21,6 +21,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import { PlayOneSong, AddPlaylist } from '../../MusicPlayerFunctions';
 import Context from '../../Context/Context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const PodcastDetailScreen = () => {
     const navigation = useNavigation();
@@ -155,23 +156,28 @@ export const PodcastDetailScreen = () => {
         }
     };
 
+    // Get safe area insets for notch area handling
+    const insets = useSafeAreaInsets();
+
     if (loading && !podcast) {
         return (
-            <MainWrapper>
+            <View style={{ flex: 1, backgroundColor: dark ? '#121212' : '#FFFFFF' }}>
+                <StatusBar translucent backgroundColor="transparent" barStyle={dark ? "light-content" : "dark-content"} />
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                     <ActivityIndicator size="large" color={theme.colors.primary} />
                 </View>
-            </MainWrapper>
+            </View>
         );
     }
 
     return (
-        <MainWrapper>
+        <View style={{ flex: 1, backgroundColor: dark ? '#121212' : '#FFFFFF' }}>
+            <StatusBar translucent backgroundColor="transparent" barStyle={dark ? "light-content" : "dark-content"} />
             <FlatList
                 data={episodes}
                 keyExtractor={(item) => item.id?.toString() || item.guid}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 100 }}
+                contentContainerStyle={{ paddingBottom: 160 }}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
@@ -209,7 +215,7 @@ export const PodcastDetailScreen = () => {
                                 onPress={() => navigation.goBack()}
                                 style={({ pressed }) => ({
                                     position: 'absolute',
-                                    top: 16,
+                                    top: insets.top + 8,
                                     left: 12,
                                     width: 40,
                                     height: 40,
@@ -226,7 +232,7 @@ export const PodcastDetailScreen = () => {
                             {/* Podcast artwork */}
                             <View style={{
                                 alignItems: 'center',
-                                marginTop: 60,
+                                marginTop: insets.top + 40,
                             }}>
                                 <View style={{
                                     width: 180,
@@ -388,7 +394,7 @@ export const PodcastDetailScreen = () => {
                     )
                 )}
             />
-        </MainWrapper>
+        </View>
     );
 };
 

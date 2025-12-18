@@ -134,10 +134,23 @@ class NavigationCacheManager {
         this.cache.set(key, entry);
         this._updateAccessOrder(key);
 
-        // 2. Write to Disk (Async/Background)
-        // Store keys with prefix to avoid collisions
-        AsyncStorage.setItem(`cache_${key}`, JSON.stringify(entry))
-            .catch(e => console.warn(`[CacheManager] Disk write failed for ${key}`, e));
+        // 2. Write to Disk (Async/Background) - fire and forget with error handling
+        (async () => {
+            try {
+                const dataString = JSON.stringify(entry);
+                // Skip very large items (>500KB) to prevent SQLite issues
+                if (dataString.length < 500000) {
+                    await AsyncStorage.setItem(`cache_${key}`, dataString);
+                } else {
+                    console.log(`[CacheManager] Skipping disk write for ${key} - too large (${dataString.length} bytes)`);
+                }
+            } catch (e) {
+                // Handle disk full gracefully - don't log error, data is still in RAM
+                if (e.message && (e.message.includes('code 13') || e.message.toLowerCase().includes('full'))) {
+                    console.log('[CacheManager] Disk full - data kept in memory only');
+                }
+            }
+        })();
     }
 
     /**
@@ -275,9 +288,19 @@ class NavigationCacheManager {
         // 1. RAM
         this.streamCache.set(key, entry);
 
-        // 2. Disk
-        AsyncStorage.setItem(`stream_${key}`, JSON.stringify(entry))
-            .catch(e => console.warn('[CacheManager] Failed to persist stream url', e));
+        // 2. Disk - fire and forget with error handling
+        (async () => {
+            try {
+                const dataString = JSON.stringify(entry);
+                if (dataString.length < 500000) {
+                    await AsyncStorage.setItem(`stream_${key}`, dataString);
+                }
+            } catch (e) {
+                if (e.message && (e.message.includes('code 13') || e.message.toLowerCase().includes('full'))) {
+                    console.log('[CacheManager] Disk full - stream URL kept in memory only');
+                }
+            }
+        })();
 
         console.log(`[CacheManager] Stream URL cached for ${source}:${videoId} (TTL: ${ttl / 1000 / 60} minutes)`);
     }
@@ -444,17 +467,63 @@ class NavigationCacheManager {
     setPlayerState(queue, activeTrack, activeIndex) {
         if (!queue || queue.length === 0) return;
 
-        // Optimize: Don't save if queue is huge, maybe trim or just save? 
-        // For now, save full queue as user wants seamless resume.
+        // Limit queue size to prevent storage bloat (keep last 50 tracks)
+        const limitedQueue = queue.length > 50 ? queue.slice(-50) : queue;
+        const adjustedIndex = queue.length > 50 ? activeIndex - (queue.length - 50) : activeIndex;
+
         const state = {
-            queue,
+            queue: limitedQueue,
             activeTrack,
-            activeIndex,
+            activeIndex: Math.max(0, adjustedIndex),
             timestamp: Date.now()
         };
 
-        AsyncStorage.setItem('cache_player_state', JSON.stringify(state))
-            .catch(e => console.warn('[CacheManager] Failed to save player state', e));
+        // Fire and forget with proper error handling - NEVER interrupt playback
+        (async () => {
+            try {
+                const dataString = JSON.stringify(state);
+                // Only save if under 1MB to be safe
+                if (dataString.length < 1000000) {
+                    await AsyncStorage.setItem('cache_player_state', dataString);
+                } else {
+                    console.log('[CacheManager] Player state too large, skipping save');
+                }
+            } catch (e) {
+                // CRITICAL: Never let storage errors disrupt playback
+                if (e.message && (e.message.includes('code 13') || e.message.toLowerCase().includes('full'))) {
+                    console.log('[CacheManager] Disk full - player state not saved (playback continues)');
+                    // Trigger cleanup of old cache to free space for next time
+                    this._emergencyCleanup();
+                }
+                // Don't log warning - user doesn't need to see this
+            }
+        })();
+    }
+
+    /**
+     * Emergency cleanup when disk is full
+     * @private
+     */
+    async _emergencyCleanup() {
+        try {
+            console.log('[CacheManager] 🧹 Performing emergency cleanup...');
+            const keys = await AsyncStorage.getAllKeys();
+            // Remove all cache_ and stream_ prefixed items (except player state)
+            const cacheKeys = keys.filter(k =>
+                (k.startsWith('cache_') || k.startsWith('stream_')) &&
+                k !== 'cache_player_state'
+            );
+            if (cacheKeys.length > 0) {
+                await AsyncStorage.multiRemove(cacheKeys);
+                console.log(`[CacheManager] ✅ Cleared ${cacheKeys.length} cached items`);
+            }
+            // Also clear RAM caches
+            this.cache.clear();
+            this.streamCache.clear();
+            this.accessOrder = [];
+        } catch (e) {
+            console.error('[CacheManager] Emergency cleanup failed:', e);
+        }
     }
 
     // ============================================

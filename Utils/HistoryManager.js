@@ -141,7 +141,15 @@ class HistoryManager {
           const existingIndex = history.findIndex(item => item && item.id === trackToReset.id);
           if (existingIndex !== -1) {
             history[existingIndex].currentSessionDuration = 0; // Reset for next session
-            await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+            try {
+              await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+            } catch (storageError) {
+              if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
+                console.warn('HistoryManager: Disk full while resetting session duration. Skipping disk save.');
+              } else {
+                throw storageError;
+              }
+            }
           }
         }
       } catch (resetError) {
@@ -294,12 +302,20 @@ class HistoryManager {
         history.unshift(newEntry);
       }
 
-      // Limit history size (keep last 1000 entries)
-      if (history.length > 1000) {
-        history.splice(1000);
+      // Limit history size (keep last 500 entries) - Reduced from 1000 to save space
+      if (history.length > 500) {
+        history.splice(500);
       }
 
-      await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+      try {
+        await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+      } catch (storageError) {
+        if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
+          console.warn('HistoryManager: Disk full. History saved in memory only.');
+        } else {
+          throw storageError;
+        }
+      }
 
       // Weekly stats are now updated in saveProgress to avoid double counting
 
@@ -382,8 +398,16 @@ class HistoryManager {
       stats.songsPlayed += 1;
       stats.dailyStats[dayOfWeek] += listenDuration;
 
-      await AsyncStorage.setItem(WEEKLY_STATS_KEY, JSON.stringify(stats));
-      console.log('HistoryManager: Weekly stats updated', stats);
+      try {
+        await AsyncStorage.setItem(WEEKLY_STATS_KEY, JSON.stringify(stats));
+        console.log('HistoryManager: Weekly stats updated', stats);
+      } catch (storageError) {
+        if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
+          console.warn('HistoryManager: Disk full. Stats updated in memory only.');
+        } else {
+          throw storageError;
+        }
+      }
 
     } catch (error) {
       console.error('HistoryManager: Error updating weekly stats:', error);
@@ -419,7 +443,15 @@ class HistoryManager {
         stats.songsPlayed += 1;
       }
 
-      await AsyncStorage.setItem(WEEKLY_STATS_KEY, JSON.stringify(stats));
+      try {
+        await AsyncStorage.setItem(WEEKLY_STATS_KEY, JSON.stringify(stats));
+      } catch (storageError) {
+        if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
+          console.warn('HistoryManager: Disk full. Progress updated in memory only.');
+        } else {
+          throw storageError;
+        }
+      }
       console.log('HistoryManager: Weekly stats updated', {
         durationDiff,
         isNewPlay,
@@ -449,7 +481,13 @@ class HistoryManager {
       if (!existing) {
         // Create new stats and sync with existing history
         const newStats = createWeeklyStats();
-        await AsyncStorage.setItem(WEEKLY_STATS_KEY, JSON.stringify(newStats));
+        try {
+          await AsyncStorage.setItem(WEEKLY_STATS_KEY, JSON.stringify(newStats));
+        } catch (storageError) {
+          if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
+            console.warn('HistoryManager: Disk full while creating stats.');
+          }
+        }
         // Sync with existing history data
         await this.syncWeeklyStats();
       } else {
@@ -469,7 +507,15 @@ class HistoryManager {
         ...item,
         playCount: 1
       }));
-      await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(resetHistory));
+      try {
+        await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(resetHistory));
+      } catch (storageError) {
+        if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
+          console.warn('HistoryManager: Disk full while resetting play counts.');
+          return false;
+        }
+        throw storageError;
+      }
       console.log('HistoryManager: Play counts reset');
       return true;
     } catch (error) {
@@ -513,7 +559,13 @@ class HistoryManager {
         dailyStats: dailyStats,
       };
 
-      await AsyncStorage.setItem(WEEKLY_STATS_KEY, JSON.stringify(correctedStats));
+      try {
+        await AsyncStorage.setItem(WEEKLY_STATS_KEY, JSON.stringify(correctedStats));
+      } catch (storageError) {
+        if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
+          console.warn('HistoryManager: Disk full during stats sync.');
+        }
+      }
       console.log('HistoryManager: Weekly stats synced with history data', correctedStats);
 
       return correctedStats;
@@ -594,8 +646,14 @@ class HistoryManager {
       const filteredHistory = history.filter(item => item.lastPlayed > thirtyDaysAgo);
 
       if (filteredHistory.length !== history.length) {
-        await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(filteredHistory));
-        console.log(`HistoryManager: Cleaned up ${history.length - filteredHistory.length} old entries`);
+        try {
+          await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(filteredHistory));
+          console.log(`HistoryManager: Cleaned up ${history.length - filteredHistory.length} old entries`);
+        } catch (storageError) {
+          if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
+            console.warn('HistoryManager: Disk full during cleanup.');
+          }
+        }
       }
     } catch (error) {
       console.error('HistoryManager: Error cleaning up old entries:', error);
@@ -708,7 +766,13 @@ class HistoryManager {
       );
 
       if (validHistory.length !== history.length) {
-        await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(validHistory));
+        try {
+          await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(validHistory));
+        } catch (storageError) {
+          if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
+            console.warn('HistoryManager: Disk full during stats refresh.');
+          }
+        }
         console.log(`HistoryManager: Cleaned up ${history.length - validHistory.length} invalid entries`);
       }
 

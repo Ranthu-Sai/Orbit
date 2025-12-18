@@ -11,10 +11,10 @@ import { isNetworkAvailable, clearCache, CACHE_GROUPS } from './CacheManager';
  */
 
 // Constants
-const MAX_CACHE_SIZE_MB = 50; // Maximum cache size in MB
-const CACHE_VERSION = '1.0.0'; // Cache version for incompatible changes
+const MAX_CACHE_SIZE_MB = 100; // Increased to 100MB for more storage capacity
+const CACHE_VERSION = '1.0.2'; // Force clear all cache on next app restart
 const CACHE_LAST_CLEANUP_KEY = 'cache_last_cleanup_time';
-const CLEANUP_INTERVAL_HOURS = 24; // How often to run cleanup (in hours)
+const CLEANUP_INTERVAL_HOURS = 6; // Run cleanup every 6 hours for proactive maintenance
 
 /**
  * Initialize and maintain cache system
@@ -23,17 +23,17 @@ const CLEANUP_INTERVAL_HOURS = 24; // How often to run cleanup (in hours)
 const initializeCache = async () => {
   try {
     console.log('Cache initialization started');
-    
+
     // Check if we need to perform cleanup
     const shouldCleanup = await shouldPerformCleanup();
     if (shouldCleanup) {
       console.log('Performing cache maintenance');
       await performCacheCleanup();
     }
-    
+
     // Check cache version
     await validateCacheVersion();
-    
+
     console.log('Cache initialization completed');
     return true;
   } catch (error) {
@@ -49,11 +49,11 @@ const shouldPerformCleanup = async () => {
   try {
     const lastCleanupTime = await AsyncStorage.getItem(CACHE_LAST_CLEANUP_KEY);
     if (!lastCleanupTime) return true;
-    
+
     const lastCleanup = parseInt(lastCleanupTime, 10);
     const currentTime = new Date().getTime();
     const hoursSinceLastCleanup = (currentTime - lastCleanup) / (1000 * 60 * 60);
-    
+
     return hoursSinceLastCleanup >= CLEANUP_INTERVAL_HOURS;
   } catch (error) {
     console.error('Error checking cleanup status:', error);
@@ -68,14 +68,14 @@ const performCacheCleanup = async () => {
   try {
     // Record cleanup time
     await AsyncStorage.setItem(CACHE_LAST_CLEANUP_KEY, new Date().getTime().toString());
-    
+
     // Get all AsyncStorage keys
     const keys = await AsyncStorage.getAllKeys();
     const cacheKeys = keys.filter(key => key.startsWith('api_cache_'));
-    
+
     // Check if network is available for expired item pruning
     const networkAvailable = await isNetworkAvailable();
-    
+
     if (cacheKeys.length > 0) {
       // Get all cache items with their metadata
       const cacheItems = await Promise.all(
@@ -83,7 +83,7 @@ const performCacheCleanup = async () => {
           try {
             const item = await AsyncStorage.getItem(key);
             if (!item) return null;
-            
+
             const parsed = JSON.parse(item);
             const size = item.length;
             return { key, data: parsed, size };
@@ -93,55 +93,55 @@ const performCacheCleanup = async () => {
           }
         })
       );
-      
+
       // Filter out nulls
       const validCacheItems = cacheItems.filter(item => item !== null);
-      
+
       // Check total cache size
       const totalSizeBytes = validCacheItems.reduce((sum, item) => sum + item.size, 0);
       const totalSizeMB = totalSizeBytes / (1024 * 1024);
-      
 
-      
+
+
       // Check for expired items (already handled by CacheManager, but good for cleanup)
       const currentTime = new Date().getTime();
       const expiredItems = validCacheItems.filter(item => {
         const { timestamp, expiration } = item.data;
         return currentTime - timestamp > expiration * 60 * 1000;
       });
-      
+
       // Remove expired items
       if (expiredItems.length > 0) {
         console.log(`Removing ${expiredItems.length} expired cache items`);
         await AsyncStorage.multiRemove(expiredItems.map(item => item.key));
       }
-      
+
       // If cache is too large, remove the oldest items until under limit
       if (totalSizeMB > MAX_CACHE_SIZE_MB) {
-        
+
         // Sort by timestamp (oldest first)
         validCacheItems.sort((a, b) => a.data.timestamp - b.data.timestamp);
-        
+
         let currentSize = totalSizeBytes;
         const itemsToRemove = [];
-        
+
         // Remove oldest items until we're under the limit
         for (const item of validCacheItems) {
-          if (currentSize / (1024 * 1024) <= MAX_CACHE_SIZE_MB * 0.9) {
-            // Stop when we reach 90% of the limit (to avoid frequent cleanup)
+          if (currentSize / (1024 * 1024) <= MAX_CACHE_SIZE_MB * 0.7) {
+            // Stop when we reach 70% of the limit (more aggressive pruning)
             break;
           }
-          
+
           itemsToRemove.push(item.key);
           currentSize -= item.size;
         }
-        
+
         if (itemsToRemove.length > 0) {
           await AsyncStorage.multiRemove(itemsToRemove);
         }
       }
     }
-    
+
     return true;
   } catch (error) {
     return false;
@@ -154,7 +154,7 @@ const performCacheCleanup = async () => {
 const validateCacheVersion = async () => {
   try {
     const storedVersion = await AsyncStorage.getItem('cache_version');
-    
+
     if (storedVersion !== CACHE_VERSION) {
       await clearCache();
       await AsyncStorage.setItem('cache_version', CACHE_VERSION);
@@ -170,7 +170,7 @@ const refreshCacheGroup = async (group) => {
     console.error(`Invalid cache group: ${group}`);
     return false;
   }
-  
+
   console.log(`Refreshing cache group: ${group}`);
   await clearCache(group);
   return true;

@@ -21,8 +21,7 @@ const API_KEY = PODCAST_INDEX_API_KEY || '';
 const API_SECRET = PODCAST_INDEX_API_SECRET || '';
 const USER_AGENT = 'Orbit/1.0';
 
-// Add PODCASTS to cache groups (will use existing PLAYLISTS for now)
-const PODCAST_CACHE_GROUP = 'podcasts';
+
 
 /**
  * Generate authentication headers for PodcastIndex API
@@ -194,7 +193,7 @@ export const getTrendingPodcasts = async (max = 20, lang = null, cat = null) => 
         }
     };
 
-    return getCachedData(cacheKey, fetchFunction, 60, PODCAST_CACHE_GROUP);
+    return getCachedData(cacheKey, fetchFunction, 1440, CACHE_GROUPS.PODCASTS);
 };
 
 /**
@@ -235,7 +234,7 @@ export const getRecentEpisodes = async (max = 20, lang = null, cat = null) => {
         }
     };
 
-    return getCachedData(cacheKey, fetchFunction, 30, PODCAST_CACHE_GROUP);
+    return getCachedData(cacheKey, fetchFunction, 1440, CACHE_GROUPS.PODCASTS);
 };
 
 /**
@@ -305,7 +304,7 @@ export const getPodcastByFeedId = async (feedId) => {
         }
     };
 
-    return getCachedData(cacheKey, fetchFunction, 60, PODCAST_CACHE_GROUP);
+    return getCachedData(cacheKey, fetchFunction, 1440, CACHE_GROUPS.PODCASTS);
 };
 
 /**
@@ -341,7 +340,7 @@ export const getEpisodesByFeedId = async (feedId, max = 50) => {
         }
     };
 
-    return getCachedData(cacheKey, fetchFunction, 30, PODCAST_CACHE_GROUP);
+    return getCachedData(cacheKey, fetchFunction, 1440, CACHE_GROUPS.PODCASTS);
 };
 
 /**
@@ -402,7 +401,7 @@ export const getCategories = async () => {
         }
     };
 
-    return getCachedData(cacheKey, fetchFunction, 1440, PODCAST_CACHE_GROUP); // Cache for 24 hours
+    return getCachedData(cacheKey, fetchFunction, 1440, CACHE_GROUPS.PODCASTS); // Cache for 24 hours
 };
 
 /**
@@ -441,7 +440,7 @@ export const getRandomEpisodes = async (max = 10, cat = null) => {
         }
     };
 
-    return getCachedData(cacheKey, fetchFunction, 15, PODCAST_CACHE_GROUP);
+    return getCachedData(cacheKey, fetchFunction, 1440, CACHE_GROUPS.PODCASTS);
 };
 
 export default {
