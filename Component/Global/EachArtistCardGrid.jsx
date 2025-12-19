@@ -15,7 +15,6 @@ export const EachArtistCardGrid = memo(function EachArtistCardGrid({
   image,
   followerCount,
   mainContainerStyle,
-  source,
   searchText
 }) {
   const navigation = useNavigation();
@@ -65,7 +64,7 @@ export const EachArtistCardGrid = memo(function EachArtistCardGrid({
           params: {
             artistId: id,
             artistName: name,
-            source: source,
+            source: 'ytmusic',  // Always use ytmusic for consistent artist page experience
             searchText: searchText
           }
         }

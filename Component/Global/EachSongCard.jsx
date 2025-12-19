@@ -17,7 +17,7 @@ import { requestStoragePermission } from '../../Utils/PermissionManager';
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
 import queueManager from '../../Utils/QueueManager';
 
-export const EachSongCard = memo(function EachSongCard({ title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', truncateTitle = false, onDeleteComplete, activeTrackId, isPlaying }) {
+export const EachSongCard = memo(function EachSongCard({ title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', truncateTitle = false, onDeleteComplete, activeTrackId, isPlaying, item }) {
   const theme = useTheme();
   const { colors } = theme;
   const width1 = Dimensions.get("window").width;
@@ -512,6 +512,15 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
       setDownloadInProgress(true);
 
       // Prepare song object for unified service
+      // Use item's original source (from DAB/YTMusic transform) if available
+      const actualSource = item?.source || source || 'saavn';
+      console.log('📥 [Download] Source detection:', {
+        itemSource: item?.source,
+        propSource: source,
+        actualSource: actualSource,
+        isDabTrack: item?.isDabTrack,
+        hasItem: !!item
+      });
       const songData = {
         id,
         title,
@@ -522,7 +531,8 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
         duration,
         language,
         artistID,
-        source: source || 'saavn' // Add source for analytics
+        source: actualSource, // Preserve original source (dab, ytmusic, saavn)
+        isDabTrack: item?.isDabTrack || false // Preserve DAB flag for detection
       };
 
       // Use the unified download service

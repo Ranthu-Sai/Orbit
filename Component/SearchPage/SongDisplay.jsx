@@ -60,14 +60,15 @@ export default function SongDisplay({ data, source = 'saavn' }) {
               artistID={item?.primaryArtistsId || item?.primary_artists_id}
               language={item?.language}
               duration={item?.duration}
-              image={item?.image?.[2]?.url ?? item?.image?.[0]?.url ?? ''}
+              image={item?.image?.[2]?.url ?? item?.image?.[0]?.url ?? item?.artwork ?? ''}
               id={item?.id}
               width={width * 0.95}
               title={item?.name || item?.title}
-              artist={FormatArtist(item?.artists?.primary)}
-              url={item?.downloadUrl} // This is used for Saavn downloads, YTMusic doesn't have downloads yet
+              artist={FormatArtist(item?.artists?.primary) || item?.artist}
+              url={item?.downloadUrl} // This is used for Saavn downloads
               showNumber={false}
-              source={source === 'ytmusic' ? 'ytmusic' : 'search'} // Mark YTMusic songs appropriately
+              source={item?.source || source || 'saavn'} // Preserve item's original source (dab, ytmusic, saavn)
+              item={item} // Pass full item for isDabTrack and other metadata
               Data={displayData}
               index={displayData.data.results.findIndex(x => x.id === item.id)}
               activeTrackId={activeTrack?.id}

@@ -100,20 +100,35 @@ const sanitizeFilename = (filename) => {
   return sanitized;
 };
 
-const getSongPath = async (songId, songTitle = null) => {
+/**
+ * Gets the full path for a song file with correct extension based on source
+ * @param {string} songId - Song ID
+ * @param {string} songTitle - Song title for filename
+ * @param {string} source - Source: 'dab', 'ytmusic', 'saavn' (default)
+ * @returns {Promise<string>} - Full file path
+ */
+const getSongPath = async (songId, songTitle = null, source = null) => {
   if (!songId) {
     console.warn('Invalid songId provided to getSongPath');
     return '';
   }
   const baseDir = await getBaseDir();
 
+  // Determine file extension based on source
+  let extension = '.mp3'; // default for Saavn
+  if (source === 'dab') {
+    extension = '.flac'; // DAB provides FLAC files
+  } else if (source === 'ytmusic') {
+    extension = '.m4a'; // YTMusic provides M4A (AAC) files
+  }
+
   if (songTitle) {
     const sanitizedTitle = sanitizeFilename(songTitle);
-    return `${baseDir}/songs/${sanitizedTitle} - ${String(songId)}.mp3`;
+    return `${baseDir}/songs/${sanitizedTitle} - ${String(songId)}${extension}`;
   }
 
   // Fallback to just ID if no title provided
-  return `${baseDir}/songs/${String(songId)}.mp3`;
+  return `${baseDir}/songs/${String(songId)}${extension}`;
 };
 
 // Gets the full path for an artwork file
@@ -261,7 +276,8 @@ const removeDownloadedSongMetadata = async (songId) => {
 
     // Delete song and artwork files from external storage
     if (metadata) {
-      const songPath = await getSongPath(songId, metadata.title);
+      // Pass source for correct file extension
+      const songPath = await getSongPath(songId, metadata.title, metadata.source);
       const artworkPath = await getArtworkPath(songId);
 
       if (await safeExists(songPath)) {
@@ -287,12 +303,32 @@ const removeDownloadedSongMetadata = async (songId) => {
   }
 };
 
-// Checks if a song is downloaded by checking its metadata
+// Checks if a song is actually downloaded (metadata exists AND file exists on disk)
 const isSongDownloaded = async (songId) => {
   if (!songId) return false;
   try {
     const allMetadata = await getAllDownloadedSongsMetadata();
-    return Object.keys(allMetadata).includes(String(songId));
+    const metadata = allMetadata[String(songId)];
+
+    // If no metadata, definitely not downloaded
+    if (!metadata) return false;
+
+    // Verify file actually exists on disk
+    const songPath = await getSongPath(songId, metadata.title, metadata.source);
+    const fileExists = await safeExists(songPath);
+
+    // If metadata exists but file doesn't, clean up the orphaned metadata
+    if (!fileExists) {
+      console.log(`📁 File missing for ${songId}, cleaning up orphaned metadata`);
+      delete allMetadata[String(songId)];
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
+        JSON.stringify(allMetadata)
+      );
+      return false;
+    }
+
+    return true;
   } catch (error) {
     console.error('Error checking if song is downloaded:', error);
     return false;
@@ -329,7 +365,8 @@ const cleanupOrphanedMetadata = async () => {
     const orphanedIds = [];
 
     for (const [songId, metadata] of Object.entries(allMetadata)) {
-      const songPath = await getSongPath(songId, metadata.title);
+      // Pass source for correct file extension
+      const songPath = await getSongPath(songId, metadata.title, metadata.source);
       const songExists = await safeExists(songPath);
 
       if (!songExists) {

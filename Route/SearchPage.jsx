@@ -1,7 +1,7 @@
 import { MainWrapper } from "../Layout/MainWrapper";
 import Tabs from "../Component/Global/Tabs/Tabs";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { getSearchSongData, getSearchArtistData } from "../Api/Songs";
+import { getSearchSongData } from "../Api/Songs";
 import {
   getYTMusicSearchSongData,
   getYTMusicSearchPlaylistData,
@@ -159,8 +159,8 @@ export const SearchPage = ({ navigation }) => {
           // Albums - Always use Saavn API
           data = await getSearchAlbumData(text, 1, limit);
         } else if (ActiveTab === 3) {
-          // Artists
-          data = await getSearchArtistData(text, 1, limit);
+          // Artists - Always use YTMusic for consistent UI and features
+          data = await getYTMusicSearchArtistData(text, 1, limit);
         }
       }
 

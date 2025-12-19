@@ -3,6 +3,8 @@ import { downloadFileWithAnalytics } from './FileUtils';
 import { ToastAndroid } from 'react-native';
 import EventRegister from './EventRegister';
 import { getIndexQuality } from '../MusicPlayerFunctions';
+import { embedMetadataInFile, hasMetadataSupportByExtension } from './NativeMetadataWriter';
+import RNFS from 'react-native-fs';
 
 /**
  * Unified Download Service
@@ -10,7 +12,7 @@ import { getIndexQuality } from '../MusicPlayerFunctions';
  */
 
 export class UnifiedDownloadService {
-  
+
   /**
    * Downloads a song with proper metadata saving and analytics tracking
    * @param {Object} song - Song object with id, title, artist, url, artwork, etc.
@@ -44,18 +46,21 @@ export class UnifiedDownloadService {
         throw new Error('No valid download URL found');
       }
 
-      // Get file paths
-      const songPath = await StorageManager.getSongPath(song.id, song.title);
+      // Get file paths (pass source for correct file extension)
+      // Use isDabTrack as fallback for source detection
+      const effectiveSource = song.source || (song.isDabTrack ? 'dab' : null);
+      console.log('📂 Getting song path with source:', effectiveSource, '(original:', song.source, ', isDabTrack:', song.isDabTrack, ')');
+      const songPath = await StorageManager.getSongPath(song.id, song.title, effectiveSource);
       const artworkPath = await StorageManager.getArtworkPath(song.id);
 
       // Download song file
       const songDownloadSuccess = await downloadFileWithAnalytics(
-        downloadUrl, 
-        songPath, 
-        { 
-          id: song.id, 
-          name: song.title || 'Unknown', 
-          type: 'song' 
+        downloadUrl,
+        songPath,
+        {
+          id: song.id,
+          name: song.title || 'Unknown',
+          type: 'song'
         }
       );
 
@@ -63,23 +68,90 @@ export class UnifiedDownloadService {
         throw new Error('Failed to download song file');
       }
 
-      // Download artwork if available
+      // Download artwork if available (to temp location for embedding)
       let artworkDownloadSuccess = false;
       const artworkUrl = this.getArtworkUrl(song);
+      console.log(`🎨 [Artwork Debug] Song object keys:`, Object.keys(song));
+      console.log(`🎨 [Artwork Debug] song.artwork:`, song.artwork);
+      console.log(`🎨 [Artwork Debug] song.image:`, song.image);
+      console.log(`🎨 [Artwork Debug] Resolved artworkUrl:`, artworkUrl);
+
       if (artworkUrl) {
-        console.log(`Downloading artwork for: ${song.title}`);
-        artworkDownloadSuccess = await downloadFileWithAnalytics(
-          artworkUrl, 
-          artworkPath, 
-          { 
-            id: song.id, 
-            name: `${song.title} - Artwork`, 
-            type: 'artwork' 
+        console.log(`🎨 [Artwork] Downloading from: ${artworkUrl}`);
+        try {
+          artworkDownloadSuccess = await downloadFileWithAnalytics(
+            artworkUrl,
+            artworkPath,
+            {
+              id: song.id,
+              name: `${song.title} - Artwork`,
+              type: 'artwork'
+            }
+          );
+
+          // Verify downloaded file exists and has content
+          if (artworkDownloadSuccess) {
+            const fileExists = await RNFS.exists(artworkPath);
+            if (fileExists) {
+              const fileInfo = await RNFS.stat(artworkPath);
+              console.log(`🎨 [Artwork] Download result: success=true, fileSize=${fileInfo.size} bytes`);
+              // Ensure file has actual content (at least 100 bytes for a valid image)
+              if (fileInfo.size < 100) {
+                console.warn(`🎨 [Artwork] Downloaded file too small (${fileInfo.size} bytes), likely invalid`);
+                artworkDownloadSuccess = false;
+                await RNFS.unlink(artworkPath).catch(() => { });
+              }
+            } else {
+              console.warn(`🎨 [Artwork] Download reported success but file not found`);
+              artworkDownloadSuccess = false;
+            }
+          } else {
+            console.warn(`🎨 [Artwork] Download FAILED for: ${song.title}`);
           }
-        );
+        } catch (artworkError) {
+          console.error(`🎨 [Artwork] Error downloading artwork:`, artworkError.message);
+          artworkDownloadSuccess = false;
+        }
       }
 
-      // Prepare metadata
+      // Embed metadata and artwork directly into the audio file
+      let metadataEmbedded = false;
+      if (hasMetadataSupportByExtension(songPath)) {
+        try {
+          const artworkPathToEmbed = artworkDownloadSuccess ? artworkPath : null;
+          console.log(`📝 [Metadata] Embedding into: ${song.title}`);
+          console.log(`🎨 [Metadata] Artwork path for embedding: ${artworkPathToEmbed || 'NONE (artwork download failed)'}`);
+
+          metadataEmbedded = await embedMetadataInFile(
+            songPath,
+            {
+              title: song.title || 'Unknown',
+              artist: this.formatArtist(song.artist) || 'Unknown Artist',
+              album: song.album || 'Unknown Album',
+              year: song.year || new Date().getFullYear().toString()
+            },
+            artworkPathToEmbed
+          );
+
+          if (metadataEmbedded) {
+            console.log(`Metadata embedded successfully for: ${song.title}`);
+            // Clean up separate artwork file since it's now embedded
+            if (artworkDownloadSuccess && await RNFS.exists(artworkPath)) {
+              try {
+                await RNFS.unlink(artworkPath);
+                console.log('Cleaned up temp artwork file (now embedded)');
+              } catch (cleanupErr) {
+                // Non-critical, continue
+              }
+            }
+          }
+        } catch (embedError) {
+          console.warn(`Failed to embed metadata for ${song.title}:`, embedError);
+          // Continue without embedded metadata - file is still playable
+        }
+      }
+
+      // Prepare metadata for Orbit's internal library
       const metadata = {
         id: song.id,
         title: song.title || 'Unknown',
@@ -88,22 +160,24 @@ export class UnifiedDownloadService {
         url: downloadUrl,
         artwork: artworkUrl,
         localSongPath: songPath,
-        localArtworkPath: artworkDownloadSuccess ? artworkPath : null,
+        localArtworkPath: (artworkDownloadSuccess && !metadataEmbedded) ? artworkPath : null,
         duration: song.duration || 0,
         language: song.language || '',
         artistID: song.artistID || '',
+        source: effectiveSource || 'saavn', // Store source for correct file extension on delete
         isDownloaded: true,
+        metadataEmbedded: metadataEmbedded,
         downloadedAt: new Date().toISOString()
       };
 
-      // Save metadata
+      // Save metadata to AsyncStorage for Orbit's internal use
       await StorageManager.saveDownloadedSongMetadata(song.id, metadata);
 
       console.log(`Download completed successfully for: ${song.title} (ID: ${song.id})`);
 
       // Emit download completed event
       EventRegister.emit('download-complete', song.id);
-      
+
       // Show success message
       ToastAndroid.show(`${song.title} Downloaded`, ToastAndroid.SHORT);
 
@@ -112,14 +186,14 @@ export class UnifiedDownloadService {
     } catch (error) {
       console.error(`Download failed for ${song.title}:`, error);
       ToastAndroid.show(`Download failed: ${error.message}`, ToastAndroid.LONG);
-      
+
       // Clean up any partial metadata
       try {
         await StorageManager.removeDownloadedSongMetadata(song.id);
       } catch (cleanupError) {
         console.error('Error cleaning up failed download metadata:', cleanupError);
       }
-      
+
       return false;
     }
   }
@@ -133,7 +207,28 @@ export class UnifiedDownloadService {
     try {
       const quality = await getIndexQuality();
 
-      // Method 1: downloadUrl array (most common)
+      // Handle DAB Music source - need to fetch stream URL from API
+      // Detection: source='dab' OR isDabTrack flag
+      if (song.source === 'dab' || song.isDabTrack === true) {
+        console.log('🎵 DAB track detected, fetching download URL for ID:', song.id);
+        try {
+          const dabMusicService = require('./DabMusicService').default;
+          await dabMusicService.initialize();
+
+          const streamUrl = await dabMusicService.getStreamUrl(song.id);
+          if (streamUrl) {
+            console.log('✅ Got DAB download URL successfully');
+            return streamUrl;
+          }
+          console.error('❌ Failed to get DAB download URL - no URL returned');
+          return null;
+        } catch (dabError) {
+          console.error('❌ DAB stream URL fetch error:', dabError.message);
+          return null;
+        }
+      }
+
+      // Method 1: downloadUrl array (Saavn format - most common)
       if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
         if (song.downloadUrl[quality]?.url) {
           return song.downloadUrl[quality].url;
@@ -172,7 +267,7 @@ export class UnifiedDownloadService {
         }
       }
 
-      // Method 4: Direct URL string
+      // Method 4: Direct URL string (YTMusic or pre-resolved)
       if (typeof song.url === 'string' && song.url.startsWith('http')) {
         return song.url;
       }
@@ -192,22 +287,73 @@ export class UnifiedDownloadService {
    * @returns {string|null} - Artwork URL or null
    */
   static getArtworkUrl(song) {
-    // Method 1: Direct artwork property
-    if (song.artwork && typeof song.artwork === 'string') {
+    // Helper to check if URL is valid (not a placeholder)
+    const isValidUrl = (url) => {
+      if (!url || typeof url !== 'string') return false;
+      if (!url.startsWith('http')) return false;
+      // Filter out common placeholder URLs
+      if (url.includes('placeholder') || url.includes('htmlcolorcodes.com')) return false;
+      return true;
+    };
+
+    // Method 1: Direct artwork property (string)
+    if (isValidUrl(song.artwork)) {
       return song.artwork;
     }
 
-    // Method 2: image property (string)
-    if (song.image && typeof song.image === 'string') {
+    // Method 2: artwork as object with uri (React Native Image format)
+    if (song.artwork && typeof song.artwork === 'object' && isValidUrl(song.artwork.uri)) {
+      return song.artwork.uri;
+    }
+
+    // Method 3: image property (string)
+    if (isValidUrl(song.image)) {
       return song.image;
     }
 
-    // Method 3: image array (get highest quality)
+    // Method 4: image as object with uri
+    if (song.image && typeof song.image === 'object' && !Array.isArray(song.image) && isValidUrl(song.image.uri)) {
+      return song.image.uri;
+    }
+
+    // Method 5: image array (get highest quality - last one)
     if (song.image && Array.isArray(song.image) && song.image.length > 0) {
-      // Try to get the highest quality image (usually the last one)
       for (let i = song.image.length - 1; i >= 0; i--) {
-        if (song.image[i]?.url) {
-          return song.image[i].url;
+        const item = song.image[i];
+        if (typeof item === 'string' && isValidUrl(item)) {
+          return item;
+        }
+        if (item?.url && isValidUrl(item.url)) {
+          return item.url;
+        }
+        if (item?.uri && isValidUrl(item.uri)) {
+          return item.uri;
+        }
+        if (item?.link && isValidUrl(item.link)) {
+          return item.link;
+        }
+      }
+    }
+
+    // Method 6: cover property (alternative naming)
+    if (isValidUrl(song.cover)) {
+      return song.cover;
+    }
+
+    // Method 7: thumbnail property
+    if (isValidUrl(song.thumbnail)) {
+      return song.thumbnail;
+    }
+
+    // Method 8: images array (Spotify format)
+    if (song.images && Array.isArray(song.images) && song.images.length > 0) {
+      for (let i = song.images.length - 1; i >= 0; i--) {
+        const item = song.images[i];
+        if (typeof item === 'string' && isValidUrl(item)) {
+          return item;
+        }
+        if (item?.url && isValidUrl(item.url)) {
+          return item.url;
         }
       }
     }

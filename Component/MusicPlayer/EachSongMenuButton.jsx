@@ -472,10 +472,32 @@ export const EachSongMenuButton = ({
       setIsDownloading(true);
       setDownloadProgress(0);
 
-      // Use the unified download service with source parameter
+      // Detect DAB track using same logic as addToQueue
+      const isYouTubeSong = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
+      const isDabTrack = song.isDabTrack || song.source === 'dab' || (!isNaN(song.url) && String(song.url).length > 5);
+
+      // Determine actual source
+      let actualSource = 'saavn';
+      if (isDabTrack) {
+        actualSource = 'dab';
+      } else if (isYouTubeSong || song.source === 'ytmusic') {
+        actualSource = 'ytmusic';
+      } else if (song.source) {
+        actualSource = song.source;
+      }
+
+      console.log('📥 [Menu Download] Source detection:', {
+        isDabTrack,
+        isYouTubeSong,
+        songSource: song.source,
+        actualSource
+      });
+
+      // Use the unified download service with proper source
       const success = await UnifiedDownloadService.downloadSong({
         ...song,
-        source: song.source || 'saavn'
+        source: actualSource,
+        isDabTrack: isDabTrack
       }, (progress) => {
         setDownloadProgress(progress);
       });

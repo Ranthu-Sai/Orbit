@@ -27,6 +27,7 @@ class MainApplication : Application(), ReactApplication {
               // Add Python bridge package
 
               add(StreamPackage())
+              add(MetadataWriterPackage())
             }
         override fun getJSBundleFile(): String {
                           return CodePush.getJSBundleFile()

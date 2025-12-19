@@ -1,7 +1,7 @@
 /* eslint-disable keyword-spacing */
 import React, { useState, useEffect } from 'react'
 import { Dimensions, FlatList, View } from 'react-native'
-import { getSearchArtistData } from '../../Api/Songs'
+import { getYTMusicSearchArtistData } from '../../Api/YTMusic'
 import { LoadingComponent } from '../Global/Loading'
 import { PlainText } from '../Global/PlainText'
 import { SmallText } from '../Global/SmallText'
@@ -57,7 +57,7 @@ function removeDuplicateArtists(artists) {
   });
 }
 
-export default function ArtistDisplay({ data, limit, Searchtext, source }) {
+export default function ArtistDisplay({ data, limit, Searchtext }) {
   const [Data, setData] = useState(data)
   const totalPages = Math.ceil(Data?.data?.total ?? 1 / limit)
   const [Page, setPage] = useState(1)
@@ -88,13 +88,8 @@ export default function ArtistDisplay({ data, limit, Searchtext, source }) {
         try {
           setLoading(true)
           let fetchdata;
-          // Use correct API based on source
-          if (source === 'ytmusic') {
-            const { getYTMusicSearchArtistData } = require('../../Api/YTMusic');
-            fetchdata = await getYTMusicSearchArtistData(text, page, limit);
-          } else {
-            fetchdata = await getSearchArtistData(text, page, limit);
-          }
+          // Always use YTMusic for artist search for consistent UI
+          fetchdata = await getYTMusicSearchArtistData(text, page, limit);
 
           // Check if fetchdata has valid structure
           if (fetchdata && fetchdata.data && fetchdata.data.results) {
@@ -185,7 +180,6 @@ export default function ArtistDisplay({ data, limit, Searchtext, source }) {
             role={item.item?.role}
             image={imageUrl}
             followerCount={item.item?.followerCount || item.item?.follower_count || 0}
-            source={source || "saavn"}
             searchText={Searchtext}
             mainContainerStyle={{
               marginBottom: 5,

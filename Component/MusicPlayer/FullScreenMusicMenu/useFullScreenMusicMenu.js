@@ -4,7 +4,7 @@ import { ToastAndroid } from 'react-native';
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { useTheme } from "@react-navigation/native";
 import { AddOneSongToPlaylist } from '../../../MusicPlayerFunctions';
-import { getArtistSongs, getAlbumSongs, getSearchSongData, getSearchArtistData } from '../../../Api/Songs';
+import { getAlbumSongs, getSearchSongData } from '../../../Api/Songs';
 import { getYTMusicArtistSongsPaginated, getYTMusicSearchArtistData } from '../../../Api/YTMusic';
 import Context from '../../../Context/Context';
 
@@ -404,32 +404,27 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
 
     let finalArtistId = artistId;
 
-    // Detect if current song is from YouTube Music
-    const isYTMusic = currentPlaying?.source === 'ytmusic';
-    console.log(`📊 Song source detected: ${isYTMusic ? 'YouTube Music' : 'Saavn'}`);
+    // Always use YTMusic for artist features for consistent experience
+    console.log('📊 Using YTMusic API for artist lookup (unified approach)');
 
-    // If no artist ID, try to find it by searching
+    // If no artist ID, try to find it by searching YTMusic
     if (!finalArtistId) {
       console.log('🔍 Artist ID missing for more songs, searching for:', artistName);
       ToastAndroid.show('Searching for artist...', ToastAndroid.SHORT);
 
-      // Use appropriate search API based on source
-      if (isYTMusic) {
-        try {
-          const ytSearchResponse = await getYTMusicSearchArtistData(artistName, 1, 10);
-          if (ytSearchResponse?.success && ytSearchResponse?.data?.results?.length > 0) {
-            // Find best match
-            const bestMatch = ytSearchResponse.data.results.find(artist =>
-              artist.name.toLowerCase() === artistName.toLowerCase()
-            ) || ytSearchResponse.data.results[0];
-            finalArtistId = bestMatch.id;
-            console.log(`✅ Found YTMusic artist ID: ${finalArtistId}`);
-          }
-        } catch (error) {
-          console.log('❌ YTMusic artist search failed:', error.message);
+      // Always use YTMusic search for consistent artist data
+      try {
+        const ytSearchResponse = await getYTMusicSearchArtistData(artistName, 1, 10);
+        if (ytSearchResponse?.success && ytSearchResponse?.data?.results?.length > 0) {
+          // Find best match
+          const bestMatch = ytSearchResponse.data.results.find(artist =>
+            artist.name.toLowerCase() === artistName.toLowerCase()
+          ) || ytSearchResponse.data.results[0];
+          finalArtistId = bestMatch.id;
+          console.log(`✅ Found YTMusic artist ID: ${finalArtistId}`);
         }
-      } else {
-        finalArtistId = await findArtistId(artistName);
+      } catch (error) {
+        console.log('❌ YTMusic artist search failed:', error.message);
       }
 
       if (!finalArtistId) {
@@ -444,84 +439,35 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
       let response = null;
       let songs = [];
 
-      if (isYTMusic) {
-        // Use YouTube Music API for YTMusic tracks
-        console.log('🎵 Using YouTube Music API for artist songs...');
+      // Always use YouTube Music API for artist songs (unified approach)
+      console.log('🎵 Using YouTube Music API for artist songs...');
 
+      try {
+        response = await getYTMusicArtistSongsPaginated(String(finalArtistId), 1, 20);
+        if (response?.success && response?.data?.songs && response.data.songs.length > 0) {
+          songs = response.data.songs;
+          console.log(`✅ Found ${songs.length} songs via YTMusic API`);
+        }
+      } catch (error) {
+        console.log('❌ YTMusic getArtistSongs failed:', error.message);
+      }
+
+      // Fallback to Saavn search if YouTube Music returns no songs
+      if (songs.length === 0) {
         try {
-          response = await getYTMusicArtistSongsPaginated(String(finalArtistId), 1, 20);
-          if (response?.success && response?.data?.songs && response.data.songs.length > 0) {
-            songs = response.data.songs;
-            console.log(`✅ Found ${songs.length} songs via YTMusic API`);
+          console.log('🔄 YTMusic returned no songs, falling back to Saavn search...');
+          const searchResponse = await getSearchSongData(artistName, 1, 20);
+          if (searchResponse?.success && searchResponse?.data?.results && searchResponse.data.results.length > 0) {
+            // Filter songs that actually match the artist
+            songs = searchResponse.data.results.filter(song => {
+              const songArtist = song.artist || song.artists?.primary?.[0]?.name || '';
+              return songArtist.toLowerCase().includes(artistName.toLowerCase()) ||
+                artistName.toLowerCase().includes(songArtist.toLowerCase());
+            });
+            console.log(`✅ Found ${songs.length} songs via Saavn search fallback`);
           }
         } catch (error) {
-          console.log('❌ YTMusic getArtistSongs failed:', error.message);
-        }
-
-        // Fallback to Saavn search if YouTube Music returns no songs
-        if (songs.length === 0) {
-          try {
-            console.log('🔄 YTMusic returned no songs, falling back to Saavn search...');
-            const searchResponse = await getSearchSongData(artistName, 1, 20);
-            if (searchResponse?.success && searchResponse?.data?.results && searchResponse.data.results.length > 0) {
-              // Filter songs that actually match the artist
-              songs = searchResponse.data.results.filter(song => {
-                const songArtist = song.artist || song.artists?.primary?.[0]?.name || '';
-                return songArtist.toLowerCase().includes(artistName.toLowerCase()) ||
-                  artistName.toLowerCase().includes(songArtist.toLowerCase());
-              });
-              console.log(`✅ Found ${songs.length} songs via Saavn search fallback`);
-            }
-          } catch (error) {
-            console.log('❌ Saavn search fallback failed:', error.message);
-          }
-        }
-      } else {
-        // Use Saavn API for Saavn tracks (existing logic)
-        console.log('🎵 Using Saavn API for artist songs...');
-
-        // Strategy 1: Use getArtistSongs API
-        try {
-          response = await getArtistSongs(String(finalArtistId));
-          if (response?.success && response?.data?.songs && response.data.songs.length > 0) {
-            songs = response.data.songs;
-            console.log(`✅ Found ${songs.length} songs via getArtistSongs`);
-          }
-        } catch (error) {
-          console.log('❌ getArtistSongs failed:', error.message);
-        }
-
-        // Strategy 2: If first API fails, try paginated artist songs
-        if (songs.length === 0) {
-          try {
-            const { getArtistSongsPaginated } = require('../../../Api/Songs');
-            response = await getArtistSongsPaginated(String(finalArtistId), 1, 20);
-            if (response?.success && response?.data?.songs && response.data.songs.length > 0) {
-              songs = response.data.songs;
-              console.log(`✅ Found ${songs.length} songs via getArtistSongsPaginated`);
-            }
-          } catch (error) {
-            console.log('❌ getArtistSongsPaginated failed:', error.message);
-          }
-        }
-
-        // Strategy 3: If both APIs fail, search for songs by artist name
-        if (songs.length === 0) {
-          try {
-            console.log('🔍 Trying song search as fallback for artist songs...');
-            const searchResponse = await getSearchSongData(artistName, 1, 20);
-            if (searchResponse?.success && searchResponse?.data?.results && searchResponse.data.results.length > 0) {
-              // Filter songs that actually match the artist
-              songs = searchResponse.data.results.filter(song => {
-                const songArtist = song.artist || song.artists?.primary?.[0]?.name || '';
-                return songArtist.toLowerCase().includes(artistName.toLowerCase()) ||
-                  artistName.toLowerCase().includes(songArtist.toLowerCase());
-              });
-              console.log(`✅ Found ${songs.length} songs via search fallback`);
-            }
-          } catch (error) {
-            console.log('❌ Search fallback failed:', error.message);
-          }
+          console.log('❌ Saavn search fallback failed:', error.message);
         }
       }
 
@@ -540,7 +486,7 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
           navigation.navigate("ArtistPage", {
             artistId: String(finalArtistId),
             artistName: artistName,
-            source: isYTMusic ? 'ytmusic' : 'saavn',
+            source: 'ytmusic',  // Always use ytmusic for consistent artist page
             preloadedSongs: songs,
             returnToFullScreen: true
           });

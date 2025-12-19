@@ -259,11 +259,36 @@ const ContextState = (props) => {
                 if (savedState && savedState.queue.length > 0) {
                     try {
                         console.log('🎵 Restoring queue to TrackPlayer...');
-                        await TrackPlayer.add(savedState.queue);
-                        if (savedState.activeIndex >= 0) {
-                            await TrackPlayer.skip(savedState.activeIndex);
+
+                        // Filter out DAB tracks - their stream URLs expire and cause playback errors
+                        const restorableQueue = savedState.queue.filter(track => {
+                            const isDabTrack = track.source === 'dab' || track.isDabTrack;
+                            if (isDabTrack) {
+                                console.log('⏭️ Skipping DAB track with expired URL:', track.title);
+                            }
+                            return !isDabTrack;
+                        });
+
+                        if (restorableQueue.length > 0) {
+                            await TrackPlayer.add(restorableQueue);
+
+                            // Find the correct index to skip to
+                            // If the saved active track was a DAB track, start from beginning
+                            const savedTrack = savedState.activeTrack;
+                            const wasDabTrack = savedTrack?.source === 'dab' || savedTrack?.isDabTrack;
+
+                            if (!wasDabTrack && savedState.activeIndex >= 0) {
+                                // Find the new index after filtering
+                                const newIndex = restorableQueue.findIndex(t => t.id === savedTrack?.id);
+                                if (newIndex >= 0) {
+                                    await TrackPlayer.skip(newIndex);
+                                }
+                            }
+                            console.log(`✅ Restored ${restorableQueue.length} tracks (${savedState.queue.length - restorableQueue.length} DAB tracks skipped)`);
+                        } else {
+                            console.log('⏭️ No restorable tracks (all were DAB tracks with expired URLs)');
                         }
-                        // Don't auto-play, let user click play (as requested: "just one click and song play")
+                        // Don't auto-play, let user click play
                     } catch (restoreError) {
                         console.warn('Failed to restore TrackPlayer queue', restoreError);
                     }
