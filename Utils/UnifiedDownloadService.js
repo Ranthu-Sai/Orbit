@@ -1,9 +1,9 @@
 import { StorageManager } from './StorageManager';
-import { downloadFileWithAnalytics } from './FileUtils';
+import { downloadFileWithAnalytics, detectAudioFormat, renameToCorrectExtension } from './FileUtils';
 import { ToastAndroid } from 'react-native';
 import EventRegister from './EventRegister';
 import { getIndexQuality } from '../MusicPlayerFunctions';
-import { embedMetadataInFile, hasMetadataSupportByExtension } from './NativeMetadataWriter';
+import { embedMetadataInFile } from './NativeMetadataWriter';
 import RNFS from 'react-native-fs';
 
 /**
@@ -40,20 +40,46 @@ export class UnifiedDownloadService {
       // Ensure directories exist
       await StorageManager.ensureDirectoriesExist();
 
-      // Get download URL
-      const downloadUrl = await this.getDownloadUrl(song);
-      if (!downloadUrl) {
+      // Get download URL (may return object with headers for YTMusic/DAB)
+      const downloadResult = await this.getDownloadUrl(song);
+      if (!downloadResult) {
         throw new Error('No valid download URL found');
+      }
+
+      // Extract URL and headers (YTMusic returns object, others return string)
+      let downloadUrl;
+      let downloadHeaders = null;
+      let audioFormat = null; // Actual audio format from stream (webm, m4a, etc.)
+      if (typeof downloadResult === 'object' && downloadResult.url) {
+        downloadUrl = downloadResult.url;
+        downloadHeaders = downloadResult.headers || null;
+        audioFormat = downloadResult.format || null; // e.g., 'webm', 'm4a', 'opus'
+        console.log('📥 [Download] Using YTMusic stream with headers, format:', audioFormat);
+      } else {
+        downloadUrl = downloadResult;
       }
 
       // Get file paths (pass source for correct file extension)
       // Use isDabTrack as fallback for source detection
-      const effectiveSource = song.source || (song.isDabTrack ? 'dab' : null);
-      console.log('📂 Getting song path with source:', effectiveSource, '(original:', song.source, ', isDabTrack:', song.isDabTrack, ')');
+      const isYTMusic = song.source === 'ytmusic' ||
+        (song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isDabTrack && !song.isLocalMusic);
+
+      // For YTMusic, use the actual format from the stream, or default format
+      // Pass the format as the source so StorageManager uses correct extension
+      let effectiveSource;
+      if (isYTMusic && audioFormat) {
+        // Use format-based source for correct extension (e.g., 'ytmusic_webm', 'ytmusic_m4a')
+        effectiveSource = `ytmusic_${audioFormat}`;
+      } else if (isYTMusic) {
+        effectiveSource = 'ytmusic';
+      } else {
+        effectiveSource = song.source || (song.isDabTrack ? 'dab' : null);
+      }
+      console.log('📂 Getting song path with source:', effectiveSource, '(original:', song.source, ', format:', audioFormat, ')');
       const songPath = await StorageManager.getSongPath(song.id, song.title, effectiveSource);
       const artworkPath = await StorageManager.getArtworkPath(song.id);
 
-      // Download song file
+      // Download song file (with headers for YTMusic)
       const songDownloadSuccess = await downloadFileWithAnalytics(
         downloadUrl,
         songPath,
@@ -61,7 +87,8 @@ export class UnifiedDownloadService {
           id: song.id,
           name: song.title || 'Unknown',
           type: 'song'
-        }
+        },
+        downloadHeaders // Pass headers (null for non-YTMusic sources)
       );
 
       if (!songDownloadSuccess) {
@@ -114,16 +141,31 @@ export class UnifiedDownloadService {
         }
       }
 
+      // Detect actual file format using magic bytes before attempting metadata embedding
+      // This prevents errors when YouTube returns WebM/Opus but claims M4A
+      const formatInfo = await detectAudioFormat(songPath);
+      console.log(`🔍 [Format] Detected format: ${formatInfo.format}, canEmbed: ${formatInfo.canEmbedMetadata}`);
+
+      // If file has wrong extension, rename it
+      let finalSongPath = songPath;
+      if (formatInfo.actualExtension && !songPath.toLowerCase().endsWith(formatInfo.actualExtension)) {
+        const renamedPath = await renameToCorrectExtension(songPath, formatInfo.actualExtension);
+        if (renamedPath) {
+          finalSongPath = renamedPath;
+          console.log(`📝 [File] Renamed to correct extension: ${finalSongPath}`);
+        }
+      }
+
       // Embed metadata and artwork directly into the audio file
       let metadataEmbedded = false;
-      if (hasMetadataSupportByExtension(songPath)) {
+      if (formatInfo.canEmbedMetadata) {
         try {
           const artworkPathToEmbed = artworkDownloadSuccess ? artworkPath : null;
           console.log(`📝 [Metadata] Embedding into: ${song.title}`);
           console.log(`🎨 [Metadata] Artwork path for embedding: ${artworkPathToEmbed || 'NONE (artwork download failed)'}`);
 
           metadataEmbedded = await embedMetadataInFile(
-            songPath,
+            finalSongPath,
             {
               title: song.title || 'Unknown',
               artist: this.formatArtist(song.artist) || 'Unknown Artist',
@@ -134,7 +176,7 @@ export class UnifiedDownloadService {
           );
 
           if (metadataEmbedded) {
-            console.log(`Metadata embedded successfully for: ${song.title}`);
+            console.log(`✅ Metadata embedded successfully for: ${song.title}`);
             // Clean up separate artwork file since it's now embedded
             if (artworkDownloadSuccess && await RNFS.exists(artworkPath)) {
               try {
@@ -149,6 +191,8 @@ export class UnifiedDownloadService {
           console.warn(`Failed to embed metadata for ${song.title}:`, embedError);
           // Continue without embedded metadata - file is still playable
         }
+      } else {
+        console.log(`⏭️ [Metadata] Skipping embedding for ${song.title} - format ${formatInfo.format} doesn't support metadata`);
       }
 
       // Prepare metadata for Orbit's internal library
@@ -159,7 +203,7 @@ export class UnifiedDownloadService {
         album: song.album || 'Unknown Album',
         url: downloadUrl,
         artwork: artworkUrl,
-        localSongPath: songPath,
+        localSongPath: finalSongPath,
         localArtworkPath: (artworkDownloadSuccess && !metadataEmbedded) ? artworkPath : null,
         duration: song.duration || 0,
         language: song.language || '',
@@ -200,15 +244,55 @@ export class UnifiedDownloadService {
 
   /**
    * Gets the best quality download URL from song data
+   * For YTMusic and DAB, returns { url, headers } object
+   * For other sources (Saavn), returns just the URL string
    * @param {Object} song - Song object
-   * @returns {Promise<string|null>} - Download URL or null
+   * @returns {Promise<string|{url: string, headers: Object}|null>} - Download URL/object or null
    */
   static async getDownloadUrl(song) {
     try {
       const quality = await getIndexQuality();
 
-      // Handle DAB Music source - need to fetch stream URL from API
+      // ============================================================
+      // YTMUSIC SOURCE - Fetch stream URL with required headers
+      // Detection: source='ytmusic' OR 11-character ID (YouTube video ID format)
+      // ============================================================
+      const isYTMusic = song.source === 'ytmusic' ||
+        (song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isDabTrack && !song.isLocalMusic);
+
+      if (isYTMusic) {
+        console.log('🎵 YTMusic track detected, fetching download URL for ID:', song.id);
+        try {
+          const youtubeStreamingService = require('./YouTubeStreamingService').default;
+          const streamData = await youtubeStreamingService.getStreamUrl(song.id);
+
+          if (streamData && streamData.url) {
+            console.log('✅ Got YTMusic download URL successfully');
+            // Return object with URL, headers, and format metadata
+            return {
+              url: streamData.url,
+              headers: streamData.headers || {
+                'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 12; en_IN)',
+                'Range': 'bytes=0-'
+              },
+              thumbnail: streamData.thumbnail,
+              format: streamData.format || null,
+              mimeType: streamData.mimeType || null,
+              source: 'ytmusic'
+            };
+          }
+          console.error('❌ Failed to get YTMusic download URL - no URL returned');
+          return null;
+        } catch (ytError) {
+          console.error('❌ YTMusic stream URL fetch error:', ytError.message);
+          return null;
+        }
+      }
+
+      // ============================================================
+      // DAB MUSIC SOURCE - Fetch stream URL from API
       // Detection: source='dab' OR isDabTrack flag
+      // ============================================================
       if (song.source === 'dab' || song.isDabTrack === true) {
         console.log('🎵 DAB track detected, fetching download URL for ID:', song.id);
         try {
@@ -228,6 +312,9 @@ export class UnifiedDownloadService {
         }
       }
 
+      // ============================================================
+      // SAAVN SOURCE - Use downloadUrl/download_url arrays
+      // ============================================================
       // Method 1: downloadUrl array (Saavn format - most common)
       if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
         if (song.downloadUrl[quality]?.url) {
@@ -267,7 +354,7 @@ export class UnifiedDownloadService {
         }
       }
 
-      // Method 4: Direct URL string (YTMusic or pre-resolved)
+      // Method 4: Direct URL string (pre-resolved)
       if (typeof song.url === 'string' && song.url.startsWith('http')) {
         return song.url;
       }
@@ -280,6 +367,7 @@ export class UnifiedDownloadService {
       return null;
     }
   }
+
 
   /**
    * Gets the artwork URL from song data

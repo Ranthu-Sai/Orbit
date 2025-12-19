@@ -485,10 +485,7 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
   }
 
   const handleDownload = async () => {
-    if (source === 'ytmusic') {
-      ToastAndroid.show('YouTube Music songs cannot be downloaded yet.', ToastAndroid.SHORT);
-      return;
-    }
+    // YTMusic downloads are now supported via streaming URL
 
     if (isDownloaded) {
       ToastAndroid.show('Song is already downloaded!', ToastAndroid.SHORT);

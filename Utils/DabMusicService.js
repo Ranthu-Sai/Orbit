@@ -123,10 +123,10 @@ class DabMusicService {
         }
 
         // CHECK CENTRALIZED CACHE FIRST (Hybrid: RAM -> Disk)
-        const cachedUrl = await CacheManager.getStreamUrlAsync(trackId, 'dab');
-        if (cachedUrl) {
-            console.log(`🚀 [Cache] DAB stream URL cache HIT for ${trackId}`);
-            return cachedUrl;
+        const cachedData = await CacheManager.getStreamUrlAsync(trackId, 'dab');
+        if (cachedData && cachedData.url) {
+            console.log(`🚀 [Cache] DAB stream URL cache HIT for ${trackId} (format: ${cachedData.format})`);
+            return cachedData.url;
         }
 
         try {
@@ -169,9 +169,13 @@ class DabMusicService {
                 throw new Error('No stream URL returned');
             }
 
-            // CACHE THE URL with 3-hour TTL via NavigationCacheManager
-            CacheManager.setStreamUrl(trackId, streamUrl, 'dab');
-            console.log(`📦 [Cache] DAB stream URL cached for ${trackId} (3-hour TTL)`);
+            // CACHE THE URL with 3-hour TTL via NavigationCacheManager with format metadata
+            // DAB provides FLAC files
+            CacheManager.setStreamUrl(trackId, streamUrl, 'dab', {
+                format: 'flac',
+                mimeType: 'audio/flac',
+            });
+            console.log(`📦 [Cache] DAB stream URL cached for ${trackId} (format: flac, 3-hour TTL)`);
 
             console.log('✅ Got DAB stream URL');
             return streamUrl;

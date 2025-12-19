@@ -208,10 +208,10 @@ class NavigationCacheManager {
     // ============================================
 
     /**
-     * Get cached stream URL
+     * Get cached stream URL with metadata
      * @param {string} videoId - Video/track ID
      * @param {string} source - 'ytmusic' or 'dab'
-     * @returns {string|null} - Cached URL or null
+     * @returns {{url: string, format: string|null, mimeType: string|null}|null} - Cached stream data or null
      */
     getStreamUrl(videoId, source = 'ytmusic') {
         // RAM only (Legacy/Fast)
@@ -225,21 +225,25 @@ class NavigationCacheManager {
             AsyncStorage.removeItem(`stream_${key}`).catch(() => { });
             return null;
         }
-        return entry.url;
+        return {
+            url: entry.url,
+            format: entry.format || null,
+            mimeType: entry.mimeType || null,
+        };
     }
 
     /**
-     * Get stream URL (Hybrid: RAM -> Disk)
+     * Get stream URL with metadata (Hybrid: RAM -> Disk)
      * @param {string} videoId 
      * @param {string} source 
-     * @returns {Promise<string|null>}
+     * @returns {Promise<{url: string, format: string|null, mimeType: string|null}|null>}
      */
     async getStreamUrlAsync(videoId, source = 'ytmusic') {
         const key = `${source}_${videoId}`;
 
         // 1. RAM Check
-        const ramUrl = this.getStreamUrl(videoId, source);
-        if (ramUrl) return ramUrl;
+        const ramData = this.getStreamUrl(videoId, source);
+        if (ramData) return ramData;
 
         // 2. Disk Check
         try {
@@ -253,8 +257,12 @@ class NavigationCacheManager {
 
                 // Restore to RAM
                 this.streamCache.set(key, entry);
-                console.log(`[CacheManager] Restored stream ${key} from disk`);
-                return entry.url;
+                console.log(`[CacheManager] Restored stream ${key} from disk (format: ${entry.format})`);
+                return {
+                    url: entry.url,
+                    format: entry.format || null,
+                    mimeType: entry.mimeType || null,
+                };
             }
         } catch (e) {
             console.warn(`[CacheManager] Stream disk read error:`, e);
@@ -267,8 +275,9 @@ class NavigationCacheManager {
      * @param {string} videoId - Video/track ID
      * @param {string} url - Stream URL
      * @param {string} source - 'ytmusic' or 'dab'
+     * @param {object} metadata - Optional metadata like format, mimeType
      */
-    setStreamUrl(videoId, url, source = 'ytmusic') {
+    setStreamUrl(videoId, url, source = 'ytmusic', metadata = {}) {
         if (!videoId || !url) {
             console.warn('[CacheManager] Cannot cache stream URL: missing videoId or url');
             return;
@@ -283,6 +292,9 @@ class NavigationCacheManager {
             timestamp: Date.now(),
             ttl,
             source,
+            // Store format metadata for correct file extension on download
+            format: metadata.format || null,
+            mimeType: metadata.mimeType || null,
         };
 
         // 1. RAM
@@ -302,7 +314,7 @@ class NavigationCacheManager {
             }
         })();
 
-        console.log(`[CacheManager] Stream URL cached for ${source}:${videoId} (TTL: ${ttl / 1000 / 60} minutes)`);
+        console.log(`[CacheManager] Stream URL cached for ${source}:${videoId} (TTL: ${ttl / 1000 / 60} minutes, format: ${entry.format})`);
     }
 
     /**

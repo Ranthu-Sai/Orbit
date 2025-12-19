@@ -31,20 +31,22 @@ class YouTubeStreamingService {
      * Uses 3-hour cache to avoid repeated API calls
      * 
      * @param {string} videoId - YouTube video ID
-     * @returns {Promise<{url: string, headers: object, thumbnail: string, duration: number, title: string}|null>}
+     * @returns {Promise<{url: string, headers: object, thumbnail: string, duration: number, title: string, format: string}|null>}
      */
     async getStreamUrl(videoId) {
         try {
             // Step 1: CHECK CACHE FIRST (Hybrid: RAM -> Disk)
-            const cachedUrl = await CacheManager.getStreamUrlAsync(videoId, 'ytmusic');
-            if (cachedUrl) {
-                console.log(`🚀 [Cache] Stream URL cache HIT for ${videoId}`);
+            const cachedData = await CacheManager.getStreamUrlAsync(videoId, 'ytmusic');
+            if (cachedData && cachedData.url) {
+                console.log(`🚀 [Cache] Stream URL cache HIT for ${videoId} (format: ${cachedData.format})`);
                 return {
-                    url: cachedUrl,
+                    url: cachedData.url,
                     headers: {
                         'User-Agent': ANDROID_CLIENT.headers['User-Agent'],
                         'Range': 'bytes=0-'
                     },
+                    format: cachedData.format || 'm4a',
+                    mimeType: cachedData.mimeType || 'audio/mp4',
                     fromCache: true
                 };
             }
@@ -63,9 +65,16 @@ class YouTubeStreamingService {
             if (result && result.url) {
                 console.log('✅ Native streaming successful');
 
-                // Step 3: CACHE THE STREAM URL (3-hour TTL)
-                CacheManager.setStreamUrl(videoId, result.url, 'ytmusic');
-                console.log(`📦 [Cache] Stream URL cached for ${videoId} (3-hour TTL)`);
+                // Determine format from native result
+                const format = result.format || 'm4a';
+                const mimeType = result.mimeType || 'audio/mp4';
+
+                // Step 3: CACHE THE STREAM URL WITH FORMAT METADATA (3-hour TTL)
+                CacheManager.setStreamUrl(videoId, result.url, 'ytmusic', {
+                    format: format,
+                    mimeType: mimeType,
+                });
+                console.log(`📦 [Cache] Stream URL cached for ${videoId} (format: ${format}, 3-hour TTL)`);
 
                 return {
                     url: result.url,
@@ -77,11 +86,16 @@ class YouTubeStreamingService {
                     duration: result.duration,
                     title: result.title,
                     author: result.author,
+                    // Format info for correct file extension
+                    format: format,
+                    mimeType: mimeType,
+                    bitrate: result.bitrate,
                     fromCache: false
                 };
             }
 
             throw new Error('Native module returned empty result');
+
 
         } catch (error) {
             console.error(`❌ Native Streaming failed for ${videoId}:`, error);

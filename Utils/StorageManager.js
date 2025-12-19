@@ -119,7 +119,15 @@ const getSongPath = async (songId, songTitle = null, source = null) => {
   if (source === 'dab') {
     extension = '.flac'; // DAB provides FLAC files
   } else if (source === 'ytmusic') {
-    extension = '.m4a'; // YTMusic provides M4A (AAC) files
+    extension = '.m4a'; // YTMusic default (AAC)
+  } else if (source === 'ytmusic_m4a') {
+    extension = '.m4a'; // YTMusic M4A/AAC
+  } else if (source === 'ytmusic_webm' || source === 'ytmusic_opus') {
+    extension = '.opus'; // YTMusic Opus format (WebM container -> use .opus)
+  } else if (source && source.startsWith('ytmusic_')) {
+    // Handle any other ytmusic formats - extract extension from source
+    const fmt = source.replace('ytmusic_', '');
+    extension = `.${fmt}`;
   }
 
   if (songTitle) {

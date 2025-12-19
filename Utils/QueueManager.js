@@ -194,26 +194,15 @@ class QueueManager {
 
             const track = queue[trackIndex];
 
-            // Check central cache first (Hybrid)
-            const cachedUrl = await CacheManager.getStreamUrlAsync(track.id, track.source || 'ytmusic');
-            if (cachedUrl) {
-                console.log(`✅ Using centralized cached stream for: ${track.title}`);
-                // Return structure matching _fetchStreamForSong output, or just URL if that's what caller expects?
-                // Caller expects an object with .url properties potentially?
-                // Looking at _fetchStreamForSong, it returns { url, headers, ... }
-                // Looking at usage: if (streamData && streamData.url)
-
-                // We should reconstruct the object somewhat, or store full object in cache?
-                // NavigationCacheManager stores: { url, timestamp, ttl, source }
-                // It returns just 'url' string from getStreamUrlAsync currently!
-                // We might need headers. YouTubeStreamingService CACHES headers? No, it reconstructs them.
-                // YouTubeStreamingService.getStreamUrl returns { url, headers, ... }
-
-                // So if we get URL, we need to add standard headers.
-                // QueueManager uses it to update metadata.
+            // Check central cache first (Hybrid) - now returns object with url, format, mimeType
+            const cachedData = await CacheManager.getStreamUrlAsync(track.id, track.source || 'ytmusic');
+            if (cachedData && cachedData.url) {
+                console.log(`✅ Using centralized cached stream for: ${track.title} (format: ${cachedData.format})`);
                 return {
-                    url: cachedUrl,
-                    headers: { 'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 12; en_IN)', 'Range': 'bytes=0-' }
+                    url: cachedData.url,
+                    headers: { 'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 12; en_IN)', 'Range': 'bytes=0-' },
+                    format: cachedData.format,
+                    mimeType: cachedData.mimeType,
                 };
             }
 
@@ -234,8 +223,11 @@ class QueueManager {
                     userAgent: streamData.headers?.['User-Agent']
                 });
 
-                // Cache the stream centrally!
-                CacheManager.setStreamUrl(track.id, streamData.url, track.source || 'ytmusic');
+                // Cache the stream centrally with format metadata!
+                CacheManager.setStreamUrl(track.id, streamData.url, track.source || 'ytmusic', {
+                    format: streamData.format || null,
+                    mimeType: streamData.mimeType || null,
+                });
                 console.log(`✅ Fetched and updated stream for: ${track.title}`);
                 return streamData;
             }

@@ -21,25 +21,39 @@
 import { CacheManager } from './NavigationCacheManager';
 
 /**
- * Get cached stream URL if available
+ * Get cached stream URL if available (returns just URL string for backward compatibility)
  * @param {string} videoId - Video/track ID
  * @param {string} source - 'ytmusic' or 'dab'
  * @returns {string|null} - Cached URL or null
  */
 export function getCachedStreamUrl(videoId, source = 'ytmusic') {
     if (!videoId) return null;
+    const cachedData = CacheManager.getStreamUrl(videoId, source);
+    // Return just the URL string for backward compatibility
+    return cachedData ? cachedData.url : null;
+}
+
+/**
+ * Get cached stream data including format info
+ * @param {string} videoId - Video/track ID
+ * @param {string} source - 'ytmusic' or 'dab'
+ * @returns {{url: string, format: string|null, mimeType: string|null}|null} - Cached data or null
+ */
+export function getCachedStreamData(videoId, source = 'ytmusic') {
+    if (!videoId) return null;
     return CacheManager.getStreamUrl(videoId, source);
 }
 
 /**
- * Cache a stream URL
+ * Cache a stream URL with optional format metadata
  * @param {string} videoId - Video/track ID
  * @param {string} url - Stream URL to cache
  * @param {string} source - 'ytmusic' or 'dab'
+ * @param {object} metadata - Optional format metadata {format, mimeType}
  */
-export function cacheStreamUrl(videoId, url, source = 'ytmusic') {
+export function cacheStreamUrl(videoId, url, source = 'ytmusic', metadata = {}) {
     if (!videoId || !url) return;
-    CacheManager.setStreamUrl(videoId, url, source);
+    CacheManager.setStreamUrl(videoId, url, source, metadata);
 }
 
 /**

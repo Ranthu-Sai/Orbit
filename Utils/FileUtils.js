@@ -199,9 +199,10 @@ export const ensureDirectoryExists = async (path) => {
  * Safely downloads a file, handling non-string paths
  * @param {string} url - URL to download from
  * @param {any} path - Path to save to
+ * @param {Object} customHeaders - Optional custom headers for the download request
  * @returns {Promise<boolean>} True if successfully downloaded
  */
-export const safeDownloadFile = async (url, path) => {
+export const safeDownloadFile = async (url, path, customHeaders = null) => {
   const stringPath = safePath(path);
   try {
     if (!url || typeof url !== 'string') {
@@ -214,15 +215,19 @@ export const safeDownloadFile = async (url, path) => {
       return false;
     }
 
-    // Build download options with headers for specific CDNs
+    // Build download options
     const downloadOptions = {
       fromUrl: url,
       toFile: stringPath,
     };
 
-    // Add User-Agent for qobuz CDN to prevent blocking
-    // Some CDNs block requests without proper User-Agent headers
-    if (url.includes('qobuz.com') || url.includes('akamaized.net')) {
+    // Priority 1: Use custom headers if provided (e.g., YTMusic requires specific User-Agent)
+    if (customHeaders && typeof customHeaders === 'object') {
+      downloadOptions.headers = customHeaders;
+      console.log('📥 [Download] Using custom headers for download');
+    }
+    // Priority 2: Add User-Agent for specific CDNs
+    else if (url.includes('qobuz.com') || url.includes('akamaized.net')) {
       downloadOptions.headers = {
         'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
         'Accept': 'image/*,*/*',
@@ -231,7 +236,9 @@ export const safeDownloadFile = async (url, path) => {
 
     const result = await RNFS.downloadFile(downloadOptions).promise;
 
-    if (result.statusCode === 200) {
+    // Accept both 200 (OK) and 206 (Partial Content) as success
+    // YouTube/Google streams return 206 for range requests
+    if (result.statusCode === 200 || result.statusCode === 206) {
       if (Platform.OS === 'android') {
         try {
           await RNFS.scanFile(stringPath);
@@ -258,9 +265,10 @@ export const safeDownloadFile = async (url, path) => {
  * @param {string} url - URL to download from
  * @param {any} path - Path to save to
  * @param {Object} metadata - Metadata about the content being downloaded
+ * @param {Object} headers - Optional custom headers for the download request
  * @returns {Promise<boolean>} True if successfully downloaded
  */
-export const downloadFileWithAnalytics = async (url, path, metadata = {}) => {
+export const downloadFileWithAnalytics = async (url, path, metadata = {}, headers = null) => {
   const { id, name, type = 'song' } = metadata;
 
   try {
@@ -269,8 +277,8 @@ export const downloadFileWithAnalytics = async (url, path, metadata = {}) => {
       analyticsService.logDownloadStart(id, type, name);
     }
 
-    // Perform the download
-    const success = await safeDownloadFile(url, path);
+    // Perform the download with optional headers
+    const success = await safeDownloadFile(url, path, headers);
 
     // Track download completion
     if (id && name) {
@@ -290,3 +298,109 @@ export const downloadFileWithAnalytics = async (url, path, metadata = {}) => {
   }
 };
 
+/**
+ * Detects the actual audio format of a file by reading its magic bytes
+ * This is essential because YouTube sometimes returns different formats than expected
+ * 
+ * @param {string} filePath - Path to the audio file
+ * @returns {Promise<{format: string, canEmbedMetadata: boolean, actualExtension: string}>}
+ */
+export const detectAudioFormat = async (filePath) => {
+  try {
+    const stringPath = safePath(filePath);
+    if (!stringPath || !(await safeExists(stringPath))) {
+      return { format: 'unknown', canEmbedMetadata: false, actualExtension: '' };
+    }
+
+    // Read first 12 bytes to detect format
+    const fileHandle = await RNFS.read(stringPath, 12, 0, 'base64');
+    const bytes = Uint8Array.from(atob(fileHandle), c => c.charCodeAt(0));
+
+    // Check for WebM/Matroska: 0x1A 0x45 0xDF 0xA3
+    if (bytes[0] === 0x1A && bytes[1] === 0x45 && bytes[2] === 0xDF && bytes[3] === 0xA3) {
+      console.log('🔍 [Format Detection] WebM/Matroska container detected');
+      return { format: 'webm', canEmbedMetadata: false, actualExtension: '.opus' };
+    }
+
+    // Check for MP4/M4A: 'ftyp' at offset 4
+    if (bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) { // 'ftyp'
+      console.log('🔍 [Format Detection] MP4/M4A container detected');
+      return { format: 'm4a', canEmbedMetadata: true, actualExtension: '.m4a' };
+    }
+
+    // Check for FLAC: 'fLaC'
+    if (bytes[0] === 0x66 && bytes[1] === 0x4C && bytes[2] === 0x61 && bytes[3] === 0x43) {
+      console.log('🔍 [Format Detection] FLAC format detected');
+      return { format: 'flac', canEmbedMetadata: true, actualExtension: '.flac' };
+    }
+
+    // Check for MP3: ID3 tag or frame sync
+    if ((bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) || // 'ID3'
+      (bytes[0] === 0xFF && (bytes[1] & 0xE0) === 0xE0)) { // Frame sync
+      console.log('🔍 [Format Detection] MP3 format detected');
+      return { format: 'mp3', canEmbedMetadata: true, actualExtension: '.mp3' };
+    }
+
+    // Check for OGG: 'OggS'
+    if (bytes[0] === 0x4F && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) {
+      console.log('🔍 [Format Detection] OGG container detected');
+      return { format: 'ogg', canEmbedMetadata: true, actualExtension: '.ogg' };
+    }
+
+    // Check for WAV: 'RIFF'...'WAVE'
+    if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+      bytes[8] === 0x57 && bytes[9] === 0x41 && bytes[10] === 0x56 && bytes[11] === 0x45) {
+      console.log('🔍 [Format Detection] WAV format detected');
+      return { format: 'wav', canEmbedMetadata: true, actualExtension: '.wav' };
+    }
+
+    console.log('🔍 [Format Detection] Unknown format, first bytes:',
+      Array.from(bytes.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+    return { format: 'unknown', canEmbedMetadata: false, actualExtension: '' };
+
+  } catch (error) {
+    console.error('🔍 [Format Detection] Error:', error.message);
+    return { format: 'unknown', canEmbedMetadata: false, actualExtension: '' };
+  }
+};
+
+/**
+ * Renames a file to have the correct extension based on its actual format
+ * @param {string} currentPath - Current file path
+ * @param {string} newExtension - New extension (including dot, e.g., '.opus')
+ * @returns {Promise<string|null>} New file path or null if failed
+ */
+export const renameToCorrectExtension = async (currentPath, newExtension) => {
+  try {
+    const stringPath = safePath(currentPath);
+    if (!stringPath || !newExtension) return null;
+
+    // Get the base path without extension
+    const lastDotIndex = stringPath.lastIndexOf('.');
+    const basePath = lastDotIndex > 0 ? stringPath.substring(0, lastDotIndex) : stringPath;
+    const newPath = basePath + newExtension;
+
+    // If already correct extension, return current path
+    if (stringPath.toLowerCase().endsWith(newExtension.toLowerCase())) {
+      return stringPath;
+    }
+
+    // Rename file
+    await RNFS.moveFile(stringPath, newPath);
+    console.log(`📝 [File Rename] ${stringPath} -> ${newPath}`);
+
+    // Scan new file for media library
+    if (Platform.OS === 'android') {
+      try {
+        await RNFS.scanFile(newPath);
+      } catch (e) {
+        // Non-critical
+      }
+    }
+
+    return newPath;
+  } catch (error) {
+    console.error('📝 [File Rename] Error:', error.message);
+    return null;
+  }
+};

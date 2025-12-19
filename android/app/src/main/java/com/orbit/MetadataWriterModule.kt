@@ -68,9 +68,54 @@ class MetadataWriterModule(reactContext: ReactApplicationContext)
 
                 android.util.Log.d("MetadataWriter", "📁 Processing file: ${audioFile.name}")
                 
-                val audio = AudioFileIO.read(audioFile)
+                // Pre-check for unsupported formats before trying to read
+                // WebM-contained Opus and raw Opus files may not be fully supported by JAudioTagger
+                val lowerPath = filePath.lowercase()
+                val isWebM = lowerPath.endsWith(".webm")
+                val isOpusExtension = lowerPath.endsWith(".opus")
+                
+                // Check file magic bytes for WebM container (EBML header: 0x1A 0x45 0xDF 0xA3)
+                var isWebMContent = false
+                try {
+                    val fis = java.io.FileInputStream(audioFile)
+                    val magic = ByteArray(4)
+                    if (fis.read(magic) == 4) {
+                        // WebM/Matroska magic: 0x1A 0x45 0xDF 0xA3
+                        isWebMContent = magic[0] == 0x1A.toByte() && 
+                                       magic[1] == 0x45.toByte() && 
+                                       magic[2] == 0xDF.toByte() && 
+                                       magic[3] == 0xA3.toByte()
+                    }
+                    fis.close()
+                } catch (e: Exception) {
+                    android.util.Log.w("MetadataWriter", "Could not check file magic: ${e.message}")
+                }
+                
+                if (isWebM || isWebMContent) {
+                    android.util.Log.w("MetadataWriter", "⚠️ WebM container detected - skipping metadata embedding (not supported)")
+                    android.util.Log.d("MetadataWriter", "WebM files use Matroska container which JAudioTagger doesn't support for writing")
+                    // Return success=true so the download completes without error
+                    promise.resolve(true)
+                    return@Thread
+                }
+                
+                // For Opus files, attempt to read - if JAudioTagger fails, skip gracefully
+                // JAudioTagger supports Opus in OGG container but not always in WebM
+                
+                val audio = try {
+                    AudioFileIO.read(audioFile)
+                } catch (e: org.jaudiotagger.audio.exceptions.CannotReadException) {
+                    android.util.Log.w("MetadataWriter", "⚠️ Cannot read audio file (unsupported format): ${e.message}")
+                    promise.resolve(true) // Success - file exists, just can't embed metadata
+                    return@Thread
+                } catch (e: org.jaudiotagger.audio.exceptions.InvalidAudioFrameException) {
+                    android.util.Log.w("MetadataWriter", "⚠️ Invalid audio frame: ${e.message}")
+                    promise.resolve(true)
+                    return@Thread
+                }
+                
                 val tag = audio.tagOrCreateAndSetDefault
-                val isFlac = filePath.lowercase().endsWith(".flac")
+                val isFlac = lowerPath.endsWith(".flac")
                 
                 android.util.Log.d("MetadataWriter", "📁 File type: ${if (isFlac) "FLAC" else audio.audioHeader.format}, Tag type: ${tag::class.java.simpleName}")
 
@@ -124,8 +169,21 @@ class MetadataWriterModule(reactContext: ReactApplicationContext)
                 
                 promise.resolve(true)
             } catch (e: Exception) {
-                android.util.Log.e("MetadataWriter", "Failed to embed metadata: ${e.message}", e)
-                promise.reject("METADATA_ERROR", "Failed to embed metadata: ${e.message}", e)
+                val errorMessage = e.message?.lowercase() ?: ""
+                // If the error is about unsupported format, don't fail the download
+                // Common format errors should return success (file is still playable)
+                if (errorMessage.contains("mp4") || 
+                    errorMessage.contains("webm") ||
+                    errorMessage.contains("cannot read") ||
+                    errorMessage.contains("not supported") ||
+                    errorMessage.contains("invalid audio") ||
+                    errorMessage.contains("format")) {
+                    android.util.Log.w("MetadataWriter", "⚠️ Format not supported for metadata embedding: ${e.message}")
+                    promise.resolve(true) // Download is still successful, just no metadata
+                } else {
+                    android.util.Log.e("MetadataWriter", "Failed to embed metadata: ${e.message}", e)
+                    promise.reject("METADATA_ERROR", "Failed to embed metadata: ${e.message}", e)
+                }
             }
         }.start()
     }
