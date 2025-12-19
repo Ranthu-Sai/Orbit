@@ -31,28 +31,34 @@ class YouTubeStreamingService {
      * Uses 3-hour cache to avoid repeated API calls
      * 
      * @param {string} videoId - YouTube video ID
+     * @param {boolean} preferM4A - If true, prefer M4A format for download (metadata support). Default false for streaming.
      * @returns {Promise<{url: string, headers: object, thumbnail: string, duration: number, title: string, format: string}|null>}
      */
-    async getStreamUrl(videoId) {
+    async getStreamUrl(videoId, preferM4A = false) {
         try {
-            // Step 1: CHECK CACHE FIRST (Hybrid: RAM -> Disk)
-            const cachedData = await CacheManager.getStreamUrlAsync(videoId, 'ytmusic');
-            if (cachedData && cachedData.url) {
-                console.log(`🚀 [Cache] Stream URL cache HIT for ${videoId} (format: ${cachedData.format})`);
-                return {
-                    url: cachedData.url,
-                    headers: {
-                        'User-Agent': ANDROID_CLIENT.headers['User-Agent'],
-                        'Range': 'bytes=0-'
-                    },
-                    format: cachedData.format || 'm4a',
-                    mimeType: cachedData.mimeType || 'audio/mp4',
-                    fromCache: true
-                };
+            // For downloads (preferM4A=true), skip cache to ensure we get the right format
+            // For streaming, use cache
+            if (!preferM4A) {
+                // Step 1: CHECK CACHE FIRST (Hybrid: RAM -> Disk) - only for streaming
+                const cachedData = await CacheManager.getStreamUrlAsync(videoId, 'ytmusic');
+                if (cachedData && cachedData.url) {
+                    console.log(`🚀 [Cache] Stream URL cache HIT for ${videoId} (format: ${cachedData.format})`);
+                    return {
+                        url: cachedData.url,
+                        headers: {
+                            'User-Agent': ANDROID_CLIENT.headers['User-Agent'],
+                            'Range': 'bytes=0-'
+                        },
+                        format: cachedData.format || 'opus',
+                        mimeType: cachedData.mimeType || 'audio/webm',
+                        fromCache: true
+                    };
+                }
             }
 
-            // Step 2: Cache miss - fetch from Native NewPipe
-            console.log(`🎯 [Cache MISS] Getting stream for video: ${videoId} using Native NewPipe...`);
+            // Step 2: Fetch from Native NewPipe
+            const mode = preferM4A ? 'Download (M4A)' : 'Streaming (Best Quality)';
+            console.log(`🎯 [${preferM4A ? 'Download' : 'Stream'}] Getting stream for video: ${videoId} - ${mode}`);
 
             // Orbit VIP Mode: Inject Cookies if available
             const cookies = await AsyncStorage.getItem('yt_cookies');
@@ -60,16 +66,22 @@ class YouTubeStreamingService {
                 console.log('🍪 Using VIP Cookies for stream fetch');
             }
 
-            const result = await NativeStreaming.getStreamUrl(videoId, cookies || '');
+            // Call appropriate native method based on use case
+            // - getStreamUrlForDownload: Prioritizes M4A for metadata embedding
+            // - getStreamUrl: Selects highest bitrate for best quality
+            const result = preferM4A
+                ? await NativeStreaming.getStreamUrlForDownload(videoId, cookies || '')
+                : await NativeStreaming.getStreamUrl(videoId, cookies || '');
 
             if (result && result.url) {
-                console.log('✅ Native streaming successful');
+                console.log(`✅ Native streaming successful (format: ${result.format})`);
 
                 // Determine format from native result
-                const format = result.format || 'm4a';
-                const mimeType = result.mimeType || 'audio/mp4';
+                const format = result.format || (preferM4A ? 'm4a' : 'opus');
+                const mimeType = result.mimeType || (preferM4A ? 'audio/mp4' : 'audio/webm');
 
                 // Step 3: CACHE THE STREAM URL WITH FORMAT METADATA (3-hour TTL)
+                // Cache regardless of mode - useful for both streaming and download
                 CacheManager.setStreamUrl(videoId, result.url, 'ytmusic', {
                     format: format,
                     mimeType: mimeType,
@@ -95,7 +107,6 @@ class YouTubeStreamingService {
             }
 
             throw new Error('Native module returned empty result');
-
 
         } catch (error) {
             console.error(`❌ Native Streaming failed for ${videoId}:`, error);

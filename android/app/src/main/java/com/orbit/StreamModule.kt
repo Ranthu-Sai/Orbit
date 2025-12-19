@@ -31,8 +31,29 @@ class StreamModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
         return "StreamModule"
     }
 
+    /**
+     * Get stream URL for STREAMING - selects highest bitrate (best quality)
+     * Backward compatible - keeps original signature
+     */
     @ReactMethod
     fun getStreamUrl(videoId: String, cookies: String?, promise: Promise) {
+        // Delegate to internal method with preferM4A = false (streaming mode)
+        getStreamUrlInternal(videoId, cookies, false, promise)
+    }
+
+    /**
+     * Get stream URL for DOWNLOAD - prioritizes M4A format for metadata embedding
+     */
+    @ReactMethod
+    fun getStreamUrlForDownload(videoId: String, cookies: String?, promise: Promise) {
+        // Delegate to internal method with preferM4A = true (download mode)
+        getStreamUrlInternal(videoId, cookies, true, promise)
+    }
+
+    /**
+     * Internal method that handles both streaming and download cases
+     */
+    private fun getStreamUrlInternal(videoId: String, cookies: String?, preferM4A: Boolean, promise: Promise) {
         // Run on background thread to prevent UI freeze
         Thread {
             var retryCount = 0
@@ -55,24 +76,30 @@ class StreamModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
                     // Get audio streams
                     val audioStreams = streamInfo.audioStreams
                     
-                    // PRIORITIZE M4A format (140) over Opus (251) for metadata embedding support
-                    // M4A/AAC works perfectly with JAudioTagger, while Opus in WebM container doesn't
-                    // YouTube format IDs: 140 = M4A 128kbps, 139 = M4A 48kbps, 251 = Opus 160kbps, 250 = Opus 70kbps
+                    // Stream selection depends on use case:
+                    // - For STREAMING (preferM4A = false): Select highest bitrate for best quality
+                    // - For DOWNLOAD (preferM4A = true): Prefer M4A for metadata embedding support
                     
-                    // Step 1: Try to find M4A streams (format ID 140 or 139)
-                    val m4aStreams = audioStreams.filter { stream ->
-                        val mimeType = stream.format?.mimeType ?: ""
-                        val formatId = stream.formatId?.toString() ?: ""
-                        mimeType.contains("mp4") || mimeType.contains("m4a") || 
-                        formatId == "140" || formatId == "139"
-                    }
-                    
-                    // Step 2: Select best M4A stream, or fall back to any highest bitrate
-                    val bestStream = if (m4aStreams.isNotEmpty()) {
-                        android.util.Log.d("StreamModule", "🎵 Found ${m4aStreams.size} M4A streams, selecting best quality")
-                        m4aStreams.maxByOrNull { it.bitrate }
+                    val bestStream = if (preferM4A) {
+                        // DOWNLOAD MODE: Prioritize M4A format for metadata embedding
+                        // M4A/AAC works with JAudioTagger, Opus in WebM doesn't
+                        val m4aStreams = audioStreams.filter { stream ->
+                            val mimeType = stream.format?.mimeType ?: ""
+                            val formatId = stream.formatId?.toString() ?: ""
+                            mimeType.contains("mp4") || mimeType.contains("m4a") || 
+                            formatId == "140" || formatId == "139"
+                        }
+                        
+                        if (m4aStreams.isNotEmpty()) {
+                            android.util.Log.d("StreamModule", "📥 [Download] Found ${m4aStreams.size} M4A streams, selecting best for metadata support")
+                            m4aStreams.maxByOrNull { it.bitrate }
+                        } else {
+                            android.util.Log.w("StreamModule", "⚠️ No M4A streams found, falling back to highest bitrate")
+                            audioStreams.maxByOrNull { it.bitrate }
+                        }
                     } else {
-                        android.util.Log.w("StreamModule", "⚠️ No M4A streams found, falling back to highest bitrate (may be Opus)")
+                        // STREAMING MODE: Just pick the highest bitrate for best quality
+                        android.util.Log.d("StreamModule", "🎵 [Stream] Selecting highest quality audio stream")
                         audioStreams.maxByOrNull { it.bitrate }
                     }
                     

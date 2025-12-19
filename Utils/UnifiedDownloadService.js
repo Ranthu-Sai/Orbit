@@ -264,7 +264,8 @@ export class UnifiedDownloadService {
         console.log('🎵 YTMusic track detected, fetching download URL for ID:', song.id);
         try {
           const youtubeStreamingService = require('./YouTubeStreamingService').default;
-          const streamData = await youtubeStreamingService.getStreamUrl(song.id);
+          // Pass preferM4A=true for downloads to get M4A format (supports metadata embedding)
+          const streamData = await youtubeStreamingService.getStreamUrl(song.id, true);
 
           if (streamData && streamData.url) {
             console.log('✅ Got YTMusic download URL successfully');
