@@ -34,11 +34,12 @@ async function GetLikedAlbums() {
 async function SetLikedAlbum(image, name, year, id) {
     const stored_value = await GetLikedAlbums();
     const count = stored_value.count + 1;
+    const timestamp = Date.now(); // Add timestamp for sorting
     const value = {
         ...stored_value,
         count,
     };
-    value.albums[id] = { image, name, year, id, count };
+    value.albums[id] = { image, name, year, id, count, timestamp };
     try {
         const jsonValue = JSON.stringify(value);
         await AsyncStorage.setItem('LikedAlbums', jsonValue);

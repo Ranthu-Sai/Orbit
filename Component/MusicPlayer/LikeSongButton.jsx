@@ -2,7 +2,7 @@ import { useTheme } from "@react-navigation/native";
 import AntDesign from "react-native-vector-icons/AntDesign";
 import { memo, useContext, useEffect, useState, useRef, useCallback } from "react";
 import { DeleteALikedSong, GetLikedSongs, SetLikedSongs } from "../../LocalStorage/StoreLikedSongs";
-import { Animated, InteractionManager } from "react-native";
+import { Animated, InteractionManager, ToastAndroid, DeviceEventEmitter } from "react-native";
 import { IconButton } from "react-native-paper";
 import Context from "../../Context/Context";
 
@@ -41,25 +41,52 @@ export const LikeSongButton = memo(function LikeSongButton({ size = 24, color })
     try {
       const LikedSongs = await GetLikedSongs();
       if (!LikedSongs.songs[currentPlaying.id]) {
-        if (currentPlaying.title && currentPlaying.artist && currentPlaying.image &&
-          currentPlaying.id && currentPlaying.downloadUrl && currentPlaying.duration) {
+        // Get the URL - handle both direct url and array format
+        const songUrl = typeof currentPlaying.url === 'string'
+          ? currentPlaying.url
+          : (Array.isArray(currentPlaying.url) && currentPlaying.url.length > 0)
+            ? (currentPlaying.url[0]?.url || currentPlaying.url[0])
+            : '';
+
+        // Get the image - handle both direct image and artwork property
+        const songImage = currentPlaying.image || currentPlaying.artwork || '';
+
+        // Only require essential fields: title, artist, id, and url
+        if (currentPlaying.title && currentPlaying.artist && currentPlaying.id && songUrl) {
           await SetLikedSongs(
             currentPlaying.title,
             currentPlaying.artist,
-            currentPlaying.image,
+            songImage,
             currentPlaying.id,
-            currentPlaying.downloadUrl,
-            currentPlaying.duration,
-            currentPlaying.language
+            songUrl,
+            currentPlaying.duration || 0,
+            currentPlaying.language || ''
           );
           setLiked(true);
+          // Show success toast
+          ToastAndroid.show(`Added "${currentPlaying.title}" to favorites`, ToastAndroid.SHORT);
+          // Emit event to refresh favorites screen
+          DeviceEventEmitter.emit('favorites-updated');
+        } else {
+          console.warn('Missing required fields for liking song:', {
+            hasTitle: !!currentPlaying.title,
+            hasArtist: !!currentPlaying.artist,
+            hasId: !!currentPlaying.id,
+            hasUrl: !!songUrl
+          });
+          ToastAndroid.show('Unable to add song to favorites', ToastAndroid.SHORT);
         }
       } else {
         await DeleteALikedSong(currentPlaying.id);
         setLiked(false);
+        // Show removed toast
+        ToastAndroid.show(`Removed "${currentPlaying.title}" from favorites`, ToastAndroid.SHORT);
+        // Emit event to refresh favorites screen
+        DeviceEventEmitter.emit('favorites-updated');
       }
     } catch (error) {
       console.error('Error toggling like:', error);
+      ToastAndroid.show('Failed to update favorites', ToastAndroid.SHORT);
     } finally {
       setTimeout(() => {
         isProcessingRef.current = false;

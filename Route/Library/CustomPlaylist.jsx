@@ -8,7 +8,7 @@ import { SmallText } from "../../Component/Global/SmallText";
 import { Spacer } from "../../Component/Global/Spacer";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
-import { FileInput } from "lucide-react-native";
+import { FileInput, Import } from "lucide-react-native";
 import FastImage from "react-native-fast-image";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -752,7 +752,7 @@ export const CustomPlaylist = () => {
                 onPress={() => setImportModalVisible(true)}
                 android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: true, radius: 20 }}
               >
-                <MaterialCommunityIcons name="playlist-music" size={30} color={theme.colors.primary} />
+                <FileInput size={30} color={theme.colors.primary} />
               </Pressable>
               <Pressable
                 style={styles.addButton}

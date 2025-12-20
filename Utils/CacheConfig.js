@@ -43,6 +43,7 @@ export const CACHE_KEYS = {
     LIKED_SONGS: 'liked_songs',
     LIKED_PLAYLISTS: 'liked_playlists',
     CUSTOM_PLAYLISTS: 'custom_playlists',
+    FAVORITES_DATA: 'favorites_data',
     DOWNLOADS: 'downloads',
     HISTORY: 'history',
     MY_MUSIC: 'my_music',

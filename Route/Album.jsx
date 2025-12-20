@@ -75,12 +75,20 @@ export const Album = ({ route }) => {
 
           return true; // Prevent default back behavior
         }
+
+        // Check if we came from favorites
+        if (source === 'favorites') {
+          console.log('[Album] Returning to Favorites');
+          navigation.navigate('Library', { screen: 'Favorites' });
+          return true; // Prevent default back behavior
+        }
+
         return false; // Let default back behavior happen
       };
 
       const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
       return () => backHandler.remove();
-    }, [returnToFullScreen, fullScreenNavigationTarget, setFullScreenNavigationTarget, setIndex, navigation])
+    }, [returnToFullScreen, fullScreenNavigationTarget, setFullScreenNavigationTarget, setIndex, navigation, source])
   );
 
 

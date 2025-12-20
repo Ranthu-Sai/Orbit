@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useContext } from 'react';
-import { View, Dimensions, StyleSheet, ToastAndroid } from 'react-native';
+import { View, Dimensions, StyleSheet, ToastAndroid, DeviceEventEmitter } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import { Text, IconButton, Button } from 'react-native-paper';
 import { useTheme } from '@react-navigation/native';
@@ -144,18 +144,22 @@ export const AlbumHeader = ({
             if (isLiked) {
                 await DeleteALikedAlbum(albumId);
                 setIsLiked(false);
-                ToastAndroid.show('Removed from Favorites', ToastAndroid.SHORT);
+                ToastAndroid.show(`Removed "${title || 'Album'}" from favorites`, ToastAndroid.SHORT);
+                // Emit event to refresh favorites screen
+                DeviceEventEmitter.emit('favorites-updated');
             } else {
                 const displayImage = imageUrl || '';
                 const displayName = title || 'Album';
                 const displayYear = year || '';
                 await SetLikedAlbum(displayImage, displayName, displayYear, albumId);
                 setIsLiked(true);
-                ToastAndroid.show('Added to Favorites', ToastAndroid.SHORT);
+                ToastAndroid.show(`Added "${displayName}" to favorites`, ToastAndroid.SHORT);
+                // Emit event to refresh favorites screen
+                DeviceEventEmitter.emit('favorites-updated');
             }
         } catch (error) {
             console.error('Error toggling like:', error);
-            ToastAndroid.show('Error updating favorites', ToastAndroid.SHORT);
+            ToastAndroid.show('Failed to update favorites', ToastAndroid.SHORT);
         }
     }, [isLiked, albumId, title, imageUrl, year]);
 
