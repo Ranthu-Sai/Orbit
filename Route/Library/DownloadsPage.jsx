@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, RefreshControl, ToastAndroid, AppState } from 'react-native';
+import { View, Text, FlatList, StyleSheet, RefreshControl, ToastAndroid, AppState, TouchableOpacity } from 'react-native';
 import { MainWrapper } from "../../Layout/MainWrapper";
-import { StorageManager } from '../../Utils/StorageManager';
 import { EachSongCard } from "../../Component/Global/EachSongCard";
 import { Heading } from "../../Component/Global/Heading";
 import { Spacer } from "../../Component/Global/Spacer";
@@ -13,49 +12,40 @@ export const DownloadsPage = () => {
   const [downloads, setDownloads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [debugInfo, setDebugInfo] = useState('');
   const activeTrack = useActiveTrack();
   const playbackState = usePlaybackState();
   const loadDownloadedSongs = async () => {
     setLoading(true);
     try {
-      const metadata = await StorageManager.getAllDownloadedSongsMetadata();
-      const songs = Object.values(metadata)
-        .map(song => {
-          const localUrl = song.localSongPath || (song.url && typeof song.url === 'string' && song.url.startsWith('/') ? song.url : null);
-          const localArtwork = song.localArtworkPath || (song.artwork && typeof song.artwork === 'string' && song.artwork.startsWith('/') ? song.artwork : null);
+      // Use SimpleOrbitScanner (no native module required)
+      const SimpleOrbitScanner = require('../../Utils/SimpleOrbitScanner').default;
+      const songs = await SimpleOrbitScanner.scanOrbitSongs();
 
-          console.log(`[DEBUG] Processing song: ${song.title} (ID: ${song.id})`);
-          console.log(`  - song.localSongPath: ${song.localSongPath}`);
-          console.log(`  - song.url: ${song.url}`);
-          console.log(`  - Evaluated localUrl: ${localUrl}`);
-
-          if (!localUrl) {
-            console.log(`  - RESULT: Filtering out.`);
-            return null;
-          }
-
-          console.log(`  - RESULT: Keeping.`);
-          return {
-            ...song,
-            id: song.id,
-            url: `file://${localUrl}`,
-            artwork: localArtwork ? { uri: `file://${localArtwork}` } : 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
-            isLocal: true,
-          };
-        })
-        .filter(Boolean);
+      console.log(`[DownloadsPage] Loaded ${songs.length} songs from orbit/songs folder`);
       setDownloads(songs);
+      setDebugInfo(`Found ${songs.length} songs`);
     } catch (error) {
       console.error('Error loading downloaded songs:', error);
+      setDebugInfo(`Error: ${error.message}`);
       ToastAndroid.show('Failed to load downloads', ToastAndroid.SHORT);
     } finally {
       setLoading(false);
     }
   };
 
-  const onRefresh = () => {
+  const testScanner = async () => {
+    console.log('🧪 [DEBUG] Manual scanner test triggered');
+    ToastAndroid.show('Testing scanner... check logs', ToastAndroid.LONG);
+    await loadDownloadedSongs();
+  };
+
+  const onRefresh = async () => {
+    console.log('🔄 [DownloadsPage] Refresh triggered - starting scan...');
+    ToastAndroid.show('🔄 Refreshing downloads...', ToastAndroid.SHORT);
     setRefreshing(true);
-    loadDownloadedSongs().finally(() => setRefreshing(false));
+    await loadDownloadedSongs();
+    setRefreshing(false);
   };
 
   useEffect(() => {
@@ -84,6 +74,7 @@ export const DownloadsPage = () => {
       <Text style={styles.emptySubText}>
         Your downloaded songs will appear here
       </Text>
+      {debugInfo ? <Text style={styles.debugText}>{debugInfo}</Text> : null}
     </View>
   );
 
@@ -92,9 +83,14 @@ export const DownloadsPage = () => {
       <View style={styles.container}>
         <View style={styles.header}>
           <Heading text="Downloads" />
-          <Text style={styles.songCount}>
-            {downloads.length} {downloads.length === 1 ? 'song' : 'songs'}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <TouchableOpacity onPress={testScanner} style={styles.testButton}>
+              <MaterialIcons name="bug-report" size={20} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.songCount}>
+              {downloads.length} {downloads.length === 1 ? 'song' : 'songs'}
+            </Text>
+          </View>
         </View>
         <Spacer height={10} />
 
@@ -150,6 +146,11 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 14,
   },
+  testButton: {
+    backgroundColor: '#FF6B6B',
+    padding: 8,
+    borderRadius: 8,
+  },
   list: {
     paddingBottom: 100,
   },
@@ -173,5 +174,11 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
     marginTop: 8,
+  },
+  debugText: {
+    color: '#FF6B6B',
+    fontSize: 14,
+    marginTop: 12,
+    fontFamily: 'monospace',
   },
 });

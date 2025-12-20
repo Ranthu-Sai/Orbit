@@ -1,0 +1,207 @@
+package com.orbit
+
+import android.graphics.BitmapFactory
+import android.util.Base64
+import com.facebook.react.bridge.*
+import org.jaudiotagger.audio.AudioFileIO
+import org.jaudiotagger.tag.FieldKey
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.util.logging.Level
+import java.util.logging.Logger
+
+/**
+ * MetadataReaderModule - Reads embedded metadata from audio files
+ * 
+ * Supports: MP3 (ID3), M4A/AAC (MP4 atoms), FLAC, OGG
+ * Uses JAudioTagger library for cross-format compatibility
+ */
+class MetadataReaderModule(reactContext: ReactApplicationContext) :
+    ReactContextBaseJavaModule(reactContext) {
+
+    companion object {
+        private const val TAG = "MetadataReader"
+        private var isInitialized = false
+
+        init {
+            // Suppress JAudioTagger verbose logging
+            Logger.getLogger("org.jaudiotagger").level = Level.OFF
+        }
+    }
+
+    override fun getName(): String = "MetadataReaderModule"
+
+    /**
+     * Initialize the module (enable Android mode for JAudioTagger)
+     */
+    @ReactMethod
+    fun initialize(promise: Promise) {
+        try {
+            if (!isInitialized) {
+                // Enable Android mode for JAudioTagger
+                org.jaudiotagger.tag.TagOptionSingleton.getInstance().isAndroid = true
+                isInitialized = true
+                android.util.Log.d(TAG, "✅ MetadataReaderModule initialized with Android mode")
+            }
+            promise.resolve(true)
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "❌ Initialization failed", e)
+            promise.reject("INIT_ERROR", "Failed to initialize: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Read metadata from an audio file
+     * Returns: { title, artist, album, year, genre, artwork }
+     */
+    @ReactMethod
+    fun readMetadata(filePath: String, promise: Promise) {
+        try {
+            val file = File(filePath)
+            
+            if (!file.exists()) {
+                promise.reject("FILE_NOT_FOUND", "File does not exist: $filePath")
+                return
+            }
+
+            // Read audio file using JAudioTagger
+            val audioFile = try {
+                AudioFileIO.read(file)
+            } catch (e: Exception) {
+                android.util.Log.w(TAG, "Cannot read file $filePath: ${e.message}")
+                promise.reject("READ_ERROR", "Cannot read audio file: ${e.message}", e)
+                return
+            }
+
+            val tag = audioFile.tag
+            if (tag == null) {
+                // No tags found, return basic info
+                promise.resolve(createEmptyMetadata(file.name))
+                return
+            }
+
+            // Extract metadata fields
+            val metadata = Arguments.createMap()
+            metadata.putString("title", tag.getFirst(FieldKey.TITLE).ifEmpty { file.nameWithoutExtension })
+            metadata.putString("artist", tag.getFirst(FieldKey.ARTIST).ifEmpty { "Unknown Artist" })
+            metadata.putString("album", tag.getFirst(FieldKey.ALBUM).ifEmpty { "Unknown Album" })
+            metadata.putString("year", tag.getFirst(FieldKey.YEAR).ifEmpty { "" })
+            metadata.putString("genre", tag.getFirst(FieldKey.GENRE).ifEmpty { "" })
+            metadata.putString("fileName", file.name)
+            metadata.putString("filePath", filePath)
+
+            // Extract artwork if available
+            try {
+                val artwork = tag.firstArtwork
+                if (artwork != null) {
+                    val imageData = artwork.binaryData
+                    if (imageData != null && imageData.isNotEmpty()) {
+                        // Convert to base64 for JavaScript
+                        val base64Image = Base64.encodeToString(imageData, Base64.NO_WRAP)
+                        metadata.putString("artworkBase64", base64Image)
+                        
+                        // Determine MIME type
+                        val mimeType = when {
+                            imageData.size >= 2 && imageData[0].toInt() == 0xFF && imageData[1].toInt() == 0xD8 -> "image/jpeg"
+                            imageData.size >= 4 && imageData[0].toInt() == 0x89 && imageData[1].toInt() == 0x50 -> "image/png"
+                            else -> artwork.mimeType ?: "image/jpeg"
+                        }
+                        metadata.putString("artworkMimeType", mimeType)
+                        
+                        android.util.Log.d(TAG, "✅ Extracted artwork (${imageData.size} bytes, $mimeType)")
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.w(TAG, "Failed to extract artwork: ${e.message}")
+                // Continue without artwork
+            }
+
+            promise.resolve(metadata)
+
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "❌ Error reading metadata from $filePath", e)
+            promise.reject("METADATA_ERROR", "Failed to read metadata: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Read metadata from multiple files (batch operation)
+     */
+    @ReactMethod
+    fun readMetadataBatch(filePaths: ReadableArray, promise: Promise) {
+        try {
+            val results = Arguments.createArray()
+            
+            for (i in 0 until filePaths.size()) {
+                val filePath = filePaths.getString(i) ?: continue
+                
+                try {
+                    val file = File(filePath)
+                    if (!file.exists()) continue
+
+                    val audioFile = AudioFileIO.read(file)
+                    val tag = audioFile.tag
+
+                    val metadata = if (tag != null) {
+                        Arguments.createMap().apply {
+                            putString("title", tag.getFirst(FieldKey.TITLE).ifEmpty { file.nameWithoutExtension })
+                            putString("artist", tag.getFirst(FieldKey.ARTIST).ifEmpty { "Unknown Artist" })
+                            putString("album", tag.getFirst(FieldKey.ALBUM).ifEmpty { "Unknown Album" })
+                            putString("year", tag.getFirst(FieldKey.YEAR).ifEmpty { "" })
+                            putString("genre", tag.getFirst(FieldKey.GENRE).ifEmpty { "" })
+                            putString("fileName", file.name)
+                            putString("filePath", filePath)
+
+                            // Extract artwork
+                            try {
+                                val artwork = tag.firstArtwork
+                                if (artwork != null) {
+                                    val imageData = artwork.binaryData
+                                    if (imageData != null && imageData.isNotEmpty()) {
+                                        val base64Image = Base64.encodeToString(imageData, Base64.NO_WRAP)
+                                        putString("artworkBase64", base64Image)
+                                        
+                                        val mimeType = when {
+                                            imageData.size >= 2 && imageData[0].toInt() == 0xFF && imageData[1].toInt() == 0xD8 -> "image/jpeg"
+                                            imageData.size >= 4 && imageData[0].toInt() == 0x89 && imageData[1].toInt() == 0x50 -> "image/png"
+                                            else -> artwork.mimeType ?: "image/jpeg"
+                                        }
+                                        putString("artworkMimeType", mimeType)
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                // Continue without artwork
+                            }
+                        }
+                    } else {
+                        createEmptyMetadata(file.name)
+                    }
+
+                    results.pushMap(metadata)
+
+                } catch (e: Exception) {
+                    android.util.Log.w(TAG, "Failed to read $filePath: ${e.message}")
+                    // Skip this file
+                    continue
+                }
+            }
+
+            promise.resolve(results)
+
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "❌ Batch read error", e)
+            promise.reject("BATCH_ERROR", "Failed to read batch: ${e.message}", e)
+        }
+    }
+
+    private fun createEmptyMetadata(fileName: String): WritableMap {
+        return Arguments.createMap().apply {
+            putString("title", fileName.substringBeforeLast('.'))
+            putString("artist", "Unknown Artist")
+            putString("album", "Unknown Album")
+            putString("year", "")
+            putString("genre", "")
+            putString("fileName", fileName)
+        }
+    }
+}

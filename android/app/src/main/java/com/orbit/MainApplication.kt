@@ -28,6 +28,7 @@ class MainApplication : Application(), ReactApplication {
 
               add(StreamPackage())
               add(MetadataWriterPackage())
+              add(MetadataReaderPackage())
             }
         override fun getJSBundleFile(): String {
                           return CodePush.getJSBundleFile()

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PlainText } from '../Global/PlainText';
 import { DownloadedSongCard } from './DownloadedSongCard';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { useTheme,useNavigation } from '@react-navigation/native';
+import { useTheme, useNavigation } from '@react-navigation/native';
 import { StorageManager } from '../../Utils/StorageManager';
 import { safeExists } from '../../Utils/FileUtils';
 import { analyticsService } from '../../Utils/AnalyticsUtils';
@@ -24,11 +24,25 @@ export default function DownloadScreen(props) {
 
   useEffect(() => {
     getDownloadedSongs();
-    
+
     // Track active user for analytics
     analyticsService.trackActiveUser();
-    
-    // Removed BackHandler - let RootRoute handle navigation
+
+    // Listen for download complete to clear cache
+    const FastOrbitScanner = require('../../Utils/FastOrbitScanner').default;
+    const downloadListener = (eventData) => {
+      console.log('📥 Download complete event received, clearing cache');
+      FastOrbitScanner.clearCache();
+      // Reload songs after a short delay
+      setTimeout(() => getDownloadedSongs(), 500);
+    };
+
+    // Note: You'll need to emit 'download-complete' event from your download service
+    // For now, just using a timer as fallback
+
+    return () => {
+      // Cleanup if needed
+    };
   }, []);
 
   // Filter songs based on search query
@@ -37,8 +51,8 @@ export default function DownloadScreen(props) {
       setFilteredSongs(downloadedSongs);
     } else {
       const query = searchQuery.toLowerCase().trim();
-      const filtered = downloadedSongs.filter(song => 
-        (song.title && song.title.toLowerCase().includes(query)) || 
+      const filtered = downloadedSongs.filter(song =>
+        (song.title && song.title.toLowerCase().includes(query)) ||
         (song.artist && song.artist.toLowerCase().includes(query))
       );
       setFilteredSongs(filtered);
@@ -46,21 +60,28 @@ export default function DownloadScreen(props) {
   }, [searchQuery, downloadedSongs]);
 
   const onRefresh = async () => {
+    console.log('🔄 [DownloadScreen] Refresh triggered - clearing cache');
+    ToastAndroid.show('🔄 Refreshing...', ToastAndroid.SHORT);
     setRefreshing(true);
+
+    // Clear cache and force full scan
+    const FastOrbitScanner = require('../../Utils/FastOrbitScanner').default;
+    await FastOrbitScanner.clearCache();
     await getDownloadedSongs();
+
     setRefreshing(false);
   };
 
   // Function to clean up the song name from filename
   const cleanupSongName = (name) => {
     if (!name) return "Unknown Title";
-    
+
     // Replace underscores with spaces
     let cleanName = name.replace(/_/g, ' ');
-    
+
     // Remove any ID prefixes if present (assuming they're at the start with underscore or dash)
     cleanName = cleanName.replace(/^[a-zA-Z0-9]+[-_]/, '');
-    
+
     // First letter capitalized and rest as is
     return cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
   };
@@ -73,7 +94,7 @@ export default function DownloadScreen(props) {
         console.warn('Empty path provided to checkFileExists');
         return false;
       }
-      
+
       // Convert to string if it's not already
       let stringPath = path;
       if (typeof path !== 'string') {
@@ -91,14 +112,14 @@ export default function DownloadScreen(props) {
           return false;
         }
       }
-      
+
       if (!stringPath) return false;
-      
+
       // Use safeExists from FileUtils if available
       if (typeof safeExists === 'function') {
         return await safeExists(stringPath);
       }
-      
+
       // Fallback to RNFS.exists
       return await RNFS.exists(stringPath);
     } catch (error) {
@@ -116,63 +137,21 @@ export default function DownloadScreen(props) {
     try {
       setIsLoading(true);
 
-      // Clean up orphaned metadata first
-      await StorageManager.cleanupOrphanedMetadata();
+      console.log('🔍 [DownloadScreen] Starting scan...');
 
-      const allMetadata = await StorageManager.getAllDownloadedSongsMetadata();
+      // Use FastOrbitScanner with progressive metadata loading
+      const FastOrbitScanner = require('../../Utils/FastOrbitScanner').default;
 
-      if (!allMetadata || Object.keys(allMetadata).length === 0) {
-        setDownloadedSongs([]);
-        setIsLoading(false);
-        return;
-      }
+      // Callback for metadata updates
+      const handleMetadataUpdate = (updatedSongs) => {
+        console.log('🎨 [DownloadScreen] Metadata updated, refreshing display');
+        setDownloadedSongs(updatedSongs);
+      };
 
-      analyticsService.trackDownloadCount(Object.keys(allMetadata).length);
+      const songs = await FastOrbitScanner.quickScan(handleMetadataUpdate);
 
-      const formattedTracks = await Promise.all(
-        Object.values(allMetadata).map(async (metadata) => {
-          try {
-            // Ensure metadata and id exist
-            if (!metadata || !metadata.id) {
-              return null;
-            }
-
-            const songPath = await StorageManager.getSongPath(metadata.id, metadata.title);
-            const songExists = await safeExists(songPath);
-
-            if (!songExists) {
-              return null;
-            }
-
-            let finalArtworkUri = getDefaultArtworkPath(); // Default placeholder
-            if (metadata.localArtworkPath) {
-              const artworkExists = await safeExists(metadata.localArtworkPath);
-              if (artworkExists) {
-                finalArtworkUri = `file://${metadata.localArtworkPath}`;
-              } else {
-                console.warn(`Artwork file not found for song ${metadata.id} at ${metadata.localArtworkPath}. Using default.`);
-              }
-            }
-
-            return {
-              id: metadata.id,
-              url: `file://${songPath}`,
-              title: metadata.title || 'Unknown Title',
-              artist: metadata.artist || 'Unknown Artist',
-              artwork: finalArtworkUri, // Use the verified path or the default
-              duration: metadata.duration || 0,
-              language: metadata.language,
-              isDownloaded: true,
-            };
-          } catch (error) {
-            console.error(`Error processing metadata for song ${metadata.id}:`, error);
-            return null; // Skip this song on error
-          }
-        })
-      );
-
-      const validSongs = formattedTracks.filter(song => song !== null);
-      setDownloadedSongs(validSongs);
+      console.log(`✅ [DownloadScreen] Loaded ${songs.length} songs`);
+      setDownloadedSongs(songs);
 
     } catch (error) {
       console.error('Failed to get downloaded songs:', error);
@@ -205,7 +184,7 @@ export default function DownloadScreen(props) {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <PlainText text="Downloads" style={styles.title} />
-        
+
         {showSearch ? (
           <View style={styles.searchBarContainer}>
             <TextInput
@@ -232,12 +211,12 @@ export default function DownloadScreen(props) {
           </TouchableOpacity>
         )}
       </View>
-      
+
       <FlatList
         data={filteredSongs}
         renderItem={({ item }) => (
-          <DownloadedSongCard 
-            song={item} 
+          <DownloadedSongCard
+            song={item}
             refetch={getDownloadedSongs}
             onDeleteRequest={handleDeleteSong}
           />
@@ -249,13 +228,13 @@ export default function DownloadScreen(props) {
           <View style={styles.emptyContainer}>
             <MaterialIcons name="music-off" size={50} color={colors.textSecondary} />
             <Text style={styles.emptyText}>
-              {searchQuery 
-                ? `No downloads matching "${searchQuery}"` 
+              {searchQuery
+                ? `No downloads matching "${searchQuery}"`
                 : "No downloaded songs found"}
             </Text>
             <Text style={styles.emptySubText}>
-              {searchQuery 
-                ? "Try a different search term" 
+              {searchQuery
+                ? "Try a different search term"
                 : "Download your favorite songs to listen offline"}
             </Text>
           </View>
