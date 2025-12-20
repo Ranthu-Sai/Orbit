@@ -265,20 +265,92 @@ class AudioMetadataParser {
                         const textLength = dataSize - 16;
 
                         if (textLength > 0 && textStart + textLength <= bytes.length) {
-                            let text = '';
-                            for (let k = 0; k < textLength; k++) {
-                                const char = bytes[textStart + k];
-                                if (char >= 32 && char <= 126) { // Printable ASCII
-                                    text += String.fromCharCode(char);
+                            // Properly decode UTF-8 bytes
+                            const textBytes = bytes.slice(textStart, textStart + textLength);
+                            try {
+                                // Use TextDecoder for proper UTF-8 handling
+                                const text = this.decodeUTF8(textBytes);
+                                return text.trim();
+                            } catch (e) {
+                                // Fallback: decode as Latin-1
+                                let text = '';
+                                for (let k = 0; k < textLength; k++) {
+                                    const char = bytes[textStart + k];
+                                    if (char > 0) {
+                                        text += String.fromCharCode(char);
+                                    }
                                 }
+                                return text.trim();
                             }
-                            return text.trim();
                         }
                     }
                 }
             }
         }
         return null;
+    }
+
+    /**
+     * Decode UTF-8 bytes to string
+     */
+    static decodeUTF8(bytes) {
+        let result = '';
+        let i = 0;
+
+        while (i < bytes.length) {
+            const byte1 = bytes[i];
+
+            if (byte1 === 0) {
+                // Null terminator
+                i++;
+                continue;
+            } else if (byte1 < 0x80) {
+                // Single byte (ASCII)
+                result += String.fromCharCode(byte1);
+                i++;
+            } else if ((byte1 & 0xE0) === 0xC0) {
+                // Two bytes
+                if (i + 1 < bytes.length) {
+                    const byte2 = bytes[i + 1];
+                    const codePoint = ((byte1 & 0x1F) << 6) | (byte2 & 0x3F);
+                    result += String.fromCharCode(codePoint);
+                    i += 2;
+                } else {
+                    i++;
+                }
+            } else if ((byte1 & 0xF0) === 0xE0) {
+                // Three bytes
+                if (i + 2 < bytes.length) {
+                    const byte2 = bytes[i + 1];
+                    const byte3 = bytes[i + 2];
+                    const codePoint = ((byte1 & 0x0F) << 12) | ((byte2 & 0x3F) << 6) | (byte3 & 0x3F);
+                    result += String.fromCharCode(codePoint);
+                    i += 3;
+                } else {
+                    i++;
+                }
+            } else if ((byte1 & 0xF8) === 0xF0) {
+                // Four bytes (surrogate pair)
+                if (i + 3 < bytes.length) {
+                    const byte2 = bytes[i + 1];
+                    const byte3 = bytes[i + 2];
+                    const byte4 = bytes[i + 3];
+                    let codePoint = ((byte1 & 0x07) << 18) | ((byte2 & 0x3F) << 12) | ((byte3 & 0x3F) << 6) | (byte4 & 0x3F);
+                    // Convert to surrogate pair
+                    codePoint -= 0x10000;
+                    result += String.fromCharCode((codePoint >> 10) + 0xD800);
+                    result += String.fromCharCode((codePoint & 0x3FF) + 0xDC00);
+                    i += 4;
+                } else {
+                    i++;
+                }
+            } else {
+                // Invalid byte, skip
+                i++;
+            }
+        }
+
+        return result;
     }
 
     /**

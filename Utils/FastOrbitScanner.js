@@ -89,15 +89,23 @@ class FastOrbitScanner {
         }
     }
 
-    /**
-     * Enrich songs with metadata in background
-     */
     static async enrichMetadata(songs, files, onUpdate) {
         try {
             console.log('🎨 [FastScanner] Starting metadata enrichment...');
 
-            // Import ID3Parser for metadata reading
+            // Import parsers
             const AudioMetadataParser = require('./ID3Parser').default;
+            const NativeMetadataReader = require('./NativeMetadataReader').default;
+
+            // Initialize native reader for M4A files
+            let nativeReaderAvailable = false;
+            try {
+                await NativeMetadataReader.initialize();
+                nativeReaderAvailable = true;
+                console.log('✅ [FastScanner] Native metadata reader available for M4A');
+            } catch (e) {
+                console.log('⚠️ [FastScanner] Native reader not available, using JS parser');
+            }
 
             let enrichedCount = 0;
 
@@ -105,38 +113,88 @@ class FastOrbitScanner {
             for (let i = 0; i < songs.length; i++) {
                 const song = songs[i];
                 const file = files[i];
+                const isM4A = file.name.toLowerCase().endsWith('.m4a') ||
+                    file.name.toLowerCase().endsWith('.aac');
+
+                console.log(`\n📖 [FastScanner] Reading: ${file.name}`);
+                console.log(`   Current title: "${song.title}"`);
 
                 try {
-                    const metadataResult = await AudioMetadataParser.extractMetadata(file.path);
+                    let metadataResult = null;
+
+                    // Use native reader for M4A files (JAudioTagger reads what it wrote)
+                    if (isM4A && nativeReaderAvailable) {
+                        console.log('   Using native reader for M4A...');
+                        const nativeMetadata = await NativeMetadataReader.readMetadata(file.path);
+                        if (nativeMetadata) {
+                            metadataResult = {
+                                metadata: {
+                                    title: nativeMetadata.title,
+                                    artist: nativeMetadata.artist,
+                                    album: nativeMetadata.album,
+                                    year: nativeMetadata.year,
+                                    genre: nativeMetadata.genre
+                                },
+                                // NativeMetadataReader returns artworkDataUri (already formatted as data:...)
+                                artwork: nativeMetadata.artworkDataUri ? {
+                                    dataUri: nativeMetadata.artworkDataUri
+                                } : null
+                            };
+                        }
+                    } else {
+                        // Use JS parser for FLAC and other formats
+                        metadataResult = await AudioMetadataParser.extractMetadata(file.path);
+                    }
+
+                    console.log(`   Metadata result:`, {
+                        hasMetadata: !!metadataResult?.metadata,
+                        title: metadataResult?.metadata?.title,
+                        artist: metadataResult?.metadata?.artist,
+                        album: metadataResult?.metadata?.album,
+                        hasArtwork: !!metadataResult?.artwork?.base64
+                    });
 
                     if (metadataResult && metadataResult.metadata) {
-                        // Update song with metadata
+                        const oldTitle = song.title;
+                        const oldArtist = song.artist;
+
                         song.title = metadataResult.metadata.title || song.title;
                         song.artist = metadataResult.metadata.artist || song.artist;
                         song.album = metadataResult.metadata.album || song.album;
 
-                        // Update artwork
-                        if (metadataResult.artwork && metadataResult.artwork.base64) {
-                            const mimeType = metadataResult.artwork.mimeType || 'image/jpeg';
-                            song.artwork = `data:${mimeType};base64,${metadataResult.artwork.base64}`;
+                        console.log(`   Updated: "${oldTitle}" -> "${song.title}"`);
+                        console.log(`   Artist: "${oldArtist}" -> "${song.artist}"`);
+
+                        // Handle both dataUri (from native reader) and base64 (from JS parser)
+                        if (metadataResult.artwork) {
+                            if (metadataResult.artwork.dataUri) {
+                                // M4A files - already formatted
+                                song.artwork = metadataResult.artwork.dataUri;
+                                console.log(`   ✅ Artwork loaded (native)`);
+                            } else if (metadataResult.artwork.base64) {
+                                // FLAC files - need to format
+                                const mimeType = metadataResult.artwork.mimeType || 'image/jpeg';
+                                song.artwork = `data:${mimeType};base64,${metadataResult.artwork.base64}`;
+                                console.log(`   ✅ Artwork loaded (JS parser)`);
+                            }
                         }
 
                         enrichedCount++;
 
-                        // Notify update every 2 songs or at the end
                         if (enrichedCount % 2 === 0 || i === songs.length - 1) {
                             console.log(`🎨 [FastScanner] Enriched ${enrichedCount}/${songs.length} songs`);
-                            onUpdate([...songs]); // Send updated copy
+                            onUpdate([...songs]);
                         }
+                    } else {
+                        console.log(`   ⚠️ No metadata found in file`);
                     }
                 } catch (error) {
-                    console.warn(`Failed to enrich metadata for ${file.name}:`, error.message);
+                    console.error(`   ❌ Error: ${error.message}`);
                 }
             }
 
-            // Update cache with enriched data
             await this.cacheResults(songs, files.map(f => f.path));
-            console.log(`✅ [FastScanner] Metadata enrichment complete (${enrichedCount}/${songs.length})`);
+            console.log(`\n✅ [FastScanner] Metadata enrichment complete (${enrichedCount}/${songs.length})`);
 
         } catch (error) {
             console.error('❌ [FastScanner] Metadata enrichment error:', error);
@@ -144,21 +202,28 @@ class FastOrbitScanner {
     }
 
     /**
-     * Create basic song object from file (no metadata reading)
-     */
+   * Create basic song object from file (no metadata reading)
+   */
     static createBasicSong(file) {
         const fileName = file.name.replace(/\.[^/.]+$/, '');
         const songId = this.generateSongId(file.path);
 
         // Parse title from filename
         let title = fileName;
+
+        // Remove ID suffix pattern: " - ID" where ID is alphanumeric
+        // Example: "Bachalo - _xfffc7K" -> "Bachalo"
+        // Example: "Tere Hawaale - Z0VbANbyH2o" -> "Tere Hawaale"
         if (fileName.includes(' - ')) {
             const parts = fileName.split(' - ');
-            title = parts[0];
+            // Check if last part looks like an ID (alphanumeric, often with special chars)
+            const lastPart = parts[parts.length - 1];
+            if (lastPart.length <= 15 && /^[A-Za-z0-9_-]+$/.test(lastPart)) {
+                // It's likely an ID, remove it
+                parts.pop();
+                title = parts.join(' - ');
+            }
         }
-
-        // Clean up title (remove ID suffix like "_xfffc7K")
-        title = title.replace(/[_-][a-zA-Z0-9]{6,}$/, '');
 
         return {
             id: songId,

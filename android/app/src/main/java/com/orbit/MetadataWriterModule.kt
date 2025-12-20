@@ -121,13 +121,23 @@ class MetadataWriterModule(reactContext: ReactApplicationContext)
 
                 // Set text metadata fields
                 title?.takeIf { it.isNotBlank() }?.let { 
-                    tag.setField(FieldKey.TITLE, it) 
+                    android.util.Log.d("MetadataWriter", "📝 Setting title: '$it' (length: ${it.length})")
+                    tag.setField(FieldKey.TITLE, it)
+                    // Verify what was actually set
+                    val verifyTitle = tag.getFirst(FieldKey.TITLE)
+                    android.util.Log.d("MetadataWriter", "✓ Title verified: '$verifyTitle' (length: ${verifyTitle.length})")
                 }
                 artist?.takeIf { it.isNotBlank() }?.let { 
-                    tag.setField(FieldKey.ARTIST, it) 
+                    android.util.Log.d("MetadataWriter", "📝 Setting artist: '$it' (length: ${it.length})")
+                    tag.setField(FieldKey.ARTIST, it)
+                    val verifyArtist = tag.getFirst(FieldKey.ARTIST)
+                    android.util.Log.d("MetadataWriter", "✓ Artist verified: '$verifyArtist' (length: ${verifyArtist.length})")
                 }
                 album?.takeIf { it.isNotBlank() }?.let { 
-                    tag.setField(FieldKey.ALBUM, it) 
+                    android.util.Log.d("MetadataWriter", "📝 Setting album: '$it' (length: ${it.length})")
+                    tag.setField(FieldKey.ALBUM, it)
+                    val verifyAlbum = tag.getFirst(FieldKey.ALBUM)
+                    android.util.Log.d("MetadataWriter", "✓ Album verified: '$verifyAlbum' (length: ${verifyAlbum.length})")
                 }
                 year?.takeIf { it.isNotBlank() }?.let { 
                     tag.setField(FieldKey.YEAR, it) 

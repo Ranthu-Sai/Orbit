@@ -513,6 +513,19 @@ class NavigationCacheManager {
     }
 
     /**
+     * Clear player state (remove current playing song from cache)
+     * @returns {Promise<void>}
+     */
+    async clearPlayerState() {
+        try {
+            await AsyncStorage.removeItem('cache_player_state');
+            console.log('[CacheManager] Player state cleared');
+        } catch (e) {
+            console.warn('[CacheManager] Failed to clear player state', e);
+        }
+    }
+
+    /**
      * Emergency cleanup when disk is full
      * @private
      */
