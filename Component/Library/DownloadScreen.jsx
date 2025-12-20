@@ -60,14 +60,14 @@ export default function DownloadScreen(props) {
   }, [searchQuery, downloadedSongs]);
 
   const onRefresh = async () => {
-    console.log('🔄 [DownloadScreen] Refresh triggered - clearing cache');
+    console.log('🔄 [DownloadScreen] Force refresh triggered');
     ToastAndroid.show('🔄 Refreshing...', ToastAndroid.SHORT);
     setRefreshing(true);
 
-    // Clear cache and force full scan
+    // Force full rescan (clears cache and rescans all files)
     const FastOrbitScanner = require('../../Utils/FastOrbitScanner').default;
-    await FastOrbitScanner.clearCache();
-    await getDownloadedSongs();
+    const songs = await FastOrbitScanner.fullRescan(handleMetadataUpdate);
+    setDownloadedSongs(songs);
 
     setRefreshing(false);
   };
@@ -133,21 +133,20 @@ export default function DownloadScreen(props) {
     return 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png';
   };
 
+  // Callback for metadata updates (shared between load and refresh)
+  const handleMetadataUpdate = (updatedSongs) => {
+    console.log('🎨 [DownloadScreen] Metadata updated, refreshing display');
+    setDownloadedSongs(updatedSongs);
+  };
+
   const getDownloadedSongs = async () => {
     try {
       setIsLoading(true);
 
       console.log('🔍 [DownloadScreen] Starting scan...');
 
-      // Use FastOrbitScanner with progressive metadata loading
+      // Use FastOrbitScanner - loads from cache, only scans new files
       const FastOrbitScanner = require('../../Utils/FastOrbitScanner').default;
-
-      // Callback for metadata updates
-      const handleMetadataUpdate = (updatedSongs) => {
-        console.log('🎨 [DownloadScreen] Metadata updated, refreshing display');
-        setDownloadedSongs(updatedSongs);
-      };
-
       const songs = await FastOrbitScanner.quickScan(handleMetadataUpdate);
 
       console.log(`✅ [DownloadScreen] Loaded ${songs.length} songs`);
