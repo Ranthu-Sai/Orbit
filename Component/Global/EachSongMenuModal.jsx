@@ -6,7 +6,7 @@ import { useTheme } from "@react-navigation/native";
 import FormatTitleAndArtist from "../../Utils/FormatTitleAndArtist";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import DeviceInfo from "react-native-device-info";
-import { AddSongsToQueue, getIndexQuality} from "../../MusicPlayerFunctions";
+import { AddSongsToQueue, getIndexQuality } from "../../MusicPlayerFunctions";
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
 import Context from "../../Context/Context";
 import TrackPlayer from "react-native-track-player";
@@ -62,22 +62,22 @@ const getSongUrl = (urlData, quality = 4) => {
     if (Array.isArray(urlData) && urlData.length > quality) {
       return urlData[quality].url;
     }
-    
+
     // Check if urlData is an object with a downloadUrl property
     if (urlData && urlData.downloadUrl && Array.isArray(urlData.downloadUrl) && urlData.downloadUrl.length > quality) {
       return urlData.downloadUrl[quality].url;
     }
-    
+
     // Check if urlData is a string directly
     if (typeof urlData === 'string') {
       return urlData;
     }
-    
+
     // Handle local music path
     if (urlData && urlData.path) {
       return urlData.path;
     }
-    
+
     console.log("Unable to extract song URL from:", JSON.stringify(urlData));
     return null;
   } catch (error) {
@@ -86,19 +86,19 @@ const getSongUrl = (urlData, quality = 4) => {
   }
 };
 
-export const EachSongMenuModal = ({Visible, setVisible}) => {
+export const EachSongMenuModal = ({ Visible, setVisible }) => {
   const { colors } = useTheme();
-  const {updateTrack} = useContext(Context);
+  const { updateTrack } = useContext(Context);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [availablePlaylists, setAvailablePlaylists] = useState({});
   const [isFavorite, setIsFavorite] = useState(false);
-  
+
   // Check if the song is a local music file
   const isLocalMusic = Visible.isLocalMusic === true;
-  
 
-  
+
+
   // Check if the song is a favorite when the modal opens
   React.useEffect(() => {
     if (Visible.visible && Visible.id) {
@@ -111,8 +111,8 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
       checkFavoriteStatus();
     }
   }, [Visible.visible, Visible.id, isLocalMusic]);
-  
-  async function actualDownload () {
+
+  async function actualDownload() {
     try {
       // Prepare song data for unified service
       const songData = {
@@ -144,7 +144,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
         );
       }
 
-      setVisible({visible: false});
+      setVisible({ visible: false });
     } catch (error) {
       console.error("Download error:", error);
       ToastAndroid.showWithGravity(
@@ -154,11 +154,11 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
       );
     }
   }
-  
+
   async function playNext() {
     try {
       let song;
-      
+
       if (isLocalMusic) {
         // Format local music for player
         song = {
@@ -173,10 +173,10 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
       } else {
         // Format online music for player
         const quality = await getIndexQuality();
-        
+
         // Get the song URL safely
         const songUrl = getSongUrl(Visible.url, quality);
-        
+
         if (!songUrl) {
           console.error("Invalid song URL structure:", Visible.url);
           ToastAndroid.showWithGravity(
@@ -186,7 +186,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
           );
           return;
         }
-        
+
         // Safe image URL extraction
         const getImageUrl = (imageData) => {
           if (!imageData) return '';
@@ -223,10 +223,10 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
           explicitContent: Visible.explicitContent
         }
       }
-      
+
       const queue = await TrackPlayer.getQueue();
       const currentIndex = await TrackPlayer.getCurrentTrack();
-      
+
       // If no track is playing, add to beginning and play
       if (currentIndex === null || queue.length === 0) {
         await TrackPlayer.add(song);
@@ -234,9 +234,9 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
       } else {
         await TrackPlayer.add(song, currentIndex + 1);
       }
-      
+
       updateTrack();
-      setVisible({visible: false});
+      setVisible({ visible: false });
       ToastAndroid.showWithGravity(
         `Song Will Play Next`,
         ToastAndroid.SHORT,
@@ -251,7 +251,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
       );
     }
   }
-  
+
   const getPermission = async () => {
     if (Platform.OS === 'ios') {
       actualDownload();
@@ -286,12 +286,12 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
       }
     }
   };
-  
+
   // Function to handle adding/removing local music from favorites
   async function toggleLocalMusicFavorite() {
     try {
       const isCurrentlyFavorite = await IsLocalMusicFavorite(Visible.id);
-      
+
       if (isCurrentlyFavorite) {
         await RemoveLocalMusicFromFavorites(Visible.id);
         ToastAndroid.showWithGravity(
@@ -316,9 +316,9 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
           ToastAndroid.CENTER
         );
       }
-      
+
       setIsFavorite(!isCurrentlyFavorite);
-      setVisible({visible: false});
+      setVisible({ visible: false });
     } catch (error) {
       console.error("Error toggling favorite status:", error);
       ToastAndroid.showWithGravity(
@@ -328,11 +328,11 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
       );
     }
   };
-  
-  async function addSongToQueue(){
+
+  async function addSongToQueue() {
     try {
       let song;
-      
+
       if (isLocalMusic) {
         // Format local music for queue
         song = {
@@ -347,10 +347,10 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
       } else {
         // Format online music for queue
         const quality = await getIndexQuality();
-        
+
         // Get the song URL safely
         const songUrl = getSongUrl(Visible.url, quality);
-        
+
         if (!songUrl) {
           console.error("Invalid song URL structure for queue:", Visible.url);
           ToastAndroid.showWithGravity(
@@ -360,7 +360,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
           );
           return;
         }
-        
+
         song = {
           url: songUrl,
           title: FormatTitleAndArtist(Visible.title),
@@ -373,10 +373,10 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
           downloadUrl: Visible.url,
         }
       }
-      
+
       await AddSongsToQueue([song]);
       updateTrack();
-      setVisible({visible: false});
+      setVisible({ visible: false });
       ToastAndroid.showWithGravity(
         `Added to Queue`,
         ToastAndroid.SHORT,
@@ -401,7 +401,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
   async function addSongToSelectedPlaylist(playlistName) {
     try {
       let song;
-      
+
       if (isLocalMusic) {
         // Format local music for playlist
         song = {
@@ -416,10 +416,10 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
       } else {
         // Format online music for playlist
         const quality = await getIndexQuality();
-        
+
         // Get the song URL safely
         const songUrl = getSongUrl(Visible.url, quality);
-        
+
         if (!songUrl) {
           console.error("Invalid song URL structure for playlist:", Visible.url);
           ToastAndroid.showWithGravity(
@@ -429,7 +429,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
           );
           return;
         }
-        
+
         // Safe image URL extraction
         const getImageUrl = (imageData) => {
           if (!imageData) return '';
@@ -466,10 +466,10 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
           explicitContent: Visible.explicitContent
         };
       }
-    
+
       const playlists = await GetCustomPlaylists();
       const playlist = playlists[playlistName] || [];
-      
+
       if (playlist.some(track => track.id === song.id)) {
         ToastAndroid.showWithGravity(
           "Song already exists in this playlist",
@@ -486,7 +486,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
         ToastAndroid.CENTER
       );
       setShowPlaylistModal(false);
-      setVisible({visible: false});
+      setVisible({ visible: false });
     } catch (error) {
       console.error("Error adding song to playlist:", error);
       ToastAndroid.showWithGravity(
@@ -514,7 +514,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
       return require('../../Images/wav.png');
     }
 
-    // Safe image URL extraction for playlist cover
+    // Safe image URL extraction for playlist cover - use last song's artwork
     const lastSong = playlist[playlist.length - 1];
     const getImageUrl = (imageData) => {
       if (!imageData) return '';
@@ -529,15 +529,16 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
       return '';
     };
 
-    const imageUrl = getImageUrl(lastSong.image);
+    // Check artwork first (where we now store extracted URLs), then fallback to image
+    const imageUrl = getImageUrl(lastSong.artwork) || getImageUrl(lastSong.image);
     return imageUrl ? { uri: imageUrl } : require('../../Images/wav.png');
   };
   return (
     <>
-      <Modal 
-        onBackButtonPress={() => setVisible({visible: false})} 
-        onBackdropPress={() => setVisible({visible: false})} 
-        isVisible={Visible.visible} 
+      <Modal
+        onBackButtonPress={() => setVisible({ visible: false })}
+        onBackdropPress={() => setVisible({ visible: false })}
+        isVisible={Visible.visible}
         backdropOpacity={0}
         animationIn="fadeIn"
         animationOut="fadeOut"
@@ -565,39 +566,39 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
           ],
           opacity: Visible.visible ? 1 : 0,
         }}>
-        
+
           <MenuButton
-            icon={<MaterialCommunityIcons name="play-speed" size={22} color={colors.text}/>}
+            icon={<MaterialCommunityIcons name="play-speed" size={22} color={colors.text} />}
             text="Play Next"
             onPress={playNext}
             textColor={colors.text}
           />
           <MenuButton
-            icon={<MaterialCommunityIcons name="playlist-plus" size={22} color={colors.text}/>}
+            icon={<MaterialCommunityIcons name="playlist-plus" size={22} color={colors.text} />}
             text="Add to Queue"
             onPress={addSongToQueue}
             textColor={colors.text}
           />
           <MenuButton
-            icon={<MaterialCommunityIcons name="playlist-plus" size={22} color={colors.text}/>}
+            icon={<MaterialCommunityIcons name="playlist-plus" size={22} color={colors.text} />}
             text="Add to Playlist"
             onPress={handleAddToPlaylist}
           />
           {isLocalMusic ? (
             <MenuButton
-              icon={<MaterialCommunityIcons name={isFavorite ? "heart" : "heart-outline"} size={22} color={isFavorite ? "#ff5252" : colors.text}/>}
+              icon={<MaterialCommunityIcons name={isFavorite ? "heart" : "heart-outline"} size={22} color={isFavorite ? "#ff5252" : colors.text} />}
               text={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
               onPress={toggleLocalMusicFavorite}
             />
           ) : (
             <MenuButton
-              icon={<MaterialCommunityIcons name="download" size={22} color={colors.text}/>}
+              icon={<MaterialCommunityIcons name="download" size={22} color={colors.text} />}
               text="Download"
               onPress={getPermission}
               textColor={colors.text}
             />
           )}
-          
+
         </View>
       </Modal>
       <Modal
@@ -631,7 +632,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
               marginBottom: 10,
             }}
           />
-          
+
           <Pressable
             onPress={handleCreatePlaylist}
             style={{
@@ -644,12 +645,12 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
           >
             <PlainText text="Create New Playlist" style={{ color: 'white' }} />
           </Pressable>
-          
+
           <ScrollView style={{ maxHeight: 300 }}>
             {Object.keys(availablePlaylists).length === 0 ? (
               <View style={{ padding: 10, alignItems: 'center' }}>
-                <PlainText 
-                  text="No playlists available" 
+                <PlainText
+                  text="No playlists available"
                   style={{ color: colors.text, textAlign: 'center' }}
                 />
               </View>
@@ -658,7 +659,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
                 <Pressable
                   key={name}
                   onPress={() => addSongToSelectedPlaylist(name)}
-                  android_ripple={{color: colors.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}}
+                  android_ripple={{ color: colors.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -677,15 +678,15 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
                     }}
                   />
                   <View style={{ marginLeft: 12, flex: 1 }}>
-                    <PlainText 
-                      text={name} 
+                    <PlainText
+                      text={name}
                       style={{
                         color: colors.text,
                         fontSize: 16,
                       }}
                     />
-                    <PlainText 
-                      text={`${availablePlaylists[name].length} songs`} 
+                    <PlainText
+                      text={`${availablePlaylists[name].length} songs`}
                       style={{
                         color: colors.textSecondary,
                         fontSize: 12,
@@ -702,31 +703,31 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
   );
 };
 
-const MenuButton = ({icon, text, onPress, textColor: textColorProp}) => {
+const MenuButton = ({ icon, text, onPress, textColor: textColorProp }) => {
   const theme = useTheme();
   const rippleColor = theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
   const finalTextColor = textColorProp || theme.colors.text;
 
   return (
-  <Pressable 
-    onPress={onPress}
-    android_ripple={{color: rippleColor}}
-    style={{
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: 12,
-      paddingHorizontal: 16,
-    }}
-  >
-    {icon}
-    <PlainText 
-      text={text} 
+    <Pressable
+      onPress={onPress}
+      android_ripple={{ color: rippleColor }}
       style={{
-        color: finalTextColor,
-        marginLeft: 16,
-        fontSize: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        paddingHorizontal: 16,
       }}
-    />
-  </Pressable>
+    >
+      {icon}
+      <PlainText
+        text={text}
+        style={{
+          color: finalTextColor,
+          marginLeft: 16,
+          fontSize: 14,
+        }}
+      />
+    </Pressable>
   );
 };

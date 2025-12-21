@@ -21,7 +21,7 @@ const IMAGE_SIZE = SCREEN_WIDTH * 0.40; // 40% of screen width
  * Helper to validate image URL or provide default
  */
 const getValidImageUrl = (url) => {
-    if (!url || url === 'null' || url === 'undefined' || url.trim() === '') {
+    if (!url || url === 'null' || url === 'undefined' || typeof url !== 'string' || url.trim() === '') {
         return require('../../Images/default.jpg');
     }
     return { uri: url };

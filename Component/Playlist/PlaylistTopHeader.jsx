@@ -17,7 +17,7 @@ import { useThemeContext } from "../../Context/ThemeContext";
 
 // Helper to validate image URL or provide default
 const getValidImageUrl = (url) => {
-  if (!url || url === 'null' || url === 'undefined' || url.trim() === '') {
+  if (!url || url === 'null' || url === 'undefined' || typeof url !== 'string' || url.trim() === '') {
     // Return a default image if URL is null/undefined/empty
     return require('../../Images/default.jpg');
   }
@@ -60,7 +60,7 @@ export const PlaylistTopHeader = ({
     }
     return [topColor, bottomColor];
   }, [theme]);
-  
+
   // Get responsive dimensions for our image
   const width1 = Dimensions.get("window").width;
   const height1 = Dimensions.get("window").height;
@@ -69,7 +69,7 @@ export const PlaylistTopHeader = ({
     imageRadius: 8,
     containerHeight: height1 * 0.4, // Container height set to 40% of screen height
   };
-  
+
   // Check if this playlist is already liked
   useEffect(() => {
     const checkLiked = async () => {
@@ -78,7 +78,7 @@ export const PlaylistTopHeader = ({
           console.log("No valid playlist ID to check liked status");
           return;
         }
-        
+
         const playlists = await AsyncStorage.getItem("LikedPlaylists");
         if (playlists) {
           try {
@@ -112,20 +112,20 @@ export const PlaylistTopHeader = ({
     };
     checkLiked();
   }, [playlistId]);
-  
+
   const ScrollOffset = useScrollViewOffset(AnimatedRef);
-  
+
   // Animation style for the main image
   const AnimatedImageStyle = useAnimatedStyle(() => {
     const imageSize = responsiveStyles.imageSize;
-    
-    return { 
+
+    return {
       transform: [
         {
           translateY: interpolate(
             ScrollOffset.value,
             [-imageSize, 0, imageSize],
-            [-imageSize/2, 0, imageSize*1.2]
+            [-imageSize / 2, 0, imageSize * 1.2]
           ),
         },
         {
@@ -138,12 +138,12 @@ export const PlaylistTopHeader = ({
       ]
     };
   });
-  
+
   // Animation style for the background image
   const AnimatedImageStyle2 = useAnimatedStyle(() => {
     const imageSize = responsiveStyles.imageSize;
-    
-    return { 
+
+    return {
       transform: [
         {
           translateY: interpolate(
@@ -169,7 +169,7 @@ export const PlaylistTopHeader = ({
         console.log("No valid playlist ID to like/unlike");
         return;
       }
-      
+
       if (liked) {
         // Remove from liked playlists
         await DeleteALikedPlaylist(playlistId);
@@ -191,11 +191,11 @@ export const PlaylistTopHeader = ({
           if (!name || !url) {
             playlistData = await getPlaylistData(playlistId);
           }
-          
+
           const displayImage = url || (playlistData?.data?.image || "");
           const displayName = name || (playlistData?.data?.name || "Playlist");
           const displayFollower = follower || (playlistData?.data?.follower || "");
-          
+
           // Add to liked playlists
           await SetLikedPlaylist(
             displayImage,
@@ -203,7 +203,7 @@ export const PlaylistTopHeader = ({
             displayFollower,
             playlistId
           );
-          
+
           console.log(`Added playlist ${playlistId} to liked playlists`);
           ToastAndroid.show("Added to Favorites", ToastAndroid.SHORT);
           // Update state first to give immediate feedback
@@ -225,10 +225,10 @@ export const PlaylistTopHeader = ({
     }
   };
 
-  
+
   // Check if this is a playlist (not an album)
   const isPlaylist = playlistId && !playlistId.startsWith('album_');
-  
+
   return (
     <View style={[
       {
@@ -269,14 +269,14 @@ export const PlaylistTopHeader = ({
         </TouchableOpacity>
       )}
       */}
-      
+
       {/* Background blurred image - only show if URL is provided */}
       {url && url.trim() !== '' && (
-        <Animated.View 
+        <Animated.View
           style={[{
             height: responsiveStyles.containerHeight, // Use exact height from responsive styles
             maxHeight: height1 * 0.4, // Strictly limit to 40% of screen height
-            width: "100%", 
+            width: "100%",
             position: "absolute",
             top: 0, // Align with the top of the container
             left: 0,
@@ -308,8 +308,8 @@ export const PlaylistTopHeader = ({
               right: 0,
               height: 120, // Significantly increased height of the gradient overlay
             }}
-            start={{x: 0, y: 0}}
-            end={{x: 0, y: 1}}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
             colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.7)']}
           />
           {/* Add a top gradient for better visibility of controls */}
@@ -321,13 +321,13 @@ export const PlaylistTopHeader = ({
               right: 0,
               height: 80, // Top gradient for header controls
             }}
-            start={{x: 0, y: 1}}
-            end={{x: 0, y: 0}}
+            start={{ x: 0, y: 1 }}
+            end={{ x: 0, y: 0 }}
             colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.5)']}
           />
         </Animated.View>
       )}
-      
+
       {/* Details Section: Title, Subtitle, Play/Download Buttons */}
       <View style={styles.detailsContainer}>
         <LinearGradient
@@ -351,14 +351,14 @@ export const PlaylistTopHeader = ({
         </View>
         <View style={styles.detailsControlsWrapper}>
           {songsData && detailsName && (
-            <DownloadButton 
+            <DownloadButton
               songs={songsData}
-              albumName={detailsName} 
-              size="normal" 
+              albumName={detailsName}
+              size="normal"
             />
           )}
           {onPlayPress && (
-            <PlayButton 
+            <PlayButton
               onPress={onPlayPress}
               Loading={playerLoading}
               isPlaying={isPlayingState}

@@ -420,6 +420,26 @@ export const CustomPlaylist = () => {
       }
     };
 
+    // Get the last song's artwork for the playlist cover
+    const getPlaylistCover = () => {
+      const playlist = playlists[item];
+      if (!playlist || playlist.length === 0) {
+        return DEFAULT_WAVE_IMAGE;
+      }
+
+      // Get the last song in the playlist
+      const lastSong = playlist[playlist.length - 1];
+      const artwork = lastSong?.artwork || lastSong?.image;
+
+      // If artwork exists and is a valid URL string, use it
+      if (artwork && typeof artwork === 'string' && artwork.trim() !== '') {
+        return { uri: artwork };
+      }
+
+      // Otherwise, use default image
+      return DEFAULT_WAVE_IMAGE;
+    };
+
     return (
       <Animated.View style={{ transform: [{ translateY: animations.translateY }], opacity: animations.opacity }}>
         <Pressable
@@ -429,7 +449,7 @@ export const CustomPlaylist = () => {
         >
           <View style={styles.playlistCoverContainer}>
             <FastImage
-              source={DEFAULT_WAVE_IMAGE}
+              source={getPlaylistCover()}
               style={styles.playlistCover}
               resizeMode={FastImage.resizeMode.cover}
             />
@@ -477,6 +497,25 @@ export const CustomPlaylist = () => {
       }
     };
 
+    // Get the last song's artwork for the playlist cover
+    const getPlaylistCover = () => {
+      if (!item.songs || item.songs.length === 0) {
+        return DEFAULT_WAVE_IMAGE;
+      }
+
+      // Get the last song in the playlist
+      const lastSong = item.songs[item.songs.length - 1];
+      const artwork = lastSong?.artwork || lastSong?.image;
+
+      // If artwork exists and is a valid URL string, use it
+      if (artwork && typeof artwork === 'string' && artwork.trim() !== '') {
+        return { uri: artwork };
+      }
+
+      // Otherwise, use default image
+      return DEFAULT_WAVE_IMAGE;
+    };
+
     return (
       <Animated.View style={{ transform: [{ translateY: animations.translateY }], opacity: animations.opacity, width: '100%' }}>
         <Pressable
@@ -484,21 +523,13 @@ export const CustomPlaylist = () => {
           onPress={handlePlaylistPress}
           android_ripple={{ color: theme.colors.card, borderless: false }}
         >
-          {item.coverImage ? (
+          <View style={styles.playlistCoverContainer}>
             <FastImage
-              source={{ uri: item.coverImage }}
+              source={getPlaylistCover()}
               style={styles.playlistCover}
               resizeMode={FastImage.resizeMode.cover}
             />
-          ) : (
-            <View style={styles.playlistCoverContainer}>
-              <FastImage
-                source={DEFAULT_WAVE_IMAGE}
-                style={styles.playlistCover}
-                resizeMode={FastImage.resizeMode.cover}
-              />
-            </View>
-          )}
+          </View>
           <View style={styles.playlistDetails}>
             <Text style={[styles.playlistName, { color: theme.colors.text }]}>
               {item.name}
