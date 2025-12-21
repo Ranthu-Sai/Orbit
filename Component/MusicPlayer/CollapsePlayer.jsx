@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, Pressable, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Pressable, Image, DeviceEventEmitter, ActivityIndicator } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import { useActiveTrack } from 'react-native-track-player';
 import { PlayPauseButton } from './PlayPauseButton';
@@ -17,42 +17,81 @@ export const CollapsePlayer = ({ setIndex }) => {
 
   const currentPlaying = useActiveTrack();
   const isLocal = currentPlaying?.isLocal;
-  
+
+  // State for optimistic loading song (shown while stream is being fetched)
+  const [loadingSong, setLoadingSong] = useState(null);
+
+  // Listen for early metadata event from PlayOneSong
+  useEffect(() => {
+    const loadingListener = DeviceEventEmitter.addListener('song-loading-started', (songData) => {
+      console.log('📱 CollapsePlayer: Received loading song metadata');
+      setLoadingSong(songData);
+    });
+
+    return () => {
+      loadingListener.remove();
+    };
+  }, []);
+
+  // Clear loading state when actual track starts playing
+  useEffect(() => {
+    if (currentPlaying && loadingSong && currentPlaying.id === loadingSong.id) {
+      // Actual track is now ready, clear loading state
+      setLoadingSong(null);
+    }
+  }, [currentPlaying, loadingSong]);
+
   // Handler for clicking on the player
   const handlePress = () => {
     setIndex(1, currentScreenName);
   };
 
-  // If no song is playing, don't show the player
-  if (!currentPlaying) return null;
+  // Determine what to display: loading song (optimistic) or actual playing track
+  const displaySong = loadingSong || currentPlaying;
+  const isLoadingStream = loadingSong !== null;
+
+  // If no song is playing or loading, don't show the player
+  if (!displaySong) return null;
 
   return (
     <Pressable onPress={handlePress} style={[styles.container, { backgroundColor: theme.colors.card }]}>
       {/* Show b.gif when playing local music */}
-      {isLocal ? (
+      {isLocal && !isLoadingStream ? (
         <Image
           source={require('../../Images/b.gif')}
           style={styles.artwork}
         />
       ) : (
         <FastImage
-          source={{ uri: currentPlaying.artwork }}
+          source={{ uri: displaySong.artwork || displaySong.image }}
           style={styles.artwork}
         />
       )}
 
       <View style={styles.songInfo}>
         <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1} ellipsizeMode="tail">
-          {currentPlaying.title}
+          {displaySong.title}
         </Text>
         <Text style={[styles.artist, { color: theme.colors.textSecondary }]} numberOfLines={1} ellipsizeMode="tail">
-          {currentPlaying.artist}
+          {displaySong.artist}
         </Text>
       </View>
 
       <View style={styles.controls}>
-        <PlayPauseButton isFullScreen={false} />
-        <NextSongButton size={24} />
+        {isLoadingStream ? (
+          // Show loading indicator while stream is being fetched
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator
+              size={24}
+              color={theme.dark ? '#FFFFFF' : '#000000'}
+            />
+          </View>
+        ) : (
+          <>
+            <PlayPauseButton isFullScreen={false} />
+            <NextSongButton size={24} />
+          </>
+        )}
       </View>
     </Pressable>
   );
@@ -88,6 +127,12 @@ const styles = {
   },
   controls: {
     flexDirection: 'row',
+    alignItems: 'center',
+  },
+  loadingContainer: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
     alignItems: 'center',
   },
 };

@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useEffect, useRef, useState, useMemo } from "react";
-import { BackHandler, StyleSheet, Text, Keyboard, Platform } from "react-native";
+import { BackHandler, StyleSheet, Text, Keyboard, Platform, DeviceEventEmitter } from "react-native";
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import { MinimizedMusic } from "./MinimizedMusic";
 import { FullScreenMusic } from "./FullScreenMusic";
@@ -19,6 +19,31 @@ const BottomSheetMusic = React.memo(({ color }) => {
   const [hasQueue, setHasQueue] = useState(false);
   const [isMusicActive, setIsMusicActive] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  // OPTIMISTIC UI: State for loading song (shown while stream is being fetched)
+  const [loadingSong, setLoadingSong] = useState(null);
+
+  // Listen for early metadata event from PlayOneSong for immediate UI feedback
+  useEffect(() => {
+    const loadingListener = DeviceEventEmitter.addListener('song-loading-started', (songData) => {
+      console.log('📱 BottomSheetMusic: Received loading song metadata, showing player immediately');
+      setLoadingSong(songData);
+      setIsMusicActive(true); // Immediately show the player
+    });
+
+    return () => {
+      loadingListener.remove();
+    };
+  }, []);
+
+  // Clear loading state when actual track starts playing
+  useEffect(() => {
+    if (currentPlaying && loadingSong && currentPlaying.id === loadingSong.id) {
+      // Actual track is now ready, clear loading state
+      console.log('📱 BottomSheetMusic: Track ready, clearing loading state');
+      setLoadingSong(null);
+    }
+  }, [currentPlaying, loadingSong]);
 
   // Track keyboard visibility to hide minimized player when keyboard is open
   useEffect(() => {
@@ -102,13 +127,14 @@ const BottomSheetMusic = React.memo(({ color }) => {
 
   // Memoized visibility calculation - computed only when dependencies change
   // Hide when keyboard is visible (except in fullscreen mode)
+  // OPTIMISTIC UI: Also show when loadingSong is set
   const shouldShowPlayer = useMemo(() => {
     // Hide minimized player when keyboard is visible
     if (isKeyboardVisible && Index !== 1) return false;
-    return currentPlaying || hasQueue || isMusicActive ||
+    return currentPlaying || hasQueue || isMusicActive || loadingSong ||
       (playbackState?.state === 'playing' || playbackState?.state === 'paused') ||
       Index === 1;
-  }, [currentPlaying, hasQueue, isMusicActive, playbackState?.state, Index, isKeyboardVisible]);
+  }, [currentPlaying, hasQueue, isMusicActive, playbackState?.state, Index, isKeyboardVisible, loadingSong]);
 
   // Function to specifically navigate to MyMusicPage
   const navigateToMyMusicPage = useCallback(() => {
@@ -366,6 +392,7 @@ const BottomSheetMusic = React.memo(({ color }) => {
           <MinimizedMusic
             setIndex={updateIndex}
             color="transparent"
+            loadingSong={loadingSong}
           />
         ) : (
           <FullScreenMusic

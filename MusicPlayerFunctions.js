@@ -169,6 +169,20 @@ async function PlayOneSong(song) {
       try {
         console.log('Fetching YouTube stream for video ID:', song.id);
 
+        // OPTIMISTIC UI: Emit early metadata event so mini player shows immediately
+        // This provides instant feedback while the 2-3 second stream fetch happens
+        const earlyArtwork = extractArtwork(song) || song.artwork || song.image || '';
+        DeviceEventEmitter.emit('song-loading-started', {
+          id: song.id,
+          title: song.title || song.name || 'Loading...',
+          artist: song.artist || 'Loading...',
+          artwork: earlyArtwork,
+          image: earlyArtwork,
+          duration: song.duration,
+          isLoading: true,
+        });
+        console.log('📱 Emitted early metadata for immediate UI feedback');
+
         // Use StreamFetchManager for deduplication and abort support
         const streamData = await streamFetchManager.fetchStream(
           song.id,

@@ -1,4 +1,4 @@
-import { Dimensions, View } from "react-native";
+import { ActivityIndicator, Dimensions, View } from "react-native";
 import React, { memo, useContext, useCallback, useState, useEffect } from "react";
 import { PlainText } from "../Global/PlainText";
 import { SmallText } from "../Global/SmallText";
@@ -61,7 +61,7 @@ const getHighQualityArtwork = (artworkUrl, track = null) => {
   }
 };
 
-export const MinimizedMusic = memo(({ setIndex, color }) => {
+export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
   const { position, duration } = useProgress()
   const { setPreviousScreen, setMusicPreviousScreen, setCurrentPlaylistData } = useContext(Context);
   const [isOffline, setIsOffline] = useState(false);
@@ -334,6 +334,13 @@ export const MinimizedMusic = memo(({ setIndex, color }) => {
   const size = Dimensions.get("window").height
   const currentPlaying = useActiveTrack()
 
+  // OPTIMISTIC UI: Use loadingSong if available, otherwise use currentPlaying
+  const displaySong = loadingSong || currentPlaying;
+  const isLoadingStream = loadingSong !== null;
+
+  // Get artwork from displaySong (handles both loadingSong and currentPlaying)
+  const artworkSource = displaySong?.artwork || displaySong?.image;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Animated.View
@@ -355,9 +362,9 @@ export const MinimizedMusic = memo(({ setIndex, color }) => {
           }}>
             <FastImage
               source={
-                typeof getHighQualityArtwork(currentPlaying?.artwork, currentPlaying) === 'string'
-                  ? { uri: getHighQualityArtwork(currentPlaying?.artwork, currentPlaying) }
-                  : getHighQualityArtwork(currentPlaying?.artwork, currentPlaying)
+                typeof getHighQualityArtwork(artworkSource, displaySong) === 'string'
+                  ? { uri: getHighQualityArtwork(artworkSource, displaySong) }
+                  : getHighQualityArtwork(artworkSource, displaySong)
               }
               style={{
                 height: (size * 0.09) - 25,
@@ -377,7 +384,7 @@ export const MinimizedMusic = memo(({ setIndex, color }) => {
             }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <PlainText
-                  text={currentPlaying?.title ?? "No music :("}
+                  text={displaySong?.title ?? "No music :("}
                   style={{
                     color: colors.text,
                     fontSize: 13,
@@ -388,7 +395,7 @@ export const MinimizedMusic = memo(({ setIndex, color }) => {
                 />
               </View>
               <SmallText
-                text={currentPlaying?.artist?.length > 20 ? currentPlaying.artist.substring(0, 20) + '...' : currentPlaying?.artist ?? "Explore now!"}
+                text={displaySong?.artist?.length > 20 ? displaySong.artist.substring(0, 20) + '...' : displaySong?.artist ?? "Explore now!"}
                 maxLine={1}
                 style={{
                   color: colors.textSecondary,
@@ -401,21 +408,34 @@ export const MinimizedMusic = memo(({ setIndex, color }) => {
           </View>
         </GestureDetector>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <View style={{ marginRight: 0 }}>
-            <LikeSongButton size={20} color={colors.icon} />
-          </View>
-          <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-            <Pressable onPress={isOffline ? playPreviousOfflineSong : PlayPreviousSong}>
-              <PreviousSongButton color={colors.icon} />
-            </Pressable>
-            <PlayPauseButton isplaying={false} color={colors.icon} />
-            <Pressable onPress={isOffline ? playNextOfflineSong : PlayNextSong}>
-              <NextSongButton color={colors.icon} />
-            </Pressable>
-          </View>
+          {isLoadingStream ? (
+            // OPTIMISTIC UI: Show loading indicator while stream is being fetched
+            <View style={{ flexDirection: "row", gap: 10, alignItems: "center", paddingHorizontal: 10 }}>
+              <ActivityIndicator
+                size={24}
+                color={colors.primary || '#1DB954'}
+              />
+            </View>
+          ) : (
+            <>
+              <View style={{ marginRight: 0 }}>
+                <LikeSongButton size={20} color={colors.icon} />
+              </View>
+              <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                <Pressable onPress={isOffline ? playPreviousOfflineSong : PlayPreviousSong}>
+                  <PreviousSongButton color={colors.icon} />
+                </Pressable>
+                <PlayPauseButton isplaying={false} color={colors.icon} />
+                <Pressable onPress={isOffline ? playNextOfflineSong : PlayNextSong}>
+                  <NextSongButton color={colors.icon} />
+                </Pressable>
+              </View>
+            </>
+          )}
         </View>
       </Animated.View>
       <View style={{ height: 2, width: `${TotalCompletedInpercent()}%`, backgroundColor: colors.primary }} />
     </GestureHandlerRootView>
   );
 });
+
