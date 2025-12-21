@@ -18,31 +18,31 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 20 });
   const buttonRef = useRef(null);
-  
+
   // Extract song properties
-  const { 
-    id, 
-    title: songTitle, 
-    artist: songArtist, 
-    name, 
+  const {
+    id,
+    title: songTitle,
+    artist: songArtist,
+    name,
     artists,
-    image, 
+    image,
     artwork,
-    filePath, 
+    filePath,
     url,
-    localFilePath, 
-    duration 
+    localFilePath,
+    duration
   } = song || {};
-  
+
   // Ensure we have values for title and artist
   const title = songTitle || name || 'Unknown Title';
   const artist = songArtist || artists || 'Unknown Artist';
   const artworkUri = image || artwork || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png';
   const songPath = filePath || url || localFilePath;
-  
+
   const currentPlaying = useActiveTrack();
   const playerState = usePlaybackState();
-  
+
   // Determine if this song is currently playing
   const isCurrentlyPlaying = currentPlaying?.id === id;
   const isPlaying = isCurrentlyPlaying && playerState?.state === 'playing';
@@ -65,12 +65,12 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
       }
 
       // Make sure the URL has the file:// prefix
-      const fileUrl = typeof songPath === 'string' && songPath.startsWith('file://') 
-        ? songPath 
+      const fileUrl = typeof songPath === 'string' && songPath.startsWith('file://')
+        ? songPath
         : `file://${songPath}`;
-      
+
       console.log('Playing local song with URL:', fileUrl);
-      
+
       // Prepare the track with all required properties
       const track = {
         id: id,
@@ -114,9 +114,9 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
       try {
         const handle = findNodeHandle(buttonRef.current);
         UIManager.measure(handle, (x, y, width, height, pageX, pageY) => {
-          setMenuPosition({ 
+          setMenuPosition({
             top: pageY + 40,
-            right: 20 
+            right: 20
           });
           setMenuVisible(true);
         });
@@ -145,10 +145,10 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
         return;
       }
 
-      const fileUrl = typeof songPath === 'string' && songPath.startsWith('file://') 
-        ? songPath 
+      const fileUrl = typeof songPath === 'string' && songPath.startsWith('file://')
+        ? songPath
         : `file://${songPath}`;
-      
+
       const track = {
         id: id,
         url: fileUrl,
@@ -162,7 +162,7 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
 
       // Get current index
       const currentIndex = await TrackPlayer.getCurrentTrack();
-      
+
       if (currentIndex === null) {
         // If no track is playing, just start playing this song
         await TrackPlayer.reset();
@@ -172,7 +172,7 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
         // Add right after current track
         await TrackPlayer.add(track, currentIndex + 1);
       }
-      
+
       ToastAndroid.show(`${title} will play next`, ToastAndroid.SHORT);
     } catch (error) {
       console.error('Error setting play next:', error);
@@ -189,46 +189,48 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <Pressable 
-        onPress={playSong}
-        android_ripple={{ 
-          color: dark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
-          borderless: false,
-          radius: SCREEN_WIDTH * 0.45 // Large enough to cover the card
-        }}
-        style={styles.pressableContent}
-      >
-        <FastImage 
+    <Pressable
+      onPress={playSong}
+      android_ripple={{
+        color: dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)',
+        borderless: false,
+      }}
+      style={styles.container}
+    >
+      <View style={styles.pressableContent}>
+        <FastImage
           source={
             isPlaying ? require('../../Images/playing.gif') :
-            isPaused ? require('../../Images/songPaused.gif') : 
-            { uri: artworkUri }
+              isPaused ? require('../../Images/songPaused.gif') :
+                { uri: artworkUri }
           }
           style={styles.artwork}
           resizeMode={FastImage.resizeMode.cover}
         />
-        
+
         <View style={styles.textContainer}>
-          <PlainText 
+          <PlainText
             text={formatText(title)}
-            style={{ 
+            style={{
               color: isCurrentlyPlaying ? '#1ED760' : colors.text,
               fontSize: 15,
               fontWeight: isCurrentlyPlaying ? '600' : '500',
               marginBottom: 2
             }}
           />
-          <SmallText 
+          <SmallText
             text={formatText(artist)}
             style={[styles.artist, { color: colors.textSecondary }]}
           />
         </View>
-      </Pressable>
-      
+      </View>
+
       <Pressable
         ref={buttonRef}
-        onPress={showMenu}
+        onPress={(e) => {
+          e.stopPropagation();
+          showMenu();
+        }}
         style={{
           padding: 8,
           backgroundColor: 'transparent',
@@ -252,7 +254,7 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
               <MaterialCommunityIcons name="play-speed" size={20} color={colors.text} />
               <Text style={[styles.menuText, { color: colors.text }]}>Play next</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity style={styles.menuItem} onPress={handleDelete}>
               <MaterialCommunityIcons name="delete-outline" size={20} color={colors.text} />
               <Text style={[styles.menuText, { color: colors.text }]}>Delete</Text>
@@ -260,7 +262,7 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
           </View>
         </Pressable>
       </Modal>
-    </View>
+    </Pressable>
   );
 };
 

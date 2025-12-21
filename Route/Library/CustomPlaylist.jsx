@@ -445,7 +445,7 @@ export const CustomPlaylist = () => {
         <Pressable
           style={styles.playlistItem}
           onPress={handlePlaylistPress}
-          android_ripple={{ color: theme.colors.card, borderless: false }}
+          android_ripple={{ color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)', borderless: false }}
         >
           <View style={styles.playlistCoverContainer}>
             <FastImage
@@ -521,7 +521,7 @@ export const CustomPlaylist = () => {
         <Pressable
           style={styles.playlistItem}
           onPress={handlePlaylistPress}
-          android_ripple={{ color: theme.colors.card, borderless: false }}
+          android_ripple={{ color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)', borderless: false }}
         >
           <View style={styles.playlistCoverContainer}>
             <FastImage
@@ -600,7 +600,7 @@ export const CustomPlaylist = () => {
         <Pressable
           style={styles.playlistItem}
           onPress={handlePlaylistPress}
-          android_ripple={{ color: theme.colors.card, borderless: false }}
+          android_ripple={{ color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)', borderless: false }}
         >
           {imageUrl ? (
             <FastImage

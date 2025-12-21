@@ -7,9 +7,9 @@ import { PlainText } from '../Global/PlainText';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const SwipeableHistoryItem = ({ 
-  item, 
-  onPress, 
+const SwipeableHistoryItem = ({
+  item,
+  onPress,
   onDelete,
   onSwipeableOpen
 }) => {
@@ -24,7 +24,8 @@ const SwipeableHistoryItem = ({
     if (global.HapticFeedback) {
       global.HapticFeedback.impactHeavy();
     }
-    onDelete();  };
+    onDelete();
+  };
 
   // Handle swipe start/end
   const handleSwipeStart = () => {
@@ -72,16 +73,20 @@ const SwipeableHistoryItem = ({
       >
         <Pressable
           onPress={onPress}
+          android_ripple={{
+            color: dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)',
+            borderless: false,
+          }}
           style={({ pressed }) => ([
             styles.historyItem,
-            { 
-              backgroundColor: isSwiped 
-                ? dark 
-                  ? 'rgba(255, 255, 255, 0.04)' 
+            {
+              backgroundColor: isSwiped
+                ? dark
+                  ? 'rgba(255, 255, 255, 0.04)'
                   : 'rgba(0, 0, 0, 0.02)'
-                : pressed 
-                  ? dark 
-                    ? 'rgba(255, 255, 255, 0.02)' 
+                : pressed
+                  ? dark
+                    ? 'rgba(255, 255, 255, 0.02)'
                     : 'rgba(0, 0, 0, 0.01)'
                   : 'transparent',
             }
@@ -89,13 +94,13 @@ const SwipeableHistoryItem = ({
         >
           <View style={styles.contentContainer}>
             <View style={styles.iconContainer}>
-              <Clock 
-                size={18} 
-                color={colors.text} 
-                style={styles.historyIcon} 
+              <Clock
+                size={18}
+                color={colors.text}
+                style={styles.historyIcon}
               />
             </View>
-            <PlainText 
+            <PlainText
               text={item}
               style={[styles.historyText, { color: colors.text }]}
               numberOfLine={1}

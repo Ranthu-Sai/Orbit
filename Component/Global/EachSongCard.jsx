@@ -568,7 +568,12 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
 
   return (
     <>
-      <View
+      <Pressable
+        onPress={AddSongToPlayer}
+        android_ripple={{
+          color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)',
+          borderless: false,
+        }}
         style={{
           flexDirection: 'row',
           alignItems: 'center',
@@ -576,57 +581,49 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
           paddingHorizontal: 12,
           backgroundColor: id === activeTrackId ? colors.playingCard : 'transparent',
         }}>
-        <Pressable
-          onPress={AddSongToPlayer}
+        {showNumber && (
+          <View style={{ marginRight: 10 }}>
+            <PlainText text={index + 1} />
+          </View>
+        )}
+        <View style={{ marginRight: 10 }}>
+          <Image
+            source={imageSource || require('../../Images/default.jpg')}
+            style={{
+              width: isFromAlbum ? 45 : 50,
+              height: isFromAlbum ? 45 : 50,
+              borderRadius: 4,
+            }}
+          />
+        </View>
+        <View
           style={{
             flex: 1,
-            flexDirection: 'row',
-            alignItems: 'center',
           }}>
-          {showNumber && (
-            <View style={{ marginRight: 10 }}>
-              <PlainText text={index + 1} />
-            </View>
-          )}
-          <View style={{ marginRight: 10 }}>
-            <Image
-              source={imageSource || require('../../Images/default.jpg')}
-              style={{
-                width: isFromAlbum ? 45 : 50,
-                height: isFromAlbum ? 45 : 50,
-                borderRadius: 4,
-              }}
-            />
-          </View>
-          <View
+          <PlainText
+            text={truncateTitle ? truncateText(formatText(title), isFromAlbum ? 15 : isFromPlaylist ? 15 : 15) : formatText(title)}
+            songId={id}
+            isSongTitle={true}
+            isCurrentlyPlaying={id === activeTrackId}
             style={{
-              flex: 1,
-            }}>
-            <PlainText
-              text={truncateTitle ? truncateText(formatText(title), isFromAlbum ? 15 : isFromPlaylist ? 15 : 15) : formatText(title)}
-              songId={id}
-              isSongTitle={true}
-              isCurrentlyPlaying={id === activeTrackId}
-              style={{
-                width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.65 : isFromPlaylist ? 0.63 : 0.66),
-                marginBottom: 2,
-                color: theme.dark ? colors.text : '#333333',
-              }}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            />
-            <SmallText
-              text={truncateText(formatText(artist), isFromAlbum ? 30 : isFromPlaylist ? 32 : 35) + formatDuration(duration)}
-              isArtistName={true}
-              style={{
-                width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.63 : isFromPlaylist ? 0.59 : 0.63),
-                color: theme.dark ? colors.textSecondary : '#666666',
-              }}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            />
-          </View>
-        </Pressable>
+              width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.65 : isFromPlaylist ? 0.63 : 0.66),
+              marginBottom: 2,
+              color: theme.dark ? colors.text : '#333333',
+            }}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          />
+          <SmallText
+            text={truncateText(formatText(artist), isFromAlbum ? 30 : isFromPlaylist ? 32 : 35) + formatDuration(duration)}
+            isArtistName={true}
+            style={{
+              width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.63 : isFromPlaylist ? 0.59 : 0.63),
+              color: theme.dark ? colors.textSecondary : '#666666',
+            }}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          />
+        </View>
         <View
           style={{
             flexDirection: 'row',
@@ -635,7 +632,10 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
             minWidth: isFromAlbum ? 70 : isFromPlaylist ? 70 : 65,
           }}>
           <Pressable
-            onPress={handleDownload}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleDownload();
+            }}
             style={{
               padding: 4,
               marginRight: isFromAlbum ? 5 : isFromPlaylist ? 5 : 5,
@@ -669,7 +669,7 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
             onDelete={handleDelete}
           />
         </View>
-      </View>
+      </Pressable>
     </>
   );
 })
