@@ -20,6 +20,45 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Function to get high quality artwork URL
 const getHighQualityArtwork = (artworkUrl, track = null) => {
+  // Helper to check if URL is valid (not a placeholder)
+  const isValidArtwork = (art) => {
+    if (!art) return false;
+    if (typeof art === 'number') return true; // require() result
+    if (typeof art === 'string') {
+      // Filter out placeholder URLs
+      if (art.includes('htmlcolorcodes.com') || art.includes('placeholder')) return false;
+      if (art.startsWith('file://') || art.startsWith('/') || art.startsWith('http') || art.startsWith('data:')) return true;
+    }
+    if (typeof art === 'object' && art.uri) return isValidArtwork(art.uri);
+    return false;
+  };
+
+  // Handle downloaded songs with embedded or cached artwork FIRST
+  if (track?.isDownloaded || track?.isLocal || track?.sourceType === 'download' || track?.sourceType === 'downloaded') {
+    // Check both artwork and image fields, prioritize valid ones
+    const artworkToUse = isValidArtwork(artworkUrl) ? artworkUrl :
+      (isValidArtwork(track?.artwork) ? track.artwork :
+        (isValidArtwork(track?.image) ? track.image : null));
+
+    if (artworkToUse) {
+      // Handle data: URIs (embedded artwork)
+      if (typeof artworkToUse === 'string' && artworkToUse.startsWith('data:')) {
+        return artworkToUse;
+      }
+      // Handle file:// paths
+      if (typeof artworkToUse === 'string' && artworkToUse.startsWith('file://')) {
+        return artworkToUse;
+      }
+      // Handle remote URLs
+      if (typeof artworkToUse === 'string' && artworkToUse.startsWith('http')) {
+        return artworkToUse;
+      }
+    }
+
+    // Use default music image for local files without artwork
+    return require('../../Images/Music.jpeg');
+  }
+
   if (!artworkUrl) {
     // Check if this is a local track and use Music.jpeg
     if (track && (track.isLocal || track.sourceType === 'mymusic' || track.path ||

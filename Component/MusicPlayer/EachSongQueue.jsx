@@ -37,13 +37,18 @@ export const EachSongQueue = memo(function EachSongQueue({
   const { getOpacityColor } = useThemeManager();
   const swipeableRef = useRef(null);
 
+  // Get download state from hook (for online songs)
   const {
-    isDownloaded,
+    isDownloaded: hookIsDownloaded,
     isDownloading,
     downloadProgress,
     startDownload,
     canDownload
   } = useDownload(songData || { id, title, artist, artwork }, false);
+
+  // Use songData.isDownloaded flag first (for songs from Downloads screen)
+  // This fixes the ID mismatch issue between FastOrbitScanner and StorageManager
+  const isDownloaded = songData?.isDownloaded || songData?.isLocal || hookIsDownloaded;
 
   // Liked songs state
   const [isLiked, setIsLiked] = useState(false);
@@ -79,25 +84,45 @@ export const EachSongQueue = memo(function EachSongQueue({
       // For downloaded/local tracks, prioritize songData artwork first
       if (songData) {
         const st = songData.sourceType ? String(songData.sourceType).toLowerCase() : null;
-        const isLocalSongData = songData.isLocal || st === 'mymusic' || st === 'download' || st === 'downloaded' || songData.path;
+        const isLocalSongData = songData.isLocal || songData.isDownloaded || st === 'mymusic' || st === 'download' || st === 'downloaded' || songData.path;
 
-        // First check songData artwork (for downloaded songs)
-        if (isLocalSongData && songData.artwork) {
+        // Helper to check if artwork is valid (not a placeholder)
+        const isValidArtwork = (art) => {
+          if (!art) return false;
+          if (typeof art === 'number') return true; // require() result
+          if (typeof art === 'string') {
+            // Filter out placeholder URLs
+            if (art.includes('htmlcolorcodes.com') || art.includes('placeholder')) return false;
+            if (art.startsWith('file://') || art.startsWith('/') || art.startsWith('http') || art.startsWith('data:')) return true;
+          }
+          if (typeof art === 'object' && art.uri) return isValidArtwork(art.uri);
+          return false;
+        };
+
+        // Get artwork - check both artwork and image fields
+        const artworkToUse = isValidArtwork(songData.artwork) ? songData.artwork :
+          (isValidArtwork(songData.image) ? songData.image : null);
+
+        // First check songData artwork/image (for downloaded songs)
+        if (isLocalSongData && artworkToUse) {
           // Handle require() result (number)
-          if (typeof songData.artwork === 'number') return songData.artwork;
+          if (typeof artworkToUse === 'number') return artworkToUse;
 
           // Handle object with uri property
-          if (typeof songData.artwork === 'object' && songData.artwork.uri) return songData.artwork;
+          if (typeof artworkToUse === 'object' && artworkToUse.uri) return artworkToUse;
 
           // Handle string URIs
-          if (typeof songData.artwork === 'string') {
+          if (typeof artworkToUse === 'string') {
+            // For data: URIs (embedded artwork), return directly
+            if (artworkToUse.startsWith('data:')) return { uri: artworkToUse };
+
             // For file:// paths, return directly
-            if (songData.artwork.startsWith('file://')) return { uri: songData.artwork };
+            if (artworkToUse.startsWith('file://')) return { uri: artworkToUse };
 
             // For other paths, add file:// prefix if needed
-            if (songData.artwork.startsWith('/')) return { uri: `file://${songData.artwork}` };
+            if (artworkToUse.startsWith('/')) return { uri: `file://${artworkToUse}` };
 
-            return { uri: songData.artwork };
+            return { uri: artworkToUse };
           }
         }
       }

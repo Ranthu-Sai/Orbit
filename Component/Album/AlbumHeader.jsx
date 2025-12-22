@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { View, Dimensions, StyleSheet, ToastAndroid, DeviceEventEmitter } from 'react-native';
 import FastImage from 'react-native-fast-image';
-import { Text, IconButton, Button } from 'react-native-paper';
+import { Text, IconButton, Button, ActivityIndicator } from 'react-native-paper';
 import { useTheme } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer from 'react-native-track-player';
@@ -11,6 +11,8 @@ import { AddPlaylist, getIndexQuality } from '../../MusicPlayerFunctions';
 import Context from '../../Context/Context';
 import FormatArtist from '../../Utils/FormatArtists';
 import FormatTitleAndArtist from '../../Utils/FormatTitleAndArtist';
+import BatchDownloadService from '../../Utils/BatchDownloadService';
+import EventRegister from '../../Utils/EventRegister';
 
 // Get screen dimensions
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -79,6 +81,9 @@ export const AlbumHeader = ({
     const [isLiked, setIsLiked] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
+    const [allDownloaded, setAllDownloaded] = useState(false);
 
     // Check if album is liked on mount
     useEffect(() => {
@@ -136,6 +141,73 @@ export const AlbumHeader = ({
         };
     }, [albumId, songsData]);
 
+    // Subscribe to batch download events
+    useEffect(() => {
+        const progressListenerId = EventRegister.addEventListener('batch-download-progress', (progress) => {
+            setDownloadProgress(progress);
+        });
+
+        const startListenerId = EventRegister.addEventListener('batch-download-started', () => {
+            setIsDownloading(true);
+        });
+
+        const completeListenerId = EventRegister.addEventListener('batch-download-complete', () => {
+            setIsDownloading(false);
+            setDownloadProgress({ current: 0, total: 0 });
+        });
+
+        return () => {
+            EventRegister.removeEventListener(progressListenerId);
+            EventRegister.removeEventListener(startListenerId);
+            EventRegister.removeEventListener(completeListenerId);
+        };
+    }, []);
+
+    // Check if all songs are downloaded
+    useEffect(() => {
+        const checkAllDownloaded = async () => {
+            const songs = songsData || albumData?.data?.songs || [];
+
+            // Don't check if there are no songs yet (still loading)
+            if (songs.length === 0) {
+                setAllDownloaded(false);
+                return;
+            }
+
+            const StorageManager = require('../../Utils/StorageManager').StorageManager;
+            let downloadedCount = 0;
+
+            for (const song of songs) {
+                if (song?.id) {
+                    const isDownloaded = await StorageManager.isSongDownloaded(song.id);
+                    if (isDownloaded) {
+                        downloadedCount++;
+                    }
+                }
+            }
+
+            const allDownloadedStatus = downloadedCount === songs.length && songs.length > 0;
+            console.log(`[AlbumHeader] Download check: ${downloadedCount}/${songs.length} downloaded, showing checkmark: ${allDownloadedStatus}`);
+            setAllDownloaded(allDownloadedStatus);
+        };
+
+        // Only check when we have songs data
+        if (songsData?.length > 0 || albumData?.data?.songs?.length > 0) {
+            checkAllDownloaded();
+        }
+
+        // Listen for download events to update status
+        const downloadCompleteId = EventRegister.addEventListener('download-complete', checkAllDownloaded);
+        const batchCompleteId = EventRegister.addEventListener('batch-download-complete', checkAllDownloaded);
+        const downloadRemovedId = EventRegister.addEventListener('download-removed', checkAllDownloaded);
+
+        return () => {
+            EventRegister.removeEventListener(downloadCompleteId);
+            EventRegister.removeEventListener(batchCompleteId);
+            EventRegister.removeEventListener(downloadRemovedId);
+        };
+    }, [songsData, albumData]);
+
     // Toggle like/unlike album
     const handleLikePress = useCallback(async () => {
         if (!albumId) return;
@@ -162,6 +234,23 @@ export const AlbumHeader = ({
             ToastAndroid.show('Failed to update favorites', ToastAndroid.SHORT);
         }
     }, [isLiked, albumId, title, imageUrl, year]);
+
+    // Handle download all songs
+    const handleDownloadAllPress = useCallback(async () => {
+        if (isDownloading) {
+            // Cancel ongoing download
+            BatchDownloadService.cancelDownload();
+            return;
+        }
+
+        const songs = songsData || albumData?.data?.songs || [];
+        if (songs.length === 0) {
+            ToastAndroid.show('No songs to download', ToastAndroid.SHORT);
+            return;
+        }
+
+        await BatchDownloadService.downloadAlbum(songs, title || 'Album');
+    }, [isDownloading, songsData, albumData, title]);
 
     // Format songs for player
     const formatSongsForPlayer = useCallback(async (shuffle = false) => {
@@ -341,13 +430,27 @@ export const AlbumHeader = ({
                         />
 
                         {/* Download Button */}
-                        <IconButton
-                            icon="download-outline"
-                            iconColor={theme.colors.text}
-                            size={26}
-                            onPress={() => {/* TODO: Download all songs */ }}
-                            style={styles.actionIcon}
-                        />
+                        {isDownloading ? (
+                            <View style={[styles.actionIcon, { padding: 8, justifyContent: 'center', alignItems: 'center' }]}>
+                                <ActivityIndicator size={22} color={theme.colors.primary} />
+                            </View>
+                        ) : allDownloaded ? (
+                            <IconButton
+                                icon="check-circle"
+                                iconColor="#4CAF50"
+                                size={26}
+                                disabled
+                                style={styles.actionIcon}
+                            />
+                        ) : (
+                            <IconButton
+                                icon="download-outline"
+                                iconColor={theme.colors.text}
+                                size={26}
+                                onPress={handleDownloadAllPress}
+                                style={styles.actionIcon}
+                            />
+                        )}
 
                         {/* More Options */}
                         <IconButton

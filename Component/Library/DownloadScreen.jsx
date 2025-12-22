@@ -213,9 +213,11 @@ export default function DownloadScreen(props) {
 
       <FlatList
         data={filteredSongs}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <DownloadedSongCard
             song={item}
+            index={index}
+            allSongs={filteredSongs}
             refetch={getDownloadedSongs}
             onDeleteRequest={handleDeleteSong}
           />

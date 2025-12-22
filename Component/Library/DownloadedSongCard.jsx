@@ -12,7 +12,7 @@ import { StorageManager } from '../../Utils/StorageManager';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
+export const DownloadedSongCard = ({ song, index = 0, allSongs = [], refetch, onDeleteRequest }) => {
   const { colors, dark } = useTheme();
   const styles = getThemedStyles(colors, dark);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -54,7 +54,7 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
     return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
   };
 
-  // Play this downloaded song
+  // Play this downloaded song and queue all other downloaded songs
   const playSong = async () => {
     try {
       // For downloaded songs, we need to check if the file actually exists
@@ -63,25 +63,6 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
         ToastAndroid.show('Song file not found', ToastAndroid.SHORT);
         return;
       }
-
-      // Make sure the URL has the file:// prefix
-      const fileUrl = typeof songPath === 'string' && songPath.startsWith('file://')
-        ? songPath
-        : `file://${songPath}`;
-
-      console.log('Playing local song with URL:', fileUrl);
-
-      // Prepare the track with all required properties
-      const track = {
-        id: id,
-        url: fileUrl,
-        title: title,
-        artist: artist,
-        artwork: artworkUri,
-        duration: duration || 0,
-        isLocal: true,
-        isDownloaded: true
-      };
 
       // If this song is already playing, just toggle play/pause
       if (isCurrentlyPlaying) {
@@ -93,10 +74,57 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
         return;
       }
 
-      // Otherwise play this song
+      // Prepare all downloaded songs as tracks, starting from clicked index
+      const songsToQueue = allSongs.length > 0 ? allSongs : [song];
+      const formattedTracks = [];
+
+      // Start from clicked song, then add rest in order
+      const orderedSongs = [
+        ...songsToQueue.slice(index),
+        ...songsToQueue.slice(0, index)
+      ];
+
+      // Helper to check if artwork is valid (not a placeholder)
+      const isValidArtwork = (art) => {
+        if (!art || typeof art !== 'string') return false;
+        if (art.includes('htmlcolorcodes.com') || art.includes('placeholder')) return false;
+        return art.startsWith('http') || art.startsWith('file://') || art.startsWith('/') || art.startsWith('data:');
+      };
+
+      for (const s of orderedSongs) {
+        const sPath = s.filePath || s.url || s.localFilePath;
+        if (!sPath) continue;
+
+        const fileUrl = typeof sPath === 'string' && sPath.startsWith('file://')
+          ? sPath
+          : `file://${sPath}`;
+
+        // Use valid artwork, filtering out placeholders
+        const sArtwork = isValidArtwork(s.image) ? s.image :
+          (isValidArtwork(s.artwork) ? s.artwork : null);
+
+        console.log(`[Downloads] Song "${s.title}" artwork:`, sArtwork ? 'FOUND' : 'MISSING', sArtwork?.substring(0, 50));
+
+        formattedTracks.push({
+          id: s.id,
+          url: fileUrl,
+          title: s.title || s.name || 'Unknown Title',
+          artist: s.artist || s.artists || 'Unknown Artist',
+          artwork: sArtwork,
+          image: sArtwork, // For minimized player compatibility
+          duration: s.duration || 0,
+          isLocal: true,
+          isDownloaded: true, // Important flag for queue end detection
+          sourceType: 'downloaded'
+        });
+      }
+
+      console.log(`[Downloads] Queuing ${formattedTracks.length} downloaded songs, starting with: ${formattedTracks[0]?.title}`);
+
+      // Reset and add all tracks
       try {
         await TrackPlayer.reset();
-        await TrackPlayer.add(track);
+        await TrackPlayer.add(formattedTracks);
         await TrackPlayer.play();
       } catch (playError) {
         console.error('Error in TrackPlayer operations:', playError);

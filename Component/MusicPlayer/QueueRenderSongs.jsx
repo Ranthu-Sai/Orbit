@@ -918,9 +918,32 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
     // Clone the track to avoid mutating the original
     const enhancedTrack = { ...track };
 
-    // Enhance the artwork if it exists
-    if (enhancedTrack.artwork) {
-      enhancedTrack.artwork = getHighQualityArtwork(enhancedTrack.artwork);
+    // Helper to check if artwork is valid (not a placeholder)
+    const isValidArtwork = (art) => {
+      if (!art || typeof art !== 'string') return false;
+      if (art.includes('htmlcolorcodes.com') || art.includes('placeholder')) return false;
+      return art.startsWith('http') || art.startsWith('file://') || art.startsWith('/') || art.startsWith('data:');
+    };
+
+    // For downloaded/local songs, prefer valid artwork from either field
+    if (track.isDownloaded || track.isLocal || track.sourceType === 'downloaded' || track.sourceType === 'download') {
+      // Check image field first (more likely to have embedded artwork)
+      const validArtwork = isValidArtwork(track.image) ? track.image :
+        (isValidArtwork(track.artwork) ? track.artwork : null);
+
+      if (validArtwork) {
+        enhancedTrack.artwork = getHighQualityArtwork(validArtwork);
+        enhancedTrack.image = enhancedTrack.artwork; // Sync both fields
+      } else {
+        // No valid artwork found - set to null so EachSongQueue shows default icon
+        enhancedTrack.artwork = null;
+        enhancedTrack.image = null;
+      }
+    } else {
+      // For online songs, just enhance the artwork if it exists
+      if (isValidArtwork(enhancedTrack.artwork)) {
+        enhancedTrack.artwork = getHighQualityArtwork(enhancedTrack.artwork);
+      }
     }
 
     return enhancedTrack;

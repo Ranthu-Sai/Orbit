@@ -2,6 +2,7 @@
 import TrackPlayer, { Capability, Event } from "react-native-track-player";
 import historyManager from './Utils/HistoryManager';
 import autoRecommendations from './Utils/AutoRecommendations';
+import DownloadQueueService from './Utils/DownloadQueueService';
 import { PlayNextSong, PlayPreviousSong } from './MusicPlayerFunctions';
 
 let isPlayerInitialized = false;
@@ -39,6 +40,10 @@ export const PlaybackService = async function () {
     // Auto-recommendations listeners
     autoRecommendations.initializeListeners();
     console.log('Auto-recommendations event listeners initialized');
+
+    // Download queue service - handles queue end for downloaded songs
+    DownloadQueueService.initialize();
+    console.log('Download queue service initialized');
 
     await TrackPlayer.updateOptions({
       android: {
