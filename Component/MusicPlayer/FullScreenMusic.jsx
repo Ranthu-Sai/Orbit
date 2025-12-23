@@ -212,8 +212,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
 
   // Optimized handlers for instant button response
   const handleQueueToggle = useCallback(() => {
-    // Immediate visual feedback - defer heavy work
-    // Using index 1 (20% snap point) - index 2 causes crash despite 3 snap points defined
+    // Open to 20% height (index 1), user can manually pull to 80% (index 2)
     requestAnimationFrame(() => {
       setQueueIndex(prev => prev === -1 ? 1 : -1);
     });

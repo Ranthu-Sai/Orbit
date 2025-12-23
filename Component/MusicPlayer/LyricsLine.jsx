@@ -32,10 +32,10 @@ const LyricsLine = ({
     const targetOpacity = useMemo(() => {
         if (isActive) return 1;
         switch (distance) {
-            case 1: return 0.65;
-            case 2: return 0.40;
-            case 3: return 0.25;
-            default: return 0.15;
+            case 1: return 0.65; // Keep neighbor opacity high
+            case 2: return 0.20; // Drastically reduce opacity further (was 0.25)
+            case 3: return 0.10; // Fade out more (was 0.15)
+            default: return 0.02; // Almost invisible at edges (was 0.05)
         }
     }, [isActive, distance]);
 
@@ -49,7 +49,7 @@ const LyricsLine = ({
         }
     }, [isActive, distance]);
 
-    // Animated styles with spring physics
+    // Animated styles with different animation types
     const animatedContainerStyle = useAnimatedStyle(() => {
         const springConfig = {
             damping: 20,
@@ -57,14 +57,47 @@ const LyricsLine = ({
             mass: 0.8,
         };
 
-        const opacity = withSpring(targetOpacity, springConfig);
-        const scale = withSpring(targetScale, springConfig);
-
-        return {
-            opacity,
-            transform: [{ scale }],
+        const timingConfig = {
+            duration: 300,
+            easing: Easing.out(Easing.cubic),
         };
-    }, [targetOpacity, targetScale]);
+
+        switch (animationStyle) {
+            case 'Fade':
+                // Only opacity changes, no scale
+                return {
+                    opacity: withTiming(targetOpacity, timingConfig),
+                    transform: [{ scale: 1 }],
+                };
+
+            case 'Scale':
+                // Enhanced scale effect with full opacity
+                const enhancedScale = isActive ? 1.05 : 0.88;
+                return {
+                    opacity: withTiming(isActive ? 1 : 0.3, timingConfig),
+                    transform: [{ scale: withSpring(enhancedScale, springConfig) }],
+                };
+
+            case 'Slide':
+                // Slide from side with opacity
+                const translateX = isActive ? 0 : (isPast ? -10 : 10);
+                return {
+                    opacity: withTiming(targetOpacity, timingConfig),
+                    transform: [
+                        { translateX: withSpring(translateX, springConfig) },
+                        { scale: 1 }
+                    ],
+                };
+
+            case 'Smooth':
+            default:
+                // Original smooth spring animations
+                return {
+                    opacity: withSpring(targetOpacity, springConfig),
+                    transform: [{ scale: withSpring(targetScale, springConfig) }],
+                };
+        }
+    }, [targetOpacity, targetScale, animationStyle, isActive, isPast]);
 
     // Text style with color transition
     const animatedTextStyle = useAnimatedStyle(() => {

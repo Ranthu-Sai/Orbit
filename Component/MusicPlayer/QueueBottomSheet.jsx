@@ -21,7 +21,7 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
   const [isShuffling, setIsShuffling] = useState(false);
 
   // Memoize snap points
-  const snapPoints = useMemo(() => [40, '20%', '60%'], []);
+  const snapPoints = useMemo(() => [40, '20%', '80%'], []);
 
   // Theme-aware colors
   const getBackgroundColor = () => {
