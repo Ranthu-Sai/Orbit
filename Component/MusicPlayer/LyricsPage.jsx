@@ -65,22 +65,35 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading }) => {
         }
     }, [position, lyrics]);
 
-    // Auto-scroll - Advanced centering like ArchiveTune
+    // Layout constants - memoized for stable references
+    const layoutConfig = useMemo(() => ({
+        ITEM_HEIGHT: 80, // Approximate height per lyric line
+        CONTENT_PADDING_TOP: height / 2, // Center first line in viewport
+        CONTENT_PADDING_BOTTOM: height / 2, // Allow last line to center
+    }), []);
+
+    const { ITEM_HEIGHT, CONTENT_PADDING_TOP, CONTENT_PADDING_BOTTOM } = layoutConfig;
+
+    // Auto-scroll - Use scrollToIndex with viewPosition for perfect centering
     useEffect(() => {
         if (activeLineIndex >= 0 && !isUserScrolling && flatListRef.current && lyrics.length > 0) {
-            // Use scrollToOffset for perfect centering
-            // Calculate the offset to center the active line
-            const itemHeight = 60; // From getItemLayout
-            const viewportHeight = height;
-            const targetOffset = (activeLineIndex * itemHeight) - (viewportHeight / 2) + (itemHeight / 2);
-
-            // Smooth scroll to centered position
-            flatListRef.current.scrollToOffset({
-                offset: Math.max(0, targetOffset),
-                animated: true
-            });
+            try {
+                // scrollToIndex with viewPosition: 0.5 centers the item in viewport
+                flatListRef.current.scrollToIndex({
+                    index: activeLineIndex,
+                    animated: true,
+                    viewPosition: 0.5, // 0.5 = center of viewport
+                });
+            } catch (error) {
+                // Fallback to scrollToOffset if scrollToIndex fails
+                const targetOffset = CONTENT_PADDING_TOP + (activeLineIndex * ITEM_HEIGHT) - (height / 2) + (ITEM_HEIGHT / 2);
+                flatListRef.current.scrollToOffset({
+                    offset: Math.max(0, targetOffset),
+                    animated: true
+                });
+            }
         }
-    }, [activeLineIndex, isUserScrolling, lyrics.length, height]);
+    }, [activeLineIndex, isUserScrolling, lyrics.length]);
 
     const handleScrollBegin = () => {
         setIsUserScrolling(true);
@@ -103,12 +116,15 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading }) => {
     const renderItem = useCallback(({ item, index }) => {
         const isActive = index === activeLineIndex;
         const isPast = index < activeLineIndex;
+        // Calculate distance from active line for blur/opacity effects
+        const distance = activeLineIndex >= 0 ? Math.abs(index - activeLineIndex) : 0;
 
         return (
             <LyricsLine
                 text={item.text}
                 isActive={isActive}
                 isPast={isPast}
+                distance={distance}
                 onPress={() => handleLinePress(item.time)}
                 animationStyle={animationStyle}
                 activeColor="#FFFFFF"  // Bright white for active
@@ -117,11 +133,12 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading }) => {
         );
     }, [activeLineIndex, animationStyle]);
 
+    // getItemLayout must account for content padding for accurate scroll positioning
     const getItemLayout = useCallback((data, index) => ({
-        length: 60, // Estimated height
-        offset: 60 * index,
+        length: ITEM_HEIGHT,
+        offset: CONTENT_PADDING_TOP + (ITEM_HEIGHT * index),
         index,
-    }), []);
+    }), [layoutConfig]);
 
     if (!visible) return null;
 
@@ -186,23 +203,48 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading }) => {
                         </Text>
                     </View>
                 ) : (
-                    <FlatList
-                        ref={flatListRef}
-                        data={lyrics}
-                        renderItem={renderItem}
-                        keyExtractor={(item, index) => index.toString()}
-                        contentContainerStyle={{
-                            paddingTop: height / 2 - 30, // Center first line (minus half item height)
-                            paddingBottom: height / 2 + 100, // Extra space for controls + centering
-                        }}
-                        onScrollBeginDrag={handleScrollBegin}
-                        onMomentumScrollEnd={handleScrollEnd}
-                        getItemLayout={getItemLayout}
-                        showsVerticalScrollIndicator={false}
-                        initialNumToRender={15}
-                        maxToRenderPerBatch={10}
-                        windowSize={5}
-                    />
+                    <View style={styles.lyricsContainer}>
+                        {/* Top fading edge */}
+                        <LinearGradient
+                            colors={['rgba(0,0,0,0.95)', 'rgba(0,0,0,0)']}
+                            style={styles.topFade}
+                            pointerEvents="none"
+                        />
+
+                        <FlatList
+                            ref={flatListRef}
+                            data={lyrics}
+                            renderItem={renderItem}
+                            keyExtractor={(item, index) => index.toString()}
+                            contentContainerStyle={{
+                                paddingTop: CONTENT_PADDING_TOP,
+                                paddingBottom: CONTENT_PADDING_BOTTOM,
+                            }}
+                            onScrollBeginDrag={handleScrollBegin}
+                            onMomentumScrollEnd={handleScrollEnd}
+                            getItemLayout={getItemLayout}
+                            showsVerticalScrollIndicator={false}
+                            initialNumToRender={20}
+                            maxToRenderPerBatch={15}
+                            windowSize={11}
+                            removeClippedSubviews={false}
+                            onScrollToIndexFailed={(info) => {
+                                // Fallback: scroll to approximate position
+                                const offset = CONTENT_PADDING_TOP + (info.index * ITEM_HEIGHT) - (height / 2) + (ITEM_HEIGHT / 2);
+                                flatListRef.current?.scrollToOffset({
+                                    offset: Math.max(0, offset),
+                                    animated: true
+                                });
+                            }}
+                        />
+
+                        {/* Bottom fading edge */}
+                        <LinearGradient
+                            colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.95)']}
+                            style={styles.bottomFade}
+                            pointerEvents="none"
+                        />
+                    </View>
                 )}
 
                 {/* Playback Controls - Bottom */}
@@ -261,6 +303,26 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    lyricsContainer: {
+        flex: 1,
+        position: 'relative',
+    },
+    topFade: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 80,
+        zIndex: 10,
+    },
+    bottomFade: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 120,
+        zIndex: 10,
     },
     playbackControls: {
         position: 'absolute',

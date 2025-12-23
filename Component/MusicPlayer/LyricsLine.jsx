@@ -1,80 +1,97 @@
-import React, { useEffect } from 'react';
-import { Text, Pressable, StyleSheet } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { Pressable, StyleSheet } from 'react-native';
 import Animated, {
     useAnimatedStyle,
     withSpring,
     withTiming,
-    interpolate,
     useSharedValue,
-    withSequence,
     Easing,
-    interpolateColor,
 } from 'react-native-reanimated';
-import { useTheme } from '@react-navigation/native';
 
+/**
+ * LyricsLine - ArchiveTune-style lyrics line with:
+ * - Distance-based opacity (active=1, fading out with distance)
+ * - Distance-based scale (active=1, smaller with distance)
+ * - Smooth spring animations for all transitions
+ */
 const LyricsLine = ({
     text,
     isActive,
     isPast,
+    distance = 0, // Distance from active line index
     onPress,
     animationStyle = 'Smooth',
     activeColor,
     inactiveColor
 }) => {
-    const { colors } = useTheme();
-
-    // Animation values
-    const activeValue = useSharedValue(isActive ? 1 : 0);
+    // Shared values for smooth animations
+    const animatedDistance = useSharedValue(distance);
+    const isActiveValue = useSharedValue(isActive ? 1 : 0);
 
     useEffect(() => {
-        // Direct value assignment - animation happens in animatedStyle
-        activeValue.value = isActive ? 1 : 0;
-    }, [isActive]);
+        // Animate distance changes smoothly
+        animatedDistance.value = distance;
+        isActiveValue.value = isActive ? 1 : 0;
+    }, [distance, isActive]);
 
-    const animatedStyle = useAnimatedStyle(() => {
-        const opacity = interpolate(
-            activeValue.value,
-            [0, 1],
-            [0.4, 1]
-        );
-
-        const scale = interpolate(
-            activeValue.value,
-            [0, 1],
-            [0.96, 1.08]
-        );
-
-        switch (animationStyle) {
-            case 'Fade':
-                return {
-                    opacity: withTiming(opacity, { duration: 300 }),
-                    transform: [{ scale: 1 }],
-                };
-            case 'None':
-                return {
-                    opacity,
-                    transform: [{ scale: 1 }],
-                };
-            case 'Smooth':
-            default:
-                return {
-                    opacity: withSpring(opacity, { damping: 20, stiffness: 100 }),
-                    transform: [{ scale: withSpring(scale, { damping: 20, stiffness: 100 }) }],
-                };
+    // Calculate target opacity based on distance (like ArchiveTune)
+    const targetOpacity = useMemo(() => {
+        if (isActive) return 1;
+        switch (distance) {
+            case 1: return 0.65;
+            case 2: return 0.40;
+            case 3: return 0.25;
+            default: return 0.15;
         }
-    }, [animationStyle]);
+    }, [isActive, distance]);
 
-    const textStyle = useAnimatedStyle(() => {
-        return {
-            color: isActive ? (activeColor || '#FFFFFF') : (inactiveColor || '#9E9E9E'),
-            fontWeight: isActive ? '700' : '400',
+    // Calculate target scale based on distance
+    const targetScale = useMemo(() => {
+        if (isActive) return 1.0;
+        switch (distance) {
+            case 1: return 0.97;
+            case 2: return 0.94;
+            default: return 0.92;
+        }
+    }, [isActive, distance]);
+
+    // Animated styles with spring physics
+    const animatedContainerStyle = useAnimatedStyle(() => {
+        const springConfig = {
+            damping: 20,
+            stiffness: 150,
+            mass: 0.8,
         };
-    }, [isActive]);
+
+        const opacity = withSpring(targetOpacity, springConfig);
+        const scale = withSpring(targetScale, springConfig);
+
+        return {
+            opacity,
+            transform: [{ scale }],
+        };
+    }, [targetOpacity, targetScale]);
+
+    // Text style with color transition
+    const animatedTextStyle = useAnimatedStyle(() => {
+        return {
+            color: withTiming(isActive ? (activeColor || '#FFFFFF') : (inactiveColor || '#6E6E6E'), {
+                duration: 300,
+                easing: Easing.out(Easing.cubic),
+            }),
+        };
+    }, [isActive, activeColor, inactiveColor]);
 
     return (
         <Pressable onPress={onPress} style={styles.container}>
-            <Animated.View style={[styles.lineWrapper, animatedStyle]}>
-                <Animated.Text style={[styles.text, textStyle]}>
+            <Animated.View style={[styles.lineWrapper, animatedContainerStyle]}>
+                <Animated.Text
+                    style={[
+                        styles.text,
+                        animatedTextStyle,
+                        isActive && styles.activeText,
+                    ]}
+                >
                     {text}
                 </Animated.Text>
             </Animated.View>
@@ -84,7 +101,7 @@ const LyricsLine = ({
 
 const styles = StyleSheet.create({
     container: {
-        paddingVertical: 12,
+        paddingVertical: 14,
         paddingHorizontal: 24,
         alignItems: 'center',
         justifyContent: 'center',
@@ -94,10 +111,19 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     text: {
-        fontSize: 24,
+        fontSize: 26,
         textAlign: 'center',
-        lineHeight: 36,
+        lineHeight: 38,
+        fontWeight: '500',
+    },
+    activeText: {
+        fontSize: 28,
+        fontWeight: '700',
+        textShadowColor: 'rgba(255, 255, 255, 0.3)',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 10,
     },
 });
 
 export default React.memo(LyricsLine);
+
