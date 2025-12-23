@@ -22,17 +22,10 @@ const LyricsLine = ({
     onPress,
     animationStyle = 'Smooth',
     activeColor,
-    inactiveColor
+    inactiveColor,
+    isDarkMode = true // Default to dark mode for backward compatibility
 }) => {
-    // Shared values for smooth animations
-    const animatedDistance = useSharedValue(distance);
-    const isActiveValue = useSharedValue(isActive ? 1 : 0);
 
-    useEffect(() => {
-        // Animate distance changes smoothly
-        animatedDistance.value = distance;
-        isActiveValue.value = isActive ? 1 : 0;
-    }, [distance, isActive]);
 
     // Calculate target opacity based on distance (like ArchiveTune)
     const targetOpacity = useMemo(() => {
@@ -82,6 +75,9 @@ const LyricsLine = ({
         };
     }, [isActive, activeColor, inactiveColor]);
 
+    // Dynamic text shadow color based on theme
+    const textShadowColor = isDarkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.2)';
+
     return (
         <Pressable onPress={onPress} style={styles.container}>
             <Animated.View style={[styles.lineWrapper, animatedContainerStyle]}>
@@ -89,7 +85,13 @@ const LyricsLine = ({
                     style={[
                         styles.text,
                         animatedTextStyle,
-                        isActive && styles.activeText,
+                        isActive && {
+                            fontSize: 28,
+                            fontWeight: '700',
+                            textShadowColor: textShadowColor,
+                            textShadowOffset: { width: 0, height: 0 },
+                            textShadowRadius: 10,
+                        },
                     ]}
                 >
                     {text}
@@ -115,13 +117,6 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         lineHeight: 38,
         fontWeight: '500',
-    },
-    activeText: {
-        fontSize: 28,
-        fontWeight: '700',
-        textShadowColor: 'rgba(255, 255, 255, 0.3)',
-        textShadowOffset: { width: 0, height: 0 },
-        textShadowRadius: 10,
     },
 });
 
