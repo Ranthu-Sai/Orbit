@@ -87,7 +87,7 @@ export const LyricsHandler = ({
 
       const { artist, title, duration } = currentPlayingTrack;
       const providerPreference = await GetLyricsProvider();
-      const lyricsData = await getUnifiedLyrics(artist, title, duration, providerPreference);
+      const lyricsData = await getUnifiedLyrics(artist, title, duration, providerPreference, currentPlayingTrack);
 
       if (!lyricsData?.success) {
         setErrorMessage(lyricsData?.message || ERROR_MESSAGES.NOT_FOUND);
@@ -126,6 +126,7 @@ export const LyricsHandler = ({
         currentSong={currentPlayingTrack}
         lyrics={errorMessage ? [{ time: 0, text: errorMessage }] : lyricData}
         isLoading={isLoading}
+        reFetchLyrics={fetchLyrics}
       />
     </>
   );

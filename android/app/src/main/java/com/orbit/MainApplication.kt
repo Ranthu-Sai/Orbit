@@ -29,6 +29,7 @@ class MainApplication : Application(), ReactApplication {
               add(StreamPackage())
               add(MetadataWriterPackage())
               add(MetadataReaderPackage())
+              add(InnerTubePackage())
             }
         override fun getJSBundleFile(): String {
                           return CodePush.getJSBundleFile()

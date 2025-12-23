@@ -12,12 +12,13 @@ import { useTheme } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '../../Context/ThemeContext';
 import LyricsLine from './LyricsLine';
-import { GetLyricsAnimationStyle } from '../../LocalStorage/AppSettings';
+import { GetLyricsAnimationStyle, GetLyricsFontSize, SetLyricsFontSize, GetLyricsTheme, SetLyricsTheme, GetLyricsProvider, SetLyricsProvider, GetLyricsTextColor, SetLyricsTextColor } from '../../LocalStorage/AppSettings';
 import TrackPlayer, { State, useProgress } from 'react-native-track-player';
+import { Portal, Modal as PaperModal, Button, List, Divider } from 'react-native-paper';
 
 const { width, height } = Dimensions.get('window');
 
-const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading }) => {
+const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading, reFetchLyrics }) => {
     const { colors, dark } = useTheme();
     const { themeMode } = useThemeContext();
     const insets = useSafeAreaInsets();
@@ -29,6 +30,11 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading }) => {
     const [animationStyle, setAnimationStyle] = useState('Smooth');
     const [isUserScrolling, setIsUserScrolling] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [activeProvider, setActiveProvider] = useState('LrcLib');
+    const [fontSize, setFontSize] = useState(26);
+    const [lyricsTheme, setLyricsTheme] = useState('Blur');
+    const [textColorMode, setTextColorMode] = useState('Auto');
+    const [isMenuVisible, setIsMenuVisible] = useState(false);
     const scrollTimeoutRef = useRef(null);
 
     // Animated value for background transitions
@@ -38,10 +44,10 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading }) => {
     // Determine if we're in dark mode
     const isDarkMode = themeMode === 'dark' || (themeMode === 'system' && dark);
 
-    // Theme-aware colors for lyrics
-    const activeTextColor = isDarkMode ? '#FFFFFF' : '#000000';
-    const inactiveTextColor = isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
-    const overlayColor = isDarkMode ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.1)'; // Reduced opacity for bright look
+    // Theme-aware colors with manual override support
+    const activeTextColor = textColorMode === 'White' ? '#FFFFFF' : textColorMode === 'Black' ? '#000000' : (isDarkMode ? '#FFFFFF' : '#000000');
+    const inactiveTextColor = textColorMode === 'White' ? 'rgba(255,255,255,0.5)' : textColorMode === 'Black' ? 'rgba(0,0,0,0.4)' : (isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)');
+    const overlayColor = isDarkMode ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.1)';
     const controlsBgColor = isDarkMode ? 'rgba(0,0,0,0.5)' : 'transparent'; // Clean controls
     const iconColor = isDarkMode ? '#FFFFFF' : '#000000';
     const fadeGradientColors = isDarkMode
@@ -78,10 +84,14 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading }) => {
         }
     }, [currentSong?.artwork]);
 
-    // Load animation setting on mount
+    // Load all settings on mount
     useEffect(() => {
         if (visible) {
             GetLyricsAnimationStyle().then(style => setAnimationStyle(style));
+            GetLyricsFontSize().then(size => setFontSize(size));
+            GetLyricsTheme().then(theme => setLyricsTheme(theme));
+            GetLyricsProvider().then(provider => setActiveProvider(provider));
+            GetLyricsTextColor().then(mode => setTextColorMode(mode));
             backgroundOpacity.value = withTiming(1, { duration: 500 });
         }
     }, [visible]);
@@ -159,6 +169,28 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading }) => {
         setIsUserScrolling(false);
     };
 
+    const handleFontSizeChange = (delta) => {
+        const newSize = Math.max(18, Math.min(40, fontSize + delta));
+        setFontSize(newSize);
+        SetLyricsFontSize(newSize);
+    };
+
+    const handleProviderChange = async (provider) => {
+        setActiveProvider(provider);
+        await SetLyricsProvider(provider);
+        reFetchLyrics?.();
+    };
+
+    const handleThemeChange = async (theme) => {
+        setLyricsTheme(theme);
+        await SetLyricsTheme(theme);
+    };
+
+    const handleTextColorModeChange = async (mode) => {
+        setTextColorMode(mode);
+        await SetLyricsTextColor(mode);
+    };
+
     const renderItem = useCallback(({ item, index }) => {
         const isActive = index === activeLineIndex;
         const isPast = index < activeLineIndex;
@@ -175,9 +207,10 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading }) => {
                 activeColor={activeTextColor}
                 inactiveColor={inactiveTextColor}
                 isDarkMode={isDarkMode}
+                fontSize={fontSize}
             />
         );
-    }, [activeLineIndex, animationStyle, activeTextColor, inactiveTextColor, isDarkMode]);
+    }, [activeLineIndex, animationStyle, activeTextColor, inactiveTextColor, isDarkMode, fontSize]);
 
 
 
@@ -203,8 +236,8 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading }) => {
             <StatusBar translucent backgroundColor="transparent" barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
             <View style={[styles.container, { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }]}>
 
-                {/* Blurred Artwork Background with smooth transition */}
-                {artworkSource ? (
+                {/* Background Rendering based on theme */}
+                {lyricsTheme === 'Blur' && artworkSource ? (
                     <Animated.View style={[StyleSheet.absoluteFill, animatedBackgroundStyle]}>
                         <ImageBackground
                             source={artworkSource}
@@ -212,21 +245,22 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading }) => {
                             resizeMode="cover"
                             blurRadius={40}
                         >
-                            {/* Theme-aware overlay */}
                             <View style={[StyleSheet.absoluteFill, { backgroundColor: overlayColor }]} />
                         </ImageBackground>
                     </Animated.View>
+                ) : lyricsTheme === 'Glass' && artworkSource ? (
+                    <Animated.View style={[StyleSheet.absoluteFill, animatedBackgroundStyle]}>
+                        <ImageBackground
+                            source={artworkSource}
+                            style={StyleSheet.absoluteFill}
+                            resizeMode="cover"
+                            blurRadius={10}
+                        >
+                            <View style={[StyleSheet.absoluteFill, { backgroundColor: isDarkMode ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.7)' }]} />
+                        </ImageBackground>
+                    </Animated.View>
                 ) : (
-                    /* Fallback Gradient Background */
-                    <LinearGradient
-                        colors={isDarkMode
-                            ? [colors.primaryContainer || '#1a1a1a', '#000000']
-                            : [colors.primaryContainer || '#f5f5f5', '#FFFFFF']
-                        }
-                        style={StyleSheet.absoluteFill}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 0, y: 1 }}
-                    />
+                    <View style={[StyleSheet.absoluteFill, { backgroundColor: isDarkMode ? '#121212' : '#F5F5F5' }]} />
                 )}
 
                 {/* Header - Now uses paddingTop instead of marginTop for edge-to-edge */}
@@ -245,7 +279,7 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading }) => {
                             {currentSong?.title || ""}
                         </Text>
                     </View>
-                    <IconButton icon="dots-horizontal" onPress={() => { }} iconColor={iconColor} />
+                    <IconButton icon="dots-horizontal" onPress={() => setIsMenuVisible(true)} iconColor={iconColor} />
                 </View>
 
                 {/* Lyrics Content */}
@@ -334,6 +368,94 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading }) => {
                     />
                 </View>
             </View>
+
+            {/* Settings Menu Modal - Using RN Modal to ensure visibility over the lyrics modal */}
+            <Modal
+                visible={isMenuVisible}
+                animationType="fade"
+                transparent={true}
+                onRequestClose={() => setIsMenuVisible(false)}
+            >
+                <View style={styles.menuOverlay}>
+                    <View style={[styles.menuModal, { backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF' }]}>
+                        <Text variant="titleLarge" style={[styles.menuTitle, { color: iconColor }]}>Lyrics Settings</Text>
+
+                        <Divider style={styles.divider} />
+
+                        {/* Font Size Scaling */}
+                        <List.Item
+                            title="Font Size"
+                            titleStyle={{ color: iconColor }}
+                            left={props => <List.Icon {...props} icon="format-size" color={iconColor} />}
+                            right={() => (
+                                <View style={styles.row}>
+                                    <IconButton icon="minus" size={20} onPress={() => handleFontSizeChange(-2)} iconColor={iconColor} />
+                                    <Text style={{ color: iconColor, marginHorizontal: 8, fontSize: 16 }}>{fontSize}</Text>
+                                    <IconButton icon="plus" size={20} onPress={() => handleFontSizeChange(2)} iconColor={iconColor} />
+                                </View>
+                            )}
+                        />
+
+                        <Divider style={styles.divider} />
+
+                        {/* Lyrics Source Selection */}
+                        <Text variant="labelLarge" style={[styles.sectionLabel, { color: iconColor }]}>Lyrics Source</Text>
+                        <View style={styles.chipRow}>
+                            {['LrcLib', 'BetterLyrics', 'YTMusic'].map(p => (
+                                <Button
+                                    key={p}
+                                    mode={activeProvider === p ? 'contained' : 'outlined'}
+                                    onPress={() => handleProviderChange(p)}
+                                    style={styles.chip}
+                                    labelStyle={{ fontSize: 12 }}
+                                >
+                                    {p}
+                                </Button>
+                            ))}
+                        </View>
+
+                        <Divider style={styles.divider} />
+
+                        {/* Background Theme Selection */}
+                        <Text variant="labelLarge" style={[styles.sectionLabel, { color: iconColor }]}>Background Theme</Text>
+                        <View style={styles.chipRow}>
+                            {['Blur', 'Glass', 'Solid'].map(t => (
+                                <Button
+                                    key={t}
+                                    mode={lyricsTheme === t ? 'contained' : 'outlined'}
+                                    onPress={() => handleThemeChange(t)}
+                                    style={styles.chip}
+                                    labelStyle={{ fontSize: 12 }}
+                                >
+                                    {t}
+                                </Button>
+                            ))}
+                        </View>
+
+                        <Divider style={styles.divider} />
+
+                        {/* Text Color Selection */}
+                        <Text variant="labelLarge" style={[styles.sectionLabel, { color: iconColor }]}>Text Color</Text>
+                        <View style={styles.chipRow}>
+                            {['Auto', 'White', 'Black'].map(c => (
+                                <Button
+                                    key={c}
+                                    mode={textColorMode === c ? 'contained' : 'outlined'}
+                                    onPress={() => handleTextColorModeChange(c)}
+                                    style={styles.chip}
+                                    labelStyle={{ fontSize: 12 }}
+                                >
+                                    {c}
+                                </Button>
+                            ))}
+                        </View>
+
+                        <Button mode="contained" onPress={() => setIsMenuVisible(false)} style={styles.closeMenuButton}>
+                            Done
+                        </Button>
+                    </View>
+                </View>
+            </Modal>
         </Modal>
     );
 };
@@ -390,6 +512,51 @@ const styles = StyleSheet.create({
     },
     playButton: {
         borderRadius: 24,
+    },
+    menuOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    menuModal: {
+        width: width * 0.85,
+        padding: 24,
+        borderRadius: 24,
+        elevation: 10,
+    },
+    menuTitle: {
+        fontWeight: 'bold',
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    row: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    divider: {
+        marginVertical: 12,
+        opacity: 0.3,
+    },
+    sectionLabel: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        marginTop: 8,
+        marginBottom: 12,
+        opacity: 0.8,
+    },
+    chipRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: 8,
+    },
+    chip: {
+        borderRadius: 12,
+    },
+    closeMenuButton: {
+        marginTop: 20,
+        borderRadius: 12,
     },
 });
 

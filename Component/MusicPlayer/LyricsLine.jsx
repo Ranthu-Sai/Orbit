@@ -23,7 +23,8 @@ const LyricsLine = ({
     animationStyle = 'Smooth',
     activeColor,
     inactiveColor,
-    isDarkMode = true // Default to dark mode for backward compatibility
+    isDarkMode = true, // Default to dark mode for backward compatibility
+    fontSize = 26,
 }) => {
 
 
@@ -85,8 +86,9 @@ const LyricsLine = ({
                     style={[
                         styles.text,
                         animatedTextStyle,
+                        { fontSize: fontSize },
                         isActive && {
-                            fontSize: 28,
+                            fontSize: fontSize + 2,
                             fontWeight: '700',
                             textShadowColor: textShadowColor,
                             textShadowOffset: { width: 0, height: 0 },
@@ -113,7 +115,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     text: {
-        fontSize: 26,
         textAlign: 'center',
         lineHeight: 38,
         fontWeight: '500',

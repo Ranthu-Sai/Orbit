@@ -1,4 +1,5 @@
 import axios from "axios";
+import { NativeModules } from "react-native";
 import { getCachedData, CACHE_GROUPS } from './CacheManager';
 
 async function getSearchSongData(searchText, page, limit) {
@@ -370,7 +371,6 @@ async function getLyricsFromLrcLib(artist, title) {
   return getCachedData(cacheKey, fetchFunction, 1440, CACHE_GROUPS.LYRICS);
 }
 
-export { getSearchSongData, getArtistSongs, getArtistSongsPaginated, getAlbumSongs, getSearchArtistData, getArtistDetails, getArtistAlbums, getArtistAlbumsPaginated, validateArtist, filterValidArtists, getLyricsFromLrcLib, getLyricsFromBetterLyrics, getUnifiedLyrics };
 
 // TTML Parser Helper
 function parseTTML(ttml) {
@@ -461,27 +461,85 @@ async function getLyricsFromBetterLyrics(artist, title, duration) {
   return getCachedData(cacheKey, fetchFunction, 1440, CACHE_GROUPS.LYRICS);
 }
 
+/**
+ * Fetch lyrics from official YouTube Music via native bridge
+ */
+async function getLyricsFromYTMusic(track) {
+  if (!track || (!track.id && !track.videoId)) {
+    return { success: false, message: 'No track info' };
+  }
+
+  const videoId = track.videoId || track.id;
+  const { InnerTubeModule } = NativeModules;
+
+  if (!InnerTubeModule) {
+    return { success: false, message: 'InnerTubeModule not found' };
+  }
+
+  try {
+    // 1. Attempt Synced Transcript (Official YT Lyrics)
+    console.log(`🔍 Attempting YTMusic transcript for: ${videoId}`);
+    const transcript = await InnerTubeModule.getTranscript(videoId);
+    if (transcript) {
+      return {
+        success: true,
+        data: {
+          syncedLyrics: transcript,
+          plainLyrics: transcript.replace(/\[\d{2}:\d{2}\.\d{2,3}\]/g, '')
+        }
+      };
+    }
+  } catch (error) {
+    console.log('YTMusic transcript fetch failed:', error);
+  }
+
+  try {
+    // 2. Fallback to Plain Lyrics if endpoint is available
+    const lyricsEndpoint = track.lyricsEndpoint || track.endpoint?.lyricsEndpoint;
+    if (lyricsEndpoint?.browseId) {
+      console.log(`🔍 Attempting YTMusic plain lyrics for: ${lyricsEndpoint.browseId}`);
+      const lyrics = await InnerTubeModule.getLyrics(lyricsEndpoint.browseId, lyricsEndpoint.params || null);
+      if (lyrics) {
+        return {
+          success: true,
+          data: {
+            plainLyrics: lyrics
+          }
+        };
+      }
+    }
+  } catch (error) {
+    console.log('YTMusic plain lyrics fetch failed:', error);
+  }
+
+  return { success: false, message: 'No YTMusic lyrics found' };
+}
+
 // Unified lyrics fetcher with fallback logic
-async function getUnifiedLyrics(artist, title, duration, preferredProvider = 'LrcLib') {
+async function getUnifiedLyrics(artist, title, duration, preferredProvider = 'LrcLib', track = null) {
   console.log(`Getting unified lyrics. Preferred: ${preferredProvider}`);
 
-  let primaryProvider = getLyricsFromLrcLib;
-  let secondaryProvider = getLyricsFromBetterLyrics;
+  // Determine provider order
+  let providers = [];
+  const ytProvider = async (a, t, d) => getLyricsFromYTMusic(track);
 
-  if (preferredProvider === 'BetterLyrics') {
-    primaryProvider = getLyricsFromBetterLyrics;
-    secondaryProvider = getLyricsFromLrcLib;
+  if (preferredProvider === 'YTMusic') {
+    providers = [ytProvider, getLyricsFromLrcLib, getLyricsFromBetterLyrics];
+  } else if (preferredProvider === 'BetterLyrics') {
+    providers = [getLyricsFromBetterLyrics, getLyricsFromLrcLib, ytProvider];
+  } else {
+    providers = [getLyricsFromLrcLib, getLyricsFromBetterLyrics, ytProvider];
   }
 
-  // Try primary provider
-  const primaryResult = await primaryProvider(artist, title, duration);
-  if (primaryResult.success) {
-    return primaryResult;
+  for (const provider of providers) {
+    const result = await provider(artist, title, duration);
+    if (result && result.success) {
+      return result;
+    }
+    console.log(`Provider failed. Trying next.`);
   }
 
-  console.log(`${preferredProvider} failed. Trying fallback.`);
-
-  // Try secondary provider
-  const secondaryResult = await secondaryProvider(artist, title, duration);
-  return secondaryResult;
+  return { success: false, message: 'No lyrics found from any provider' };
 }
+
+export { getSearchSongData, getArtistSongs, getArtistSongsPaginated, getAlbumSongs, getSearchArtistData, getArtistDetails, getArtistAlbums, getArtistAlbumsPaginated, validateArtist, filterValidArtists, getLyricsFromLrcLib, getLyricsFromBetterLyrics, getUnifiedLyrics, getLyricsFromYTMusic };

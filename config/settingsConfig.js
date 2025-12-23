@@ -30,7 +30,8 @@ export const settingsConfig = {
   // Lyrics provider options
   lyricsProviders: [
     { label: 'LrcLib (Default)', value: 'LrcLib' },
-    { label: 'BetterLyrics', value: 'BetterLyrics' }
+    { label: 'BetterLyrics', value: 'BetterLyrics' },
+    { label: 'Official YTMusic', value: 'YTMusic' }
   ],
 
   // Lyrics animation styles

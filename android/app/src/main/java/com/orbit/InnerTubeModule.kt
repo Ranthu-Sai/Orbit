@@ -177,4 +177,40 @@ class InnerTubeModule(reactContext: ReactApplicationContext) :
             }
         }
     }
+
+    @ReactMethod
+    fun getLyrics(browseId: String, params: String?, promise: Promise) {
+        moduleScope.launch {
+            try {
+                val endpoint = com.zionhuang.innertube.models.BrowseEndpoint(
+                    browseId = browseId,
+                    params = params
+                )
+                val result = YouTube.lyrics(endpoint).getOrThrow()
+                promise.resolve(result)
+            } catch (e: Exception) {
+                promise.reject(
+                    "LYRICS_ERROR",
+                    "Lyrics fetch failed for browseId '$browseId': ${e.message}",
+                    e
+                )
+            }
+        }
+    }
+
+    @ReactMethod
+    fun getTranscript(videoId: String, promise: Promise) {
+        moduleScope.launch {
+            try {
+                val result = YouTube.transcript(videoId).getOrThrow()
+                promise.resolve(result)
+            } catch (e: Exception) {
+                promise.reject(
+                    "TRANSCRIPT_ERROR",
+                    "Transcript fetch failed for videoId '$videoId': ${e.message}",
+                    e
+                )
+            }
+        }
+    }
 }

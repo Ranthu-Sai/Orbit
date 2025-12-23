@@ -282,6 +282,78 @@ async function SetLyricsAnimationStyle(style) {
   }
 }
 
+// Get lyrics font size preference
+async function GetLyricsFontSize() {
+  try {
+    const value = await AsyncStorage.getItem('LyricsFontSize');
+    if (value !== null) {
+      return parseInt(value, 10)
+    } else {
+      return 26 // Default font size
+    }
+  } catch (e) {
+    console.log("Lyrics font size read error");
+    return 26
+  }
+}
+
+// Set lyrics font size preference
+async function SetLyricsFontSize(size) {
+  try {
+    await AsyncStorage.setItem('LyricsFontSize', size.toString());
+  } catch (e) {
+    console.log("Lyrics font size save error");
+  }
+}
+
+// Get lyrics theme preference
+async function GetLyricsTheme() {
+  try {
+    const value = await AsyncStorage.getItem('LyricsTheme');
+    if (value !== null) {
+      return value
+    } else {
+      return 'Blur' // Default theme
+    }
+  } catch (e) {
+    console.log("Lyrics theme read error");
+    return 'Blur'
+  }
+}
+
+// Set lyrics theme preference
+async function SetLyricsTheme(theme) {
+  try {
+    await AsyncStorage.setItem('LyricsTheme', theme);
+  } catch (e) {
+    console.log("Lyrics theme save error");
+  }
+}
+
+// Get lyrics text color preference
+async function GetLyricsTextColor() {
+  try {
+    const value = await AsyncStorage.getItem('LyricsTextColor');
+    if (value !== null) {
+      return value
+    } else {
+      return 'Auto' // Default to auto
+    }
+  } catch (e) {
+    console.log("Lyrics text color read error");
+    return 'Auto'
+  }
+}
+
+// Set lyrics text color preference
+async function SetLyricsTextColor(color) {
+  try {
+    await AsyncStorage.setItem('LyricsTextColor', color);
+  } catch (e) {
+    console.log("Lyrics text color save error");
+  }
+}
+
 export {
   GetFontSizeValue,
   SetFontSizeValue,
@@ -306,5 +378,11 @@ export {
   GetLyricsProvider,
   SetLyricsProvider,
   GetLyricsAnimationStyle,
-  SetLyricsAnimationStyle
+  SetLyricsAnimationStyle,
+  GetLyricsFontSize,
+  SetLyricsFontSize,
+  GetLyricsTheme,
+  SetLyricsTheme,
+  GetLyricsTextColor,
+  SetLyricsTextColor
 }
