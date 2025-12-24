@@ -3,6 +3,7 @@ import { View, FlatList, StyleSheet, Text, Dimensions, RefreshControl, ToastAndr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PlainText } from '../Global/PlainText';
 import { DownloadedSongCard } from './DownloadedSongCard';
+import { DownloadedSongSkeleton } from './DownloadedSongSkeleton';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useTheme, useNavigation } from '@react-navigation/native';
 import { StorageManager } from '../../Utils/StorageManager';
@@ -226,19 +227,24 @@ export default function DownloadScreen(props) {
         contentContainerStyle={styles.songsList}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <MaterialIcons name="music-off" size={50} color={colors.textSecondary} />
-            <Text style={styles.emptyText}>
-              {searchQuery
-                ? `No downloads matching "${searchQuery}"`
-                : "No downloaded songs found"}
-            </Text>
-            <Text style={styles.emptySubText}>
-              {searchQuery
-                ? "Try a different search term"
-                : "Download your favorite songs to listen offline"}
-            </Text>
-          </View>
+          isLoading ? (
+            // Show skeleton loader while scanning
+            <DownloadedSongSkeleton count={8} />
+          ) : (
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="music-off" size={50} color={colors.textSecondary} />
+              <Text style={styles.emptyText}>
+                {searchQuery
+                  ? `No downloads matching "${searchQuery}"`
+                  : "No downloaded songs found"}
+              </Text>
+              <Text style={styles.emptySubText}>
+                {searchQuery
+                  ? "Try a different search term"
+                  : "Download your favorite songs to listen offline"}
+              </Text>
+            </View>
+          )
         }
         refreshControl={
           <RefreshControl
