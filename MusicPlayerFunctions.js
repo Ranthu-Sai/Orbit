@@ -187,7 +187,7 @@ async function PlayOneSong(song) {
         const streamData = await streamFetchManager.fetchStream(
           song.id,
           async (videoId, signal) => {
-            return await youtubeStreamingService.getStreamUrl(videoId, signal);
+            return await youtubeStreamingService.getStreamUrl(videoId, false);
           }
         );
 
@@ -387,6 +387,11 @@ async function PlayOneSong(song) {
                 // Use AddSongsToQueue which handles stream fetching for YTMusic
                 await AddSongsToQueue(filteredRecs);
                 console.log(`✅ Added ${filteredRecs.length} recommended songs to queue`);
+
+                // Trigger prefetch strictly AFTER songs are added to queue
+                queueManager.prefetchNextTrack().catch(err =>
+                  console.error('Error prefetching next track:', err)
+                );
               }
             }
           } catch (error) {
@@ -396,13 +401,6 @@ async function PlayOneSong(song) {
         }, 1500); // Wait 1.5 seconds after playback starts
       });
     }
-
-    // Trigger prefetch for next song in queue (if any)
-    setTimeout(() => {
-      queueManager.prefetchNextTrack().catch(err =>
-        console.error('Error prefetching next track:', err)
-      );
-    }, 3000); // Wait 3 seconds (after recommendations load)
 
     // Set up continuous queue monitoring - fetch more when near end
     queueManager.startContinuousQueueMonitor(song.id);

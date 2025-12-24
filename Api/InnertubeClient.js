@@ -122,6 +122,56 @@ class InnerTubeClient {
         return this.parseSearch(data, filter);
     }
 
+    /**
+     * Get Search Suggestions
+     * Uses music/get_search_suggestions endpoint
+     */
+    static async getSearchSuggestions(query) {
+        try {
+            const url = `${INNERTUBE_API_URL}/music/get_search_suggestions?key=${INNERTUBE_API_KEY}`;
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: HEADERS,
+                body: JSON.stringify({
+                    ...WEB_REMIX_CONTEXT,
+                    input: query
+                }),
+            });
+
+            const data = await response.json();
+
+            // Parse suggestions from response
+            const suggestions = [];
+            const contents = data?.contents;
+
+            if (contents && Array.isArray(contents)) {
+                // First section typically contains text suggestions
+                const suggestionsSection = contents[0]?.searchSuggestionsSectionRenderer?.contents;
+                if (suggestionsSection) {
+                    for (const item of suggestionsSection) {
+                        if (item.searchSuggestionRenderer?.suggestion?.runs) {
+                            const text = item.searchSuggestionRenderer.suggestion.runs
+                                .map(run => run.text)
+                                .join('');
+                            if (text) {
+                                suggestions.push(text);
+                            }
+                        }
+                    }
+                }
+            }
+
+            return {
+                queries: suggestions,
+                recommendedItems: [] // Can be parsed from second section if needed
+            };
+        } catch (error) {
+            console.error('InnerTubeClient getSearchSuggestions error:', error);
+            return { queries: [], recommendedItems: [] };
+        }
+    }
+
     static async getArtist(browseId) {
         const data = await this.request('browse', { browseId });
 

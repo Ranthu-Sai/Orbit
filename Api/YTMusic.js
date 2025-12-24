@@ -1299,6 +1299,17 @@ async function getYTMusicCharts(forceRefresh = false) {
   }
 }
 
+
+async function getYTMusicSearchSuggestions(query) {
+  try {
+    const suggestions = await YouTubeMusicService.getSearchSuggestions(query);
+    return suggestions;
+  } catch (error) {
+    console.error('YTMusic suggestions error:', error);
+    return { queries: [], recommendedItems: [] };
+  }
+}
+
 export {
   getYTMusicSearchSongData,
   getYTMusicSearchArtistData,
@@ -1311,5 +1322,6 @@ export {
   getYTMusicArtistSongsPaginated,
   getYTMusicArtistAlbumsPaginated,
   getYTMusicNewReleases,
-  getYTMusicCharts
+  getYTMusicCharts,
+  getYTMusicSearchSuggestions
 };

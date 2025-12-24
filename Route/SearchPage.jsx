@@ -6,7 +6,8 @@ import {
   getYTMusicSearchSongData,
   getYTMusicSearchPlaylistData,
   getYTMusicSearchAlbumData,
-  getYTMusicSearchArtistData
+  getYTMusicSearchArtistData,
+  getYTMusicSearchSuggestions
 } from "../Api/YTMusic";
 import dabMusicService from "../Utils/DabMusicService";
 import { View, TouchableOpacity, TextInput, Pressable, Dimensions, FlatList, StyleSheet, Text, Modal, Alert, BackHandler } from "react-native";
@@ -17,6 +18,7 @@ import PlaylistDisplay from "../Component/SearchPage/PlaylistDisplay";
 import { getSearchAlbumData } from "../Api/Album";
 import AlbumsDisplay from "../Component/SearchPage/AlbumDisplay";
 import ArtistDisplay from "../Component/SearchPage/ArtistDisplay";
+import SearchSuggestions from "../Component/SearchPage/SearchSuggestions";
 import { Spacer } from "../Component/Global/Spacer";
 import { useTheme, useFocusEffect } from "@react-navigation/native";
 import { GitFork } from 'lucide-react-native';
@@ -24,6 +26,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Divider } from 'react-native-paper';
 import SwipeableHistoryItem from '../Component/SearchPage/SwipeableHistoryItem';
 import { CacheManager } from '../Utils/NavigationCacheManager';
+import { AddSongToPlayer } from '../MusicPlayerFunctions';
 
 const SEARCH_HISTORY_KEY = '@search_history';
 const MAX_HISTORY_ITEMS = 20;
@@ -40,6 +43,10 @@ export const SearchPage = ({ navigation }) => {
   const [searchHistory, setSearchHistory] = useState([]);
   const [selectedSource, setSelectedSource] = useState('saavn');
   const [modalVisible, setModalVisible] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [quickResults, setQuickResults] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
   const limit = 20;
 
   // Track component mount state
@@ -82,6 +89,10 @@ export const SearchPage = ({ navigation }) => {
   useFocusEffect(
     useCallback(() => {
       const onBackPress = () => {
+        if (showSuggestions) {
+          setShowSuggestions(false);
+          return true;
+        }
         // Navigate to HomePage instead of default back (which might exit app)
         console.log('[SearchPage] Back pressed, navigating to HomePage');
         navigation.navigate('HomePage');
@@ -90,8 +101,53 @@ export const SearchPage = ({ navigation }) => {
 
       const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
       return () => backHandler.remove();
-    }, [navigation])
+    }, [navigation, showSuggestions])
   );
+
+  // Fetch Suggestions AND Quick Results while typing
+  useEffect(() => {
+    const fetchSuggestionsAndQuickResults = async () => {
+      if (!query || query.trim().length < 2) {
+        setSuggestions([]);
+        setQuickResults([]);
+        return;
+      }
+
+      try {
+        // Fetch suggestions
+        const suggestResult = await getYTMusicSearchSuggestions(query);
+        if (suggestResult && suggestResult.queries) {
+          setSuggestions(suggestResult.queries);
+        }
+
+        // Fetch quick results (top 3 songs) based on selected source
+        let quickData = null;
+        if (selectedSource === 'ytmusic') {
+          quickData = await getYTMusicSearchSongData(query, 1, 3);
+        } else if (selectedSource === 'saavn') {
+          quickData = await getSearchSongData(query, 1, 3);
+        } else if (selectedSource === 'dab') {
+          const tracks = await dabMusicService.searchTracks(query, 3);
+          quickData = { data: { results: tracks } };
+        }
+
+        if (quickData?.data?.results) {
+          setQuickResults(quickData.data.results.slice(0, 3));
+        }
+      } catch (error) {
+        console.error('Error fetching suggestions/quick results:', error);
+      }
+    };
+
+    const timeoutId = setTimeout(() => {
+      if (query.trim() && showSuggestions) {
+        fetchSuggestionsAndQuickResults();
+      }
+    }, 300); // Debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [query, showSuggestions, selectedSource]);
+
 
   async function fetchSearchData(text) {
     if (!text) {
@@ -101,6 +157,7 @@ export const SearchPage = ({ navigation }) => {
 
     try {
       setLoading(true);
+      setShowSuggestions(false); // Hide suggestions when searching
       let data = null;
 
       // DAB Music - only supports songs, requires authentication
@@ -245,22 +302,61 @@ export const SearchPage = ({ navigation }) => {
     }
   }, [searchHistory]);
 
-  // Handle search with debounce
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (query.trim()) {
-        setSearchText(query);
-      } else {
-        setSearchText('');
-        setData({ data: { results: [] } });
-      }
-    }, 500);
-    return () => clearTimeout(timeoutId);
-  }, [query]);
+  // NOTE: Removed auto-search debounce - only search on Enter press now
+  // This allows suggestions + quick results to show while typing
 
   // Handle search from history item
   const handleHistoryItemPress = (item) => {
     setQuery(item);
+    setSearchText(item); // Trigger search immediately
+    setShowSuggestions(false);
+  };
+
+  // Handle suggestion press
+  const handleSuggestionPress = (item, fillOnly = false) => {
+    setQuery(item);
+    if (!fillOnly) {
+      // Perform full search
+      setSearchText(item);
+      setShowSuggestions(false);
+      setQuickResults([]);
+      saveToHistory(item);
+    }
+    // If fillOnly, just update the input text
+  };
+
+  // Handle quick result song press (play the song)
+  const handleQuickSongPress = async (song) => {
+    setShowSuggestions(false);
+    setQuickResults([]);
+
+    // Build Data object similar to what SongDisplay passes
+    const fakeData = {
+      data: {
+        results: quickResults
+      }
+    };
+    const songIndex = quickResults.findIndex(s => s.id === song.id);
+
+    // Call AddSongToPlayer with proper parameters
+    try {
+      await AddSongToPlayer(
+        song.id,
+        song.name || song.title,
+        song.artist || song.primaryArtists || 'Unknown Artist',
+        song.image?.[0]?.url || song.artwork || song.thumbnail,
+        song.duration,
+        song.language,
+        song.artistID || song.primaryArtistsId,
+        fakeData,
+        songIndex >= 0 ? songIndex : 0,
+        selectedSource,
+        null, // updateTrack - not needed here
+        song
+      );
+    } catch (error) {
+      console.error('Error playing song from quick results:', error);
+    }
   };
 
   // Clear search history
@@ -278,8 +374,12 @@ export const SearchPage = ({ navigation }) => {
     if (trimmedQuery.length > 1) { // Only save if query has more than 1 character
       saveToHistory(trimmedQuery);
       setSearchText(trimmedQuery);
+      setShowSuggestions(false);
+      setQuickResults([]);
     } else if (trimmedQuery.length > 0) {
       setSearchText(trimmedQuery);
+      setShowSuggestions(false);
+      setQuickResults([]);
     }
   };
 
@@ -351,7 +451,14 @@ export const SearchPage = ({ navigation }) => {
             placeholder="Search songs, albums, artists"
             placeholderTextColor={colors.text + '80'}
             style={[styles.searchInput, { color: colors.text }]}
-            onChangeText={setQuery}
+            onChangeText={(text) => {
+              setQuery(text);
+              if (text.trim().length > 0) {
+                setShowSuggestions(true);
+              } else {
+                setShowSuggestions(false);
+              }
+            }}
             onSubmitEditing={handleManualSearch}
             returnKeyType="search"
             autoFocus={true}
@@ -370,9 +477,12 @@ export const SearchPage = ({ navigation }) => {
         </Pressable>
       </View>
 
-      {(selectedSource === 'saavn' || selectedSource === 'ytmusic') && (
-        <Tabs tabs={["Songs", "Playlists", "Albums", "Artists"]} setState={setActiveTab} state={ActiveTab} />
-      )}
+      <View style={{ zIndex: 10 }}>
+        {(selectedSource === 'saavn' || selectedSource === 'ytmusic') && (
+          <Tabs tabs={["Songs", "Playlists", "Albums", "Artists"]} setState={setActiveTab} state={ActiveTab} />
+        )}
+      </View>
+
       {selectedSource === 'dab' && (
         <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
           <Text style={{ color: colors.text, opacity: 0.7, fontSize: 12, textAlign: 'center' }}>
@@ -382,7 +492,15 @@ export const SearchPage = ({ navigation }) => {
       )}
       <Spacer height={15} />
 
-      {!SearchText && searchHistory.length > 0 ? (
+      {/* Logic to show Suggestions OR History OR Results */}
+      {showSuggestions && (suggestions.length > 0 || quickResults.length > 0) ? (
+        <SearchSuggestions
+          suggestions={suggestions}
+          quickResults={quickResults}
+          onSuggestionPress={handleSuggestionPress}
+          onSongPress={handleQuickSongPress}
+        />
+      ) : !SearchText && searchHistory.length > 0 ? (
         renderSearchHistory()
       ) : Loading ? (
         <LoadingComponent loading={Loading} />

@@ -90,6 +90,23 @@ class InnerTubeModule(reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun getSearchSuggestions(query: String, promise: Promise) {
+        moduleScope.launch {
+            try {
+                val result = YouTube.searchSuggestions(query).getOrThrow()
+                val jsonResult = json.encodeToString(result)
+                promise.resolve(jsonResult)
+            } catch (e: Exception) {
+                promise.reject(
+                    "SUGGESTION_ERROR", 
+                    "Search suggestions failed for query '$query': ${e.message}", 
+                    e
+                )
+            }
+        }
+    }
+
+    @ReactMethod
     fun getHome(promise: Promise) {
         moduleScope.launch {
             try {

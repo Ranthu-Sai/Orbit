@@ -84,10 +84,18 @@ class SmartPrefetchManager {
      */
     async _handlePlaybackState(event) {
         if (event.state === State.Playing) {
-            // EARLY EXIT: Check if current track is YouTube Music
+            // Check if current track is a YouTube Music track (by source, not by stream status)
+            // We always want to prefetch next tracks for YTMusic, even if current track is ready
             const currentTrack = await TrackPlayer.getActiveTrack();
-            if (currentTrack && !this.needsStream(currentTrack)) {
-                // Silently skip - not a YouTube Music track
+            if (!currentTrack) return;
+
+            // Check if it's YouTube Music source - always prefetch for YT tracks
+            const isYTMusic = currentTrack.source === 'ytmusic' ||
+                currentTrack.isYTMusic === true ||
+                (currentTrack.id && currentTrack.id.length === 11 && !currentTrack.isLocalMusic);
+
+            if (!isYTMusic) {
+                // Silently skip - not a YouTube Music track (e.g., Saavn)
                 return;
             }
 
@@ -100,13 +108,19 @@ class SmartPrefetchManager {
             // Store current index for validation
             this.currentTrackIndex = currentIndex;
 
-            // Wait 2 seconds, then prefetch N+2 song (buffer)
+            // Wait 2 seconds, then prefetch N+1 (Next) and N+2 (Buffer)
+            // This ensures meaningful prefetch even if TrackChanged event was missed
             this.prefetchTimer = setTimeout(async () => {
                 // Validate we're still on the same track
                 const nowPlaying = await TrackPlayer.getActiveTrackIndex();
                 if (nowPlaying === this.currentTrackIndex) {
-                    console.log(`🎵 Buffered Strategy: Prefetching N+2 index ${nowPlaying + 2}...`);
-                    await this._prefetchTrackAtIndex(nowPlaying + 2);
+                    console.log(`🎵 Buffered Strategy: ensuring N+1 and N+2 are ready...`);
+
+                    // Parallel prefetch for better performance
+                    Promise.all([
+                        this._prefetchTrackAtIndex(nowPlaying + 1),
+                        this._prefetchTrackAtIndex(nowPlaying + 2)
+                    ]).catch(err => console.log('Buffered prefetch error:', err.message));
                 }
             }, PREFETCH_DELAY_MS);
         }
@@ -119,39 +133,57 @@ class SmartPrefetchManager {
      * Handle track changes - IMMEDIATE N+1, N+2, N+3 prefetch + queue cleanup
      */
     async _handleTrackChanged(event) {
-        // EARLY EXIT: Skip non-YouTube Music tracks entirely (e.g., Saavn)
-        if (event.track && !this.needsStream(event.track)) {
-            // Silently skip - this is not a YouTube Music track
-            return;
-        }
+        // Check if track is a YouTube Music track (by source, not by stream status)
+        // We always want to prefetch next tracks for YTMusic, even if current track is ready
+        const track = event.track;
+        if (!track) {
+            // Log but don't exit - index might still be valid
+            console.log('🔔 SmartPrefetch: Track changed event', {
+                index: event.index,
+                trackId: undefined
+            });
+        } else {
+            // Check if it's YouTube Music source
+            const isYTMusic = track.source === 'ytmusic' ||
+                track.isYTMusic === true ||
+                (track.id && track.id.length === 11 && !track.isLocalMusic);
 
-        // Debug: Log event to verify handler is called (only for YTMusic)
-        console.log('🔔 SmartPrefetch: Track changed event', {
-            index: event.index,
-            trackId: event.track?.id
-        });
+            if (!isYTMusic) {
+                // Silently skip - this is not a YouTube Music track
+                return;
+            }
+
+            // Debug: Log event to verify handler is called (only for YTMusic)
+            console.log('🔔 SmartPrefetch: Track changed event', {
+                index: event.index,
+                trackId: track.id
+            });
+        }
 
         if (event.index !== undefined && event.index !== null) {
             this._cancelPendingPrefetch();
-            this.currentTrackIndex = event.index;
+
+            let effectiveIndex = event.index;
 
             // 🧹 QUEUE CLEANUP: Remove old tracks, keep only 5 previous
             // CRITICAL: Skip cleanup if we're in recovery mode to prevent index shifts
             if (!this.isRecovering) {
-                await this._cleanupOldTracks(event.index);
+                effectiveIndex = await this._cleanupOldTracks(event.index);
             } else {
                 console.log('⏳ Skipping queue cleanup - recovery in progress');
             }
 
+            this.currentTrackIndex = effectiveIndex;
+
             // 🚀 IMMEDIATE ACTION: Prefetch next 3 songs aggressively
             // This ensures auto-recommendation songs are ready before playback
-            console.log(`🚀 Track Changed: Aggressively prefetching N+1, N+2, N+3...`);
+            console.log(`🚀 Track Changed: Aggressively prefetching N+1, N+2, N+3... (Effective Index: ${effectiveIndex})`);
 
             // Prefetch in parallel for speed
             Promise.all([
-                this._prefetchTrackAtIndex(event.index + 1),
-                this._prefetchTrackAtIndex(event.index + 2),
-                this._prefetchTrackAtIndex(event.index + 3)
+                this._prefetchTrackAtIndex(effectiveIndex + 1),
+                this._prefetchTrackAtIndex(effectiveIndex + 2),
+                this._prefetchTrackAtIndex(effectiveIndex + 3)
             ]).catch(err => console.log('Prefetch batch error:', err.message));
         }
     }
@@ -305,23 +337,17 @@ class SmartPrefetchManager {
      * Wraps in InteractionManager but returns Promise that resolves after
      */
     async replaceTrackAndWait(index, originalTrack, streamData) {
-        return new Promise((resolve) => {
-            InteractionManager.runAfterInteractions(async () => {
-                try {
-                    const updatedTrack = this._createUpdatedTrack(originalTrack, streamData);
+        try {
+            const updatedTrack = this._createUpdatedTrack(originalTrack, streamData);
 
-                    // Remove old track and insert new one at same position
-                    await TrackPlayer.remove(index);
-                    await TrackPlayer.add(updatedTrack, index);
+            // Remove old track and insert new one at same position
+            await TrackPlayer.remove(index);
+            await TrackPlayer.add(updatedTrack, index);
 
-                    console.log(`🔄 Replaced track at index ${index} (Wait Mode)`);
-                } catch (error) {
-                    console.error('Error replacing track:', error.message);
-                } finally {
-                    resolve();
-                }
-            });
-        });
+            console.log(`🔄 Replaced track at index ${index}`);
+        } catch (error) {
+            console.error('Error replacing track:', error.message);
+        }
     }
 
     /**
@@ -520,7 +546,7 @@ class SmartPrefetchManager {
     async _cleanupOldTracks(currentIndex) {
         try {
             // Only cleanup if we have more than 5 songs before current
-            if (currentIndex <= 5) return;
+            if (currentIndex <= 5) return currentIndex;
 
             const tracksToRemove = currentIndex - 5;
 
@@ -538,9 +564,12 @@ class SmartPrefetchManager {
                 this.currentTrackIndex = 5; // After cleanup, current is always at index 5
 
                 console.log(`✅ Queue cleaned. Current track now at index 5`);
+                return 5;
             }
+            return currentIndex;
         } catch (error) {
             console.error('Queue cleanup error:', error.message);
+            return currentIndex;
         }
     }
 

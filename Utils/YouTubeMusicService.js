@@ -1,5 +1,6 @@
 import InnerTubeClient from '../Api/InnertubeClient';
 import NativeStreaming from './NativeStreaming';
+import InnertubeNative from '../Api/InnertubeNative';
 
 /**
  * YouTubeMusicService
@@ -29,6 +30,11 @@ class YouTubeMusicService {
 
     static async search(query, filter = 'songs', limit = 20) {
         return await InnerTubeClient.search(query, filter);
+    }
+
+    static async getSearchSuggestions(query) {
+        // Use pure JS implementation instead of native bridge (which returns 400 errors)
+        return await InnerTubeClient.getSearchSuggestions(query);
     }
 
     static async getHomeFeed(limit = 10, forceRefresh = false) {

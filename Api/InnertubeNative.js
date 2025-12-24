@@ -55,6 +55,25 @@ class InnertubeNative {
     }
 
     /**
+     * Get search suggestions
+     * @param {string} query - Search query
+     * @returns {Promise<object>} Search suggestions
+     */
+    static async getSearchSuggestions(query) {
+        this._checkModule();
+        try {
+            const resultJson = await InnerTubeModule.getSearchSuggestions(query);
+            return JSON.parse(resultJson);
+        } catch (error) {
+            console.error('[InnertubeNative] Search suggestions error:', {
+                query,
+                error: error.message
+            });
+            throw error;
+        }
+    }
+
+    /**
      * Get home feed
      * @returns {Promise<object>} Home feed with 'sections' array
      */
