@@ -5,7 +5,7 @@ import { EachSongCard } from "../Component/Global/EachSongCard";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { getPlaylistData } from "../Api/Playlist";
 import { getYTMusicPlaylistData } from "../Api/YTMusic";
-import { LoadingComponent } from "../Component/Global/Loading";
+import { DetailSkeletonLoader } from "../Component/Global/DetailSkeletonLoader";
 import { PlainText } from "../Component/Global/PlainText";
 import { SmallText } from "../Component/Global/SmallText";
 import FormatArtist from "../Utils/FormatArtists";
@@ -618,7 +618,7 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
 
   return (
     <MainWrapper>
-      {Loading && <LoadingComponent loading={Loading} />}
+      {Loading && <DetailSkeletonLoader type="playlist" />}
       {!Loading && (!Data?.data?.songs || Data?.data?.songs?.length === 0) && (
         <View style={styles.emptyContainer}>
           <PlainText text="Playlist is empty or not available" style={styles.centeredText} />

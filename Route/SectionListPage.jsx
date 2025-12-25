@@ -10,6 +10,9 @@ import YouTubeMusicService from '../Utils/YouTubeMusicService';
 import FastImage from 'react-native-fast-image';
 import { AddPlaylist } from '../MusicPlayerFunctions';
 
+import { SongsListSkeleton } from '../Component/Global/SongsListSkeleton';
+import { GridSkeleton } from '../Component/Global/GridSkeleton';
+
 const CARD_WIDTH_GRID = 160;
 
 const SectionListPage = () => {
@@ -174,9 +177,11 @@ const SectionListPage = () => {
             </View>
 
             {loading && items.length === 0 ? (
-                <View style={styles.center}>
-                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                </View>
+                initialType === 'song' || initialType === 'video' || (endpoint?.params && endpoint.params.includes('songs')) ? (
+                    <SongsListSkeleton count={10} showHeader={false} />
+                ) : (
+                    <GridSkeleton count={8} showHeader={false} />
+                )
             ) : (
                 <FlatList
                     key={isGrid ? 'grid' : 'list'}
@@ -188,7 +193,13 @@ const SectionListPage = () => {
                     numColumns={isGrid ? 2 : 1}
                     columnWrapperStyle={isGrid ? styles.columnWrapper : null}
                     contentContainerStyle={styles.listContent}
-                    ListFooterComponent={hasMore && items.length > 0 ? <ActivityIndicator style={{ margin: 20 }} /> : null}
+                    ListFooterComponent={hasMore && items.length > 0 ? (
+                        isGrid ? (
+                            <GridSkeleton count={2} showHeader={false} />
+                        ) : (
+                            <SongsListSkeleton count={3} showHeader={false} />
+                        )
+                    ) : null}
                 />
             )}
         </View>

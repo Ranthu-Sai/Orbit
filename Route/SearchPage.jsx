@@ -12,7 +12,7 @@ import {
 import dabMusicService from "../Utils/DabMusicService";
 import { View, TouchableOpacity, TextInput, Pressable, Dimensions, FlatList, StyleSheet, Text, Modal, Alert, BackHandler } from "react-native";
 import SongDisplay from "../Component/SearchPage/SongDisplay";
-import { LoadingComponent } from "../Component/Global/Loading";
+import { SearchPageSkeleton } from "../Component/Search/SearchSkeletonLoader";
 import { getSearchPlaylistData } from "../Api/Playlist";
 import PlaylistDisplay from "../Component/SearchPage/PlaylistDisplay";
 import { getSearchAlbumData } from "../Api/Album";
@@ -503,7 +503,7 @@ export const SearchPage = ({ navigation }) => {
       ) : !SearchText && searchHistory.length > 0 ? (
         renderSearchHistory()
       ) : Loading ? (
-        <LoadingComponent loading={Loading} />
+        <SearchPageSkeleton activeTab={ActiveTab} />
       ) : (
         <View style={{ flex: 1, paddingHorizontal: 10 }}>
           {selectedSource === 'dab' ? (

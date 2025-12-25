@@ -6,6 +6,7 @@ import { EachAlbumCard } from "../Global/EachAlbumCard";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Spacer } from "../Global/Spacer";
 import YouTubeMusicService from "../../Utils/YouTubeMusicService";
+import { PlaylistRowSkeleton } from "./PlaylistRowSkeleton";
 
 const { width } = Dimensions.get('window');
 
@@ -371,7 +372,7 @@ export const YTMusicHomeSection = () => {
                 {/* Section Header */}
                 <Spacer />
                 <Spacer />
-                <Heading text={loading ? "Loading..." : sectionTitle} nospace={true} />
+                {!loading && <Heading text={sectionTitle} nospace={true} />}
                 <Spacer />
 
                 {/* Playlists in this section */}
@@ -457,18 +458,7 @@ export const YTMusicHomeSection = () => {
 
                 {/* Loading state for this section */}
                 {loading && (
-                  <View style={{
-                    height: 280,
-                  }}>
-                    <Text style={{
-                      color: '#666',
-                      fontSize: 14,
-                      textAlign: 'center',
-                      marginTop: 20
-                    }}>
-                      Loading content from YouTube Music...
-                    </Text>
-                  </View>
+                  <PlaylistRowSkeleton count={3} showHeading={true} />
                 )}
               </View>
             );

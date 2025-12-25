@@ -6,7 +6,7 @@ import { RouteHeading } from "../../Component/Home/RouteHeading";
 import { PaddingConatiner } from "../../Layout/PaddingConatiner";
 import { EachAlbumCard } from "../../Component/Global/EachAlbumCard";
 import { RenderTopCharts } from "../../Component/Home/RenderTopCharts";
-import { LoadingComponent } from "../../Component/Global/Loading";
+import { HomeSkeletonLoader } from "../../Component/Home/HomeSkeletonLoader";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { getHomePageData } from "../../Api/HomePage";
 import { getYTMusicHomeFeed } from "../../Api/YTMusic";
@@ -235,155 +235,143 @@ export const Home = () => {
     return Data?.data?.charts[chartIndices[index]]?.id;
   };
 
+  // Determine if we should show skeleton (loading or no data yet)
+  const hasData = allPlaylists.length > 0 || allAlbums.length > 0;
+  const showSkeleton = Loading || (!hasData && isInitialLoad.current);
+
   return (
     <MainWrapper>
-      <LoadingComponent loading={Loading} />
       {
-        !Loading && <View>
-          <ScrollView
-            style={{ zIndex: -1 }}
-            onScroll={(e) => {
-              if (e.nativeEvent.contentOffset.y > scrollThreshold && !showHeader) {
-                setShowHeader(true)
-              } else if (e.nativeEvent.contentOffset.y < scrollThreshold && showHeader) {
-                setShowHeader(false)
+        showSkeleton ? (
+          <HomeSkeletonLoader />
+        ) : (
+          <View>
+            <ScrollView
+              style={{ zIndex: -1 }}
+              onScroll={(e) => {
+                if (e.nativeEvent.contentOffset.y > scrollThreshold && !showHeader) {
+                  setShowHeader(true)
+                } else if (e.nativeEvent.contentOffset.y < scrollThreshold && showHeader) {
+                  setShowHeader(false)
+                }
+              }}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  colors={['#1DB954']}
+                  tintColor={'#1DB954'}
+                />
               }
-            }}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={['#1DB954']}
-                tintColor={'#1DB954'}
-              />
-            }
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{
-              paddingBottom: 180, // Increased from 120 for more bottom margin
-            }}
-          >
-            <RouteHeading showSearch={true} showSettings={true} />
-
-            <DisplayTopGenres />
-            <View style={{ paddingHorizontal: 13 }}>
-              <HorizontalScrollSongs id={getChartId(0)} />
-            </View>
-            <View style={{ paddingHorizontal: 13 }}>
-              <Heading text={"Recommended Playlists"} />
-            </View>
-            <FlatList
-              horizontal={true}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{
-                paddingLeft: 10, // Reduced from 15
-                paddingRight: 5, // Reduced from 10
-                gap: 2, // Reduced from 20
-              }}
-              data={allPlaylists}
-              keyExtractor={(item, index) => `playlist-${item.id}-${index}`}
-              ListEmptyComponent={() => (
-                <View style={{
-                  width: width - 30,
-                  height: 250,
-                  justifyContent: 'center',
-                  alignItems: 'center'
-                }}>
-                  <Text style={{ color: 'white', fontSize: 16 }}>No playlists available</Text>
-                </View>
-              )}
-              renderItem={({ item, index }) => (
-                <EachPlaylistCard
-                  name={truncateText(item.title || item.name, 30)}
-                  follower={truncateText(item.subtitle || item.artists, 30)}
-                  key={index}
-                  image={getImageUrl(item.image)}
-                  id={item.id}
-                  source="Home"
-                  MainContainerStyle={{
-                    marginHorizontal: 4, // Add horizontal margin
-                  }}
-                />
-              )}
-            />
-            <View style={{ paddingHorizontal: 13 }}>
-              <Heading text={"Trending Albums"} />
-            </View>
-            <FlatList
-              horizontal={true}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{
-                paddingLeft: 10, // Reduced from 15
-                paddingRight: 5, // Reduced from 10
-                gap: 2, // Reduced from 20
-              }}
-              data={allAlbums}
-              keyExtractor={(item, index) => `album-${item.id}-${index}`}
-              ListEmptyComponent={() => (
-                <View style={{
-                  width: width - 30,
-                  height: 220,
-                  justifyContent: 'center',
-                  alignItems: 'center'
-                }}>
-                  <Text style={{ color: 'white', fontSize: 16 }}>No albums available</Text>
-                </View>
-              )}
-              renderItem={({ item, index }) => (
-                <EachAlbumCard
-                  image={getImageUrl(item.image)}
-                  artists={truncateText(item.artists || item.artist, 30)}
-                  key={index}
-                  name={truncateText(item.name || item.title, 30)}
-                  id={item.id}
-                  source="Home"
-                />
-              )}
-            />
-
-            {/* YouTube Music Home Section */}
-            <YTMusicHomeSection />
-
-            <View style={{ paddingHorizontal: 13, marginTop: 8 }}>
-              <HorizontalScrollSongs id={getChartId(1)} />
-              {offline && (
-                <View style={{
-                  paddingHorizontal: 13,
-                  marginTop: 8
-                }}>
-                  <Text style={{
-                    color: '#666',
-                    textAlign: 'center',
-                    marginTop: 10,
-                    marginBottom: 10
-                  }}>
-                    You're offline. Some content may not be available.
-                  </Text>
-                </View>
-              )}
-            </View>
-            <PaddingConatiner>
-              <Heading text={"Top Charts"} />
-            </PaddingConatiner>
-            <FlatList
-              horizontal={true}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{
-                paddingLeft: 13,
+                paddingBottom: 180, // Increased from 120 for more bottom margin
               }}
-              data={[1]}
-              renderItem={() => <RenderTopCharts playlist={Data?.data?.charts || []} />}
-              keyExtractor={() => 'top-charts'}
-            />
-            <PaddingConatiner>
-              <HorizontalScrollSongs id={getChartId(2)} />
-            </PaddingConatiner>
-            <PaddingConatiner>
-              <HorizontalScrollSongs id={getChartId(3)} />
-            </PaddingConatiner>
-          </ScrollView>
-          <TopHeader showHeader={showHeader} />
-        </View>
-      }
+            >
+              <RouteHeading showSearch={true} showSettings={true} />
+
+              <DisplayTopGenres />
+              <View style={{ paddingHorizontal: 13 }}>
+                <HorizontalScrollSongs id={getChartId(0)} />
+              </View>
+              <View style={{ paddingHorizontal: 13 }}>
+                <Heading text={"Recommended Playlists"} />
+              </View>
+              <FlatList
+                horizontal={true}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  paddingLeft: 10, // Reduced from 15
+                  paddingRight: 5, // Reduced from 10
+                  gap: 2, // Reduced from 20
+                }}
+                data={allPlaylists}
+                keyExtractor={(item, index) => `playlist-${item.id}-${index}`}
+
+                renderItem={({ item, index }) => (
+                  <EachPlaylistCard
+                    name={truncateText(item.title || item.name, 30)}
+                    follower={truncateText(item.subtitle || item.artists, 30)}
+                    key={index}
+                    image={getImageUrl(item.image)}
+                    id={item.id}
+                    source="Home"
+                    MainContainerStyle={{
+                      marginHorizontal: 4, // Add horizontal margin
+                    }}
+                  />
+                )}
+              />
+              <View style={{ paddingHorizontal: 13 }}>
+                <Heading text={"Trending Albums"} />
+              </View>
+              <FlatList
+                horizontal={true}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  paddingLeft: 10, // Reduced from 15
+                  paddingRight: 5, // Reduced from 10
+                  gap: 2, // Reduced from 20
+                }}
+                data={allAlbums}
+                keyExtractor={(item, index) => `album-${item.id}-${index}`}
+
+                renderItem={({ item, index }) => (
+                  <EachAlbumCard
+                    image={getImageUrl(item.image)}
+                    artists={truncateText(item.artists || item.artist, 30)}
+                    key={index}
+                    name={truncateText(item.name || item.title, 30)}
+                    id={item.id}
+                    source="Home"
+                  />
+                )}
+              />
+
+              {/* YouTube Music Home Section */}
+              <YTMusicHomeSection />
+
+              <View style={{ paddingHorizontal: 13, marginTop: 8 }}>
+                <HorizontalScrollSongs id={getChartId(1)} />
+                {offline && (
+                  <View style={{
+                    paddingHorizontal: 13,
+                    marginTop: 8
+                  }}>
+                    <Text style={{
+                      color: '#666',
+                      textAlign: 'center',
+                      marginTop: 10,
+                      marginBottom: 10
+                    }}>
+                      You're offline. Some content may not be available.
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <PaddingConatiner>
+                <Heading text={"Top Charts"} />
+              </PaddingConatiner>
+              <FlatList
+                horizontal={true}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{
+                  paddingLeft: 13,
+                }}
+                data={[1]}
+                renderItem={() => <RenderTopCharts playlist={Data?.data?.charts || []} />}
+                keyExtractor={() => 'top-charts'}
+              />
+              <PaddingConatiner>
+                <HorizontalScrollSongs id={getChartId(2)} />
+              </PaddingConatiner>
+              <PaddingConatiner>
+                <HorizontalScrollSongs id={getChartId(3)} />
+              </PaddingConatiner>
+            </ScrollView>
+            <TopHeader showHeader={showHeader} />
+          </View>
+        )}
     </MainWrapper>
   );
 };

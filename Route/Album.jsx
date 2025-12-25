@@ -3,7 +3,7 @@ import { AlbumHeader } from "../Component/Album/AlbumHeader";
 import { View, BackHandler, Text, FlatList, StyleSheet } from "react-native";
 import { EachSongCard } from "../Component/Global/EachSongCard";
 import { useEffect, useState, useCallback, useContext } from "react";
-import { LoadingComponent } from "../Component/Global/Loading";
+import { DetailSkeletonLoader } from "../Component/Global/DetailSkeletonLoader";
 import { useTheme, useNavigation, useFocusEffect } from "@react-navigation/native";
 import { PlainText } from "../Component/Global/PlainText";
 import { SmallText } from "../Component/Global/SmallText";
@@ -298,7 +298,7 @@ export const Album = ({ route }) => {
   return (
     <MainWrapper>
       {Loading &&
-        <LoadingComponent loading={Loading} />}
+        <DetailSkeletonLoader type="album" />}
       {!Loading && !(Data?.data?.songs?.length || Data?.data?.tracks?.length) && (
         <View style={{
           flex: 1,

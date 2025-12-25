@@ -20,7 +20,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useActiveTrack, usePlaybackState } from 'react-native-track-player';
 
-import { LoadingComponent } from '../Component/Global/Loading';
+import { ArtistPageSkeleton } from '../Component/Artist/ArtistPageSkeleton';
 import { EachSongCard } from '../Component/Global/EachSongCard';
 import { SmallText } from '../Component/Global/SmallText';
 import { AddPlaylist } from '../MusicPlayerFunctions';
@@ -239,7 +239,7 @@ const ArtistPage = () => {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-        <LoadingComponent loading={true} height={screenHeight} />
+        <ArtistPageSkeleton />
         <PlaylistSelectorWrapper />
       </View>
     );
@@ -423,10 +423,7 @@ const ArtistPage = () => {
           </View>
         )}
 
-        {/* Loading indicators */}
-        {(songLoading || albumLoading) && (
-          <LoadingComponent loading={true} height={50} />
-        )}
+
       </ScrollView>
       <PlaylistSelectorWrapper />
     </View>

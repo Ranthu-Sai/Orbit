@@ -3,7 +3,7 @@ import { Dimensions, ScrollView, View } from "react-native";
 import { useActiveTrack, usePlaybackState } from "react-native-track-player";
 import { useEffect, useState, useMemo } from "react";
 import { getPlaylistData } from "../../Api/Playlist";
-import { LoadingComponent } from "./Loading";
+import { HorizontalSongsSkeleton } from "../Home/HorizontalSongsSkeleton";
 import { Heading } from "./Heading";
 import FormatArtist from "../../Utils/FormatArtists";
 import { Spacer } from "./Spacer";
@@ -69,7 +69,7 @@ export const HorizontalScrollSongs = ({ id }) => {
     {id && <>
       <Spacer />
       <Spacer />
-      <Heading text={Loading ? "Please Wait..." : truncateText(Data?.data?.name, 30)} nospace={true} />
+      {!Loading && <Heading text={truncateText(Data?.data?.name, 30)} nospace={true} />}
       <Spacer />
       {!Loading && <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
         <View>
@@ -119,11 +119,7 @@ export const HorizontalScrollSongs = ({ id }) => {
           </View>)}
         </View>
       </ScrollView>}
-      {Loading && <View style={{
-        height: 280,
-      }}>
-        <LoadingComponent loading={Loading} />
-      </View>}
+      {Loading && <HorizontalSongsSkeleton />}
     </>}
   </>
   );

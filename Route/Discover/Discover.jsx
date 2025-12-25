@@ -1,7 +1,7 @@
 import { MainWrapper } from "../../Layout/MainWrapper";
 import { DiscoverCard } from "../../Component/Discover/DiscoverCard";
 import { AlbumCard } from "../../Component/Discover/AlbumCard";
-import { View, Text, ScrollView, Dimensions, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, ScrollView, Dimensions, RefreshControl } from "react-native";
 import { Spacer } from "../../Component/Global/Spacer";
 import { Heading } from "../../Component/Global/Heading";
 import { PaddingConatiner } from "../../Layout/PaddingConatiner";
@@ -13,6 +13,7 @@ import { useNavigation, useTheme } from "@react-navigation/native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TrendingUp, BarChart3, Music, Headphones, Mic, Sparkles } from "lucide-react-native";
 import { getYTMusicNewReleases, getYTMusicCharts } from "../../Api/YTMusic";
+import { DiscoverSkeletonLoader, AlbumRowSkeleton, ArtistRowSkeleton } from "../../Component/Discover/DiscoverSkeletonLoader";
 
 export const Discover = () => {
   const width = Dimensions.get("window").width;
@@ -167,6 +168,17 @@ export const Discover = () => {
     }
   };
 
+  // Show skeleton during initial load (both releases and charts loading)
+  const isInitialLoading = loadingReleases && loadingCharts;
+
+  if (isInitialLoading) {
+    return (
+      <MainWrapper>
+        <DiscoverSkeletonLoader />
+      </MainWrapper>
+    );
+  }
+
   return (
     <MainWrapper>
       <ScrollView
@@ -209,9 +221,7 @@ export const Discover = () => {
         <PaddingConatiner>
           <Heading text={"New Albums & Singles"} />
           {loadingReleases ? (
-            <View style={{ paddingVertical: 20, alignItems: "center" }}>
-              <ActivityIndicator size="small" color={theme.colors.primary} />
-            </View>
+            <AlbumRowSkeleton count={4} />
           ) : newReleases.length > 0 ? (
             <ScrollView
               horizontal={true}
@@ -238,9 +248,7 @@ export const Discover = () => {
           </View>
 
           {loadingCharts ? (
-            <View style={{ paddingVertical: 20, alignItems: "center" }}>
-              <ActivityIndicator size="small" color={theme.colors.primary} />
-            </View>
+            <AlbumRowSkeleton count={4} />
           ) : charts.length > 0 ? (
             <ScrollView
               horizontal={true}
@@ -274,9 +282,7 @@ export const Discover = () => {
             <>
               <Heading text={"Top Artists"} />
               {loadingCharts ? (
-                <View style={{ paddingVertical: 20, alignItems: "center" }}>
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
-                </View>
+                <ArtistRowSkeleton count={4} />
               ) : (
                 <ScrollView
                   horizontal={true}
