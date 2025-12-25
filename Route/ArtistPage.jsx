@@ -268,7 +268,7 @@ const ArtistPage = () => {
             <View style={[styles.heroImage, { backgroundColor: theme.colors.card }]} />
           )}
           <LinearGradient
-            colors={['rgba(0,0,0,0.6)', 'transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.6)', '#000000']}
+            colors={['rgba(0,0,0,0.6)', 'transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.6)', theme.colors.background]}
             style={styles.heroGradient}
           />
 
@@ -449,9 +449,17 @@ const ArtistSection = React.memo(({ section, theme, navigation, activeTrack, pla
     } else if (item.type === 'album' || item.browseId?.startsWith('MPRE') || item.browseId?.startsWith('OLAK')) {
       onAlbumPress(item);
     } else if (item.type === 'playlist') {
-      navigation.navigate('Playlist', { id: item.playlistId || item.id, name: item.name || item.title });
+      navigation.navigate('Playlist', {
+        id: item.playlistId || item.id,
+        name: item.name || item.title,
+        image: item.thumbnail || (Array.isArray(item.image) ? item.image[item.image.length - 1]?.url : item.image),
+        source: source // Pass source to ensure correct API usage
+      });
     } else if (item.type === 'artist' || item.browseId?.startsWith('UC')) {
       onArtistPress(item);
+    } else {
+      // Log unmatched items for debugging
+      console.log('[ArtistPage] Unmatched item type:', { type: item.type, browseId: item.browseId, item });
     }
   };
 

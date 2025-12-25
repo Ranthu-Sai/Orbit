@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, FlatList, StyleSheet, StatusBar, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, FlatList, StyleSheet, StatusBar, ActivityIndicator, TouchableOpacity, Pressable } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { useTheme, useNavigation, useRoute } from '@react-navigation/native';
 import { usePlaybackState, useActiveTrack } from 'react-native-track-player';
@@ -101,11 +101,15 @@ const SectionListPage = () => {
             const queue = listToPlay.slice(index >= 0 ? index : 0);
             if (queue.length > 0) AddPlaylist(queue);
 
-        } else if (itemType === 'album') {
+        } else if (itemType === 'album' || itemType === 'albums') {
             navigation.navigate('Album', { id: item.browseId || item.id, source: 'ytmusic' });
-        } else if (itemType === 'playlist') {
-            navigation.navigate('Playlist', { id: item.playlistId || item.id });
-        } else if (itemType === 'artist') {
+        } else if (itemType === 'playlist' || itemType === 'playlists') {
+            navigation.navigate('Playlist', {
+                id: item.playlistId || item.id,
+                source: 'ytmusic',
+                image: item.thumbnail || item.thumbnails?.[0]?.url
+            });
+        } else if (itemType === 'artist' || itemType === 'artists') {
             navigation.push('ArtistPage', { artistId: item.browseId || item.id, source: 'ytmusic' });
         }
     }, [items, navigation]);
@@ -114,31 +118,26 @@ const SectionListPage = () => {
     const renderGridItem = ({ item }) => {
         const thumbnail = item.thumbnail || item.thumbnails?.[0]?.url;
         return (
-            <React.Fragment>
-                <View style={styles.gridCardContainer}>
-                    <View style={styles.gridCard}>
-                        <FastImage
-                            source={{ uri: thumbnail }}
-                            style={styles.gridImage}
-                            resizeMode={FastImage.resizeMode.cover}
-                        />
-                        <View style={styles.gridOverlay}>
-                            <IconButton
-                                icon="play-circle"
-                                size={40}
-                                iconColor="rgba(255,255,255,0.8)"
-                                onPress={() => handlePress(item)}
-                            />
-                        </View>
-                    </View>
-                    <Text style={[styles.gridTitle, { color: theme.colors.text }]} numberOfLines={2}>
-                        {item.title || item.name}
-                    </Text>
-                    <Text style={[styles.gridSubtitle, { color: theme.colors.text }]} numberOfLines={1}>
-                        {item.subtitle || item.year || item.artist || ''}
-                    </Text>
+            <Pressable
+                onPress={() => {
+                    handlePress(item);
+                }}
+                style={styles.gridCardContainer}
+            >
+                <View style={styles.gridCard}>
+                    <FastImage
+                        source={{ uri: thumbnail }}
+                        style={styles.gridImage}
+                        resizeMode={FastImage.resizeMode.cover}
+                    />
                 </View>
-            </React.Fragment>
+                <Text style={[styles.gridTitle, { color: theme.colors.text }]} numberOfLines={2}>
+                    {item.title || item.name}
+                </Text>
+                <Text style={[styles.gridSubtitle, { color: theme.colors.text }]} numberOfLines={1}>
+                    {item.subtitle || item.year || item.artist || ''}
+                </Text>
+            </Pressable>
         );
     };
 

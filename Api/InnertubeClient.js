@@ -876,22 +876,26 @@ class InnerTubeClient {
     static parseSection(data) {
         try {
             // Check for various renderer types
-            const sectionList = data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents;
+            const tabContent = data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content;
+            const sectionList = tabContent?.sectionListRenderer?.contents;
             const secondaryContents = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents;
 
             // Grid Renderer
             const gridRenderer = sectionList?.[0]?.gridRenderer ||
                 secondaryContents?.[0]?.gridRenderer ||
+                tabContent?.gridRenderer || // Direct grid renderer
                 data?.continuationContents?.gridContinuation;
 
             // Music Shelf Renderer (List of Songs)
             const musicShelfRenderer = sectionList?.[0]?.musicShelfRenderer ||
                 secondaryContents?.[0]?.musicShelfRenderer ||
+                tabContent?.musicShelfRenderer || // Direct shelf renderer
                 data?.continuationContents?.musicShelfContinuation;
 
             // Playlist Shelf Renderer (Playlist content)
             const musicPlaylistShelfRenderer = sectionList?.[0]?.musicPlaylistShelfRenderer ||
                 secondaryContents?.[0]?.musicPlaylistShelfRenderer ||
+                tabContent?.musicPlaylistShelfRenderer || // Direct playlist shelf
                 data?.continuationContents?.musicPlaylistShelfContinuation;
 
             const section = gridRenderer || musicShelfRenderer || musicPlaylistShelfRenderer;
@@ -910,6 +914,8 @@ class InnerTubeClient {
             const continuations = section?.continuations;
             const continuation = continuations?.[0]?.nextContinuationData?.continuation;
 
+            console.log(`InnerTube parseSection: Found ${items.length} items, title="${title}"`);
+
             return {
                 title,
                 items,
@@ -923,40 +929,75 @@ class InnerTubeClient {
 
     static parsePlaylist(data) {
         try {
+            // Try multiple header locations
+            let header = data?.header?.musicDetailHeaderRenderer;
 
-            const header = data?.header?.musicDetailHeaderRenderer || data?.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicResponsiveHeaderRenderer;
-            const tracks = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer?.contents;
+            if (!header) {
+                // Try finding responsive header in contents
+                const sectionList = data?.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents;
+                header = sectionList?.[0]?.musicResponsiveHeaderRenderer;
+            }
 
-            const title = header?.title?.runs?.[0]?.text;
+            // Try multiple tracks locations
+            const tracks = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer?.contents ||
+                data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer?.contents;
+
+            // Extract title
+            const title = header?.title?.runs?.[0]?.text || header?.title?.simpleText;
+
+            // Extract songs
             const songs = tracks?.map(t => this.parseItem(t)).filter(i => i) || [];
 
             // Extract additional metadata
-            const thumbnails = header?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+            const thumbnails = header?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails ||
+                header?.thumbnail?.musicResponsiveHeaderRenderer?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+
             const description = header?.description?.runs?.[0]?.text || header?.description?.simpleText;
 
-            // Author/Subtitle typically in subtitle runs
-            // "Playlist • YouTube Music • 2023" or "Username • 50 songs"
-            const subtitleRuns = header?.subtitle?.runs;
-            const author = subtitleRuns?.find(r => r.navigationEndpoint?.browseEndpoint?.browseId?.startsWith('UC'))?.text
-                || subtitleRuns?.[0]?.text
-                || "YouTube Music";
-            const year = subtitleRuns?.find(r => r.text.match(/\d{4}/))?.text;
+            // Author/Subtitle extraction
+            let author = "YouTube Music";
+            let year = null;
 
-            // Extract playlist thumbnail (skip enhancement - already high quality)
+            // Subtitle runs logic depends on header type
+            // musicDetailHeaderRenderer uses 'subtitle'
+            // musicResponsiveHeaderRenderer uses 'straplineTextOne' or 'subtitle'
+            const subtitleRuns = header?.subtitle?.runs || header?.straplineTextOne?.runs;
+
+            if (subtitleRuns) {
+                author = subtitleRuns?.find(r => r.navigationEndpoint?.browseEndpoint?.browseId?.startsWith('UC'))?.text
+                    || subtitleRuns?.[0]?.text
+                    || "YouTube Music";
+                year = subtitleRuns?.find(r => r.text.match(/\d{4}/))?.text;
+            }
+
+            // Extract playlist thumbnail
             const playlistThumbnail = thumbnails?.[thumbnails.length - 1]?.url;
 
+            // Extract ID safely safely
+            const headerId = header?.menu?.menuRenderer?.topLevelButtons?.[0]?.buttonRenderer?.navigationEndpoint?.watchEndpoint?.playlistId;
+            const dataBrowseId = data?.responseContext?.serviceTrackingParams?.[0]?.params?.find(p => p.key === 'browse_id')?.value;
+            // Clean VL prefix if present in the data browseId
+            const cleanBrowseId = dataBrowseId?.startsWith('VL') ? dataBrowseId.substring(2) : dataBrowseId;
+
+            const id = headerId || cleanBrowseId;
+
+            console.log(`InnerTube parsePlaylist: title="${title}", songs=${songs.length}, id=${id}`);
+
             return {
-                id: data?.header?.musicDetailHeaderRenderer?.menu?.menuRenderer?.topLevelButtons?.[0]?.buttonRenderer?.navigationEndpoint?.watchEndpoint?.playlistId,
+                id, // Use safe ID
                 title,
                 songs,
                 thumbnails,
-                thumbnail: playlistThumbnail, // Add main thumbnail field
+                thumbnail: playlistThumbnail,
                 description,
                 author,
                 year,
                 count: songs.length
             };
-        } catch (e) { console.error('Parse Playlist Error', e); return null; }
+        } catch (e) {
+            console.error('Parse Playlist Error', e);
+            return null;
+        }
     }
 
     static parseRelated(data) {

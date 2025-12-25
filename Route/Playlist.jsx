@@ -164,7 +164,6 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
     try {
       // Only fetch if id is defined
       if (!id) {
-        console.log("[Playlist] No playlist ID available");
         setLoading(false);
         return;
       }
@@ -175,7 +174,6 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
       if (!forceRefresh) {
         const ramData = CacheManager.get(cacheKey);
         if (ramData) {
-          console.log(`[Playlist] RAM cache HIT for ${id} - instant load`);
           setData(ramData);
           setLoading(false);
           isInitialLoad.current = false;
@@ -189,7 +187,6 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
 
         const diskData = await CacheManager.getAsync(cacheKey);
         if (diskData) {
-          console.log(`[Playlist] Disk cache HIT for ${id}`);
           setData(diskData);
           setLoading(false);
           isInitialLoad.current = false;
@@ -199,13 +196,15 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
 
       // Cache miss - show loading only on initial load
       if (isInitialLoad.current) {
-        console.log(`[Playlist] Cache MISS - fetching ${id}`);
         setLoading(true);
       }
 
       let data = {};
 
-      if (source === 'ytmusic') {
+      // FIX: Use route.params.source directly to avoid React state timing issues
+      const effectiveSource = route?.params?.source || propSource || source;
+
+      if (effectiveSource === 'ytmusic') {
         data = await getYTMusicPlaylistData(id);
       } else {
         data = await getPlaylistData(id);
@@ -218,7 +217,6 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
       // Cache the data with 10-minute TTL
       if (data?.data) {
         CacheManager.set(cacheKey, data, CACHE_TTL.PLAYLIST_DATA);
-        console.log(`[Playlist] Data cached for ${id} (10-minute TTL)`);
 
         const updatedPlaylistData = {
           id: id,
@@ -247,11 +245,9 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
                   data.data.follower,
                   id
                 );
-                console.log(`[Playlist] Updated liked playlist follower for ${id}`);
               }
             }
           } catch (likeErr) {
-            console.log('[Playlist] Error updating liked playlist follower:', likeErr.message);
           }
         }
       }
@@ -267,6 +263,11 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
 
   // When component mounts, check if we have a route ID - if not, try to recover from AsyncStorage
   useEffect(() => {
+    // CRITICAL: Reset isMounted to true on each effect run
+    // This fixes the bug where cleanup sets it to false, and when deps change,
+    // the new effect run still has the stale false value
+    isMounted.current = true;
+
     const recoverPlaylistData = async () => {
       try {
         if (routeId) {
@@ -571,20 +572,29 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
   }, [Data, activeTrack?.id, playbackState.state, theme]);
 
   // Header component for FlatList
-  const renderHeader = useCallback(() => (
-    <>
-      <PlaylistHeader
-        imageUrl={image || Data?.data?.songs?.[0]?.image?.[2]?.url || Data?.data?.songs?.[0]?.images?.[2]?.url || ''}
-        title={name || Data?.data?.name || "Playlist"}
-        songCount={Data?.data?.songs?.length || 0}
-        playlistId={id ? id.replace('album_', '') : id}
-        follower={Data?.data?.follower || follower || ""}
-        songsData={Data?.data?.songs}
-        playlistData={Data}
-      />
-      <View style={{ height: 15 }} />
-    </>
-  ), [image, Data, name, id, follower]);
+  const renderHeader = useCallback(() => {
+    const headerImageUrl = image ||
+      Data?.data?.thumbnail ||
+      (Array.isArray(Data?.data?.image) ? Data.data.image[Data.data.image.length - 1]?.url : Data?.data?.image) ||
+      Data?.data?.songs?.[0]?.image?.[2]?.url ||
+      Data?.data?.songs?.[0]?.images?.[2]?.url ||
+      '';
+
+    return (
+      <>
+        <PlaylistHeader
+          imageUrl={headerImageUrl}
+          title={name || Data?.data?.name || "Playlist"}
+          songCount={Data?.data?.songs?.length || 0}
+          playlistId={id ? id.replace('album_', '') : id}
+          follower={Data?.data?.follower || follower || ""}
+          songsData={Data?.data?.songs}
+          playlistData={Data}
+        />
+        <View style={{ height: 15 }} />
+      </>
+    );
+  }, [image, Data, name, id, follower]);
 
   // key extractor
   const keyExtractor = useCallback((item, index) => `song-${item?.id || index}-${index}`, []);
