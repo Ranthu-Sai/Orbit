@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useContext } from 'react';
+import React, { useRef, useEffect, useContext } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { HomeRoute } from "./Home/HomeRoute";
 import { DiscoverRoute } from "./Discover/DiscoverRoute";
@@ -14,7 +14,7 @@ import { useNavigation, useFocusEffect, CommonActions } from '@react-navigation/
 import { BackHandler } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Context from '../Context/Context';
-import { FullScreenMusic } from '../Component/MusicPlayer/FullScreenMusic';
+// NOTE: FullScreenMusic is handled by BottomSheetMusic, not rendered separately here
 import { PlaylistSelectorBottomSheetWrapper } from '../Component/Playlist/PlaylistSelectorBottomSheetWrapper';
 
 const Tab = createBottomTabNavigator();
@@ -35,13 +35,7 @@ export const RootRoute = () => {
   const isFullscreenActive = useRef(false);
   const previousTabName = useRef(null);
   const backPressedOnce = useRef(false);
-
-  // Track fullscreen state
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const prevFullscreenState = useRef(false);
-
-  // Track screen before entering fullscreen
-  const [previousFullscreenScreen, setPreviousFullscreenScreen] = useState(null);
 
   // Global back button handler to ensure proper navigation hierarchy
   useEffect(() => {
@@ -130,202 +124,19 @@ export const RootRoute = () => {
     return () => backHandler.remove();
   }, [navigation]);
 
-  // Effect to track fullscreen state
+  // Effect to track fullscreen state - simplified since screens now stay mounted
   useEffect(() => {
     // Update fullscreen active ref for back handling
     isFullscreenActive.current = (Index === 1);
+    prevFullscreenState.current = (Index === 1);
 
-    // When entering fullscreen mode, save the current screen
-    if (Index === 1 && !prevFullscreenState.current) {
-      // Store current screen information before entering fullscreen
-      const state = navigation.getState();
-      const routes = state?.routes || [];
-      const currentRoute = routes.find(r => r.name === 'MainRoute');
-
-      // Capture screen details
-      if (currentRoute && currentRoute.state) {
-        const tabRoutes = currentRoute.state.routes;
-        const currentTab = tabRoutes[currentRoute.state.index];
-
-        if (currentTab) {
-          const tabName = currentTab.name;
-          let screenName = '';
-          let screenParams = {};
-
-          // Get current screen details
-          if (currentTab.state && currentTab.state.routes && currentTab.state.routes.length > 0) {
-            const currentScreen = currentTab.state.routes[currentTab.state.index];
-            screenName = currentScreen.name;
-            screenParams = currentScreen.params || {};
-          }
-
-          // Save screen info to restore later
-          const screenInfo = {
-            tab: tabName,
-            screen: screenName,
-            params: screenParams
-          };
-
-          console.log('Saving screen before fullscreen:', JSON.stringify(screenInfo));
-          setPreviousFullscreenScreen(screenInfo);
-        }
-      }
+    // Log for debugging
+    if (Index === 1) {
+      console.log('Fullscreen player opened (overlay mode)');
+    } else if (prevFullscreenState.current) {
+      console.log('Fullscreen player closed (screens preserved)');
     }
-
-    // Track changes in fullscreen state
-    if (Index === 0) {
-      // Not in fullscreen
-      if (prevFullscreenState.current && previousFullscreenScreen) {
-        console.log('Exited fullscreen player, restoring previous screen:', JSON.stringify(previousFullscreenScreen));
-
-        // Restore previous screen after short delay to ensure proper navigation
-        setTimeout(() => {
-          const { tab, screen, params } = previousFullscreenScreen;
-
-          // Skip navigation if we're already on the correct screen
-          const currentState = navigation.getState();
-          const currentTabIndex = currentState?.index || 0;
-          const currentTab = currentState?.routes?.[currentTabIndex];
-
-          // Extract current screen info
-          const currentTabName = currentTab?.name;
-          const currentNestedState = currentTab?.state;
-          const currentScreenName = currentNestedState?.routes?.[currentNestedState.index]?.name;
-          const currentParams = currentNestedState?.routes?.[currentNestedState.index]?.params;
-
-          // Log current location
-          console.log(`Currently at: Tab=${currentTabName}, Screen=${currentScreenName}`);
-          console.log(`Want to go to: Tab=${tab}, Screen=${screen}`);
-
-          // Check if we're already on the target screen
-          // Optimized: Use shallow comparison instead of heavy JSON.stringify to prevent frame drops
-          const areParamsEqual = (p1, p2) => {
-            if (p1 === p2) return true;
-            if (!p1 || !p2) return false;
-            const keys1 = Object.keys(p1);
-            const keys2 = Object.keys(p2);
-            if (keys1.length !== keys2.length) return false;
-            for (let key of keys1) {
-              if (p1[key] !== p2[key]) return false;
-            }
-            return true;
-          };
-
-          const alreadyOnTargetScreen = (
-            currentTabName === tab &&
-            currentScreenName === screen &&
-            areParamsEqual(currentParams, params)
-          );
-
-          if (alreadyOnTargetScreen) {
-            console.log('Already on the target screen, skipping navigation');
-            return;
-          }
-
-          // Special handling for CustomPlaylistView to ensure we have the right data
-          if (screen === 'CustomPlaylistView') {
-            console.log('Navigating to CustomPlaylistView with params', params);
-
-            // Function to proceed with navigation once we have the data
-            const navigateWithParams = (navigationParams) => {
-              // Force update the navigation
-              navigation.dispatch(
-                CommonActions.reset({
-                  index: 0,
-                  routes: [
-                    {
-                      name: 'MainRoute',
-                      state: {
-                        routes: [
-                          {
-                            name: tab,
-                            state: {
-                              routes: [{ name: screen, params: navigationParams }],
-                              index: 0
-                            }
-                          }
-                        ],
-                        index: 0
-                      }
-                    }
-                  ]
-                })
-              );
-            };
-
-            // If we already have params, use them
-            if (params && Object.keys(params).length > 0) {
-              navigateWithParams(params);
-            }
-            // Otherwise try to retrieve from storage
-            else {
-              AsyncStorage.getItem('last_viewed_custom_playlist')
-                .then(playlistData => {
-                  if (playlistData) {
-                    const parsedData = JSON.parse(playlistData);
-                    console.log('Using stored playlist data for navigation');
-                    navigateWithParams(parsedData);
-                  } else {
-                    console.log('No stored playlist data found, navigating without params');
-                    navigateWithParams({});
-                  }
-                })
-                .catch(error => {
-                  console.error('Error retrieving playlist data:', error);
-                  navigateWithParams({});
-                });
-            }
-          }
-          // Handle different screen types
-          else if (screen === 'Album') {
-            console.log(`Navigating to Album in ${tab} tab with params:`, params);
-            if (tab === 'Home') {
-              navigation.navigate('Home', {
-                screen: 'Album',
-                params: params
-              });
-            } else {
-              // Ensure we're in the right tab first
-              navigation.navigate(tab);
-              // Then navigate to Album
-              setTimeout(() => {
-                navigation.navigate('Album', params);
-              }, 50);
-            }
-          } else if (screen === 'Playlist') {
-            console.log(`Navigating to Playlist in ${tab} tab with params:`, params);
-            navigation.navigate(tab, {
-              screen: 'Playlist',
-              params: params
-            });
-          } else if (screen === 'ShowPlaylistofType') {
-            console.log(`Navigating to ShowPlaylistofType in ${tab} tab with params:`, params);
-            navigation.navigate(tab, {
-              screen: 'ShowPlaylistofType',
-              params: params
-            });
-          } else if (screen === 'LanguageDetailPage') {
-            console.log(`Navigating to LanguageDetailPage in ${tab} tab with params:`, params);
-            navigation.navigate(tab, {
-              screen: 'LanguageDetailPage',
-              params: params
-            });
-          } else if (tab && screen) {
-            // Generic navigation to any tab/screen
-            console.log(`Generic navigation to ${tab}/${screen} with params:`, params);
-            navigation.navigate(tab, {
-              screen: screen,
-              params: params
-            });
-          }
-        }, 150);
-      }
-      prevFullscreenState.current = false;
-    } else {
-      // In fullscreen
-      prevFullscreenState.current = true;
-    }
-  }, [Index, navigation, previousFullscreenScreen]);
+  }, [Index]);
 
   // Track screen changes continuously to better remember which screen the user was on
   // This helps with navigation after closing the fullscreen player
@@ -455,31 +266,10 @@ export const RootRoute = () => {
     };
   }, [navigation, setPreviousScreen, setMusicPreviousScreen]);
 
-  // Track tab changes to clear navigation history
-  useEffect(() => {
-    const asyncFunction = async () => {
-      if (previousTabName.current !== null && previousTabName.current !== Tabs[Index]) {
-        try {
-          console.log(`Tab changed from ${previousTabName.current} to ${Tabs[Index]}, clearing stored screen data`);
-
-          // Clear all stored navigation data to prevent incorrect behavior
-          await Promise.all([
-            AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
-            AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY),
-            AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY),
-            AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY)
-          ]);
-
-          console.log('Successfully cleared all stored navigation data');
-        } catch (error) {
-          console.error('Error clearing stored screen data:', error);
-        }
-      }
-      previousTabName.current = Tabs[Index];
-    };
-
-    asyncFunction();
-  }, [Index]);
+  // Track ACTUAL tab changes - ONLY via explicit tab press (user tapping tab bar)
+  // This prevents clearing navigation data during programmatic navigation like fullscreen restore
+  // The tabPress event listener in the Tab.Navigator handles this
+  // We just need to track the previous tab for the back button logic
 
   // Effect to handle direct navigation to Library tab
   useEffect(() => {
@@ -520,81 +310,135 @@ export const RootRoute = () => {
 
   return (
     <View style={{ flex: 1 }}>
-      {Index === 1 ? (
-        <FullScreenMusic setIndex={setIndex} Index={Index} />
-      ) : (
-        <>
-          <Tab.Navigator
-            initialRouteName="Home"
-            tabBar={(props) => (
-              <>
-                <BottomSheetMusic />
-                <CustomTabBar {...props} />
-              </>
-            )}
-            screenOptions={{
-              tabBarShowLabel: false,
-              tabBarLabelStyle: {
-                fontWeight: "bold",
-              },
-              tabBarInactiveTintColor: theme.colors.textSecondary,
-              tabBarActiveTintColor: theme.colors.primary,
-              headerShown: false,
-              tabBarStyle: {
-                backgroundColor: theme.colors.background,
-                borderColor: "rgba(28,27,27,0)"
-              }
-            }}>
-            <Tab.Screen
-              options={{
-                tabBarIcon: ({ color, size }) => (
-                  <Octicons name="home" color={color} size={size - 4} />
-                ),
-              }}
-              name="Home"
-              component={HomeRoute}
-            />
-            <Tab.Screen
-              options={{
-                tabBarIcon: ({ color, size }) => (
-                  <Entypo name="compass" color={color} size={size - 4} />
-                ),
-              }}
-              name="Discover"
-              component={DiscoverRoute}
-              listeners={{
-                tabPress: () => {
-                  // Handle Discover tab reset without event parameters
-                  // Get current tab state from navigation
-                  const state = navigation.getState();
-                  const currentTabIndex = state.index;
+      {/* Tab.Navigator is ALWAYS mounted and visible - critical for preserving screen state and layout */}
+      {/* Fullscreen player overlays on top of this when active */}
+      <View style={{ flex: 1 }}>
+        <Tab.Navigator
+          initialRouteName="Home"
+          tabBar={(props) => (
+            <>
+              <BottomSheetMusic />
+              <CustomTabBar {...props} />
+            </>
+          )}
+          screenOptions={{
+            tabBarShowLabel: false,
+            tabBarLabelStyle: {
+              fontWeight: "bold",
+            },
+            tabBarInactiveTintColor: theme.colors.textSecondary,
+            tabBarActiveTintColor: theme.colors.primary,
+            headerShown: false,
+            tabBarStyle: {
+              backgroundColor: theme.colors.background,
+              borderColor: "rgba(28,27,27,0)"
+            }
+          }}>
+          <Tab.Screen
+            options={{
+              tabBarIcon: ({ color, size }) => (
+                <Octicons name="home" color={color} size={size - 4} />
+              ),
+            }}
+            name="Home"
+            component={HomeRoute}
+            listeners={{
+              tabPress: () => {
+                // Only clear navigation data when user explicitly taps Home tab from another tab
+                const state = navigation.getState();
+                const mainRoute = state?.routes?.find(r => r.name === 'MainRoute');
+                const currentTabIndex = mainRoute?.state?.index ?? 0;
+                const currentTab = mainRoute?.state?.routes?.[currentTabIndex];
 
-                  // Only reset if coming from a different tab (not within Discover)
-                  if (currentTabIndex !== 1) { // 1 is the index of Discover tab
-                    console.log("Switching to Discover tab - resetting to DiscoverPage");
-
-                    // Navigate to DiscoverPage
-                    setTimeout(() => {
-                      navigation.navigate('Discover', {
-                        screen: 'DiscoverPage'
-                      });
-                    }, 50);
-                  }
+                // If coming from a different tab (not already on Home), clear navigation data
+                if (currentTab?.name && currentTab.name !== 'Home') {
+                  console.log(`Explicit tab switch from ${currentTab.name} to Home, clearing stored screen data`);
+                  Promise.all([
+                    AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
+                    AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY),
+                    AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY),
+                    AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY)
+                  ]).catch(error => {
+                    console.error('Error clearing stored screen data:', error);
+                  });
                 }
-              }}
-            />
-            <Tab.Screen
-              options={{
-                tabBarIcon: ({ color, size }) => (
-                  <MaterialCommunityIcons name="music-box-multiple-outline" color={color} size={size - 4} />
-                ),
-              }}
-              name="Library"
-              component={LibraryRoute}
-            />
-          </Tab.Navigator>
-        </>
-      )}
+              }
+            }}
+          />
+          <Tab.Screen
+            options={{
+              tabBarIcon: ({ color, size }) => (
+                <Entypo name="compass" color={color} size={size - 4} />
+              ),
+            }}
+            name="Discover"
+            component={DiscoverRoute}
+            listeners={{
+              tabPress: () => {
+                // Clear navigation data when switching to Discover from another tab
+                const state = navigation.getState();
+                const mainRoute = state?.routes?.find(r => r.name === 'MainRoute');
+                const currentTabIndex = mainRoute?.state?.index ?? 0;
+                const currentTab = mainRoute?.state?.routes?.[currentTabIndex];
+
+                // Only reset if coming from a different tab (not within Discover)
+                if (currentTab?.name && currentTab.name !== 'Discover') {
+                  console.log(`Explicit tab switch from ${currentTab.name} to Discover, clearing stored screen data`);
+                  Promise.all([
+                    AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
+                    AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY),
+                    AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY),
+                    AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY)
+                  ]).catch(error => {
+                    console.error('Error clearing stored screen data:', error);
+                  });
+
+                  // Navigate to DiscoverPage
+                  setTimeout(() => {
+                    navigation.navigate('Discover', {
+                      screen: 'DiscoverPage'
+                    });
+                  }, 50);
+                }
+              }
+            }}
+          />
+          <Tab.Screen
+            options={{
+              tabBarIcon: ({ color, size }) => (
+                <MaterialCommunityIcons name="music-box-multiple-outline" color={color} size={size - 4} />
+              ),
+            }}
+            name="Library"
+            component={LibraryRoute}
+            listeners={{
+              tabPress: () => {
+                // Clear navigation data when switching to Library from another tab
+                const state = navigation.getState();
+                const mainRoute = state?.routes?.find(r => r.name === 'MainRoute');
+                const currentTabIndex = mainRoute?.state?.index ?? 0;
+                const currentTab = mainRoute?.state?.routes?.[currentTabIndex];
+
+                if (currentTab?.name && currentTab.name !== 'Library') {
+                  console.log(`Explicit tab switch from ${currentTab.name} to Library, clearing stored screen data`);
+                  Promise.all([
+                    AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
+                    AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY),
+                    AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY),
+                    AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY)
+                  ]).catch(error => {
+                    console.error('Error clearing stored screen data:', error);
+                  });
+                }
+              }
+            }}
+          />
+        </Tab.Navigator>
+      </View>
+
+      {/* NOTE: FullScreenMusic is NOT rendered here - it's handled by BottomSheetMusic */}
+      {/* BottomSheetMusic uses @gorhom/bottom-sheet with snap points [155, '100%'] */}
+      {/* When Index === 1, BottomSheetMusic expands to fullscreen automatically */}
 
       {/* Global PlaylistSelector for FullScreenMusic */}
       <PlaylistSelectorBottomSheetWrapper />

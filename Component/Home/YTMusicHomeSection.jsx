@@ -225,20 +225,35 @@ export const YTMusicHomeSection = () => {
     console.log('🚀 YTMusicHomeSection - Component mounted at', new Date().toISOString());
 
     const initializeYTMusic = async () => {
-      // Step 1: Reset all caches
-      await resetAllCaches();
+      // Step 1: Check for cached data FIRST (don't reset on every mount!)
+      try {
+        const cachedData = await AsyncStorage.getItem('ytmusic_home_section');
+        if (cachedData) {
+          const parsedData = JSON.parse(cachedData);
+          if (parsedData && Array.isArray(parsedData) && parsedData.length > 0) {
+            console.log('📦 YTMusic - Using cached data, skipping refetch');
+            setYtMusicItems(parsedData);
+            setHasData(true);
+            setLoading(false);
+            return; // EXIT - Use cached data
+          }
+        }
+      } catch (cacheError) {
+        console.log('⚠️ YTMusic cache read error:', cacheError.message);
+      }
 
-      // Step 2: Initialize Innertube
+      // Step 2: No valid cache - initialize and fetch fresh
       console.log('🔧 Initializing Music Client...');
       const bridgeReady = await initializeInnertube();
 
       if (bridgeReady) {
         console.log('✅ Music Client ready, proceeding with data fetch...');
-        // Step 3: Fetch fresh data with higher limit to get more sections
+        // Fetch fresh data with higher limit to get more sections
         await fetchYTMusicHomeData(true);
       } else {
         console.error('❌ YouTube Music Service initialization failed, cannot fetch YTMusic data');
         console.log('💡 Check Python dependencies and bridge setup');
+        setLoading(false);
       }
     };
 

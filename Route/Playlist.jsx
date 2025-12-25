@@ -515,32 +515,8 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
     return true;
   };
 
-  // If no ID is provided, show an error message
-  if (!id) {
-
-    return (
-      <MainWrapper>
-        <View style={styles.errorContainer}>
-          <PlainText text={"Playlist not available"} />
-          <SmallText text={"No playlist ID found"} />
-          <Spacer height={20} />
-          <Pressable
-            onPress={() => {
-              if (navigation.canGoBack()) {
-                navigation.goBack();
-              } else {
-                navigation.navigate('MainRoute', { screen: 'Home' });
-              }
-            }}
-            style={styles.goBackButton}
-            android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
-          >
-            <PlainText text="Go Back" />
-          </Pressable>
-        </View>
-      </MainWrapper>
-    );
-  }
+  // IMPORTANT: All hooks must be called unconditionally before any early returns
+  // This is a React rule - hooks must be called in the same order on every render
 
   // Render item for FlatList to improve performance
   const renderSongItem = useCallback(({ item: e, index: i }) => {
@@ -612,6 +588,33 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
 
   // key extractor
   const keyExtractor = useCallback((item, index) => `song-${item?.id || index}-${index}`, []);
+
+  // If no ID is provided, show an error message
+  // NOTE: This early return is placed AFTER all hooks to comply with React rules
+  if (!id) {
+    return (
+      <MainWrapper>
+        <View style={styles.errorContainer}>
+          <PlainText text={"Playlist not available"} />
+          <SmallText text={"No playlist ID found"} />
+          <Spacer height={20} />
+          <Pressable
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('MainRoute', { screen: 'Home' });
+              }
+            }}
+            style={styles.goBackButton}
+            android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
+          >
+            <PlainText text="Go Back" />
+          </Pressable>
+        </View>
+      </MainWrapper>
+    );
+  }
 
   return (
     <MainWrapper>

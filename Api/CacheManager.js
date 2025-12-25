@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import { apiCache } from '../Utils/LRUCache';
 
 /**
  * CacheManager - A utility for managing API response caching
@@ -97,6 +98,64 @@ const cleanMemoryCache = (cache, maxItems) => {
   const toRemove = entries.slice(0, entries.length - maxItems);
   for (const [key] of toRemove) {
     cache.delete(key);
+  }
+};
+
+/**
+ * LRU eviction for playlist and album caches
+ * Removes oldest 20% of playlist/album cache entries based on timestamp
+ */
+const _evictOldPlaylistAlbumCaches = async () => {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+
+    // Get playlist and album cache keys
+    const cacheKeys = keys.filter(key =>
+      key.startsWith('playlist_') || key.startsWith('album_')
+    );
+
+    if (cacheKeys.length <= 5) return; // Keep at least 5 items
+
+    // Load items with timestamps
+    const items = [];
+    for (const key of cacheKeys) {
+      try {
+        const stored = await AsyncStorage.getItem(key);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          items.push({
+            key,
+            timestamp: parsed.timestamp || 0,
+          });
+        }
+      } catch (e) {
+        // Corrupted item, mark for removal
+        items.push({ key, timestamp: 0 });
+      }
+    }
+
+    // Sort by timestamp ascending (oldest first)
+    items.sort((a, b) => a.timestamp - b.timestamp);
+
+    // Remove oldest 20%
+    const removeCount = Math.ceil(items.length * 0.2);
+    const toRemove = items.slice(0, removeCount).map(item => item.key);
+
+    if (toRemove.length > 0) {
+      await AsyncStorage.multiRemove(toRemove);
+      console.log(`🧹 Playlist/Album LRU: Removed ${toRemove.length} oldest entries`);
+
+      // Also clear from memory caches
+      for (const key of toRemove) {
+        if (key.startsWith('playlist_')) {
+          playlistMemoryCache.delete(key);
+        } else if (key.startsWith('album_')) {
+          albumMemoryCache.delete(key);
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Playlist/Album LRU eviction failed:', error.message);
   }
 };
 
@@ -266,27 +325,34 @@ const saveToCache = async (key, data, expiration = DEFAULT_CACHE_EXPIRATION, gro
       }
     } catch (storageError) {
       // Check if it's a disk full error
-      if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
-        console.warn(`⚠️ DISK FULL: AsyncStorage save failed for ${key}. Triggering emergency cache clear.`);
+      const errorMsg = storageError.message?.toLowerCase() || '';
+      const isDiskFull = errorMsg.includes('code 13') ||
+        errorMsg.includes('full') ||
+        errorMsg.includes('sqlite_full');
 
-        // Attempt an emergency clear of API cache groups to free up space
+      if (isDiskFull) {
+        console.log(`⚠️ Disk full detected for ${key}. Performing LRU eviction...`);
+
+        // Smart LRU eviction - remove only oldest entries, not everything
         try {
-          // clearCache() without group removes all api_cache_ items
-          await clearCache();
-          console.log('✅ Emergency cache clear completed.');
+          const evicted = await apiCache.evictOldest();
+          console.log(`🧹 LRU eviction: Removed ${evicted} oldest entries`);
 
-          // Retry the save once after clearing
+          // Also clean up old playlist/album caches
+          await _evictOldPlaylistAlbumCaches();
+
+          // Retry the save once after eviction
           try {
-            const dataString = JSON.stringify(cacheItem);
-            if (dataString.length < 200000) {
-              await AsyncStorage.setItem(key, dataString);
-              console.log(`✅ Successfully saved ${key} after emergency clear.`);
+            const retryDataString = JSON.stringify(cacheItem);
+            if (retryDataString.length < 300000) {
+              await AsyncStorage.setItem(key, retryDataString);
+              console.log(`✅ Successfully saved ${key} after LRU eviction`);
             }
           } catch (retryError) {
-            console.warn(`Fallback: Even after clear, save for ${key} failed. Keeping in memory only.`);
+            console.log(`[CacheManager] Keeping ${key} in memory only after eviction`);
           }
-        } catch (clearError) {
-          console.error('Failed to perform emergency cache clear:', clearError);
+        } catch (evictError) {
+          console.warn('LRU eviction failed:', evictError.message);
         }
       } else {
         console.warn(`AsyncStorage save failed for ${key}:`, storageError.message);
