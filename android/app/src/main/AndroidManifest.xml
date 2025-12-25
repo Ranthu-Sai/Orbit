@@ -34,6 +34,15 @@
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="com.orbit" />
         </intent-filter>
+        <!-- Intent filter for audio files - allows Orbit to be a default music player -->
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="file" />
+            <data android:scheme="content" />
+            <data android:mimeType="audio/*" />
+        </intent-filter>
       </activity>
     </application>
 </manifest>

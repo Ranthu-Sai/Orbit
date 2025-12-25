@@ -371,48 +371,66 @@ async function getLyricsFromLrcLib(artist, title) {
   return getCachedData(cacheKey, fetchFunction, 1440, CACHE_GROUPS.LYRICS);
 }
 
+// Helper to parse TTML time format
+function parseTTMLTime(timeStr) {
+  if (!timeStr) return 0;
+  if (timeStr.includes(':')) {
+    const timeParts = timeStr.split(':');
+    if (timeParts.length === 2) {
+      return (parseInt(timeParts[0]) * 60 * 1000) + (parseFloat(timeParts[1]) * 1000);
+    } else if (timeParts.length === 3) {
+      return (parseInt(timeParts[0]) * 3600 * 1000) + (parseInt(timeParts[1]) * 60 * 1000) + (parseFloat(timeParts[2]) * 1000);
+    }
+  }
+  return parseFloat(timeStr) * 1000;
+}
 
-// TTML Parser Helper
+// TTML Parser Helper - Extracts line and word-level timings
 function parseTTML(ttml) {
   try {
     const lyrics = [];
-    const lines = ttml.match(/<p\s+begin="([^"]+)"[^>]*>(.*?)<\/p>/g);
+    // Enhanced regex to handle potentially multi-line p tags and attributes
+    const lines = ttml.match(/<p\s+[^>]*begin="([^"]+)"[^>]*>(.*?)<\/p>/gs);
 
     if (!lines) return [];
 
-    lines.forEach(line => {
-      const match = line.match(/<p\s+begin="([^"]+)"[^>]*>(.*?)<\/p>/);
+    lines.forEach(lineContent => {
+      const match = lineContent.match(/<p\s+[^>]*begin="([^"]+)"[^>]*>(.*?)<\/p>/s);
       if (match) {
         const timeStr = match[1];
-        const textContent = match[2];
+        const innerContent = match[2];
 
-        // Parse time (MM:SS.mmm or HH:MM:SS.mmm)
-        let time = 0;
-        const timeParts = timeStr.split(':');
-        if (timeParts.length === 2) {
-          time = (parseInt(timeParts[0]) * 60 * 1000) + (parseFloat(timeParts[1]) * 1000);
-        } else if (timeParts.length === 3) {
-          time = (parseInt(timeParts[0]) * 3600 * 1000) + (parseInt(timeParts[1]) * 60 * 1000) + (parseFloat(timeParts[2]) * 1000);
+        const lineTime = parseTTMLTime(timeStr);
+
+        // Extract words from spans if available
+        const words = [];
+        const spanRegex = /<span\s+[^>]*begin="([^"]+)"\s+end="([^"]+)"[^>]*>(.*?)<\/span>/gs;
+        let spanMatch;
+        while ((spanMatch = spanRegex.exec(innerContent)) !== null) {
+          words.push({
+            startTime: parseTTMLTime(spanMatch[1]),
+            endTime: parseTTMLTime(spanMatch[2]),
+            text: spanMatch[3].replace(/<[^>]+>/g, '').trim()
+          });
         }
 
-        // Clean up text (remove span tags if any)
-        const text = textContent.replace(/<span[^>]*>/g, '').replace(/<\/span>/g, '').trim();
+        // Clean up text for the full line
+        const text = innerContent.replace(/<[^>]+>/g, '').trim();
 
         if (text) {
-          // Format to LRC timestamp [MM:SS.xx]
-          const mm = Math.floor(time / 60000).toString().padStart(2, '0');
-          const ss = Math.floor((time % 60000) / 1000).toString().padStart(2, '0');
-          const xx = Math.floor((time % 1000) / 10).toString().padStart(2, '0');
-
-          lyrics.push(`[${mm}:${ss}.${xx}]${text}`);
+          lyrics.push({
+            time: lineTime,
+            text: text,
+            words: words.length > 0 ? words : null
+          });
         }
       }
     });
 
-    return lyrics.join('\n');
+    return lyrics;
   } catch (error) {
     console.error('Error parsing TTML:', error);
-    return '';
+    return [];
   }
 }
 
@@ -433,20 +451,19 @@ async function getLyricsFromBetterLyrics(artist, title, duration) {
 
   const fetchFunction = async () => {
     try {
-      const url = `https://lyrics-api-go-better-lyrics-api-pr-12.up.railway.app/getLyrics?s=${encodeURIComponent(cleanTitle)}&a=${encodeURIComponent(cleanArtist)}${duration ? `&d=${Math.floor(duration * 1000)}` : ''}`;
-      console.log('Fetching BetterLyrics from:', url);
+      const url = `https://lyrics-api-go-better-lyrics-api-pr-12.up.railway.app/getLyrics?s=${encodeURIComponent(cleanTitle)}&a=${encodeURIComponent(cleanArtist)}${duration ? `&d=${Math.floor(duration)}` : ''}`;
 
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         if (data && data.ttml) {
           const syncedLyrics = parseTTML(data.ttml);
-          if (syncedLyrics) {
+          if (syncedLyrics && syncedLyrics.length > 0) {
             return {
               success: true,
               data: {
                 syncedLyrics: syncedLyrics,
-                plainLyrics: syncedLyrics.replace(/\[\d{2}:\d{2}\.\d{2,3}\]/g, '')
+                plainLyrics: syncedLyrics.map(l => l.text).join('\n')
               }
             };
           }

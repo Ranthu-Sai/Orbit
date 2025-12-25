@@ -121,6 +121,61 @@ class NativeMetadataReader {
     }
 
     /**
+     * Read metadata from a content:// URI
+     * This handles files opened from file managers
+     * @param {string} contentUri - content:// URI from file intent
+     * @returns {Promise<Object|null>} Metadata object with filePath for playback
+     */
+    static async readMetadataFromUri(contentUri) {
+        try {
+            await this.initialize();
+
+            if (!MetadataReaderModule || !MetadataReaderModule.readMetadataFromUri) {
+                console.warn('MetadataReaderModule.readMetadataFromUri not available');
+                return null;
+            }
+
+            console.log('📱 Reading metadata from content URI:', contentUri);
+            const metadata = await MetadataReaderModule.readMetadataFromUri(contentUri);
+
+            // Convert artwork base64 to data URI if present
+            if (metadata.artworkBase64) {
+                const mimeType = metadata.artworkMimeType || 'image/jpeg';
+                metadata.artworkDataUri = `data:${mimeType};base64,${metadata.artworkBase64}`;
+                delete metadata.artworkBase64;
+            }
+
+            console.log('✅ Metadata read from URI:', metadata.title);
+            return metadata;
+        } catch (error) {
+            console.error(`Failed to read metadata from URI ${contentUri}:`, error.message);
+            return null;
+        }
+    }
+
+    /**
+     * Resolve a content:// URI to a playable file path
+     * @param {string} contentUri - content:// URI from file intent
+     * @returns {Promise<Object|null>} { filePath, fileName, isTempFile }
+     */
+    static async resolveContentUri(contentUri) {
+        try {
+            await this.initialize();
+
+            if (!MetadataReaderModule || !MetadataReaderModule.resolveContentUri) {
+                console.warn('MetadataReaderModule.resolveContentUri not available');
+                return null;
+            }
+
+            console.log('🔍 Resolving content URI:', contentUri);
+            return await MetadataReaderModule.resolveContentUri(contentUri);
+        } catch (error) {
+            console.error(`Failed to resolve content URI ${contentUri}:`, error.message);
+            return null;
+        }
+    }
+
+    /**
      * Check if a file format is supported
      * @param {string} filePath - File path
      * @returns {boolean} True if format is supported

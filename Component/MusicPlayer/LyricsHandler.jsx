@@ -97,7 +97,11 @@ export const LyricsHandler = ({
       const { syncedLyrics, plainLyrics } = lyricsData.data || {};
 
       if (syncedLyrics) {
-        setLyricData(parseLRC(syncedLyrics));
+        if (typeof syncedLyrics === 'string') {
+          setLyricData(parseLRC(syncedLyrics));
+        } else if (Array.isArray(syncedLyrics)) {
+          setLyricData(syncedLyrics);
+        }
       } else if (plainLyrics) {
         // Handle plain lyrics by creating a single item or just splitting by newline without time
         // For now, LyricsPage expects distinct lines with time. 

@@ -1,12 +1,12 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Dimensions, FlatList, Modal, StatusBar, ImageBackground } from 'react-native';
+import { View, StyleSheet, Dimensions, FlatList, Modal, StatusBar, ImageBackground, ScrollView } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
     withTiming,
-
 } from 'react-native-reanimated';
+import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +15,7 @@ import LyricsLine from './LyricsLine';
 import { GetLyricsAnimationStyle, GetLyricsFontSize, SetLyricsFontSize, GetLyricsTheme, SetLyricsTheme, GetLyricsProvider, SetLyricsProvider, GetLyricsTextColor, SetLyricsTextColor } from '../../LocalStorage/AppSettings';
 import TrackPlayer, { State, useProgress } from 'react-native-track-player';
 import { Portal, Modal as PaperModal, Button, List, Divider } from 'react-native-paper';
+import { Minus } from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -36,10 +37,45 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading, reFetchL
     const [textColorMode, setTextColorMode] = useState('Auto');
     const [isMenuVisible, setIsMenuVisible] = useState(false);
     const scrollTimeoutRef = useRef(null);
+    const settingsSheetRef = useRef(null);
 
     // Animated value for background transitions
     const backgroundOpacity = useSharedValue(0);
     const [currentArtwork, setCurrentArtwork] = useState(null);
+
+    // Bottom sheet snap points
+    const snapPoints = useMemo(() => ['70%'], []);
+
+    // Handle bottom sheet changes
+    const handleSheetChanges = useCallback((index) => {
+        if (index === -1) {
+            setIsMenuVisible(false);
+        }
+    }, []);
+
+    // Open settings sheet
+    const openSettingsSheet = useCallback(() => {
+        setIsMenuVisible(true);
+        settingsSheetRef.current?.snapToIndex(0);
+    }, []);
+
+    // Close settings sheet
+    const closeSettingsSheet = useCallback(() => {
+        settingsSheetRef.current?.close();
+    }, []);
+
+    // Render backdrop for bottom sheet
+    const renderBackdrop = useCallback(
+        (props) => (
+            <BottomSheetBackdrop
+                {...props}
+                disappearsOnIndex={-1}
+                appearsOnIndex={0}
+                opacity={0.5}
+            />
+        ),
+        []
+    );
 
     // Determine if we're in dark mode
     const isDarkMode = themeMode === 'dark' || (themeMode === 'system' && dark);
@@ -91,6 +127,13 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading, reFetchL
             backgroundOpacity.value = withTiming(1, { duration: 500 });
         }
     }, [visible]);
+
+    // Auto refetch lyrics when song changes while modal is open
+    useEffect(() => {
+        if (visible && currentSong?.id && reFetchLyrics) {
+            reFetchLyrics();
+        }
+    }, [currentSong?.id]);
 
     // Find active line with improved accuracy
     useEffect(() => {
@@ -209,9 +252,11 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading, reFetchL
                 inactiveColor={inactiveTextColor}
                 isDarkMode={isDarkMode}
                 fontSize={fontSize}
+                words={item.words}
+                currentTime={position * 1000}
             />
         );
-    }, [activeLineIndex, animationStyle, activeTextColor, inactiveTextColor, isDarkMode, fontSize]);
+    }, [activeLineIndex, animationStyle, activeTextColor, inactiveTextColor, isDarkMode, fontSize, position]);
 
 
 
@@ -280,7 +325,7 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading, reFetchL
                             {currentSong?.title || ""}
                         </Text>
                     </View>
-                    <IconButton icon="dots-horizontal" onPress={() => setIsMenuVisible(true)} iconColor={iconColor} />
+                    <IconButton icon="dots-horizontal" onPress={openSettingsSheet} iconColor={iconColor} />
                 </View>
 
                 {/* Lyrics Content */}
@@ -370,118 +415,144 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading, reFetchL
                 </View>
             </View>
 
-            {/* Settings Menu Modal - Using RN Modal to ensure visibility over the lyrics modal */}
-            <Modal
-                visible={isMenuVisible}
-                animationType="fade"
-                transparent={true}
-                onRequestClose={() => setIsMenuVisible(false)}
+            {/* Settings Bottom Sheet - Smooth drag to close */}
+            <BottomSheet
+                ref={settingsSheetRef}
+                index={isMenuVisible ? 0 : -1}
+                snapPoints={snapPoints}
+                onChange={handleSheetChanges}
+                enablePanDownToClose={true}
+                backdropComponent={renderBackdrop}
+                backgroundStyle={styles.sheetBackground}
+                handleIndicatorStyle={styles.sheetHandleIndicator}
+                handleStyle={styles.sheetHandle}
+                handleComponent={() => (
+                    <View style={styles.sheetHandleContainer}>
+                        <View style={styles.sheetHandleBar}>
+                            <Minus size={24} color="#FFFFFF" />
+                        </View>
+                        <Text variant="titleLarge" style={styles.drawerTitle}>Lyrics Settings</Text>
+                    </View>
+                )}
             >
-                <View style={styles.menuOverlay}>
-                    {(() => {
-                        // Independent color for modal elements based on theme, not lyrics preference
-                        const modalIconColor = isDarkMode ? '#FFFFFF' : '#000000';
+                <BottomSheetScrollView
+                    style={styles.sheetScrollView}
+                    contentContainerStyle={styles.sheetScrollContent}
+                >
+                    <Divider style={styles.divider} />
 
-                        return (
-                            <View style={[styles.menuModal, { backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF' }]}>
-                                <Text variant="titleLarge" style={[styles.menuTitle, { color: modalIconColor }]}>Lyrics Settings</Text>
-
-                                <Divider style={styles.divider} />
-
-                                {/* Font Size Scaling */}
-                                <List.Item
-                                    title="Font Size"
-                                    titleStyle={{ color: modalIconColor }}
-                                    left={props => <List.Icon {...props} icon="format-size" color={modalIconColor} />}
-                                    right={() => (
-                                        <View style={styles.row}>
-                                            <IconButton icon="minus" size={20} onPress={() => handleFontSizeChange(-2)} iconColor={modalIconColor} />
-                                            <Text style={{ color: modalIconColor, marginHorizontal: 8, fontSize: 16 }}>{fontSize}</Text>
-                                            <IconButton icon="plus" size={20} onPress={() => handleFontSizeChange(2)} iconColor={modalIconColor} />
-                                        </View>
-                                    )}
-                                />
-
-                                <Divider style={styles.divider} />
-
-                                {/* Lyrics Source Selection */}
-                                <Text variant="labelLarge" style={[styles.sectionLabel, { color: modalIconColor }]}>Lyrics Source</Text>
-                                <View style={styles.chipRow}>
-                                    {['LrcLib', 'BetterLyrics', 'YTMusic'].map(p => (
-                                        <Button
-                                            key={p}
-                                            mode={activeProvider === p ? 'contained' : 'outlined'}
-                                            onPress={() => handleProviderChange(p)}
-                                            style={styles.chip}
-                                            labelStyle={{ fontSize: 12 }}
-                                        >
-                                            {p}
-                                        </Button>
-                                    ))}
-                                </View>
-
-                                <Divider style={styles.divider} />
-
-                                {/* Background Theme Selection */}
-                                <Text variant="labelLarge" style={[styles.sectionLabel, { color: modalIconColor }]}>Background Theme</Text>
-                                <View style={styles.chipRow}>
-                                    {['Blur', 'Glass', 'Solid'].map(t => (
-                                        <Button
-                                            key={t}
-                                            mode={lyricsTheme === t ? 'contained' : 'outlined'}
-                                            onPress={() => handleThemeChange(t)}
-                                            style={styles.chip}
-                                            labelStyle={{ fontSize: 12 }}
-                                        >
-                                            {t}
-                                        </Button>
-                                    ))}
-                                </View>
-
-                                <Divider style={styles.divider} />
-
-                                {/* Text Color Selection */}
-                                <Text variant="labelLarge" style={[styles.sectionLabel, { color: modalIconColor }]}>Text Color</Text>
-                                <View style={styles.chipRow}>
-                                    {['Auto', 'White', 'Black'].map(c => (
-                                        <Button
-                                            key={c}
-                                            mode={textColorMode === c ? 'contained' : 'outlined'}
-                                            onPress={() => handleTextColorModeChange(c)}
-                                            style={styles.chip}
-                                            labelStyle={{ fontSize: 12 }}
-                                        >
-                                            {c}
-                                        </Button>
-                                    ))}
-                                </View>
-
-                                <Divider style={styles.divider} />
-
-                                {/* Animation Style Selection */}
-                                <Text variant="labelLarge" style={[styles.sectionLabel, { color: modalIconColor }]}>Animation Style</Text>
-                                <View style={styles.chipRow}>
-                                    {['Smooth', 'Fade', 'Scale', 'Slide'].map(a => (
-                                        <Button
-                                            key={a}
-                                            mode={animationStyle === a ? 'contained' : 'outlined'}
-                                            onPress={() => handleAnimationStyleChange(a)}
-                                            style={styles.chip}
-                                            labelStyle={{ fontSize: 12 }}
-                                        >
-                                            {a}
-                                        </Button>
-                                    ))}
-                                </View>
-
-                                <Button mode="contained" onPress={() => setIsMenuVisible(false)} style={styles.closeMenuButton}>
-                                    Done
-                                </Button>
+                    {/* Font Size Scaling */}
+                    <List.Item
+                        title="Font Size"
+                        titleStyle={{ color: '#FFFFFF' }}
+                        left={props => <List.Icon {...props} icon="format-size" color="#FFFFFF" />}
+                        right={() => (
+                            <View style={styles.row}>
+                                <IconButton icon="minus" size={20} onPress={() => handleFontSizeChange(-2)} iconColor="#FFFFFF" />
+                                <Text style={{ color: '#FFFFFF', marginHorizontal: 8, fontSize: 16 }}>{fontSize}</Text>
+                                <IconButton icon="plus" size={20} onPress={() => handleFontSizeChange(2)} iconColor="#FFFFFF" />
                             </View>
-                        );
-                    })()}
-                </View>
-            </Modal>
+                        )}
+                    />
+
+                    <Divider style={styles.divider} />
+
+                    {/* Refresh Lyrics Button */}
+                    <List.Item
+                        title="Refresh Lyrics"
+                        titleStyle={{ color: '#FFFFFF' }}
+                        description="Re-fetch lyrics for current song"
+                        descriptionStyle={{ color: 'rgba(255,255,255,0.6)' }}
+                        left={props => <List.Icon {...props} icon="refresh" color="#FFFFFF" />}
+                        onPress={() => {
+                            closeSettingsSheet();
+                            if (reFetchLyrics) reFetchLyrics();
+                        }}
+                        style={styles.refreshButton}
+                    />
+
+                    <Divider style={styles.divider} />
+
+                    {/* Lyrics Source Selection */}
+                    <Text variant="labelLarge" style={styles.sectionLabel}>Lyrics Source</Text>
+                    <View style={styles.chipRow}>
+                        {['LrcLib', 'BetterLyrics', 'YTMusic'].map(p => (
+                            <Button
+                                key={p}
+                                mode={activeProvider === p ? 'contained' : 'outlined'}
+                                onPress={() => handleProviderChange(p)}
+                                style={styles.chip}
+                                labelStyle={{ fontSize: 12, color: activeProvider === p ? undefined : '#FFFFFF' }}
+                            >
+                                {p}
+                            </Button>
+                        ))}
+                    </View>
+
+                    <Divider style={styles.divider} />
+
+                    {/* Background Theme Selection */}
+                    <Text variant="labelLarge" style={styles.sectionLabel}>Background Theme</Text>
+                    <View style={styles.chipRow}>
+                        {['Blur', 'Glass', 'Solid'].map(t => (
+                            <Button
+                                key={t}
+                                mode={lyricsTheme === t ? 'contained' : 'outlined'}
+                                onPress={() => handleThemeChange(t)}
+                                style={styles.chip}
+                                labelStyle={{ fontSize: 12, color: lyricsTheme === t ? undefined : '#FFFFFF' }}
+                            >
+                                {t}
+                            </Button>
+                        ))}
+                    </View>
+
+                    <Divider style={styles.divider} />
+
+                    {/* Text Color Selection */}
+                    <Text variant="labelLarge" style={styles.sectionLabel}>Text Color</Text>
+                    <View style={styles.chipRow}>
+                        {['Auto', 'White', 'Black'].map(c => (
+                            <Button
+                                key={c}
+                                mode={textColorMode === c ? 'contained' : 'outlined'}
+                                onPress={() => handleTextColorModeChange(c)}
+                                style={styles.chip}
+                                labelStyle={{ fontSize: 12, color: textColorMode === c ? undefined : '#FFFFFF' }}
+                            >
+                                {c}
+                            </Button>
+                        ))}
+                    </View>
+
+                    <Divider style={styles.divider} />
+
+                    {/* Animation Style Selection */}
+                    <Text variant="labelLarge" style={styles.sectionLabel}>Animation Style</Text>
+                    <View style={styles.chipRow}>
+                        {['Smooth', 'Fade', 'Scale', 'Slide'].map(a => (
+                            <Button
+                                key={a}
+                                mode={animationStyle === a ? 'contained' : 'outlined'}
+                                onPress={() => handleAnimationStyleChange(a)}
+                                style={styles.chip}
+                                labelStyle={{ fontSize: 12, color: animationStyle === a ? undefined : '#FFFFFF' }}
+                            >
+                                {a}
+                            </Button>
+                        ))}
+                    </View>
+
+                    <Button
+                        mode="contained"
+                        onPress={closeSettingsSheet}
+                        style={styles.closeMenuButton}
+                        labelStyle={{ color: '#FFFFFF' }}
+                    >
+                        Done
+                    </Button>
+                </BottomSheetScrollView>
+            </BottomSheet>
         </Modal>
     );
 };
@@ -539,22 +610,46 @@ const styles = StyleSheet.create({
     playButton: {
         borderRadius: 24,
     },
-    menuOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
+    // Bottom Sheet styles
+    sheetBackground: {
+        backgroundColor: '#1E1E1E',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+    },
+    sheetHandle: {
+        backgroundColor: '#1E1E1E',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+    },
+    sheetHandleIndicator: {
+        backgroundColor: 'rgba(255,255,255,0.3)',
+        width: 40,
+    },
+    sheetHandleContainer: {
         alignItems: 'center',
+        paddingTop: 8,
+        paddingBottom: 8,
+        backgroundColor: '#1E1E1E',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
     },
-    menuModal: {
-        width: width * 0.85,
-        padding: 24,
-        borderRadius: 24,
-        elevation: 10,
+    sheetHandleBar: {
+        marginBottom: 2,
+        transform: [{ scaleY: 2.5 }, { scaleX: 1.2 }],
     },
-    menuTitle: {
+    drawerTitle: {
         fontWeight: 'bold',
         marginBottom: 8,
         textAlign: 'center',
+        color: '#FFFFFF',
+    },
+    sheetScrollView: {
+        flex: 1,
+        backgroundColor: '#1E1E1E',
+    },
+    sheetScrollContent: {
+        paddingHorizontal: 24,
+        paddingBottom: 40,
     },
     row: {
         flexDirection: 'row',
@@ -570,6 +665,7 @@ const styles = StyleSheet.create({
         marginTop: 8,
         marginBottom: 12,
         opacity: 0.8,
+        color: '#FFFFFF',
     },
     chipRow: {
         flexDirection: 'row',
@@ -583,6 +679,11 @@ const styles = StyleSheet.create({
     closeMenuButton: {
         marginTop: 20,
         borderRadius: 12,
+    },
+    refreshButton: {
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 12,
+        marginVertical: 4,
     },
 });
 

@@ -2,11 +2,14 @@ package com.orbit
 
 import android.graphics.BitmapFactory
 import android.util.Base64
+import android.net.Uri
+import android.provider.OpenableColumns
 import com.facebook.react.bridge.*
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.tag.FieldKey
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import java.util.logging.Level
 import java.util.logging.Logger
 
@@ -202,6 +205,163 @@ class MetadataReaderModule(reactContext: ReactApplicationContext) :
             putString("year", "")
             putString("genre", "")
             putString("fileName", fileName)
+        }
+    }
+
+    /**
+     * Resolve a content:// URI to a real file path by copying to cache
+     * This is required because JAudioTagger needs a File, not a content URI
+     */
+    @ReactMethod
+    fun resolveContentUri(contentUri: String, promise: Promise) {
+        try {
+            val context = reactApplicationContext
+            val uri = Uri.parse(contentUri)
+            
+            android.util.Log.d(TAG, "🔍 Resolving content URI: $contentUri")
+            
+            // Get filename from content provider
+            var fileName = "audio_${System.currentTimeMillis()}"
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (nameIndex >= 0) {
+                        fileName = cursor.getString(nameIndex) ?: fileName
+                    }
+                }
+            }
+            
+            android.util.Log.d(TAG, "📄 File name from URI: $fileName")
+            
+            // Create temp file in cache directory
+            val cacheDir = File(context.cacheDir, "audio_intent")
+            if (!cacheDir.exists()) cacheDir.mkdirs()
+            
+            val tempFile = File(cacheDir, fileName)
+            
+            // Copy content to temp file
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                FileOutputStream(tempFile).use { outputStream ->
+                    inputStream.copyTo(outputStream)
+                }
+            }
+            
+            android.util.Log.d(TAG, "✅ Content URI resolved to: ${tempFile.absolutePath}")
+            
+            val result = Arguments.createMap()
+            result.putString("filePath", tempFile.absolutePath)
+            result.putString("fileName", fileName)
+            result.putBoolean("isTempFile", true)
+            
+            promise.resolve(result)
+            
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "❌ Failed to resolve content URI", e)
+            promise.reject("RESOLVE_ERROR", "Failed to resolve content URI: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Read metadata directly from a content URI
+     * Combines resolveContentUri + readMetadata for convenience
+     */
+    @ReactMethod
+    fun readMetadataFromUri(contentUri: String, promise: Promise) {
+        try {
+            val context = reactApplicationContext
+            val uri = Uri.parse(contentUri)
+            
+            android.util.Log.d(TAG, "🎵 Reading metadata from URI: $contentUri")
+            
+            // Get filename from content provider
+            var fileName = "audio_${System.currentTimeMillis()}"
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (nameIndex >= 0) {
+                        fileName = cursor.getString(nameIndex) ?: fileName
+                    }
+                }
+            }
+            
+            // Create temp file in cache directory
+            val cacheDir = File(context.cacheDir, "audio_intent")
+            if (!cacheDir.exists()) cacheDir.mkdirs()
+            
+            val tempFile = File(cacheDir, fileName)
+            
+            // Copy content to temp file
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                FileOutputStream(tempFile).use { outputStream ->
+                    inputStream.copyTo(outputStream)
+                }
+            }
+            
+            android.util.Log.d(TAG, "📄 Temp file created: ${tempFile.absolutePath}")
+            
+            // Read metadata from temp file
+            val audioFile = try {
+                AudioFileIO.read(tempFile)
+            } catch (e: Exception) {
+                android.util.Log.w(TAG, "Cannot read file: ${e.message}")
+                val fallback = createEmptyMetadata(fileName)
+                fallback.putString("filePath", tempFile.absolutePath)
+                fallback.putBoolean("isTempFile", true)
+                promise.resolve(fallback)
+                return
+            }
+
+            val tag = audioFile.tag
+            val metadata = Arguments.createMap()
+            
+            if (tag != null) {
+                metadata.putString("title", tag.getFirst(FieldKey.TITLE).ifEmpty { fileName.substringBeforeLast('.') })
+                metadata.putString("artist", tag.getFirst(FieldKey.ARTIST).ifEmpty { "Unknown Artist" })
+                metadata.putString("album", tag.getFirst(FieldKey.ALBUM).ifEmpty { "Unknown Album" })
+                metadata.putString("year", tag.getFirst(FieldKey.YEAR).ifEmpty { "" })
+                metadata.putString("genre", tag.getFirst(FieldKey.GENRE).ifEmpty { "" })
+                
+                // Extract artwork if available
+                try {
+                    val artwork = tag.firstArtwork
+                    if (artwork != null) {
+                        val imageData = artwork.binaryData
+                        if (imageData != null && imageData.isNotEmpty()) {
+                            val base64Image = Base64.encodeToString(imageData, Base64.NO_WRAP)
+                            metadata.putString("artworkBase64", base64Image)
+                            
+                            val mimeType = when {
+                                imageData.size >= 2 && imageData[0].toInt() == 0xFF && imageData[1].toInt() == 0xD8 -> "image/jpeg"
+                                imageData.size >= 4 && imageData[0].toInt() == 0x89 && imageData[1].toInt() == 0x50 -> "image/png"
+                                else -> artwork.mimeType ?: "image/jpeg"
+                            }
+                            metadata.putString("artworkMimeType", mimeType)
+                            
+                            android.util.Log.d(TAG, "✅ Extracted artwork (${imageData.size} bytes)")
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w(TAG, "Failed to extract artwork: ${e.message}")
+                }
+            } else {
+                metadata.putString("title", fileName.substringBeforeLast('.'))
+                metadata.putString("artist", "Unknown Artist")
+                metadata.putString("album", "Unknown Album")
+                metadata.putString("year", "")
+                metadata.putString("genre", "")
+            }
+            
+            metadata.putString("fileName", fileName)
+            metadata.putString("filePath", tempFile.absolutePath)
+            metadata.putBoolean("isTempFile", true)
+            
+            android.util.Log.d(TAG, "✅ Metadata read successfully: ${metadata.getString("title")}")
+            
+            promise.resolve(metadata)
+
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "❌ Error reading metadata from URI", e)
+            promise.reject("METADATA_URI_ERROR", "Failed to read metadata from URI: ${e.message}", e)
         }
     }
 }

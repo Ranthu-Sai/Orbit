@@ -2,7 +2,7 @@ import 'react-native-get-random-values'; // Must be imported before any crypto o
 import { NavigationContainer, CommonActions, NavigationContainerRef } from "@react-navigation/native";
 import { RootRoute } from "./Route/RootRoute.jsx";
 import { createStackNavigator } from "@react-navigation/stack";
-import { ToastAndroid, BackHandler } from "react-native";
+import { ToastAndroid, BackHandler, Linking } from "react-native";
 import ContextState from "./Context/ContextState";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet'
@@ -26,6 +26,8 @@ import { StorageManager } from './Utils/StorageManager';
 // Import theme types
 import { darkTheme } from './Theme/darkTheme';
 import { PaperProvider } from 'react-native-paper';
+import { PlayOneSong, setupPlayer } from './MusicPlayerFunctions';
+import NativeMetadataReader from './Utils/NativeMetadataReader';
 
 type ThemeContextType = {
   theme: typeof darkTheme;
@@ -110,6 +112,111 @@ function App() {
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
     return () => backHandler.remove();
+  }, []);
+
+  // Handle audio file intents - allows Orbit to be a default music player
+  useEffect(() => {
+    const handleAudioFileUrl = async (url: string | null) => {
+      if (!url) return;
+
+      // Check if the URL is for an audio file (file:// or content:// scheme)
+      const isContentUri = url.startsWith('content://');
+      const isFileUri = url.startsWith('file://');
+      const isAudioIntent = isContentUri || isFileUri;
+
+      if (isAudioIntent) {
+        console.log('📱 Audio file intent received:', url);
+
+        try {
+          // Ensure player is ready
+          await setupPlayer();
+
+          let song: any;
+
+          if (isContentUri) {
+            // For content:// URIs, use native module to resolve and read metadata
+            console.log('🔍 Resolving content:// URI...');
+            const metadata = await NativeMetadataReader.readMetadataFromUri(url);
+
+            if (metadata && metadata.filePath) {
+              song = {
+                id: `local-${Date.now()}`,
+                title: metadata.title || 'Unknown',
+                artist: metadata.artist || 'Unknown Artist',
+                album: metadata.album || '',
+                url: `file://${metadata.filePath}`,
+                path: metadata.filePath,
+                isLocalMusic: true,
+                artwork: metadata.artworkDataUri || '',
+                image: metadata.artworkDataUri || '',
+              };
+              console.log('✅ Content URI resolved:', song.title, 'by', song.artist);
+            } else {
+              // Fallback if native module fails
+              console.warn('⚠️ Failed to resolve content URI, using fallback');
+              const pathParts = url.split('/');
+              const fileName = decodeURIComponent(pathParts[pathParts.length - 1] || 'Unknown');
+              const titleWithoutExt = fileName.replace(/\.[^/.]+$/, '');
+
+              song = {
+                id: `local-${Date.now()}`,
+                title: titleWithoutExt,
+                artist: 'Local File',
+                url: url,
+                isLocalMusic: true,
+                artwork: '',
+              };
+            }
+          } else {
+            // For file:// URIs, extract filename and try to read metadata
+            const filePath = url.replace('file://', '');
+            const pathParts = url.split('/');
+            const fileName = decodeURIComponent(pathParts[pathParts.length - 1] || 'Unknown');
+            const titleWithoutExt = fileName.replace(/\.[^/.]+$/, '');
+
+            // Try to read metadata from local file
+            let metadata = null;
+            try {
+              metadata = await NativeMetadataReader.readMetadata(filePath);
+            } catch (e) {
+              console.log('Could not read metadata from file, using filename');
+            }
+
+            song = {
+              id: `local-${Date.now()}`,
+              title: metadata?.title || titleWithoutExt,
+              artist: metadata?.artist || 'Local File',
+              album: metadata?.album || '',
+              url: url,
+              path: filePath,
+              isLocalMusic: true,
+              artwork: metadata?.artworkDataUri || '',
+              image: metadata?.artworkDataUri || '',
+            };
+          }
+
+          console.log('🎵 Playing external audio file:', song.title);
+          ToastAndroid.show(`Playing: ${song.title}`, ToastAndroid.SHORT);
+
+          await PlayOneSong(song);
+        } catch (error) {
+          console.error('Error playing audio file from intent:', error);
+          ToastAndroid.show('Failed to play audio file', ToastAndroid.SHORT);
+        }
+      }
+    };
+
+    // Handle app opened from audio file (cold start)
+    Linking.getInitialURL().then(handleAudioFileUrl);
+
+    // Handle new intents while app is running (warm start, since MainActivity is singleTask)
+    const subscription = Linking.addEventListener('url', (event) => {
+      handleAudioFileUrl(event.url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   return <GestureHandlerRootView style={{ flex: 1 }}>
