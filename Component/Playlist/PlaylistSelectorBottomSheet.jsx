@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTheme } from '@react-navigation/native';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ToastAndroid, BackHandler, Dimensions, ScrollView } from 'react-native';
-import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ToastAndroid, BackHandler, Dimensions, ScrollView, Keyboard, Platform } from 'react-native';
+import BottomSheet, { BottomSheetView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { getUserPlaylists, addSongToPlaylist, createPlaylist } from '../../Utils/PlaylistManager';
 import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
@@ -13,29 +13,41 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DEFAULT_WAVE_IMAGE = require('../../Images/wav.png');
 
 export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
+  // All hooks must be called in the same order on every render
+  // 1. useTheme (useContext)
   const theme = useTheme();
+
+  // 2. All useRef hooks together
   const bottomSheetRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // 3. All useState hooks together
   const [playlists, setPlaylists] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewPlaylistModal, setShowNewPlaylistModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-  // Bottom sheet snap points
-  const snapPoints = useMemo(() => ['70%'], []);
+  // 4. useMemo hooks
+  const snapPoints = useMemo(() => {
+    if (showNewPlaylistModal && keyboardHeight > 0) {
+      return ['90%'];
+    }
+    return ['70%'];
+  }, [showNewPlaylistModal, keyboardHeight]);
 
-  // Handle bottom sheet changes
+  // 5. useCallback hooks
   const handleSheetChanges = useCallback((index) => {
     if (index === -1) {
       onClose();
     }
   }, [onClose]);
 
-  // Load playlists when visible
   const loadPlaylists = useCallback(async () => {
     try {
       setIsLoading(true);
       const userPlaylists = await getUserPlaylists();
-      setPlaylists(userPlaylists);
+      setPlaylists([...userPlaylists].reverse());
     } catch (error) {
       console.error('Error loading playlists:', error);
       ToastAndroid.show('Failed to load playlists', ToastAndroid.SHORT);
@@ -44,37 +56,6 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
     }
   }, []);
 
-  useEffect(() => {
-    console.log('📱 PlaylistSelectorBottomSheet visibility changed:', visible);
-    if (visible) {
-      console.log('📱 Loading playlists and expanding bottom sheet...');
-      loadPlaylists();
-      // Use setTimeout to ensure the component is rendered before expanding
-      setTimeout(() => {
-        console.log('📱 Attempting to expand bottom sheet...');
-        bottomSheetRef.current?.expand();
-      }, 100);
-    } else {
-      console.log('📱 Closing bottom sheet...');
-      bottomSheetRef.current?.close();
-    }
-  }, [visible, loadPlaylists]);
-
-  // Handle back button
-  useEffect(() => {
-    const handleBackPress = () => {
-      if (visible) {
-        onClose();
-        return true;
-      }
-      return false;
-    };
-
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
-    return () => backHandler.remove();
-  }, [visible, onClose]);
-
-  // Add song to playlist
   const handleAddToPlaylist = useCallback(async (playlistId) => {
     try {
       const success = await addSongToPlaylist(playlistId, song);
@@ -87,7 +68,6 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
     }
   }, [song, onClose]);
 
-  // Create new playlist
   const handleCreatePlaylist = useCallback(async () => {
     if (!newPlaylistName.trim()) {
       ToastAndroid.show('Please enter a playlist name', ToastAndroid.SHORT);
@@ -97,6 +77,7 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
     try {
       const newPlaylist = await createPlaylist(newPlaylistName.trim());
       if (newPlaylist) {
+        await loadPlaylists();
         await handleAddToPlaylist(newPlaylist.id);
         setNewPlaylistName('');
         setShowNewPlaylistModal(false);
@@ -105,9 +86,15 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
       console.error('Error creating playlist:', error);
       ToastAndroid.show('Failed to create playlist', ToastAndroid.SHORT);
     }
-  }, [newPlaylistName, handleAddToPlaylist]);
+  }, [newPlaylistName, handleAddToPlaylist, loadPlaylists]);
 
-  // Render playlist item
+  const handleShowNewPlaylistModal = useCallback(() => {
+    setShowNewPlaylistModal(true);
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 150);
+  }, []);
+
   const renderPlaylistItem = useCallback((item) => (
     <TouchableOpacity
       key={item.id}
@@ -128,6 +115,66 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
     </TouchableOpacity>
   ), [handleAddToPlaylist, theme.colors]);
 
+  // 6. All useEffect hooks together
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (showNewPlaylistModal && keyboardHeight > 0) {
+      bottomSheetRef.current?.snapToIndex(0);
+    }
+  }, [showNewPlaylistModal, keyboardHeight]);
+
+  useEffect(() => {
+    console.log('📱 PlaylistSelectorBottomSheet visibility changed:', visible);
+    if (visible) {
+      console.log('📱 Loading playlists and expanding bottom sheet...');
+      loadPlaylists();
+      setTimeout(() => {
+        console.log('📱 Attempting to expand bottom sheet...');
+        bottomSheetRef.current?.expand();
+      }, 100);
+    } else {
+      console.log('📱 Closing bottom sheet...');
+      bottomSheetRef.current?.close();
+    }
+  }, [visible, loadPlaylists]);
+
+  useEffect(() => {
+    const handleBackPress = () => {
+      if (visible) {
+        if (showNewPlaylistModal) {
+          setShowNewPlaylistModal(false);
+          setNewPlaylistName('');
+          return true;
+        }
+        onClose();
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    return () => backHandler.remove();
+  }, [visible, onClose, showNewPlaylistModal]);
+
   return (
     <BottomSheet
       ref={bottomSheetRef}
@@ -135,6 +182,9 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
       snapPoints={snapPoints}
       onChange={handleSheetChanges}
       enablePanDownToClose={true}
+      keyboardBehavior="extend"
+      keyboardBlurBehavior="restore"
+      android_keyboardInputMode="adjustResize"
       backgroundStyle={{ backgroundColor: theme.colors.card }}
       handleIndicatorStyle={{ backgroundColor: theme.colors.text }}
     >
@@ -146,18 +196,19 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.createNewButton, { backgroundColor: theme.colors.background }]}
-          onPress={() => setShowNewPlaylistModal(true)}
+          onPress={handleShowNewPlaylistModal}
         >
           <MaterialCommunityIcons name="playlist-plus" size={24} color={theme.colors.primary} />
           <PlainText text="Create New Playlist" style={[styles.createNewText, { color: theme.colors.primary }]} />
         </TouchableOpacity>
 
-        <ScrollView 
+        <ScrollView
           style={styles.playlistListContainer}
           contentContainerStyle={styles.playlistList}
           showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="handled"
         >
           {isLoading ? (
             <View style={styles.emptyState}>
@@ -174,33 +225,43 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
           )}
         </ScrollView>
 
-        {/* New Playlist Modal */}
+        {/* New Playlist Modal - Positioned at top for keyboard visibility */}
         {showNewPlaylistModal && (
-          <View style={[styles.newPlaylistModal, { backgroundColor: theme.colors.background }]}>
+          <View style={[
+            styles.newPlaylistModal,
+            {
+              backgroundColor: theme.colors.background,
+              paddingTop: 60,
+            }
+          ]}>
             <PlainText text="Create New Playlist" style={[styles.modalTitle, { color: theme.colors.text }]} />
-            <TextInput
-              style={[styles.textInput, { 
-                backgroundColor: theme.colors.card, 
+            <BottomSheetTextInput
+              ref={inputRef}
+              style={[styles.textInput, {
+                backgroundColor: theme.colors.card,
                 color: theme.colors.text,
-                borderColor: theme.colors.border 
+                borderColor: theme.colors.border
               }]}
               placeholder="Enter playlist name"
               placeholderTextColor={theme.colors.textSecondary}
               value={newPlaylistName}
               onChangeText={setNewPlaylistName}
               autoFocus={true}
+              onSubmitEditing={handleCreatePlaylist}
+              returnKeyType="done"
             />
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: theme.colors.border }]}
                 onPress={() => {
                   setShowNewPlaylistModal(false);
                   setNewPlaylistName('');
+                  Keyboard.dismiss();
                 }}
               >
                 <PlainText text="Cancel" style={[styles.modalButtonText, { color: theme.colors.text }]} />
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}
                 onPress={handleCreatePlaylist}
               >
@@ -296,7 +357,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     padding: 20,
-    justifyContent: 'center',
     borderRadius: 12,
   },
   modalTitle: {

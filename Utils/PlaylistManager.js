@@ -1,10 +1,25 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ToastAndroid, DeviceEventEmitter } from 'react-native';
+import * as RNFS from 'react-native-fs';
+import { ToastAndroid, DeviceEventEmitter, Platform } from 'react-native';
+import { safeExists, ensureDirectoryExists } from './FileUtils';
 
-// Cache for playlists to avoid frequent AsyncStorage reads
+// File-based storage for playlists to avoid SQLite limits
+const getPlaylistsFilePath = async () => {
+  const baseDir = Platform.OS === 'android'
+    ? `${RNFS.DownloadDirectoryPath}/orbit`
+    : RNFS.DocumentDirectoryPath;
+
+  await ensureDirectoryExists(baseDir);
+  return `${baseDir}/playlists.json`;
+};
+
+// Cache for playlists to avoid frequent file reads
 let playlistCache = null;
 let cacheTimestamp = null;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Flag to track if migration has been attempted
+let migrationAttempted = false;
 
 /**
  * Clear the playlist cache
@@ -23,6 +38,69 @@ const isCacheValid = () => {
 };
 
 /**
+ * Migrate playlists from AsyncStorage to file storage (one-time migration)
+ */
+const migrateFromAsyncStorage = async () => {
+  if (migrationAttempted) return null;
+  migrationAttempted = true;
+
+  try {
+    const storedPlaylists = await AsyncStorage.getItem('userPlaylists');
+    if (storedPlaylists) {
+      const playlists = JSON.parse(storedPlaylists);
+      if (Array.isArray(playlists) && playlists.length > 0) {
+        console.log(`📦 Migrating ${playlists.length} playlists from AsyncStorage to file storage...`);
+
+        // Save to file
+        const filePath = await getPlaylistsFilePath();
+        await RNFS.writeFile(filePath, JSON.stringify(playlists, null, 2), 'utf8');
+
+        // Remove from AsyncStorage to free up space
+        await AsyncStorage.removeItem('userPlaylists');
+
+        console.log('✅ Playlist migration complete!');
+        return playlists;
+      }
+    }
+  } catch (error) {
+    console.error('Migration error (non-fatal):', error);
+  }
+  return null;
+};
+
+/**
+ * Read playlists from file
+ */
+const readPlaylistsFromFile = async () => {
+  try {
+    const filePath = await getPlaylistsFilePath();
+
+    if (await safeExists(filePath)) {
+      const content = await RNFS.readFile(filePath, 'utf8');
+      const playlists = JSON.parse(content);
+      return Array.isArray(playlists) ? playlists : [];
+    }
+  } catch (error) {
+    console.error('Error reading playlists file:', error);
+  }
+  return [];
+};
+
+/**
+ * Write playlists to file
+ */
+const writePlaylistsToFile = async (playlists) => {
+  try {
+    const filePath = await getPlaylistsFilePath();
+    await RNFS.writeFile(filePath, JSON.stringify(playlists, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error writing playlists file:', error);
+    return false;
+  }
+};
+
+/**
  * Get all user playlists
  * @returns {Array} Array of playlist objects
  */
@@ -33,17 +111,22 @@ export const getUserPlaylists = async () => {
       return playlistCache;
     }
 
-    const storedPlaylists = await AsyncStorage.getItem('userPlaylists');
-    const playlists = storedPlaylists ? JSON.parse(storedPlaylists) : [];
+    // Try to migrate from AsyncStorage first (one-time)
+    const migratedPlaylists = await migrateFromAsyncStorage();
+    if (migratedPlaylists) {
+      playlistCache = migratedPlaylists;
+      cacheTimestamp = Date.now();
+      return migratedPlaylists;
+    }
 
-    // Ensure we always return an array
-    const validPlaylists = Array.isArray(playlists) ? playlists : [];
+    // Read from file
+    const playlists = await readPlaylistsFromFile();
 
     // Update cache
-    playlistCache = validPlaylists;
+    playlistCache = playlists;
     cacheTimestamp = Date.now();
 
-    return validPlaylists;
+    return playlists;
   } catch (error) {
     console.error('Error getting user playlists:', error);
     return [];
@@ -85,7 +168,12 @@ export const createPlaylist = async (name, firstSong = null) => {
     };
 
     const updatedPlaylists = [...existingPlaylists, newPlaylist];
-    await AsyncStorage.setItem('userPlaylists', JSON.stringify(updatedPlaylists));
+    const success = await writePlaylistsToFile(updatedPlaylists);
+
+    if (!success) {
+      ToastAndroid.show('Failed to create playlist', ToastAndroid.SHORT);
+      return null;
+    }
 
     // Clear cache to force refresh
     clearPlaylistCache();
@@ -144,7 +232,12 @@ export const createPlaylistWithSongs = async (name, songs = [], coverImage = nul
     };
 
     const updatedPlaylists = [...existingPlaylists, newPlaylist];
-    await AsyncStorage.setItem('userPlaylists', JSON.stringify(updatedPlaylists));
+    const success = await writePlaylistsToFile(updatedPlaylists);
+
+    if (!success) {
+      ToastAndroid.show('Failed to create playlist', ToastAndroid.SHORT);
+      return null;
+    }
 
     // Clear cache to force refresh
     clearPlaylistCache();
@@ -196,7 +289,12 @@ export const addSongToPlaylist = async (playlistId, song) => {
       playlists[playlistIndex].coverImage = song.artwork;
     }
 
-    await AsyncStorage.setItem('userPlaylists', JSON.stringify(playlists));
+    const success = await writePlaylistsToFile(playlists);
+
+    if (!success) {
+      ToastAndroid.show('Failed to add song to playlist', ToastAndroid.SHORT);
+      return false;
+    }
 
     // Clear cache to force refresh
     clearPlaylistCache();
@@ -238,7 +336,12 @@ export const removeSongFromPlaylist = async (playlistId, songId) => {
     const removedSong = playlists[playlistIndex].songs.splice(songIndex, 1)[0];
     playlists[playlistIndex].lastModified = Date.now();
 
-    await AsyncStorage.setItem('userPlaylists', JSON.stringify(playlists));
+    const success = await writePlaylistsToFile(playlists);
+
+    if (!success) {
+      ToastAndroid.show('Failed to remove song from playlist', ToastAndroid.SHORT);
+      return false;
+    }
 
     // Clear cache to force refresh
     clearPlaylistCache();
@@ -268,7 +371,12 @@ export const deletePlaylist = async (playlistId) => {
       return false;
     }
 
-    await AsyncStorage.setItem('userPlaylists', JSON.stringify(filteredPlaylists));
+    const success = await writePlaylistsToFile(filteredPlaylists);
+
+    if (!success) {
+      ToastAndroid.show('Failed to delete playlist', ToastAndroid.SHORT);
+      return false;
+    }
 
     // Clear cache to force refresh
     clearPlaylistCache();
@@ -321,7 +429,12 @@ export const updatePlaylist = async (playlistId, updates) => {
       lastModified: Date.now()
     };
 
-    await AsyncStorage.setItem('userPlaylists', JSON.stringify(playlists));
+    const success = await writePlaylistsToFile(playlists);
+
+    if (!success) {
+      ToastAndroid.show('Failed to update playlist', ToastAndroid.SHORT);
+      return false;
+    }
 
     // Clear cache to force refresh
     clearPlaylistCache();
