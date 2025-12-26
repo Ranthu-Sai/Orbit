@@ -18,6 +18,7 @@ import { CACHE_TTL, CACHE_KEYS } from '../../Utils/CacheConfig';
 import { ImportPlaylistModal } from "../../Component/Playlist/ImportPlaylistModal";
 import { DeviceEventEmitter, RefreshControl } from "react-native";
 import { Playlist } from "../Playlist";
+import { PlaylistListSkeleton } from "../../Component/Global/PlaylistListSkeleton";
 
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -641,12 +642,7 @@ export const CustomPlaylist = () => {
 
     if (loading) {
       return (
-        <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons name="playlist-music" size={64} color="#6E6E6E" />
-          <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-            Loading playlists...
-          </Text>
-        </View>
+        <PlaylistListSkeleton count={10} />
       );
     }
 

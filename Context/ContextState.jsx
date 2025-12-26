@@ -170,12 +170,6 @@ const ContextState = (props) => {
 
                 // Only process if it's actually a different track
                 if (currentTrackId !== newTrackId) {
-                    // ✅ SAVE PLAYER STATE (Persistence)
-                    // Save async to avoid blocking UI
-                    TrackPlayer.getQueue().then(queue => {
-                        CacheManager.setPlayerState(queue, event.track, event.index);
-                    }).catch(e => console.warn('Failed to save player state', e));
-
                     // ✅ Run history tracking in background (non-blocking)
                     // Don't await - let it run async to avoid UI freeze
                     Promise.all([
@@ -223,19 +217,7 @@ const ContextState = (props) => {
             // Initialize history manager
             await historyManager.initialize();
 
-            // 1. RESTORE SAVED PLAYER STATE (Instant UI)
-            const savedState = await CacheManager.getPlayerStateAsync();
-            if (savedState) {
-                console.log('💾 Restoring saved player state...');
-                setQueue(savedState.queue);
-                setCurrentPlaying(savedState.activeTrack);
-                // Clamp index to valid range (0-1) for BottomSheetMusic which has 2 snap points
-                // This prevents crash when restoring old cached state with index 2
-                // Always start with MiniPlayer (Index 0), regardless of which song was playing
-                setIndex(0);
-                // Note: We don't set isPlayerReady=true here because TrackPlayer native isn't ready.
-                // But setting React state ensures MiniPlayer appears immediately.
-            }
+            // Initialization check
 
             // Check if player is already initialized
             try {
@@ -255,44 +237,6 @@ const ContextState = (props) => {
                 console.log('Player initialized successfully in Context');
                 isPlayerReady.current = true; // Mark ready after setup
 
-                // 2. RESTORE TRACKPLAYER BACKEND
-                if (savedState && savedState.queue.length > 0) {
-                    try {
-                        console.log('🎵 Restoring queue to TrackPlayer...');
-
-                        // Filter out DAB tracks - their stream URLs expire and cause playback errors
-                        const restorableQueue = savedState.queue.filter(track => {
-                            const isDabTrack = track.source === 'dab' || track.isDabTrack;
-                            if (isDabTrack) {
-                                console.log('⏭️ Skipping DAB track with expired URL:', track.title);
-                            }
-                            return !isDabTrack;
-                        });
-
-                        if (restorableQueue.length > 0) {
-                            await TrackPlayer.add(restorableQueue);
-
-                            // Find the correct index to skip to
-                            // If the saved active track was a DAB track, start from beginning
-                            const savedTrack = savedState.activeTrack;
-                            const wasDabTrack = savedTrack?.source === 'dab' || savedTrack?.isDabTrack;
-
-                            if (!wasDabTrack && savedState.activeIndex >= 0) {
-                                // Find the new index after filtering
-                                const newIndex = restorableQueue.findIndex(t => t.id === savedTrack?.id);
-                                if (newIndex >= 0) {
-                                    await TrackPlayer.skip(newIndex);
-                                }
-                            }
-                            console.log(`✅ Restored ${restorableQueue.length} tracks (${savedState.queue.length - restorableQueue.length} DAB tracks skipped)`);
-                        } else {
-                            console.log('⏭️ No restorable tracks (all were DAB tracks with expired URLs)');
-                        }
-                        // Don't auto-play, let user click play
-                    } catch (restoreError) {
-                        console.warn('Failed to restore TrackPlayer queue', restoreError);
-                    }
-                }
             }
         } catch (error) {
             console.error('Error in InitialSetup:', error);

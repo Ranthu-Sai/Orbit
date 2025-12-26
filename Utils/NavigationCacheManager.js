@@ -459,14 +459,6 @@ class NavigationCacheManager {
      * @returns {Promise<{queue: Array, activeTrack: Object, activeIndex: number}|null>}
      */
     async getPlayerStateAsync() {
-        try {
-            const data = await AsyncStorage.getItem('cache_player_state');
-            if (data) {
-                return JSON.parse(data);
-            }
-        } catch (e) {
-            console.warn('[CacheManager] Failed to load player state', e);
-        }
         return null;
     }
 
@@ -477,39 +469,8 @@ class NavigationCacheManager {
      * @param {number} activeIndex 
      */
     setPlayerState(queue, activeTrack, activeIndex) {
-        if (!queue || queue.length === 0) return;
-
-        // Limit queue size to prevent storage bloat (keep last 50 tracks)
-        const limitedQueue = queue.length > 50 ? queue.slice(-50) : queue;
-        const adjustedIndex = queue.length > 50 ? activeIndex - (queue.length - 50) : activeIndex;
-
-        const state = {
-            queue: limitedQueue,
-            activeTrack,
-            activeIndex: Math.max(0, adjustedIndex),
-            timestamp: Date.now()
-        };
-
-        // Fire and forget with proper error handling - NEVER interrupt playback
-        (async () => {
-            try {
-                const dataString = JSON.stringify(state);
-                // Only save if under 1MB to be safe
-                if (dataString.length < 1000000) {
-                    await AsyncStorage.setItem('cache_player_state', dataString);
-                } else {
-                    console.log('[CacheManager] Player state too large, skipping save');
-                }
-            } catch (e) {
-                // CRITICAL: Never let storage errors disrupt playback
-                if (e.message && (e.message.includes('code 13') || e.message.toLowerCase().includes('full'))) {
-                    console.log('[CacheManager] Disk full - player state not saved (playback continues)');
-                    // Trigger cleanup of old cache to free space for next time
-                    this._emergencyCleanup();
-                }
-                // Don't log warning - user doesn't need to see this
-            }
-        })();
+        // No-op: Disable player state persistence as requested by user
+        return;
     }
 
     /**

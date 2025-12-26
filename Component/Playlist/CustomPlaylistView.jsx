@@ -18,6 +18,8 @@ import { Animated } from 'react';
 import { SmallText } from '../Global/SmallText';
 import { CustomPlaylistPlay } from './CustomPlaylistPlay';
 import { PlaylistHeader } from './PlaylistHeader';
+import { DetailSkeletonLoader } from '../Global/DetailSkeletonLoader';
+import { SongRowSkeleton } from '../Global/SongRowSkeleton';
 
 // Default image constants moved outside component to prevent re-creation
 const DEFAULT_MUSIC_IMAGE = require('../../Images/default.jpg');
@@ -864,10 +866,7 @@ export const CustomPlaylistView = (props) => {
   // Render loading state when needed
   if (isLoading) {
     return (
-      <View style={[staticStyles.loadingContainer, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={{ color: theme.colors.text, marginTop: 16 }}>Loading playlist...</Text>
-      </View>
+      <DetailSkeletonLoader type="playlist" />
     );
   }
 
@@ -930,11 +929,10 @@ export const CustomPlaylistView = (props) => {
         }
         ListFooterComponent={
           chunkLoading && visibleSongs.length < Songs.length ? (
-            <View style={{ padding: 20, alignItems: 'center' }}>
-              <ActivityIndicator size="small" color={theme.colors.primary} />
-              <Text style={{ color: theme.colors.text, marginTop: 8 }}>
-                Loading more songs...
-              </Text>
+            <View style={{ paddingVertical: 10 }}>
+              <SongRowSkeleton />
+              <SongRowSkeleton />
+              <SongRowSkeleton />
             </View>
           ) : null
         }
