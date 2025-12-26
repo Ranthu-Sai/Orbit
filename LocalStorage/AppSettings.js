@@ -265,7 +265,7 @@ async function GetLyricsAnimationStyle() {
     if (value !== null) {
       return value
     } else {
-      return 'Smooth' // Default lyrics animation style
+      return 'Apple' // Default lyrics animation style (ArchiveTune-style)
     }
   } catch (e) {
     console.log("Lyrics animation style read error");

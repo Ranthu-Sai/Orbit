@@ -12,12 +12,150 @@ import { useTheme } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '../../Context/ThemeContext';
 import LyricsLine from './LyricsLine';
-import { GetLyricsAnimationStyle, GetLyricsFontSize, SetLyricsFontSize, GetLyricsTheme, SetLyricsTheme, GetLyricsProvider, SetLyricsProvider, GetLyricsTextColor, SetLyricsTextColor } from '../../LocalStorage/AppSettings';
+import { GetLyricsAnimationStyle, SetLyricsAnimationStyle, GetLyricsFontSize, SetLyricsFontSize, GetLyricsTheme, SetLyricsTheme, GetLyricsProvider, SetLyricsProvider, GetLyricsTextColor, SetLyricsTextColor } from '../../LocalStorage/AppSettings';
 import TrackPlayer, { State, useProgress } from 'react-native-track-player';
 import { Portal, Modal as PaperModal, Button, List, Divider } from 'react-native-paper';
-import { Minus } from 'lucide-react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 const { width, height } = Dimensions.get('window');
+
+// Memoized Settings Component to prevent re-renders from playback progress
+const LyricsSettings = React.memo(({
+    fontSize,
+    onFontSizeChange,
+    onRefreshLyrics,
+    activeProvider,
+    onProviderChange,
+    lyricsTheme,
+    onThemeChange,
+    textColorMode,
+    onTextColorModeChange,
+    animationStyle,
+    onAnimationStyleChange,
+    onClose
+}) => {
+    return (
+        <BottomSheetScrollView
+            style={styles.sheetScrollView}
+            contentContainerStyle={styles.sheetScrollContent}
+        >
+            {/* Title */}
+            <Text variant="titleLarge" style={styles.drawerTitle}>Lyrics Settings</Text>
+            <Divider style={styles.divider} />
+
+            {/* Font Size Scaling */}
+            <List.Item
+                title="Font Size"
+                titleStyle={{ color: '#FFFFFF' }}
+                left={props => <List.Icon {...props} icon="format-size" color="#FFFFFF" />}
+                right={() => (
+                    <View style={styles.row}>
+                        <IconButton icon="minus" size={20} onPress={() => onFontSizeChange(-2)} iconColor="#FFFFFF" />
+                        <Text style={{ color: '#FFFFFF', marginHorizontal: 8, fontSize: 16 }}>{fontSize}</Text>
+                        <IconButton icon="plus" size={20} onPress={() => onFontSizeChange(2)} iconColor="#FFFFFF" />
+                    </View>
+                )}
+            />
+
+            <Divider style={styles.divider} />
+
+            {/* Refresh Lyrics Button */}
+            <List.Item
+                title="Refresh Lyrics"
+                titleStyle={{ color: '#FFFFFF' }}
+                description="Re-fetch lyrics for current song"
+                descriptionStyle={{ color: 'rgba(255,255,255,0.6)' }}
+                left={props => <List.Icon {...props} icon="refresh" color="#FFFFFF" />}
+                onPress={() => {
+                    onClose();
+                    onRefreshLyrics && onRefreshLyrics();
+                }}
+                style={styles.refreshButton}
+            />
+
+            <Divider style={styles.divider} />
+
+            {/* Lyrics Source Selection */}
+            <Text variant="labelLarge" style={styles.sectionLabel}>Lyrics Source</Text>
+            <View style={styles.chipRow}>
+                {['LrcLib', 'BetterLyrics', 'YTMusic'].map(p => (
+                    <Button
+                        key={p}
+                        mode={activeProvider === p ? 'contained' : 'outlined'}
+                        onPress={() => onProviderChange(p)}
+                        style={styles.chip}
+                        labelStyle={{ fontSize: 12, color: activeProvider === p ? undefined : '#FFFFFF' }}
+                    >
+                        {p}
+                    </Button>
+                ))}
+            </View>
+
+            <Divider style={styles.divider} />
+
+            {/* Background Theme Selection */}
+            <Text variant="labelLarge" style={styles.sectionLabel}>Background Theme</Text>
+            <View style={styles.chipRow}>
+                {['Blur', 'Glass', 'Solid'].map(t => (
+                    <Button
+                        key={t}
+                        mode={lyricsTheme === t ? 'contained' : 'outlined'}
+                        onPress={() => onThemeChange(t)}
+                        style={styles.chip}
+                        labelStyle={{ fontSize: 12, color: lyricsTheme === t ? undefined : '#FFFFFF' }}
+                    >
+                        {t}
+                    </Button>
+                ))}
+            </View>
+
+            <Divider style={styles.divider} />
+
+            {/* Text Color Selection */}
+            <Text variant="labelLarge" style={styles.sectionLabel}>Text Color</Text>
+            <View style={styles.chipRow}>
+                {['Auto', 'White', 'Black'].map(c => (
+                    <Button
+                        key={c}
+                        mode={textColorMode === c ? 'contained' : 'outlined'}
+                        onPress={() => onTextColorModeChange(c)}
+                        style={styles.chip}
+                        labelStyle={{ fontSize: 12, color: textColorMode === c ? undefined : '#FFFFFF' }}
+                    >
+                        {c}
+                    </Button>
+                ))}
+            </View>
+
+            <Divider style={styles.divider} />
+
+            {/* Animation Style Selection */}
+            <Text variant="labelLarge" style={styles.sectionLabel}>Animation Style</Text>
+            <View style={styles.chipRow}>
+                {['Apple', 'Smooth', 'Fade', 'Karaoke', 'Glow'].map(a => (
+                    <Button
+                        key={a}
+                        mode={animationStyle === a ? 'contained' : 'outlined'}
+                        onPress={() => onAnimationStyleChange(a)}
+                        style={styles.chip}
+                        labelStyle={{ fontSize: 12, color: animationStyle === a ? undefined : '#FFFFFF' }}
+                    >
+                        {a}
+                    </Button>
+                ))}
+            </View>
+
+            <Button
+                mode="contained"
+                onPress={onClose}
+                style={styles.closeMenuButton}
+                labelStyle={{ color: '#FFFFFF' }}
+            >
+                Done
+            </Button>
+        </BottomSheetScrollView>
+    );
+});
 
 const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading, reFetchLyrics }) => {
     const { colors, dark } = useTheme();
@@ -28,7 +166,7 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading, reFetchL
     const flatListRef = useRef(null);
 
     const [activeLineIndex, setActiveLineIndex] = useState(-1);
-    const [animationStyle, setAnimationStyle] = useState('Smooth');
+    const [animationStyle, setAnimationStyle] = useState('Apple');
     const [isUserScrolling, setIsUserScrolling] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
     const [activeProvider, setActiveProvider] = useState('LrcLib');
@@ -72,6 +210,7 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading, reFetchL
                 disappearsOnIndex={-1}
                 appearsOnIndex={0}
                 opacity={0.5}
+                pressBehavior="close"
             />
         ),
         []
@@ -208,32 +347,32 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading, reFetchL
         setIsUserScrolling(false);
     };
 
-    const handleFontSizeChange = (delta) => {
+    const handleFontSizeChange = useCallback((delta) => {
         const newSize = Math.max(18, Math.min(40, fontSize + delta));
         setFontSize(newSize);
         SetLyricsFontSize(newSize);
-    };
+    }, [fontSize]);
 
-    const handleProviderChange = async (provider) => {
+    const handleProviderChange = useCallback(async (provider) => {
         setActiveProvider(provider);
         await SetLyricsProvider(provider);
         reFetchLyrics?.();
-    };
+    }, [reFetchLyrics]);
 
-    const handleThemeChange = async (theme) => {
+    const handleThemeChange = useCallback(async (theme) => {
         setLyricsTheme(theme);
         await SetLyricsTheme(theme);
-    };
+    }, []);
 
-    const handleTextColorModeChange = async (mode) => {
+    const handleTextColorModeChange = useCallback(async (mode) => {
         setTextColorMode(mode);
         await SetLyricsTextColor(mode);
-    };
+    }, []);
 
-    const handleAnimationStyleChange = async (style) => {
+    const handleAnimationStyleChange = useCallback(async (style) => {
         setAnimationStyle(style);
         await SetLyricsAnimationStyle(style);
-    };
+    }, []);
 
     const renderItem = useCallback(({ item, index }) => {
         const isActive = index === activeLineIndex;
@@ -279,280 +418,172 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading, reFetchL
             onRequestClose={onClose}
             statusBarTranslucent={true}
         >
-            <StatusBar translucent backgroundColor="transparent" barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-            <View style={[styles.container, { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }]}>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+                <StatusBar translucent backgroundColor="transparent" barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+                <View style={[styles.container, { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }]}>
 
-                {/* Background Rendering based on theme */}
-                {lyricsTheme === 'Blur' && artworkSource ? (
-                    <Animated.View style={[StyleSheet.absoluteFill, animatedBackgroundStyle]}>
-                        <ImageBackground
-                            source={artworkSource}
-                            style={StyleSheet.absoluteFill}
-                            resizeMode="cover"
-                            blurRadius={40}
-                        >
-                            <View style={[StyleSheet.absoluteFill, { backgroundColor: overlayColor }]} />
-                        </ImageBackground>
-                    </Animated.View>
-                ) : lyricsTheme === 'Glass' && artworkSource ? (
-                    <Animated.View style={[StyleSheet.absoluteFill, animatedBackgroundStyle]}>
-                        <ImageBackground
-                            source={artworkSource}
-                            style={StyleSheet.absoluteFill}
-                            resizeMode="cover"
-                            blurRadius={10}
-                        >
-                            <View style={[StyleSheet.absoluteFill, { backgroundColor: isDarkMode ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.7)' }]} />
-                        </ImageBackground>
-                    </Animated.View>
-                ) : (
-                    <View style={[StyleSheet.absoluteFill, { backgroundColor: isDarkMode ? '#121212' : '#F5F5F5' }]} />
-                )}
+                    {/* Background Rendering based on theme */}
+                    {lyricsTheme === 'Blur' && artworkSource ? (
+                        <Animated.View style={[StyleSheet.absoluteFill, animatedBackgroundStyle]}>
+                            <ImageBackground
+                                source={artworkSource}
+                                style={StyleSheet.absoluteFill}
+                                resizeMode="cover"
+                                blurRadius={40}
+                            >
+                                <View style={[StyleSheet.absoluteFill, { backgroundColor: overlayColor }]} />
+                            </ImageBackground>
+                        </Animated.View>
+                    ) : lyricsTheme === 'Glass' && artworkSource ? (
+                        <Animated.View style={[StyleSheet.absoluteFill, animatedBackgroundStyle]}>
+                            <ImageBackground
+                                source={artworkSource}
+                                style={StyleSheet.absoluteFill}
+                                resizeMode="cover"
+                                blurRadius={10}
+                            >
+                                <View style={[StyleSheet.absoluteFill, { backgroundColor: isDarkMode ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.7)' }]} />
+                            </ImageBackground>
+                        </Animated.View>
+                    ) : (
+                        <View style={[StyleSheet.absoluteFill, { backgroundColor: isDarkMode ? '#121212' : '#F5F5F5' }]} />
+                    )}
 
-                {/* Header - Now uses paddingTop instead of marginTop for edge-to-edge */}
-                <View style={[styles.header, { paddingTop: HEADER_PADDING_TOP }]}>
-                    <IconButton
-                        icon="chevron-down"
-                        size={30}
-                        onPress={onClose}
-                        iconColor={iconColor}
+                    {/* Header - Now uses paddingTop instead of marginTop for edge-to-edge */}
+                    <View style={[styles.header, { paddingTop: HEADER_PADDING_TOP }]}>
+                        <IconButton
+                            icon="chevron-down"
+                            size={30}
+                            onPress={onClose}
+                            iconColor={iconColor}
+                        />
+                        <View style={styles.headerTitle}>
+                            <Text variant="titleMedium" numberOfLines={1} style={{ fontWeight: 'bold', color: iconColor }}>
+                                Now Playing
+                            </Text>
+                            <Text variant="bodySmall" numberOfLines={1} style={{ color: iconColor, opacity: 0.7 }}>
+                                {currentSong?.title || ""}
+                            </Text>
+                        </View>
+                        <IconButton icon="dots-horizontal" onPress={openSettingsSheet} iconColor={iconColor} />
+                    </View>
+
+                    {/* Lyrics Content */}
+                    {isLoading ? (
+                        <View style={styles.centerContent}>
+                            <ActivityIndicator size="large" color={colors.primary} />
+                        </View>
+                    ) : !lyrics || lyrics.length === 0 ? (
+                        <View style={styles.centerContent}>
+                            <Text variant="headlineSmall" style={{ color: isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
+                                No lyrics available
+                            </Text>
+                        </View>
+                    ) : (
+                        <View style={styles.lyricsContainer}>
+                            <FlatList
+                                ref={flatListRef}
+                                data={lyrics}
+                                renderItem={renderItem}
+                                keyExtractor={(item, index) => index.toString()}
+                                contentContainerStyle={{
+                                    paddingTop: CONTENT_PADDING_TOP,
+                                    paddingBottom: CONTENT_PADDING_BOTTOM,
+                                }}
+                                onScrollBeginDrag={handleScrollBegin}
+                                onMomentumScrollEnd={handleScrollEnd}
+                                getItemLayout={null} // Let FlatList measure items dynamically
+                                onScrollToIndexFailed={onScrollToIndexFailed}
+                                showsVerticalScrollIndicator={false}
+                                initialNumToRender={20}
+                                maxToRenderPerBatch={15}
+                                windowSize={11}
+                                removeClippedSubviews={false}
+                            />
+                        </View>
+                    )}
+
+                    {/* Smooth Fading edges - ArchiveTune style with multiple color stops */}
+                    <LinearGradient
+                        colors={fadeGradientColors}
+                        locations={[0, 0.5, 1]}
+                        style={[styles.topFade, { top: HEADER_HEIGHT + HEADER_PADDING_TOP }]}
+                        pointerEvents="none"
                     />
-                    <View style={styles.headerTitle}>
-                        <Text variant="titleMedium" numberOfLines={1} style={{ fontWeight: 'bold', color: iconColor }}>
-                            Now Playing
-                        </Text>
-                        <Text variant="bodySmall" numberOfLines={1} style={{ color: iconColor, opacity: 0.7 }}>
-                            {currentSong?.title || ""}
-                        </Text>
-                    </View>
-                    <IconButton icon="dots-horizontal" onPress={openSettingsSheet} iconColor={iconColor} />
-                </View>
+                    <LinearGradient
+                        colors={fadeGradientColorsReverse}
+                        locations={[0, 0.5, 1]}
+                        style={[styles.bottomFade, { bottom: CONTROLS_HEIGHT + CONTROLS_PADDING_BOTTOM }]}
+                        pointerEvents="none"
+                    />
 
-                {/* Lyrics Content */}
-                {isLoading ? (
-                    <View style={styles.centerContent}>
-                        <ActivityIndicator size="large" color={colors.primary} />
-                    </View>
-                ) : !lyrics || lyrics.length === 0 ? (
-                    <View style={styles.centerContent}>
-                        <Text variant="headlineSmall" style={{ color: isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
-                            No lyrics available
-                        </Text>
-                    </View>
-                ) : (
-                    <View style={styles.lyricsContainer}>
-                        <FlatList
-                            ref={flatListRef}
-                            data={lyrics}
-                            renderItem={renderItem}
-                            keyExtractor={(item, index) => index.toString()}
-                            contentContainerStyle={{
-                                paddingTop: CONTENT_PADDING_TOP,
-                                paddingBottom: CONTENT_PADDING_BOTTOM,
+                    {/* Playback Controls - Bottom with theme-aware styling */}
+                    <View style={[styles.playbackControls, {
+                        paddingBottom: CONTROLS_PADDING_BOTTOM + 16,
+                        backgroundColor: controlsBgColor
+                    }]}>
+                        <IconButton
+                            icon="skip-previous"
+                            size={32}
+                            onPress={async () => await TrackPlayer.skipToPrevious()}
+                            iconColor={iconColor}
+                        />
+                        <IconButton
+                            icon={isPlaying ? "pause" : "play"}
+                            size={40}
+                            onPress={async () => {
+                                const state = await TrackPlayer.getPlaybackState();
+                                if (state.state === 'playing') {
+                                    await TrackPlayer.pause();
+                                    setIsPlaying(false);
+                                } else {
+                                    await TrackPlayer.play();
+                                    setIsPlaying(true);
+                                }
                             }}
-                            onScrollBeginDrag={handleScrollBegin}
-                            onMomentumScrollEnd={handleScrollEnd}
-                            getItemLayout={null} // Let FlatList measure items dynamically
-                            onScrollToIndexFailed={onScrollToIndexFailed}
-                            showsVerticalScrollIndicator={false}
-                            initialNumToRender={20}
-                            maxToRenderPerBatch={15}
-                            windowSize={11}
-                            removeClippedSubviews={false}
+                            iconColor={iconColor}
+                            style={[styles.playButton, {
+                                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)'
+                            }]}
+                        />
+                        <IconButton
+                            icon="skip-next"
+                            size={32}
+                            onPress={async () => await TrackPlayer.skipToNext()}
+                            iconColor={iconColor}
                         />
                     </View>
-                )}
-
-                {/* Smooth Fading edges - ArchiveTune style with multiple color stops */}
-                <LinearGradient
-                    colors={fadeGradientColors}
-                    locations={[0, 0.5, 1]}
-                    style={[styles.topFade, { top: HEADER_HEIGHT + HEADER_PADDING_TOP }]}
-                    pointerEvents="none"
-                />
-                <LinearGradient
-                    colors={fadeGradientColorsReverse}
-                    locations={[0, 0.5, 1]}
-                    style={[styles.bottomFade, { bottom: CONTROLS_HEIGHT + CONTROLS_PADDING_BOTTOM }]}
-                    pointerEvents="none"
-                />
-
-                {/* Playback Controls - Bottom with theme-aware styling */}
-                <View style={[styles.playbackControls, {
-                    paddingBottom: CONTROLS_PADDING_BOTTOM + 16,
-                    backgroundColor: controlsBgColor
-                }]}>
-                    <IconButton
-                        icon="skip-previous"
-                        size={32}
-                        onPress={async () => await TrackPlayer.skipToPrevious()}
-                        iconColor={iconColor}
-                    />
-                    <IconButton
-                        icon={isPlaying ? "pause" : "play"}
-                        size={40}
-                        onPress={async () => {
-                            const state = await TrackPlayer.getPlaybackState();
-                            if (state.state === 'playing') {
-                                await TrackPlayer.pause();
-                                setIsPlaying(false);
-                            } else {
-                                await TrackPlayer.play();
-                                setIsPlaying(true);
-                            }
-                        }}
-                        iconColor={iconColor}
-                        style={[styles.playButton, {
-                            backgroundColor: isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)'
-                        }]}
-                    />
-                    <IconButton
-                        icon="skip-next"
-                        size={32}
-                        onPress={async () => await TrackPlayer.skipToNext()}
-                        iconColor={iconColor}
-                    />
                 </View>
-            </View>
 
-            {/* Settings Bottom Sheet - Smooth drag to close */}
-            <BottomSheet
-                ref={settingsSheetRef}
-                index={isMenuVisible ? 0 : -1}
-                snapPoints={snapPoints}
-                onChange={handleSheetChanges}
-                enablePanDownToClose={true}
-                backdropComponent={renderBackdrop}
-                backgroundStyle={styles.sheetBackground}
-                handleIndicatorStyle={styles.sheetHandleIndicator}
-                handleStyle={styles.sheetHandle}
-                handleComponent={() => (
-                    <View style={styles.sheetHandleContainer}>
-                        <View style={styles.sheetHandleBar}>
-                            <Minus size={24} color="#FFFFFF" />
-                        </View>
-                        <Text variant="titleLarge" style={styles.drawerTitle}>Lyrics Settings</Text>
-                    </View>
-                )}
-            >
-                <BottomSheetScrollView
-                    style={styles.sheetScrollView}
-                    contentContainerStyle={styles.sheetScrollContent}
+                {/* Settings Bottom Sheet - Drag to close enabled */}
+                <BottomSheet
+                    ref={settingsSheetRef}
+                    index={isMenuVisible ? 0 : -1}
+                    snapPoints={snapPoints}
+                    onChange={handleSheetChanges}
+                    enablePanDownToClose={true}
+                    enableContentPanningGesture={true}
+                    enableHandlePanningGesture={true}
+                    backdropComponent={renderBackdrop}
+                    backgroundStyle={styles.sheetBackground}
+                    handleIndicatorStyle={styles.sheetHandleIndicator}
                 >
-                    <Divider style={styles.divider} />
-
-                    {/* Font Size Scaling */}
-                    <List.Item
-                        title="Font Size"
-                        titleStyle={{ color: '#FFFFFF' }}
-                        left={props => <List.Icon {...props} icon="format-size" color="#FFFFFF" />}
-                        right={() => (
-                            <View style={styles.row}>
-                                <IconButton icon="minus" size={20} onPress={() => handleFontSizeChange(-2)} iconColor="#FFFFFF" />
-                                <Text style={{ color: '#FFFFFF', marginHorizontal: 8, fontSize: 16 }}>{fontSize}</Text>
-                                <IconButton icon="plus" size={20} onPress={() => handleFontSizeChange(2)} iconColor="#FFFFFF" />
-                            </View>
-                        )}
+                    <LyricsSettings
+                        fontSize={fontSize}
+                        onFontSizeChange={handleFontSizeChange}
+                        onRefreshLyrics={reFetchLyrics}
+                        activeProvider={activeProvider}
+                        onProviderChange={handleProviderChange}
+                        lyricsTheme={lyricsTheme}
+                        onThemeChange={handleThemeChange}
+                        textColorMode={textColorMode}
+                        onTextColorModeChange={handleTextColorModeChange}
+                        animationStyle={animationStyle}
+                        onAnimationStyleChange={handleAnimationStyleChange}
+                        onClose={closeSettingsSheet}
                     />
-
-                    <Divider style={styles.divider} />
-
-                    {/* Refresh Lyrics Button */}
-                    <List.Item
-                        title="Refresh Lyrics"
-                        titleStyle={{ color: '#FFFFFF' }}
-                        description="Re-fetch lyrics for current song"
-                        descriptionStyle={{ color: 'rgba(255,255,255,0.6)' }}
-                        left={props => <List.Icon {...props} icon="refresh" color="#FFFFFF" />}
-                        onPress={() => {
-                            closeSettingsSheet();
-                            if (reFetchLyrics) reFetchLyrics();
-                        }}
-                        style={styles.refreshButton}
-                    />
-
-                    <Divider style={styles.divider} />
-
-                    {/* Lyrics Source Selection */}
-                    <Text variant="labelLarge" style={styles.sectionLabel}>Lyrics Source</Text>
-                    <View style={styles.chipRow}>
-                        {['LrcLib', 'BetterLyrics', 'YTMusic'].map(p => (
-                            <Button
-                                key={p}
-                                mode={activeProvider === p ? 'contained' : 'outlined'}
-                                onPress={() => handleProviderChange(p)}
-                                style={styles.chip}
-                                labelStyle={{ fontSize: 12, color: activeProvider === p ? undefined : '#FFFFFF' }}
-                            >
-                                {p}
-                            </Button>
-                        ))}
-                    </View>
-
-                    <Divider style={styles.divider} />
-
-                    {/* Background Theme Selection */}
-                    <Text variant="labelLarge" style={styles.sectionLabel}>Background Theme</Text>
-                    <View style={styles.chipRow}>
-                        {['Blur', 'Glass', 'Solid'].map(t => (
-                            <Button
-                                key={t}
-                                mode={lyricsTheme === t ? 'contained' : 'outlined'}
-                                onPress={() => handleThemeChange(t)}
-                                style={styles.chip}
-                                labelStyle={{ fontSize: 12, color: lyricsTheme === t ? undefined : '#FFFFFF' }}
-                            >
-                                {t}
-                            </Button>
-                        ))}
-                    </View>
-
-                    <Divider style={styles.divider} />
-
-                    {/* Text Color Selection */}
-                    <Text variant="labelLarge" style={styles.sectionLabel}>Text Color</Text>
-                    <View style={styles.chipRow}>
-                        {['Auto', 'White', 'Black'].map(c => (
-                            <Button
-                                key={c}
-                                mode={textColorMode === c ? 'contained' : 'outlined'}
-                                onPress={() => handleTextColorModeChange(c)}
-                                style={styles.chip}
-                                labelStyle={{ fontSize: 12, color: textColorMode === c ? undefined : '#FFFFFF' }}
-                            >
-                                {c}
-                            </Button>
-                        ))}
-                    </View>
-
-                    <Divider style={styles.divider} />
-
-                    {/* Animation Style Selection */}
-                    <Text variant="labelLarge" style={styles.sectionLabel}>Animation Style</Text>
-                    <View style={styles.chipRow}>
-                        {['Smooth', 'Fade', 'Scale', 'Slide'].map(a => (
-                            <Button
-                                key={a}
-                                mode={animationStyle === a ? 'contained' : 'outlined'}
-                                onPress={() => handleAnimationStyleChange(a)}
-                                style={styles.chip}
-                                labelStyle={{ fontSize: 12, color: animationStyle === a ? undefined : '#FFFFFF' }}
-                            >
-                                {a}
-                            </Button>
-                        ))}
-                    </View>
-
-                    <Button
-                        mode="contained"
-                        onPress={closeSettingsSheet}
-                        style={styles.closeMenuButton}
-                        labelStyle={{ color: '#FFFFFF' }}
-                    >
-                        Done
-                    </Button>
-                </BottomSheetScrollView>
-            </BottomSheet>
+                </BottomSheet>
+            </GestureHandlerRootView>
         </Modal>
     );
 };
