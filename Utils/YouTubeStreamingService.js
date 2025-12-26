@@ -24,6 +24,10 @@ class YouTubeStreamingService {
     constructor() {
         this.cookies = null;
         this.cookiesLoaded = false;
+        // PERFORMANCE: Cache cookies in memory to avoid AsyncStorage on every call
+        this.cachedCookies = null;
+        this.cookiesCacheTimestamp = 0;
+        this.COOKIES_CACHE_TTL = 300000; // 5 minutes
     }
 
     /**
@@ -60,8 +64,13 @@ class YouTubeStreamingService {
             const mode = preferM4A ? 'Download (M4A)' : 'Streaming (Best Quality)';
             console.log(`🎯 [${preferM4A ? 'Download' : 'Stream'}] Getting stream for video: ${videoId} - ${mode}`);
 
-            // Orbit VIP Mode: Inject Cookies if available
-            const cookies = await AsyncStorage.getItem('yt_cookies');
+            // Orbit VIP Mode: Inject Cookies if available (CACHED)
+            // PERFORMANCE: Use cached cookies to avoid AsyncStorage on every call
+            if (!this.cachedCookies || (Date.now() - this.cookiesCacheTimestamp > this.COOKIES_CACHE_TTL)) {
+                this.cachedCookies = await AsyncStorage.getItem('yt_cookies');
+                this.cookiesCacheTimestamp = Date.now();
+            }
+            const cookies = this.cachedCookies;
             if (cookies) {
                 console.log('🍪 Using VIP Cookies for stream fetch');
             }

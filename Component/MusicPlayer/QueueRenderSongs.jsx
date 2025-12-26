@@ -283,8 +283,16 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
   const lastTrackUpdateRef = useRef(0);
   const TRACK_UPDATE_DEBOUNCE = 300; // 300ms debounce
 
-  // Track change listener to update the queue - DEBOUNCED
-  useTrackPlayerEvents([Event.PlaybackTrackChanged], async (event) => {
+  // Track change listener to update the queue - DEBOUNCED and DEFERRED
+  useTrackPlayerEvents([Event.PlaybackTrackChanged], (event) => {
+    // PERFORMANCE: Defer to next frame to prevent blocking UI during track change
+    requestAnimationFrame(() => {
+      handleTrackChangeEvent(event);
+    });
+  });
+
+  // Actual track change handler - deferred execution
+  const handleTrackChangeEvent = async (event) => {
     // Skip if dragging or operation in progress
     if (isDragging || operationInProgressRef.current) return;
 
@@ -371,7 +379,7 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         setUpcomingQueue([]);
       }
     }
-  });
+  };
 
   // Initialize queue when component mounts or current track changes
   useEffect(() => {

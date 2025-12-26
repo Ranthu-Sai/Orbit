@@ -33,7 +33,7 @@ export const QueueManager = ({ children }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const [isPendingAction, setIsPendingAction] = useState(false);
-  
+
   const operationInProgressRef = useRef(false);
   const currentPlaying = useActiveTrack();
 
@@ -48,13 +48,13 @@ export const QueueManager = ({ children }) => {
         setIsOffline(false);
       }
     };
-    
+
     checkNetworkStatus();
-    
+
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsOffline(!(state.isConnected && state.isInternetReachable));
     });
-    
+
     return () => unsubscribe();
   }, []);
 
@@ -97,34 +97,37 @@ export const QueueManager = ({ children }) => {
     }
   }, [currentPlaying, isDragging, sharedFilterQueueBySource]);
 
-  // Track change listener using shared utilities
-  useTrackPlayerEvents([Event.PlaybackTrackChanged], async (event) => {
-    if (event.type === Event.PlaybackTrackChanged && !isDragging && !operationInProgressRef.current) {
-      try {
-        const track = await TrackPlayer.getActiveTrack();
-        const index = await TrackPlayer.getCurrentTrack();
+  // Track change listener using shared utilities - PERFORMANCE OPTIMIZED
+  useTrackPlayerEvents([Event.PlaybackTrackChanged], (event) => {
+    // PERFORMANCE: Defer to next frame to prevent blocking UI during track change
+    requestAnimationFrame(async () => {
+      if (event.type === Event.PlaybackTrackChanged && !isDragging && !operationInProgressRef.current) {
+        try {
+          const track = await TrackPlayer.getActiveTrack();
+          const index = await TrackPlayer.getCurrentTrack();
 
-        if (track) {
-          setCurrentIndex(index || 0);
+          if (track) {
+            setCurrentIndex(index || 0);
 
-          const sourceType = getTrackSourceType(track);
-          setIsLocalSource([TrackSourceTypes.MYMUSIC, TrackSourceTypes.DOWNLOAD].includes(sourceType));
+            const sourceType = getTrackSourceType(track);
+            setIsLocalSource([TrackSourceTypes.MYMUSIC, TrackSourceTypes.DOWNLOAD].includes(sourceType));
 
-          const filtered = await sharedFilterQueueBySource(track);
+            const filtered = await sharedFilterQueueBySource(track);
 
-          // Remove duplicates and ensure current track is first using shared utilities
-          const uniqueFiltered = removeDuplicateTracks(filtered);
-          const finalQueue = ensureCurrentTrackFirst(uniqueFiltered, track);
+            // Remove duplicates and ensure current track is first using shared utilities
+            const uniqueFiltered = removeDuplicateTracks(filtered);
+            const finalQueue = ensureCurrentTrackFirst(uniqueFiltered, track);
 
-          setUpcomingQueue(finalQueue);
-        } else {
+            setUpcomingQueue(finalQueue);
+          } else {
+            setUpcomingQueue([]);
+          }
+        } catch (error) {
+          console.error('Error handling track change event:', error);
           setUpcomingQueue([]);
         }
-      } catch (error) {
-        console.error('Error handling track change event:', error);
-        setUpcomingQueue([]);
       }
-    }
+    });
   });
 
   // Initialize on mount

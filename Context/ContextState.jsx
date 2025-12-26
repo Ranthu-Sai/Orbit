@@ -165,8 +165,10 @@ const ContextState = (props) => {
                 const currentTrackId = trackingInfo?.currentTrack?.id;
                 const newTrackId = event.track?.id;
 
-                // ✅ UPDATE UI IMMEDIATELY (non-blocking)
-                setCurrentPlaying(event.track);
+                // ✅ DEFER UI UPDATE: Use setImmediate to prevent blocking during track transition
+                setImmediate(() => {
+                    setCurrentPlaying(event.track);
+                });
 
                 // Only process if it's actually a different track
                 if (currentTrackId !== newTrackId) {

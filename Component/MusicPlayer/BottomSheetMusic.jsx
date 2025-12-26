@@ -92,9 +92,12 @@ const BottomSheetMusic = React.memo(({ color }) => {
 
     // Also listen for track changes
     const trackListener = TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, (event) => {
+      // PERFORMANCE: Defer state updates to prevent blocking during track change
       if (event.track) {
-        setIsMusicActive(true);
-        setHasQueue(true);
+        setImmediate(() => {
+          setIsMusicActive(true);
+          setHasQueue(true);
+        });
       }
     });
 
