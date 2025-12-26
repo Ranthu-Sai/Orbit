@@ -116,6 +116,37 @@ class LRUCacheManager {
     }
 
     /**
+     * Reconcile metadata with actual keys in storage
+     * Useful for manual migration or after metadata corruption
+     */
+    async reconcile() {
+        try {
+            const allKeys = await AsyncStorage.getAllKeys();
+            const relevantKeys = allKeys.filter(key => key.startsWith(`${this.namespace}_`));
+
+            console.log(`[LRUCache:${this.namespace}] Reconciling ${relevantKeys.length} keys...`);
+
+            for (const storageKey of relevantKeys) {
+                const key = storageKey.replace(`${this.namespace}_`, '');
+                if (!this.metadata.has(key)) {
+                    // Just set a default timestamp if we don't want to read every item
+                    // Reading every item just for reconcile might be too slow if there are hundreds
+                    this.metadata.set(key, {
+                        lastAccessed: Date.now() - 1000 * 60 * 60, // Assume 1 hour old
+                        size: 0
+                    });
+                }
+            }
+
+            await this._saveMetadata();
+            return relevantKeys.length;
+        } catch (error) {
+            console.warn(`[LRUCache:${this.namespace}] Reconciliation failed:`, error.message);
+            return 0;
+        }
+    }
+
+    /**
      * Evict oldest entries to make room for new data
      * @param {number} count - Number of entries to evict (default: 20% of max)
      * @returns {Promise<number>} - Number of entries evicted
@@ -132,8 +163,15 @@ class LRUCacheManager {
         try {
             await this._ensureMetadataLoaded();
 
+            // If we have no metadata but might have keys on disk, try one quick reconciliation
+            if (this.metadata.size === 0) {
+                const found = await this.reconcile();
+                if (found === 0) return 0;
+            }
+
             // Calculate how many to evict
             const evictCount = count || Math.ceil(this.metadata.size * this.config.evictionPercent);
+
 
             if (evictCount <= 0 || this.metadata.size === 0) {
                 return 0;

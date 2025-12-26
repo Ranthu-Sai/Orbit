@@ -371,85 +371,12 @@ async function PlayOneSong(song) {
     // This builds the initial queue - continuous monitor will refill when low
     // Reuse isYouTubeSong variable from line 161 (already declared)
 
-    if (isYouTubeSong) {
-      // Use InteractionManager to defer heavy recommendation fetch - prevents UI lag
-      InteractionManager.runAfterInteractions(() => {
-        setTimeout(async () => {
-          try {
-            console.log('🎵 Building queue from YTMusic recommendations for:', song.id);
-            const recommendations = await queueManager.buildQueueFromRecommendations(song.id, 'ytmusic', 20);
+    // NOTE: All recommendations (YTMusic, Saavn) are now handled by QueueManager's 
+    // continuous monitor (_onTrackChange) to ensure consistency and prevent 
+    // duplicate API calls when a song starts.
 
-            if (recommendations && recommendations.length > 0) {
-              // Filter out the current song from recommendations
-              const filteredRecs = recommendations.filter(rec => rec.id !== song.id);
-
-              if (filteredRecs.length > 0) {
-                // Use AddSongsToQueue which handles stream fetching for YTMusic
-                await AddSongsToQueue(filteredRecs);
-                console.log(`✅ Added ${filteredRecs.length} recommended songs to queue`);
-
-                // Trigger prefetch strictly AFTER songs are added to queue
-                queueManager.prefetchNextTrack().catch(err =>
-                  console.error('Error prefetching next track:', err)
-                );
-              }
-            }
-          } catch (error) {
-            console.error('Error building queue from recommendations:', error);
-            // Non-fatal - continue playing the current song
-          }
-        }, 1500); // Wait 1.5 seconds after playback starts
-      });
-    }
-
-    // ========== SOURCE DETECTION FOR SAAVN SONGS ==========
-    // Saavn songs are identified by:
-    // 1. NOT a YouTube song (ID !== 11 chars or explicitly marked)
-    // 2. NOT a DAB track
-    // 3. NOT a local file
-    // 4. NOT a podcast
-    // 5. Has downloadUrl array (Saavn's signature format) OR explicitly source='saavn'
-    const isDabTrack = song.isDabTrack || song.source === 'dab';
-    const isSaavnSong = !isYouTubeSong &&
-      !isDabTrack &&
-      !isLocalFile &&
-      !isPodcast &&
-      song.id &&
-      (song.source === 'saavn' ||
-        (song.downloadUrl && Array.isArray(song.downloadUrl)) ||
-        (song.download_url && Array.isArray(song.download_url)));
-
-    // Auto-recommendations for Saavn songs (single song plays from search)
-    if (isSaavnSong) {
-      InteractionManager.runAfterInteractions(() => {
-        setTimeout(async () => {
-          try {
-            console.log('🎵 Building queue from Saavn suggestions for:', song.id);
-            const recommendations = await queueManager.buildQueueFromRecommendations(song.id, 'saavn', 20);
-
-            if (recommendations && recommendations.length > 0) {
-              // Filter out the current song from recommendations
-              const filteredRecs = recommendations.filter(rec => rec.id !== song.id);
-
-              if (filteredRecs.length > 0) {
-                await AddSongsToQueue(filteredRecs);
-                console.log(`✅ Added ${filteredRecs.length} Saavn suggested songs to queue`);
-
-                // Trigger prefetch for next track
-                queueManager.prefetchNextTrack().catch(err =>
-                  console.error('Error prefetching next Saavn track:', err)
-                );
-              }
-            } else {
-              console.log('⚠️ No Saavn suggestions found for song:', song.id);
-            }
-          } catch (error) {
-            console.error('Error building queue from Saavn suggestions:', error);
-            // Non-fatal - continue playing the current song
-          }
-        }, 1500); // Wait 1.5 seconds after playback starts
-      });
-    }
+    // NOTE: Saavn recommendations are handled by QueueManager's continuous monitor (_onTrackChange)
+    // to avoid duplicate API calls. The monitor triggers when queue is near empty.
 
     // Set up continuous queue monitoring - fetch more when near end
     queueManager.startContinuousQueueMonitor(song.id);
@@ -677,7 +604,13 @@ async function AddSongsToQueue(songs) {
 
     let processedSong = { ...song };
 
-    if ((hasValidYouTubeId && !song.isLocalMusic) || isYTMusicSource) {
+    // Explicitly check for Saavn markers BEFORE ID length check
+    // to avoid misidentifying 11-char Saavn IDs as YouTube
+    const hasSaavnMarkers = song.source === 'saavn' ||
+      (song.downloadUrl && Array.isArray(song.downloadUrl)) ||
+      (song.download_url && Array.isArray(song.download_url));
+
+    if (((hasValidYouTubeId && !song.isLocalMusic) || isYTMusicSource) && !hasSaavnMarkers) {
       // LAZY LOAD: Do NOT fetch stream here. Just set placeholder.
       const videoId = song.id || song.videoId;
       processedSong = {
@@ -710,6 +643,7 @@ async function AddSongsToQueue(songs) {
       } else if (song.download_url && Array.isArray(song.download_url)) {
         processedSong.url = song.download_url[qualityIndex]?.url || song.download_url.find(d => d?.url)?.url || song.url;
       }
+      processedSong.source = 'saavn';
       processedSong.currentPlayingQuality = currentQuality;
     }
 

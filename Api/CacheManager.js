@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
-import { apiCache } from '../Utils/LRUCache';
+import { apiCache, playlistCache, albumCache } from '../Utils/LRUCache';
+
 
 /**
  * CacheManager - A utility for managing API response caching
@@ -102,62 +103,19 @@ const cleanMemoryCache = (cache, maxItems) => {
 };
 
 /**
- * LRU eviction for playlist and album caches
- * Removes oldest 20% of playlist/album cache entries based on timestamp
+ * Helper to get the appropriate LRU manager and sanitized key
+ * Ensures compatibility with existing key patterns
  */
-const _evictOldPlaylistAlbumCaches = async () => {
-  try {
-    const keys = await AsyncStorage.getAllKeys();
-
-    // Get playlist and album cache keys
-    const cacheKeys = keys.filter(key =>
-      key.startsWith('playlist_') || key.startsWith('album_')
-    );
-
-    if (cacheKeys.length <= 5) return; // Keep at least 5 items
-
-    // Load items with timestamps
-    const items = [];
-    for (const key of cacheKeys) {
-      try {
-        const stored = await AsyncStorage.getItem(key);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          items.push({
-            key,
-            timestamp: parsed.timestamp || 0,
-          });
-        }
-      } catch (e) {
-        // Corrupted item, mark for removal
-        items.push({ key, timestamp: 0 });
-      }
-    }
-
-    // Sort by timestamp ascending (oldest first)
-    items.sort((a, b) => a.timestamp - b.timestamp);
-
-    // Remove oldest 20%
-    const removeCount = Math.ceil(items.length * 0.2);
-    const toRemove = items.slice(0, removeCount).map(item => item.key);
-
-    if (toRemove.length > 0) {
-      await AsyncStorage.multiRemove(toRemove);
-      console.log(`🧹 Playlist/Album LRU: Removed ${toRemove.length} oldest entries`);
-
-      // Also clear from memory caches
-      for (const key of toRemove) {
-        if (key.startsWith('playlist_')) {
-          playlistMemoryCache.delete(key);
-        } else if (key.startsWith('album_')) {
-          albumMemoryCache.delete(key);
-        }
-      }
-    }
-  } catch (error) {
-    console.warn('Playlist/Album LRU eviction failed:', error.message);
+const getCacheContext = (key) => {
+  if (key.startsWith('playlist_')) {
+    return { manager: playlistCache, rawKey: key.replace(/^playlist_/, '') };
   }
+  if (key.startsWith('album_') && !key.includes('album_search_')) {
+    return { manager: albumCache, rawKey: key.replace(/^album_/, '') };
+  }
+  return { manager: apiCache, rawKey: key };
 };
+
 
 /**
  * Get data from cache
@@ -220,36 +178,28 @@ const getFromCache = async (key) => {
       }
     }
 
-    // If not in memory, try AsyncStorage as fallback
+    // If not in memory, try LRU Manager as fallback
     try {
-      const cachedItem = await AsyncStorage.getItem(key);
+      const { manager, rawKey } = getCacheContext(key);
+      const data = await manager.get(rawKey);
 
-      if (!cachedItem) return null;
-
-      const { data, timestamp, expiration } = JSON.parse(cachedItem);
-      const currentTime = new Date().getTime();
-
-      // Check if cache has expired
-      if (currentTime - timestamp > expiration * 60 * 1000) {
-        // Cache expired, remove it
-        await AsyncStorage.removeItem(key);
-        return null;
-      }
+      if (!data) return null;
 
       // Store in memory for faster access next time
       if (key.includes('playlist_')) {
-        playlistMemoryCache.set(key, { data, timestamp, expiration });
+        playlistMemoryCache.set(key, { data, timestamp: Date.now(), expiration: DEFAULT_CACHE_EXPIRATION });
         cleanMemoryCache(playlistMemoryCache, MAX_MEMORY_ITEMS.PLAYLISTS);
       } else if (key.includes('album_') && !key.includes('album_search_')) {
-        albumMemoryCache.set(key, { data, timestamp, expiration });
+        albumMemoryCache.set(key, { data, timestamp: Date.now(), expiration: DEFAULT_CACHE_EXPIRATION });
         cleanMemoryCache(albumMemoryCache, MAX_MEMORY_ITEMS.ALBUMS);
       }
 
       return data;
     } catch (storageError) {
-      console.warn('AsyncStorage access failed:', storageError);
+      console.warn('Cache access failed:', storageError);
       return null;
     }
+
   } catch (error) {
     console.error(`Error retrieving from cache for key ${key}:`, error);
     return null;
@@ -294,70 +244,28 @@ const saveToCache = async (key, data, expiration = DEFAULT_CACHE_EXPIRATION, gro
       albumMemoryCache.set(key, cacheItem);
     }
 
-    // For playlists and albums, we'll try to store in AsyncStorage as well
-    // but only if it's not too big and as a best effort (won't fail if storage is full)
-    try {
-      // Only attempt to store moderate-sized data to prevent SQLite errors
-      // Increased to 500KB for more storage capacity as requested
-      const dataString = JSON.stringify(cacheItem);
-      const dataSize = dataString.length;
+    // For playlists and albums, we'll try to store in Disk via LRU Manager
+    const { manager, rawKey } = getCacheContext(key);
+    const success = await manager.set(rawKey, data, expiration);
 
-      if (dataSize < 500000) {
-        await AsyncStorage.setItem(key, dataString);
+    if (success && group && group !== CACHE_GROUPS.SEARCH) {
+      try {
+        const groupKey = `cache_group_${group}`;
+        const groupItems = await AsyncStorage.getItem(groupKey) || '[]';
+        const items = JSON.parse(groupItems);
 
-        // Add to group index if appropriate
-        if (group && group !== CACHE_GROUPS.SEARCH) {
-          const groupKey = `cache_group_${group}`;
-          const groupItems = await AsyncStorage.getItem(groupKey) || '[]';
-          const items = JSON.parse(groupItems);
-
-          if (!items.includes(key)) {
-            items.push(key);
-            // Limit group size to avoid ever-growing lists
-            if (items.length > 20) {
-              items.splice(0, items.length - 20);
-            }
-            await AsyncStorage.setItem(groupKey, JSON.stringify(items));
+        if (!items.includes(key)) {
+          items.push(key);
+          if (items.length > 20) {
+            items.splice(0, items.length - 20);
           }
+          await AsyncStorage.setItem(groupKey, JSON.stringify(items));
         }
-      } else {
-        console.log(`Data for ${key} is too large (${dataSize} bytes), keeping in memory only to prevent SQLITE_FULL`);
-      }
-    } catch (storageError) {
-      // Check if it's a disk full error
-      const errorMsg = storageError.message?.toLowerCase() || '';
-      const isDiskFull = errorMsg.includes('code 13') ||
-        errorMsg.includes('full') ||
-        errorMsg.includes('sqlite_full');
-
-      if (isDiskFull) {
-        console.log(`⚠️ Disk full detected for ${key}. Performing LRU eviction...`);
-
-        // Smart LRU eviction - remove only oldest entries, not everything
-        try {
-          const evicted = await apiCache.evictOldest();
-          console.log(`🧹 LRU eviction: Removed ${evicted} oldest entries`);
-
-          // Also clean up old playlist/album caches
-          await _evictOldPlaylistAlbumCaches();
-
-          // Retry the save once after eviction
-          try {
-            const retryDataString = JSON.stringify(cacheItem);
-            if (retryDataString.length < 300000) {
-              await AsyncStorage.setItem(key, retryDataString);
-              console.log(`✅ Successfully saved ${key} after LRU eviction`);
-            }
-          } catch (retryError) {
-            console.log(`[CacheManager] Keeping ${key} in memory only after eviction`);
-          }
-        } catch (evictError) {
-          console.warn('LRU eviction failed:', evictError.message);
-        }
-      } else {
-        console.warn(`AsyncStorage save failed for ${key}:`, storageError.message);
+      } catch (groupError) {
+        console.warn('Failed to update cache group index:', groupError.message);
       }
     }
+
   } catch (error) {
     console.error(`Error saving to cache for key ${key}:`, error);
   }

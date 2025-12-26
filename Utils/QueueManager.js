@@ -28,7 +28,8 @@ class QueueManager {
             console.log(`🎵 Building queue from recommendations for song: ${songId}, source: ${source}`);
 
             // For YouTube Music songs, use YouTube's own recommendations API
-            if (source === 'ytmusic' || (typeof songId === 'string' && songId.length === 11)) {
+            const isYTId = typeof songId === 'string' && songId.length === 11;
+            if (source === 'ytmusic' || (isYTId && source !== 'saavn')) {
 
                 const nextData = await InnerTubeClient.getNext(songId);
 
@@ -377,18 +378,23 @@ class QueueManager {
 
                     // ========== DETECT SOURCE FROM LAST SONG ==========
                     // Determine if we should fetch YTMusic or Saavn recommendations
+                    // Robust detection: check for 11-char ID (YT), or source tag/downloadUrl (Saavn)
                     const isYTMusicSong = lastSong &&
                         lastSong.id &&
                         typeof lastSong.id === 'string' &&
                         lastSong.id.length === 11 &&
                         !lastSong.isLocalMusic;
+
                     const isSaavnSong = lastSong &&
-                        lastSong.source === 'saavn' ||
-                        (lastSong?.downloadUrl && Array.isArray(lastSong.downloadUrl));
+                        (lastSong.source === 'saavn' ||
+                            (lastSong.downloadUrl && Array.isArray(lastSong.downloadUrl)) ||
+                            (lastSong.download_url && Array.isArray(lastSong.download_url)));
 
                     // Choose the correct source for recommendations
-                    const recommendationSource = isYTMusicSong ? 'ytmusic' : (isSaavnSong ? 'saavn' : 'ytmusic');
-                    console.log(`🔍 Detected source for queue refill: ${recommendationSource}`);
+                    // If we can't be sure, default to Saavn if it doesn't look like YTMusic, 
+                    // as YTMusic IDs are very specific.
+                    const recommendationSource = isYTMusicSong ? 'ytmusic' : (isSaavnSong ? 'saavn' : 'saavn');
+                    console.log(`🔍 Detected source for queue refill: ${recommendationSource} (Last song ID: ${lastSong?.id || 'none'})`);
 
                     const recommendations = await this.buildQueueFromRecommendations(
                         videoIdForRecs,
@@ -402,17 +408,40 @@ class QueueManager {
                         const newSongs = recommendations.filter(rec => !existingIds.has(rec.id));
 
                         if (newSongs.length > 0) {
-                            await AddSongsToQueue(newSongs);
+                            // Tag songs with source for future refills
+                            const taggedSongs = newSongs.map(s => ({
+                                ...s,
+                                source: recommendationSource
+                            }));
+                            await AddSongsToQueue(taggedSongs);
                             console.log(`✅ Added ${newSongs.length} more ${recommendationSource} songs to extend queue!`);
+
+                            // Update currentVideoId to the last added song for diverse next refill
+                            const lastAdded = newSongs[newSongs.length - 1];
+                            if (lastAdded?.id) {
+                                this.currentVideoId = lastAdded.id;
+                                console.log(`🔄 Updated seed ID for next refill: ${lastAdded.id}`);
+                            }
                         } else {
                             console.log('⚠️ No new songs to add (all duplicates)');
+                            // If all duplicates, try using a different song as seed
+                            // Use a random song from recommendations as new seed
+                            if (recommendations.length > 0) {
+                                const randomSeed = recommendations[Math.floor(Math.random() * recommendations.length)];
+                                if (randomSeed?.id) {
+                                    this.currentVideoId = randomSeed.id;
+                                    console.log(`🔄 Changed seed ID to avoid duplicates: ${randomSeed.id}`);
+                                }
+                            }
                         }
+                    } else {
+                        console.log(`⚠️ No recommendations returned for source: ${recommendationSource}`);
                     }
                 } catch (error) {
                     console.error('❌ Error fetching more recommendations:', error);
+                } finally {
+                    this.isFetchingMore = false;
                 }
-
-                this.isFetchingMore = false;
             }
         } catch (error) {
             console.error('❌ Error in queue monitor:', error);

@@ -1,9 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as RNFS from 'react-native-fs';
+import { Platform } from 'react-native';
 import { analyticsService } from './AnalyticsUtils';
 
-// Storage keys
+// Storage keys (legacy)
 const HISTORY_STORAGE_KEY = 'orbit_listening_history';
 const WEEKLY_STATS_KEY = 'orbit_weekly_stats';
+
+// File paths
+const HISTORY_FILE_PATH = `${RNFS.DocumentDirectoryPath}/orbit_history.json`;
+const WEEKLY_STATS_FILE_PATH = `${RNFS.DocumentDirectoryPath}/orbit_weekly_stats.json`;
+
 
 // History entry structure
 const createHistoryEntry = (song, listenDuration = 0) => ({
@@ -59,6 +66,10 @@ class HistoryManager {
   async initialize() {
     try {
       console.log('HistoryManager: Initializing...');
+
+      // Migrate from AsyncStorage to File System if needed
+      await this.migrateFromAsyncStorage();
+
       await this.ensureWeeklyStatsExist();
       // Refresh all stats to ensure consistency on app start
       await this.refreshAllStats();
@@ -67,6 +78,63 @@ class HistoryManager {
       console.error('HistoryManager: Initialization failed:', error);
     }
   }
+
+  // Migrate data from AsyncStorage to File System
+  async migrateFromAsyncStorage() {
+    try {
+      const historyFileExists = await RNFS.exists(HISTORY_FILE_PATH);
+      const statsFileExists = await RNFS.exists(WEEKLY_STATS_FILE_PATH);
+
+      // Only migrate if files don't exist yet and we have data in AsyncStorage
+      if (!historyFileExists) {
+        const legacyHistory = await AsyncStorage.getItem(HISTORY_STORAGE_KEY);
+        if (legacyHistory) {
+          console.log('HistoryManager: Migrating history from AsyncStorage...');
+          await RNFS.writeFile(HISTORY_FILE_PATH, legacyHistory, 'utf8');
+          // Don't remove from AsyncStorage yet, wait for verification or just leave it as backup
+          // AsyncStorage.removeItem(HISTORY_STORAGE_KEY); 
+        }
+      }
+
+      if (!statsFileExists) {
+        const legacyStats = await AsyncStorage.getItem(WEEKLY_STATS_KEY);
+        if (legacyStats) {
+          console.log('HistoryManager: Migrating weekly stats from AsyncStorage...');
+          await RNFS.writeFile(WEEKLY_STATS_FILE_PATH, legacyStats, 'utf8');
+          // AsyncStorage.removeItem(WEEKLY_STATS_KEY);
+        }
+      }
+    } catch (error) {
+      console.error('HistoryManager: Migration failed:', error);
+    }
+  }
+
+  // Helper to read JSON from file
+  async readJsonFile(path, defaultValue = null) {
+    try {
+      const exists = await RNFS.exists(path);
+      if (!exists) return defaultValue;
+
+      const content = await RNFS.readFile(path, 'utf8');
+      return content ? JSON.parse(content) : defaultValue;
+    } catch (error) {
+      console.error(`HistoryManager: Error reading file ${path}:`, error);
+      return defaultValue;
+    }
+  }
+
+  // Helper to write JSON to file
+  async writeJsonFile(path, data) {
+    try {
+      const content = JSON.stringify(data);
+      await RNFS.writeFile(path, content, 'utf8');
+      return true;
+    } catch (error) {
+      console.error(`HistoryManager: Error writing file ${path}:`, error);
+      return false;
+    }
+  }
+
 
   // Start tracking a song
   async startTracking(song) {
@@ -98,14 +166,12 @@ class HistoryManager {
       this.pausedDuration = 0;
       this.pauseStartTime = null;
 
-      // FIXED: Only reset hasCountedPlay if this is not a recent continuation of the same song
       this.hasCountedPlay = isRecentPlay && existingEntry ? true : false;
 
       console.log(`HistoryManager: Started tracking "${song.title}" (continuation: ${isRecentPlay})`);
 
-      console.log(`HistoryManager: Started tracking "${song.title}" (continuation: ${isRecentPlay})`);
-
       // No interval - purely event-driven now per user request for performance
+
     } catch (error) {
       console.error('HistoryManager: Error starting tracking:', error);
     }
@@ -141,17 +207,11 @@ class HistoryManager {
           const existingIndex = history.findIndex(item => item && item.id === trackToReset.id);
           if (existingIndex !== -1) {
             history[existingIndex].currentSessionDuration = 0; // Reset for next session
-            try {
-              await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
-            } catch (storageError) {
-              if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
-                console.warn('HistoryManager: Disk full while resetting session duration. Skipping disk save.');
-              } else {
-                throw storageError;
-              }
-            }
+            await this.writeJsonFile(HISTORY_FILE_PATH, history);
           }
         }
+
+
       } catch (resetError) {
         console.error('HistoryManager: Error resetting session duration:', resetError);
       }
@@ -307,15 +367,8 @@ class HistoryManager {
         history.splice(500);
       }
 
-      try {
-        await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
-      } catch (storageError) {
-        if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
-          console.warn('HistoryManager: Disk full. History saved in memory only.');
-        } else {
-          throw storageError;
-        }
-      }
+      await this.writeJsonFile(HISTORY_FILE_PATH, history);
+
 
       // Weekly stats are now updated in saveProgress to avoid double counting
 
@@ -332,13 +385,13 @@ class HistoryManager {
   // Get full history
   async getHistory() {
     try {
-      const historyData = await AsyncStorage.getItem(HISTORY_STORAGE_KEY);
-      return historyData ? JSON.parse(historyData) : [];
+      return await this.readJsonFile(HISTORY_FILE_PATH, []);
     } catch (error) {
       console.error('HistoryManager: Error getting history:', error);
       return [];
     }
   }
+
 
   // Get filtered history
   async getFilteredHistory(filter = 'recent', searchQuery = '') {
@@ -398,16 +451,9 @@ class HistoryManager {
       stats.songsPlayed += 1;
       stats.dailyStats[dayOfWeek] += listenDuration;
 
-      try {
-        await AsyncStorage.setItem(WEEKLY_STATS_KEY, JSON.stringify(stats));
-        console.log('HistoryManager: Weekly stats updated', stats);
-      } catch (storageError) {
-        if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
-          console.warn('HistoryManager: Disk full. Stats updated in memory only.');
-        } else {
-          throw storageError;
-        }
-      }
+      await this.writeJsonFile(WEEKLY_STATS_FILE_PATH, stats);
+      console.log('HistoryManager: Weekly stats updated', stats);
+
 
     } catch (error) {
       console.error('HistoryManager: Error updating weekly stats:', error);
@@ -443,15 +489,8 @@ class HistoryManager {
         stats.songsPlayed += 1;
       }
 
-      try {
-        await AsyncStorage.setItem(WEEKLY_STATS_KEY, JSON.stringify(stats));
-      } catch (storageError) {
-        if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
-          console.warn('HistoryManager: Disk full. Progress updated in memory only.');
-        } else {
-          throw storageError;
-        }
-      }
+      await this.writeJsonFile(WEEKLY_STATS_FILE_PATH, stats);
+
       console.log('HistoryManager: Weekly stats updated', {
         durationDiff,
         isNewPlay,
@@ -466,38 +505,25 @@ class HistoryManager {
   // Get weekly stats
   async getWeeklyStats() {
     try {
-      const statsData = await AsyncStorage.getItem(WEEKLY_STATS_KEY);
-      return statsData ? JSON.parse(statsData) : createWeeklyStats();
+      return await this.readJsonFile(WEEKLY_STATS_FILE_PATH, createWeeklyStats());
     } catch (error) {
       console.error('HistoryManager: Error getting weekly stats:', error);
       return createWeeklyStats();
     }
   }
 
+
   // Ensure weekly stats exist and are accurate
   async ensureWeeklyStatsExist() {
     try {
-      const existing = await AsyncStorage.getItem(WEEKLY_STATS_KEY);
-      if (!existing) {
-        // Create new stats and sync with existing history
-        const newStats = createWeeklyStats();
-        try {
-          await AsyncStorage.setItem(WEEKLY_STATS_KEY, JSON.stringify(newStats));
-        } catch (storageError) {
-          if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
-            console.warn('HistoryManager: Disk full while creating stats.');
-          }
-        }
-        // Sync with existing history data
-        await this.syncWeeklyStats();
-      } else {
-        // Verify existing stats are consistent with history
-        await this.syncWeeklyStats();
-      }
+      const stats = await this.getWeeklyStats();
+      // If stats are empty or invalid, sync will fix them
+      await this.syncWeeklyStats();
     } catch (error) {
       console.error('HistoryManager: Error ensuring weekly stats exist:', error);
     }
   }
+
 
   // Reset play counts for testing
   async resetPlayCounts() {
@@ -507,15 +533,8 @@ class HistoryManager {
         ...item,
         playCount: 1
       }));
-      try {
-        await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(resetHistory));
-      } catch (storageError) {
-        if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
-          console.warn('HistoryManager: Disk full while resetting play counts.');
-          return false;
-        }
-        throw storageError;
-      }
+      await this.writeJsonFile(HISTORY_FILE_PATH, resetHistory);
+
       console.log('HistoryManager: Play counts reset');
       return true;
     } catch (error) {
@@ -559,13 +578,8 @@ class HistoryManager {
         dailyStats: dailyStats,
       };
 
-      try {
-        await AsyncStorage.setItem(WEEKLY_STATS_KEY, JSON.stringify(correctedStats));
-      } catch (storageError) {
-        if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
-          console.warn('HistoryManager: Disk full during stats sync.');
-        }
-      }
+      await this.writeJsonFile(WEEKLY_STATS_FILE_PATH, correctedStats);
+
       console.log('HistoryManager: Weekly stats synced with history data', correctedStats);
 
       return correctedStats;
@@ -646,14 +660,9 @@ class HistoryManager {
       const filteredHistory = history.filter(item => item.lastPlayed > thirtyDaysAgo);
 
       if (filteredHistory.length !== history.length) {
-        try {
-          await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(filteredHistory));
-          console.log(`HistoryManager: Cleaned up ${history.length - filteredHistory.length} old entries`);
-        } catch (storageError) {
-          if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
-            console.warn('HistoryManager: Disk full during cleanup.');
-          }
-        }
+        await this.writeJsonFile(HISTORY_FILE_PATH, filteredHistory);
+        console.log(`HistoryManager: Cleaned up ${history.length - filteredHistory.length} old entries`);
+
       }
     } catch (error) {
       console.error('HistoryManager: Error cleaning up old entries:', error);
@@ -766,13 +775,8 @@ class HistoryManager {
       );
 
       if (validHistory.length !== history.length) {
-        try {
-          await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(validHistory));
-        } catch (storageError) {
-          if (storageError.message && (storageError.message.includes('code 13') || storageError.message.toLowerCase().includes('full'))) {
-            console.warn('HistoryManager: Disk full during stats refresh.');
-          }
-        }
+        await this.writeJsonFile(HISTORY_FILE_PATH, validHistory);
+
         console.log(`HistoryManager: Cleaned up ${history.length - validHistory.length} invalid entries`);
       }
 

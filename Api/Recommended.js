@@ -4,8 +4,17 @@ import { getCachedData, CACHE_GROUPS, isNetworkAvailable } from './CacheManager'
 async function getRecommendedSongs(id) {
   try {
     // Skip recommendation requests for YouTube Music songs (11-character IDs)
-    if (id && typeof id === 'string' && id.length === 11 && !/[\/.]/.test(id)) {
-      console.log(`Skipping recommendations for YouTube song: ${id}`);
+    // ONLY if it's not explicitly a Saavn song OR doesn't have Saavn download URLs
+    const isYouTubeId = id && typeof id === 'string' && id.length === 11 && !/[\/.]/.test(id);
+    if (isYouTubeId) {
+      // If we have access to the song object, we could be more precise.
+      // For now, let's assume if it's 11 chars AND doesn't look like a Saavn ID (optional)
+      // But Saavn IDs can be anything. Better to check if we're in a Saavn context.
+      console.log(`Checking if 11-char ID ${id} is YouTube or Saavn...`);
+    }
+
+    if (isYouTubeId && !id.startsWith('_')) { // Many Saavn IDs start with underscores
+      console.log(`Skipping recommendations for likely YouTube song: ${id}`);
       return { data: [], success: true, message: "Recommendations not available for YouTube songs" };
     }
 
