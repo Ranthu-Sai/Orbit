@@ -5,6 +5,7 @@ import dabMusicService from './DabMusicService';
 import { getIndexQuality } from '../MusicPlayerFunctions';
 import InnerTubeClient from '../Api/InnertubeClient';
 import { CacheManager } from './NavigationCacheManager';
+import { InteractionManager } from 'react-native';
 
 /**
  * QueueManager - Centralized queue management with lazy stream loading
@@ -348,9 +349,27 @@ class QueueManager {
 
     /**
      * Handler for track change events - checks if we need more recommendations
+     * PERFORMANCE FIX: Defers blocking operations to prevent UI lag during playback
      * @private
      */
-    async _onTrackChange(event) {
+    _onTrackChange(event) {
+        if (this.isFetchingMore || !this.currentVideoId) return;
+
+        // CRITICAL: Defer to InteractionManager to prevent blocking UI during playback start
+        // This fixes the 10-second UI lag issue when playing songs
+        InteractionManager.runAfterInteractions(() => {
+            this._handleQueueRefill(event).catch(err =>
+                console.error('QueueManager: Background refill error:', err)
+            );
+        });
+    }
+
+    /**
+     * Internal handler for queue refill - contains the actual logic
+     * Runs in background via InteractionManager
+     * @private
+     */
+    async _handleQueueRefill(event) {
         if (this.isFetchingMore || !this.currentVideoId) return;
 
         try {

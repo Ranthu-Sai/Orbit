@@ -17,6 +17,11 @@ import FormatArtist from "./Utils/FormatArtists";
 
 let isPlayerInitialized = false;
 
+// PERFORMANCE: Cache quality index to avoid repeated AsyncStorage calls
+let cachedQualityIndex = null;
+let qualityCacheTimestamp = 0;
+const QUALITY_CACHE_TTL = 60000; // 1 minute cache TTL
+
 // Helper to extract artwork URL from various formats
 const extractArtwork = (song) => {
   // Direct artwork/image string
@@ -311,21 +316,27 @@ async function PlayOneSong(song) {
       playbackUrl = `file://${song.path}`;
     }
 
-    // Check network availability for non-local files
+    // Check network availability for non-local files - NON-BLOCKING
+    // Instead of blocking here, we let playback fail gracefully if offline
     if (!isLocalFile) {
-      const netInfo = await NetInfo.fetch();
-      if (!netInfo.isConnected) {
-        console.log('Cannot play online song while offline');
-        // Return early or try to play a cached version
-        return;
-      }
+      NetInfo.fetch().then(netInfo => {
+        if (!netInfo.isConnected) {
+          console.log('Warning: Playing online song but device may be offline');
+        }
+      }).catch(() => { /* ignore */ });
     }
 
     // NOTE: History tracking moved to AFTER TrackPlayer.play() to avoid blocking playback
     // See below after TrackPlayer.play() call
 
     // Create a copy of the song with the selected playback URL and quality info
-    const qualityIndex = await getIndexQuality();
+    // PERFORMANCE: Use cached quality index if available
+    let qualityIndex = cachedQualityIndex;
+    if (qualityIndex === null || (Date.now() - qualityCacheTimestamp > QUALITY_CACHE_TTL)) {
+      qualityIndex = await getIndexQuality();
+      cachedQualityIndex = qualityIndex;
+      qualityCacheTimestamp = Date.now();
+    }
     const qualityNames = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
     const currentQuality = qualityNames[qualityIndex] || 'Unknown';
 
@@ -388,7 +399,10 @@ async function PlayOneSong(song) {
     // to avoid duplicate API calls. The monitor triggers when queue is near empty.
 
     // Set up continuous queue monitoring - fetch more when near end
-    queueManager.startContinuousQueueMonitor(song.id);
+    // NON-BLOCKING: Defer to allow UI to stay responsive during playback start
+    setTimeout(() => {
+      queueManager.startContinuousQueueMonitor(song.id);
+    }, 100);
   } catch (error) {
     console.error('Error playing song:', error);
   }

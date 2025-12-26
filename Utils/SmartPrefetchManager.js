@@ -131,8 +131,9 @@ class SmartPrefetchManager {
      */
     /**
      * Handle track changes - IMMEDIATE N+1, N+2, N+3 prefetch + queue cleanup
+     * PERFORMANCE FIX: Deferred with InteractionManager to prevent UI lag
      */
-    async _handleTrackChanged(event) {
+    _handleTrackChanged(event) {
         // Check if track is a YouTube Music track (by source, not by stream status)
         // We always want to prefetch next tracks for YTMusic, even if current track is ready
         const track = event.track;
@@ -163,29 +164,43 @@ class SmartPrefetchManager {
         if (event.index !== undefined && event.index !== null) {
             this._cancelPendingPrefetch();
 
-            let effectiveIndex = event.index;
-
-            // 🧹 QUEUE CLEANUP: Remove old tracks, keep only 5 previous
-            // CRITICAL: Skip cleanup if we're in recovery mode to prevent index shifts
-            if (!this.isRecovering) {
-                effectiveIndex = await this._cleanupOldTracks(event.index);
-            } else {
-                console.log('⏳ Skipping queue cleanup - recovery in progress');
-            }
-
-            this.currentTrackIndex = effectiveIndex;
-
-            // 🚀 IMMEDIATE ACTION: Prefetch next 3 songs aggressively
-            // This ensures auto-recommendation songs are ready before playback
-            console.log(`🚀 Track Changed: Aggressively prefetching N+1, N+2, N+3... (Effective Index: ${effectiveIndex})`);
-
-            // Prefetch in parallel for speed
-            Promise.all([
-                this._prefetchTrackAtIndex(effectiveIndex + 1),
-                this._prefetchTrackAtIndex(effectiveIndex + 2),
-                this._prefetchTrackAtIndex(effectiveIndex + 3)
-            ]).catch(err => console.log('Prefetch batch error:', err.message));
+            // PERFORMANCE FIX: Defer heavy operations to prevent UI lag during playback start
+            InteractionManager.runAfterInteractions(() => {
+                this._handleTrackChangedAsync(event).catch(err =>
+                    console.error('SmartPrefetch: Background handler error:', err)
+                );
+            });
         }
+    }
+
+    /**
+     * Async handler for track changed - contains the heavy lifting
+     * Runs in background via InteractionManager
+     * @private
+     */
+    async _handleTrackChangedAsync(event) {
+        let effectiveIndex = event.index;
+
+        // 🧹 QUEUE CLEANUP: Remove old tracks, keep only 5 previous
+        // CRITICAL: Skip cleanup if we're in recovery mode to prevent index shifts
+        if (!this.isRecovering) {
+            effectiveIndex = await this._cleanupOldTracks(event.index);
+        } else {
+            console.log('⏳ Skipping queue cleanup - recovery in progress');
+        }
+
+        this.currentTrackIndex = effectiveIndex;
+
+        // 🚀 IMMEDIATE ACTION: Prefetch next 3 songs aggressively
+        // This ensures auto-recommendation songs are ready before playback
+        console.log(`🚀 Track Changed: Aggressively prefetching N+1, N+2, N+3... (Effective Index: ${effectiveIndex})`);
+
+        // Prefetch in parallel for speed
+        Promise.all([
+            this._prefetchTrackAtIndex(effectiveIndex + 1),
+            this._prefetchTrackAtIndex(effectiveIndex + 2),
+            this._prefetchTrackAtIndex(effectiveIndex + 3)
+        ]).catch(err => console.log('Prefetch batch error:', err.message));
     }
 
     /**
