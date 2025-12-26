@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTheme } from '@react-navigation/native';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ToastAndroid, BackHandler, Dimensions, ScrollView, Keyboard, Platform } from 'react-native';
-import BottomSheet, { BottomSheetView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ToastAndroid, BackHandler, Dimensions, Keyboard, Platform } from 'react-native';
+import BottomSheet, { BottomSheetView, BottomSheetTextInput, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { getUserPlaylists, addSongToPlaylist, createPlaylist } from '../../Utils/PlaylistManager';
 import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
@@ -188,7 +188,7 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
       backgroundStyle={{ backgroundColor: theme.colors.card }}
       handleIndicatorStyle={{ backgroundColor: theme.colors.text }}
     >
-      <BottomSheetView style={[styles.container, { backgroundColor: theme.colors.card }]}>
+      <View style={[styles.container, { backgroundColor: theme.colors.card }]}>
         <View style={styles.header}>
           <PlainText text="Add to Playlist" style={[styles.title, { color: theme.colors.text }]} />
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -204,7 +204,8 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
           <PlainText text="Create New Playlist" style={[styles.createNewText, { color: theme.colors.primary }]} />
         </TouchableOpacity>
 
-        <ScrollView
+        {/* Use BottomSheetScrollView for proper scrolling inside bottom sheet */}
+        <BottomSheetScrollView
           style={styles.playlistListContainer}
           contentContainerStyle={styles.playlistList}
           showsVerticalScrollIndicator={true}
@@ -223,7 +224,7 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
               <SmallText text="Create a new playlist to add this song" style={[styles.emptySubtext, { color: theme.colors.textSecondary }]} />
             </View>
           )}
-        </ScrollView>
+        </BottomSheetScrollView>
 
         {/* New Playlist Modal - Positioned at top for keyboard visibility */}
         {showNewPlaylistModal && (
@@ -270,7 +271,7 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
             </View>
           </View>
         )}
-      </BottomSheetView>
+      </View>
     </BottomSheet>
   );
 };

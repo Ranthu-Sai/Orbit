@@ -375,9 +375,24 @@ class QueueManager {
                     // Import AddSongsToQueue dynamically to avoid circular dependencies
                     const { AddSongsToQueue } = require('../MusicPlayerFunctions');
 
+                    // ========== DETECT SOURCE FROM LAST SONG ==========
+                    // Determine if we should fetch YTMusic or Saavn recommendations
+                    const isYTMusicSong = lastSong &&
+                        lastSong.id &&
+                        typeof lastSong.id === 'string' &&
+                        lastSong.id.length === 11 &&
+                        !lastSong.isLocalMusic;
+                    const isSaavnSong = lastSong &&
+                        lastSong.source === 'saavn' ||
+                        (lastSong?.downloadUrl && Array.isArray(lastSong.downloadUrl));
+
+                    // Choose the correct source for recommendations
+                    const recommendationSource = isYTMusicSong ? 'ytmusic' : (isSaavnSong ? 'saavn' : 'ytmusic');
+                    console.log(`🔍 Detected source for queue refill: ${recommendationSource}`);
+
                     const recommendations = await this.buildQueueFromRecommendations(
                         videoIdForRecs,
-                        'ytmusic',
+                        recommendationSource,
                         20
                     );
 
@@ -388,7 +403,7 @@ class QueueManager {
 
                         if (newSongs.length > 0) {
                             await AddSongsToQueue(newSongs);
-                            console.log(`✅ Added ${newSongs.length} more songs to extend queue!`);
+                            console.log(`✅ Added ${newSongs.length} more ${recommendationSource} songs to extend queue!`);
                         } else {
                             console.log('⚠️ No new songs to add (all duplicates)');
                         }

@@ -402,6 +402,55 @@ async function PlayOneSong(song) {
       });
     }
 
+    // ========== SOURCE DETECTION FOR SAAVN SONGS ==========
+    // Saavn songs are identified by:
+    // 1. NOT a YouTube song (ID !== 11 chars or explicitly marked)
+    // 2. NOT a DAB track
+    // 3. NOT a local file
+    // 4. NOT a podcast
+    // 5. Has downloadUrl array (Saavn's signature format) OR explicitly source='saavn'
+    const isDabTrack = song.isDabTrack || song.source === 'dab';
+    const isSaavnSong = !isYouTubeSong &&
+      !isDabTrack &&
+      !isLocalFile &&
+      !isPodcast &&
+      song.id &&
+      (song.source === 'saavn' ||
+        (song.downloadUrl && Array.isArray(song.downloadUrl)) ||
+        (song.download_url && Array.isArray(song.download_url)));
+
+    // Auto-recommendations for Saavn songs (single song plays from search)
+    if (isSaavnSong) {
+      InteractionManager.runAfterInteractions(() => {
+        setTimeout(async () => {
+          try {
+            console.log('🎵 Building queue from Saavn suggestions for:', song.id);
+            const recommendations = await queueManager.buildQueueFromRecommendations(song.id, 'saavn', 20);
+
+            if (recommendations && recommendations.length > 0) {
+              // Filter out the current song from recommendations
+              const filteredRecs = recommendations.filter(rec => rec.id !== song.id);
+
+              if (filteredRecs.length > 0) {
+                await AddSongsToQueue(filteredRecs);
+                console.log(`✅ Added ${filteredRecs.length} Saavn suggested songs to queue`);
+
+                // Trigger prefetch for next track
+                queueManager.prefetchNextTrack().catch(err =>
+                  console.error('Error prefetching next Saavn track:', err)
+                );
+              }
+            } else {
+              console.log('⚠️ No Saavn suggestions found for song:', song.id);
+            }
+          } catch (error) {
+            console.error('Error building queue from Saavn suggestions:', error);
+            // Non-fatal - continue playing the current song
+          }
+        }, 1500); // Wait 1.5 seconds after playback starts
+      });
+    }
+
     // Set up continuous queue monitoring - fetch more when near end
     queueManager.startContinuousQueueMonitor(song.id);
   } catch (error) {
