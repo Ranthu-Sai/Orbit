@@ -1,7 +1,7 @@
 import React, { useState, useContext, useMemo, useCallback } from "react";
 import { Dimensions, View, StyleSheet, StatusBar } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { useActiveTrack } from "react-native-track-player";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "react-native-paper";
@@ -445,7 +445,6 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
       musicPreviousScreen={musicPreviousScreen}
     >
       <Animated.View
-        entering={FadeInDown.delay(200)}
         style={{
           backgroundColor: paperTheme.colors.background,
           flex: 1,

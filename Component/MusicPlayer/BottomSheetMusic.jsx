@@ -1,6 +1,7 @@
 import React, { useCallback, useContext, useEffect, useRef, useState, useMemo } from "react";
 import { BackHandler, StyleSheet, Text, Keyboard, Platform, DeviceEventEmitter } from "react-native";
-import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
+import BottomSheet, { BottomSheetView, useBottomSheetTimingConfigs } from "@gorhom/bottom-sheet";
+import { Easing } from "react-native-reanimated";
 import { MinimizedMusic } from "./MinimizedMusic";
 import { FullScreenMusic } from "./FullScreenMusic";
 import Context from "../../Context/Context";
@@ -131,6 +132,14 @@ const BottomSheetMusic = React.memo(({ color }) => {
   // Memoized visibility calculation - computed only when dependencies change
   // Hide when keyboard is visible (except in fullscreen mode)
   // OPTIMISTIC UI: Also show when loadingSong is set
+  // Timing animation config for smooth, predictable open/close transitions
+  // Using timing instead of spring to avoid stuck transitions
+  // OPTIMIZED: Reduced duration to 200ms with faster out-easing for snappy close
+  const animationConfigs = useBottomSheetTimingConfigs({
+    duration: 200,
+    easing: Easing.out(Easing.cubic),
+  });
+
   const shouldShowPlayer = useMemo(() => {
     // Hide minimized player when keyboard is visible
     if (isKeyboardVisible && Index !== 1) return false;
@@ -362,9 +371,12 @@ const BottomSheetMusic = React.memo(({ color }) => {
   // Ultra-fast render with optimized JSX
   return (
     <BottomSheet
-      enableContentPanningGesture={false}
+      enableContentPanningGesture={true}
+      enableHandlePanningGesture={true}
       detached={false}
-      enableOverDrag={false}
+      enableOverDrag={true}
+      enablePanDownToClose={false}
+      animationConfigs={animationConfigs}
       keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustNothing"
@@ -377,9 +389,10 @@ const BottomSheetMusic = React.memo(({ color }) => {
       backgroundStyle={{
         backgroundColor: color || colors.musicPlayerBg,
       }}
-      handleHeight={5}
+      handleHeight={20}
       handleStyle={{
         position: "absolute",
+        height: 20,
       }}
       snapPoints={[155, '100%']}
       ref={bottomSheetRef}
