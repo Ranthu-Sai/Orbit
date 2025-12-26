@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, forwardRef, useImperativeHandl
 import { View, FlatList, StyleSheet, Text, RefreshControl, Dimensions, TextInput, TouchableOpacity } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { HistoryCard } from './HistoryCard';
-import { HistoryChart } from './HistoryChart';
 import { HistoryFilters } from './HistoryFilters';
 
 import { PlainText } from '../Global/PlainText';
@@ -41,13 +40,10 @@ export const HistoryScreen = forwardRef((props, ref) => {
     try {
       setIsLoading(true);
 
-      // Load filtered history
+      // Load filtered history from in-memory cache (very fast)
       const history = await historyManager.getFilteredHistory(activeFilter, searchQuery);
       setHistoryData(history);
-
-      // Load and sync weekly stats to ensure consistency
-      const stats = await historyManager.syncWeeklyStats();
-      setWeeklyStats(stats);
+      setWeeklyStats(null); // Explicitly null since user wants charts removed
 
     } catch (error) {
       console.error('Error loading history data:', error);
@@ -78,30 +74,26 @@ export const HistoryScreen = forwardRef((props, ref) => {
     loadHistoryData();
   }, [loadHistoryData]);
 
-  // Refresh data periodically to show updated stats
+  // Refresh data on mount and filter changes
   useEffect(() => {
-    const interval = setInterval(() => {
-      loadHistoryData();
-    }, 5000); // Refresh every 5 seconds for better responsiveness
-
-    return () => clearInterval(interval);
+    loadHistoryData();
   }, [loadHistoryData]);
 
   // Render empty state
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <MaterialIcons 
-        name="history" 
-        size={64} 
-        color={colors.textSecondary} 
+      <MaterialIcons
+        name="history"
+        size={64}
+        color={colors.textSecondary}
         style={styles.emptyIcon}
       />
-      <PlainText 
-        text="No listening history yet" 
+      <PlainText
+        text="No listening history yet"
         style={[styles.emptyTitle, { color: colors.text }]}
       />
-      <SmallText 
-        text="Start playing some music to see your history here" 
+      <SmallText
+        text="Start playing some music to see your history here"
         style={[styles.emptySubtitle, { color: colors.textSecondary }]}
       />
     </View>
@@ -110,17 +102,17 @@ export const HistoryScreen = forwardRef((props, ref) => {
   // Render search empty state
   const renderSearchEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <MaterialIcons 
-        name="search-off" 
-        size={64} 
-        color={colors.textSecondary} 
+      <MaterialIcons
+        name="search-off"
+        size={64}
+        color={colors.textSecondary}
         style={styles.emptyIcon}
       />
-      <PlainText 
-        text="No results found" 
+      <PlainText
+        text="No results found"
         style={[styles.emptyTitle, { color: colors.text }]}
       />
-      <SmallText 
+      <SmallText
         text={`No songs match "${searchQuery}"`}
         style={[styles.emptySubtitle, { color: colors.textSecondary }]}
       />
@@ -129,8 +121,8 @@ export const HistoryScreen = forwardRef((props, ref) => {
 
   // Render history item
   const renderHistoryItem = ({ item, index }) => (
-    <HistoryCard 
-      historyItem={item} 
+    <HistoryCard
+      historyItem={item}
       onRefresh={handleRefresh}
     />
   );
@@ -172,10 +164,7 @@ export const HistoryScreen = forwardRef((props, ref) => {
         )}
       </View>
 
-      {/* Weekly Chart */}
-      {weeklyStats && !searchQuery && (
-        <HistoryChart weeklyStats={weeklyStats} />
-      )}
+      {/* History filters and list header - Chart removed per user request */}
 
       {/* Filters */}
       {!searchQuery && (

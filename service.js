@@ -29,13 +29,8 @@ export const PlaybackService = async function () {
     TrackPlayer.addEventListener(Event.RemotePrevious, () => PlayPreviousSong());
     TrackPlayer.addEventListener(Event.RemoteSeek, (e) => TrackPlayer.seekTo(e.position));
 
-    // Simple Event-Driven History Tracking
-    TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, async (event) => {
-      if (event.track?.id) {
-        // Just log the track change, HistoryManager handles the "add unique" logic
-        await historyManager.startTracking(event.track);
-      }
-    });
+    // History tracking is handled by ContextState.jsx to avoid duplicate calls
+    // and ensure non-blocking UI updates. Removed from here to prevent blocking.
 
     // Auto-recommendations listeners
     autoRecommendations.initializeListeners();

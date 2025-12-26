@@ -210,56 +210,42 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
 
   return (
     <View style={styles.container}>
-      <Pressable 
+      <Pressable
         onPress={playSong}
-        android_ripple={{ 
+        android_ripple={{
           color: dark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
           borderless: false,
           radius: SCREEN_WIDTH * 0.45
         }}
         style={styles.pressableContent}
       >
-        <FastImage 
+        <FastImage
           source={
             isPlaying ? require('../../Images/playing.gif') :
-            isPaused ? require('../../Images/songPaused.gif') : 
-            { uri: getArtworkUri() }
+              isPaused ? require('../../Images/songPaused.gif') :
+                { uri: getArtworkUri() }
           }
           style={styles.artwork}
           resizeMode={FastImage.resizeMode.cover}
         />
-        
+
         <View style={styles.textContainer}>
-          <PlainText 
+          <PlainText
             text={formatText(historyItem.title)}
-            style={{ 
+            style={{
               color: isCurrentlyPlaying ? '#1ED760' : colors.text,
               fontSize: 15,
               fontWeight: isCurrentlyPlaying ? '600' : '500',
               marginBottom: 2
             }}
           />
-          <SmallText 
+          <SmallText
             text={formatText(historyItem.artist)}
             style={[styles.artist, { color: colors.textSecondary }]}
           />
-          <View style={styles.statsContainer}>
-            <SmallText 
-              text={formatPlayCount(historyItem.playCount)}
-              style={[styles.stats, { color: colors.textSecondary }]}
-            />
-            <SmallText 
-              text="•"
-              style={[styles.stats, { color: colors.textSecondary, marginHorizontal: 6 }]}
-            />
-            <SmallText 
-              text={formatListenDuration(historyItem.listenDuration)}
-              style={[styles.stats, { color: colors.textSecondary }]}
-            />
-          </View>
         </View>
       </Pressable>
-      
+
       <Pressable
         ref={buttonRef}
         onPress={showMenu}
@@ -275,13 +261,13 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
         animationType="fade"
         onRequestClose={() => setMenuVisible(false)}
       >
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
           onPress={() => setMenuVisible(false)}
         >
-          <View style={[styles.menuContainer, { 
-            top: menuPosition.top, 
+          <View style={[styles.menuContainer, {
+            top: menuPosition.top,
             right: menuPosition.right,
             backgroundColor: colors.card,
             borderColor: colors.border,
@@ -290,12 +276,12 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
               <MaterialIcons name="queue-music" size={20} color={colors.text} />
               <Text style={[styles.menuText, { color: colors.text }]}>Play Next</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity style={styles.menuItem} onPress={addToPlaylist}>
               <MaterialIcons name="playlist-add" size={20} color={colors.text} />
               <Text style={[styles.menuText, { color: colors.text }]}>Add to Playlist</Text>
             </TouchableOpacity>
-            
+
             {historyItem.sourceType === 'online' && !isDownloaded && (
               <TouchableOpacity style={styles.menuItem} onPress={downloadSong}>
                 <MaterialIcons name="download" size={20} color={colors.text} />

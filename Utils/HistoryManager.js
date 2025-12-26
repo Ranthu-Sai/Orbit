@@ -20,7 +20,7 @@ const createHistoryEntry = (song, listenDuration = 0) => ({
   artwork: song.artwork || song.image || '',
   url: song.url || '',
   duration: song.duration || 0,
-  listenDuration: Math.max(0, listenDuration), // Ensure non-negative
+  listenDuration: Math.max(0, listenDuration),
   playCount: 1,
   lastPlayed: Date.now(),
   firstPlayed: Date.now(),
@@ -29,32 +29,20 @@ const createHistoryEntry = (song, listenDuration = 0) => ({
   path: song.path || null,
 });
 
-// Weekly stats structure
-const createWeeklyStats = () => {
-  const now = new Date();
-  const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-  startOfWeek.setHours(0, 0, 0, 0);
-
-  return {
-    weekStart: startOfWeek.getTime(),
-    totalListenTime: 0,
-    songsPlayed: 0,
-    dailyStats: Array(7).fill(0), // Sunday to Saturday
-  };
-};
-
 class HistoryManager {
   constructor() {
+    this.history = []; // In-memory cache
     this.currentTrack = null;
     this.startTime = null;
     this.isTracking = false;
-    this.isPaused = false; // Track if tracking is paused
-    this.pausedDuration = 0; // Total time spent paused
-    this.pauseStartTime = null; // When the current pause started
+    this.isPaused = false;
+    this.pausedDuration = 0;
+    this.pauseStartTime = null;
     this.lastSavedDuration = 0;
-    this.minListenDuration = 10000; // 10 seconds minimum to count as "listened"
-    this.hasCountedPlay = false; // Flag to ensure we only count play once per session
-    this.isBackgroundMode = false; // Track if app is in background
+    this.minListenDuration = 10000; // 10 seconds
+    this.hasCountedPlay = false;
+    this.isBackgroundMode = false;
+    this.isInitialized = false;
   }
 
   // Getter for external access to tracking state
@@ -64,18 +52,26 @@ class HistoryManager {
 
   // Initialize history tracking
   async initialize() {
+    if (this.isInitialized) return;
     try {
       console.log('HistoryManager: Initializing...');
 
-      // Migrate from AsyncStorage to File System if needed
-      await this.migrateFromAsyncStorage();
+      // Load history into memory once
+      const historyFileExists = await RNFS.exists(HISTORY_FILE_PATH);
+      if (historyFileExists) {
+        const content = await RNFS.readFile(HISTORY_FILE_PATH, 'utf8');
+        this.history = content ? JSON.parse(content) : [];
+      } else {
+        // Try migration from legacy storage if exists
+        await this.migrateFromAsyncStorage();
+      }
 
-      await this.ensureWeeklyStatsExist();
-      // Refresh all stats to ensure consistency on app start
-      await this.refreshAllStats();
-      console.log('HistoryManager: Initialized successfully');
+      this.isInitialized = true;
+      console.log('HistoryManager: Initialized with', this.history.length, 'entries');
     } catch (error) {
       console.error('HistoryManager: Initialization failed:', error);
+      this.history = [];
+      this.isInitialized = true;
     }
   }
 
@@ -139,23 +135,20 @@ class HistoryManager {
   // Start tracking a song
   async startTracking(song) {
     try {
-      if (!song || !song.id) {
-        console.warn('HistoryManager: Invalid song provided for tracking');
-        return;
-      }
+      if (!song || !song.id) return;
 
       // Check if we're already tracking this same song
       if (this.isTracking && this.currentTrack && this.currentTrack.id === song.id) {
-        // Already tracking this song - silently return
         return;
       }
 
-      // Stop previous tracking
-      await this.stopTracking();
+      // Stop previous tracking if any
+      if (this.isTracking) {
+        await this.stopTracking();
+      }
 
-      // FIXED: Check if this song was recently played to continue cumulative tracking
-      const history = await this.getHistory();
-      const existingEntry = history.find(item => item && item.id === song.id);
+      // Quick check in-memory history instead of file read
+      const existingEntry = this.history.find(item => item && item.id === song.id);
       const isRecentPlay = existingEntry && (Date.now() - existingEntry.lastPlayed) < 300000; // 5 minutes
 
       this.currentTrack = song;
@@ -165,16 +158,57 @@ class HistoryManager {
       this.isPaused = false;
       this.pausedDuration = 0;
       this.pauseStartTime = null;
-
       this.hasCountedPlay = isRecentPlay && existingEntry ? true : false;
 
-      console.log(`HistoryManager: Started tracking "${song.title}" (continuation: ${isRecentPlay})`);
+      // Add to history list immediately in memory
+      this.addToHistoryMemory(song);
 
-      // No interval - purely event-driven now per user request for performance
-
+      console.log(`HistoryManager: Tracking "${song.title}"`);
     } catch (error) {
       console.error('HistoryManager: Error starting tracking:', error);
     }
+  }
+
+  // Add song to memory history and trigger async save
+  addToHistoryMemory(song) {
+    try {
+      const existingIndex = this.history.findIndex(item => item && item.id === song.id);
+
+      if (existingIndex !== -1) {
+        // Move to top and update timestamp
+        const entry = this.history[existingIndex];
+        entry.lastPlayed = Date.now();
+        entry.playCount = (entry.playCount || 0) + 1;
+        this.history.splice(existingIndex, 1);
+        this.history.unshift(entry);
+      } else {
+        // Create new entry
+        const newEntry = createHistoryEntry(song, 0);
+        this.history.unshift(newEntry);
+      }
+
+      // Trim history
+      if (this.history.length > 500) {
+        this.history = this.history.slice(0, 500);
+      }
+
+      // Async write to disk without awaiting
+      this.saveHistoryToDisk();
+    } catch (err) {
+      console.error('HistoryManager: Error in addToHistoryMemory:', err);
+    }
+  }
+
+  // debounced disk write
+  async saveHistoryToDisk() {
+    if (this._saveTimeout) clearTimeout(this._saveTimeout);
+    this._saveTimeout = setTimeout(async () => {
+      try {
+        await this.writeJsonFile(HISTORY_FILE_PATH, this.history);
+      } catch (err) {
+        console.error('HistoryManager: Disk write error:', err);
+      }
+    }, 2000); // Wait 2s before writing to batch any quick changes
   }
 
   // Stop tracking current song
@@ -184,59 +218,15 @@ class HistoryManager {
         return;
       }
 
-      // Calculate actual listening time (excluding paused time)
-      let listenDuration = Date.now() - this.startTime;
-
-      // Subtract paused time
-      let totalPausedTime = this.pausedDuration;
-      if (this.isPaused && this.pauseStartTime) {
-        totalPausedTime += Date.now() - this.pauseStartTime;
-      }
-
-      listenDuration = Math.max(0, listenDuration - totalPausedTime);
-
-      // Save final progress
-      await this.saveProgress(true);
-
-      // FIXED: Reset currentSessionDuration in history entry when stopping
-      try {
-        // Store reference to avoid race condition where currentTrack becomes null
-        const trackToReset = this.currentTrack;
-        if (trackToReset && trackToReset.id) {
-          const history = await this.getHistory();
-          const existingIndex = history.findIndex(item => item && item.id === trackToReset.id);
-          if (existingIndex !== -1) {
-            history[existingIndex].currentSessionDuration = 0; // Reset for next session
-            await this.writeJsonFile(HISTORY_FILE_PATH, history);
-          }
-        }
-
-
-      } catch (resetError) {
-        console.error('HistoryManager: Error resetting session duration:', resetError);
-      }
-
-      // Clear tracking state
+      // No longer saving progress incrementally to avoid any lag
+      const title = this.currentTrack.title;
       this.isTracking = false;
       this.currentTrack = null;
       this.startTime = null;
-      this.lastSavedDuration = 0;
-      this.hasCountedPlay = false; // Reset play count flag
 
-      console.log(`HistoryManager: Stopped tracking, duration: ${listenDuration}ms`);
-
+      console.log(`HistoryManager: Stopped tracking "${title}"`);
     } catch (error) {
-      console.error('HistoryManager: Error stopping tracking:', error);
-      // Ensure cleanup even on error
       this.isTracking = false;
-      this.currentTrack = null;
-      this.startTime = null;
-      this.lastSavedDuration = 0;
-      this.hasCountedPlay = false;
-      if (this.trackingInterval) {
-        clearInterval(this.trackingInterval);
-        this.trackingInterval = null;
-      }
     }
   }
 
@@ -277,346 +267,69 @@ class HistoryManager {
     }
   }
 
-  // Save current progress
+  // Save current progress (Disabled for performance)
   async saveProgress(isFinal = false) {
-    try {
-      if (!this.isTracking || !this.currentTrack || !this.startTime) {
-        return;
-      }
-
-      // Calculate actual listening time (excluding paused time)
-      let currentDuration = Date.now() - this.startTime;
-
-      // Subtract paused time
-      let totalPausedTime = this.pausedDuration;
-      if (this.isPaused && this.pauseStartTime) {
-        totalPausedTime += Date.now() - this.pauseStartTime;
-      }
-
-      currentDuration = Math.max(0, currentDuration - totalPausedTime);
-
-      // Only save if we've made significant progress or it's final
-      if (!isFinal && currentDuration - this.lastSavedDuration < this.saveThreshold) {
-        return;
-      }
-
-      // Check if we should count this as a new play (only once per tracking session)
-      const shouldCountPlay = !this.hasCountedPlay && currentDuration >= this.minListenDuration;
-
-      if (shouldCountPlay) {
-        this.hasCountedPlay = true;
-        await this.addToHistory(this.currentTrack, currentDuration, true);
-        console.log(`HistoryManager: New play counted for "${this.currentTrack?.title || 'Unknown'}"`);
-      } else {
-        // Just update duration without counting play
-        await this.addToHistory(this.currentTrack, currentDuration, false);
-      }
-
-      // Update weekly stats with the difference
-      const durationDiff = currentDuration - this.lastSavedDuration;
-      if (durationDiff > 0) {
-        await this.updateWeeklyStatsProgress(durationDiff, shouldCountPlay);
-      }
-
-      this.lastSavedDuration = currentDuration;
-      console.log(`HistoryManager: Progress saved - ${currentDuration}ms`);
-
-    } catch (error) {
-      console.error('HistoryManager: Error saving progress:', error);
-    }
+    // Progress tracking disabled per user request to eliminate all lag
+    return;
   }
 
-  // Add or update song in history
-  async addToHistory(song, listenDuration = 0, isNewPlay = false) {
-    try {
-      if (!song || !song.id) {
-        console.warn('HistoryManager: Invalid song for history');
-        return;
-      }
-
-      const history = await this.getHistory();
-      const existingIndex = history.findIndex(item => item && item.id === song.id);
-
-      if (existingIndex !== -1) {
-        // Update existing entry
-        const existing = history[existingIndex];
-
-        // Only increment play count for new plays, not progress updates
-        if (isNewPlay) {
-          existing.playCount += 1;
-        }
-
-        // FIXED: Accumulate listening time instead of taking maximum
-        // This ensures cumulative tracking across multiple sessions
-        existing.listenDuration += Math.max(0, listenDuration - (existing.currentSessionDuration || 0));
-        existing.currentSessionDuration = listenDuration; // Track current session for incremental updates
-        existing.lastPlayed = Date.now();
-
-        // Move to front of array (most recent first)
-        history.splice(existingIndex, 1);
-        history.unshift(existing);
-      } else {
-        // Create new entry
-        const newEntry = createHistoryEntry(song, listenDuration);
-        newEntry.currentSessionDuration = listenDuration; // Track current session
-        history.unshift(newEntry);
-      }
-
-      // Limit history size (keep last 500 entries) - Reduced from 1000 to save space
-      if (history.length > 500) {
-        history.splice(500);
-      }
-
-      await this.writeJsonFile(HISTORY_FILE_PATH, history);
-
-
-      // Weekly stats are now updated in saveProgress to avoid double counting
-
-      // Track analytics only for significant listen duration
-      if (isNewPlay && listenDuration >= this.minListenDuration) {
-        analyticsService.logSongPlay(song.id, song.title, song.artist);
-      }
-
-    } catch (error) {
-      console.error('HistoryManager: Error adding to history:', error);
-    }
-  }
-
-  // Get full history
+  // Get full history from memory
   async getHistory() {
-    try {
-      return await this.readJsonFile(HISTORY_FILE_PATH, []);
-    } catch (error) {
-      console.error('HistoryManager: Error getting history:', error);
-      return [];
-    }
+    return this.history;
   }
 
-
-  // Get filtered history
+  // Get filtered history from memory
   async getFilteredHistory(filter = 'recent', searchQuery = '') {
     try {
-      let history = await this.getHistory();
+      let filtered = [...this.history];
 
-      // Apply search filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
-        history = history.filter(item =>
+        filtered = filtered.filter(item =>
           item.title.toLowerCase().includes(query) ||
           item.artist.toLowerCase().includes(query)
         );
       }
 
-      // Apply sorting filter
       switch (filter) {
         case 'most_played':
-          history.sort((a, b) => b.playCount - a.playCount);
+          filtered.sort((a, b) => b.playCount - a.playCount);
           break;
         case 'most_time':
-          history.sort((a, b) => b.listenDuration - a.listenDuration);
+          filtered.sort((a, b) => b.listenDuration - a.listenDuration);
           break;
         case 'recent':
         default:
-          history.sort((a, b) => b.lastPlayed - a.lastPlayed);
+          filtered.sort((a, b) => b.lastPlayed - a.lastPlayed);
           break;
       }
 
-      return history;
+      return filtered;
     } catch (error) {
-      console.error('HistoryManager: Error getting filtered history:', error);
-      return [];
+      console.error('HistoryManager: Filter error:', error);
+      return this.history;
     }
   }
 
-  // Update weekly stats
-  async updateWeeklyStats(listenDuration) {
-    try {
-      let stats = await this.getWeeklyStats();
-      const now = new Date();
-      const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
-
-      // Check if we need to reset for new week
-      const weekStart = new Date(stats.weekStart);
-      const currentWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
-      currentWeekStart.setHours(0, 0, 0, 0);
-
-      if (weekStart.getTime() !== currentWeekStart.getTime()) {
-        // New week, reset stats
-        stats = createWeeklyStats();
-        stats.weekStart = currentWeekStart.getTime();
-      }
-
-      // Update stats - only increment songs played for new plays
-      stats.totalListenTime += listenDuration;
-      stats.songsPlayed += 1;
-      stats.dailyStats[dayOfWeek] += listenDuration;
-
-      await this.writeJsonFile(WEEKLY_STATS_FILE_PATH, stats);
-      console.log('HistoryManager: Weekly stats updated', stats);
-
-
-    } catch (error) {
-      console.error('HistoryManager: Error updating weekly stats:', error);
-    }
-  }
-
-  // Update weekly stats for progress updates (different from new plays)
-  async updateWeeklyStatsProgress(durationDiff, isNewPlay) {
-    try {
-      let stats = await this.getWeeklyStats();
-      const now = new Date();
-      const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
-
-      // Check if we need to reset for new week
-      const weekStart = new Date(stats.weekStart);
-      const currentWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
-      currentWeekStart.setHours(0, 0, 0, 0);
-
-      if (weekStart.getTime() !== currentWeekStart.getTime()) {
-        // New week, reset stats
-        stats = createWeeklyStats();
-        stats.weekStart = currentWeekStart.getTime();
-      }
-
-      // Add the duration difference (incremental time)
-      if (durationDiff > 0) {
-        stats.totalListenTime += durationDiff;
-        stats.dailyStats[dayOfWeek] += durationDiff;
-      }
-
-      // Only increment song count for new plays
-      if (isNewPlay) {
-        stats.songsPlayed += 1;
-      }
-
-      await this.writeJsonFile(WEEKLY_STATS_FILE_PATH, stats);
-
-      console.log('HistoryManager: Weekly stats updated', {
-        durationDiff,
-        isNewPlay,
-        totalTime: stats.totalListenTime
-      });
-
-    } catch (error) {
-      console.error('HistoryManager: Error updating weekly stats progress:', error);
-    }
-  }
-
-  // Get weekly stats
+  // Simplified getter for stats (return defaults since user wants them removed)
   async getWeeklyStats() {
-    try {
-      return await this.readJsonFile(WEEKLY_STATS_FILE_PATH, createWeeklyStats());
-    } catch (error) {
-      console.error('HistoryManager: Error getting weekly stats:', error);
-      return createWeeklyStats();
-    }
+    return {
+      weekStart: Date.now(),
+      totalListenTime: 0,
+      songsPlayed: 0,
+      dailyStats: [0, 0, 0, 0, 0, 0, 0]
+    };
   }
 
-
-  // Ensure weekly stats exist and are accurate
-  async ensureWeeklyStatsExist() {
-    try {
-      const stats = await this.getWeeklyStats();
-      // If stats are empty or invalid, sync will fix them
-      await this.syncWeeklyStats();
-    } catch (error) {
-      console.error('HistoryManager: Error ensuring weekly stats exist:', error);
-    }
-  }
-
-
-  // Reset play counts for testing
-  async resetPlayCounts() {
-    try {
-      const history = await this.getHistory();
-      const resetHistory = history.map(item => ({
-        ...item,
-        playCount: 1
-      }));
-      await this.writeJsonFile(HISTORY_FILE_PATH, resetHistory);
-
-      console.log('HistoryManager: Play counts reset');
-      return true;
-    } catch (error) {
-      console.error('HistoryManager: Error resetting play counts:', error);
-      return false;
-    }
-  }
-
-  // Sync weekly stats with actual history data to ensure consistency
-  async syncWeeklyStats() {
-    try {
-      const history = await this.getHistory();
-      const now = new Date();
-      const currentWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
-      currentWeekStart.setHours(0, 0, 0, 0);
-      const weekStartTime = currentWeekStart.getTime();
-      const weekEndTime = weekStartTime + (7 * 24 * 60 * 60 * 1000);
-
-      // Filter history for current week
-      const thisWeekHistory = history.filter(item =>
-        item.lastPlayed >= weekStartTime && item.lastPlayed < weekEndTime
-      );
-
-      // Calculate actual stats from history
-      const actualSongsPlayed = thisWeekHistory.reduce((sum, item) => sum + item.playCount, 0);
-      const actualTotalTime = thisWeekHistory.reduce((sum, item) => sum + item.listenDuration, 0);
-
-      // Calculate daily stats
-      const dailyStats = Array(7).fill(0);
-      thisWeekHistory.forEach(item => {
-        const playDate = new Date(item.lastPlayed);
-        const dayOfWeek = playDate.getDay();
-        dailyStats[dayOfWeek] += item.listenDuration;
-      });
-
-      // Update weekly stats with corrected values
-      const correctedStats = {
-        weekStart: weekStartTime,
-        totalListenTime: actualTotalTime,
-        songsPlayed: actualSongsPlayed,
-        dailyStats: dailyStats,
-      };
-
-      await this.writeJsonFile(WEEKLY_STATS_FILE_PATH, correctedStats);
-
-      console.log('HistoryManager: Weekly stats synced with history data', correctedStats);
-
-      return correctedStats;
-    } catch (error) {
-      console.error('HistoryManager: Error syncing weekly stats:', error);
-      return await this.getWeeklyStats();
-    }
-  }
-
-  // Get history stats
   async getHistoryStats() {
-    try {
-      const history = await this.getHistory();
-      // Sync weekly stats to ensure consistency
-      const weeklyStats = await this.syncWeeklyStats();
-
-      const totalSongs = history.length;
-      const totalPlayCount = history.reduce((sum, item) => sum + item.playCount, 0);
-      const totalListenTime = history.reduce((sum, item) => sum + item.listenDuration, 0);
-
-      return {
-        totalSongs,
-        totalPlayCount,
-        totalListenTime,
-        weeklyStats,
-        averageListenTime: totalSongs > 0 ? totalListenTime / totalSongs : 0,
-      };
-    } catch (error) {
-      console.error('HistoryManager: Error getting history stats:', error);
-      return {
-        totalSongs: 0,
-        totalPlayCount: 0,
-        totalListenTime: 0,
-        weeklyStats: createWeeklyStats(),
-        averageListenTime: 0,
-      };
-    }
+    const totalTime = this.history.reduce((sum, item) => sum + (item.listenDuration || 0), 0);
+    return {
+      totalSongs: this.history.length,
+      totalPlayCount: this.history.reduce((sum, item) => sum + (item.playCount || 0), 0),
+      totalListenTime: totalTime,
+      weeklyStats: await this.getWeeklyStats(),
+      averageListenTime: this.history.length > 0 ? totalTime / this.history.length : 0,
+    };
   }
 
   // Format duration for display (consistent across app)
@@ -651,97 +364,14 @@ class HistoryManager {
     }
   }
 
-  // Cleanup old entries (keep only last 30 days)
-  async cleanupOldEntries() {
-    try {
-      const history = await this.getHistory();
-      const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-
-      const filteredHistory = history.filter(item => item.lastPlayed > thirtyDaysAgo);
-
-      if (filteredHistory.length !== history.length) {
-        await this.writeJsonFile(HISTORY_FILE_PATH, filteredHistory);
-        console.log(`HistoryManager: Cleaned up ${history.length - filteredHistory.length} old entries`);
-
-      }
-    } catch (error) {
-      console.error('HistoryManager: Error cleaning up old entries:', error);
-    }
-  }
-
-  // Cleanup on app close/background
-  cleanup() {
-    try {
-      // Save current progress before cleanup
-      if (this.isTracking && this.currentTrack && this.startTime) {
-        const currentDuration = Date.now() - this.startTime;
-        // Use synchronous storage for immediate cleanup
-        this.addToHistory(this.currentTrack, currentDuration, false).catch(error => {
-          console.error('HistoryManager: Error saving on cleanup:', error);
-        });
-      }
-
-      this.isTracking = false;
-      this.isPaused = false;
-      this.pausedDuration = 0;
-      this.pauseStartTime = null;
-      this.currentTrack = null;
-      this.startTime = null;
-      this.lastSavedDuration = 0;
-      this.isBackgroundMode = false;
-
-      console.log('HistoryManager: Cleanup completed');
-    } catch (error) {
-      console.error('HistoryManager: Error during cleanup:', error);
-    }
-  }
-
-  // Save progress without stopping tracking (for background mode)
+  // Save progress for background/cleanup (lightweight)
   async saveProgressBackground() {
-    try {
-      if (this.isTracking && this.currentTrack && this.startTime) {
-        // Calculate actual listening time (excluding paused time)
-        let currentDuration = Date.now() - this.startTime;
-
-        // Subtract paused time
-        let totalPausedTime = this.pausedDuration;
-        if (this.isPaused && this.pauseStartTime) {
-          totalPausedTime += Date.now() - this.pauseStartTime;
-        }
-
-        currentDuration = Math.max(0, currentDuration - totalPausedTime);
-
-        // Check if we should count this as a new play (only once per tracking session)
-        const shouldCountPlay = !this.hasCountedPlay && currentDuration >= this.minListenDuration;
-
-        if (shouldCountPlay) {
-          this.hasCountedPlay = true;
-          await this.addToHistory(this.currentTrack, currentDuration, true);
-          console.log(`HistoryManager: Background - New play counted for "${this.currentTrack?.title || 'Unknown'}"`);
-        } else {
-          // Just update duration without counting play
-          await this.addToHistory(this.currentTrack, currentDuration, false);
-        }
-
-        this.lastSavedDuration = currentDuration;
-        console.log(`HistoryManager: Background progress saved - ${currentDuration}ms`);
-      }
-    } catch (error) {
-      console.error('HistoryManager: Error saving background progress:', error);
-    }
+    await this.saveProgress(true);
   }
 
   // Set background mode
   setBackgroundMode(isBackground) {
     this.isBackgroundMode = isBackground;
-    console.log(`HistoryManager: Background mode ${isBackground ? 'enabled' : 'disabled'}`);
-
-    // Intervals removed for performance
-  }
-
-  // Get tracking state
-  get isCurrentlyTracking() {
-    return this.isTracking;
   }
 
   // Get current tracking info
@@ -756,59 +386,36 @@ class HistoryManager {
     };
   }
 
-  // Refresh all statistics to ensure consistency
-  async refreshAllStats() {
+  // Clear all history
+  async clearHistory() {
     try {
-      console.log('HistoryManager: Refreshing all statistics...');
-
-      // Sync weekly stats with history data
-      await this.syncWeeklyStats();
-
-      // Clean up any invalid entries
-      const history = await this.getHistory();
-      const validHistory = history.filter(item =>
-        item &&
-        item.id &&
-        item.title &&
-        typeof item.playCount === 'number' &&
-        typeof item.listenDuration === 'number'
-      );
-
-      if (validHistory.length !== history.length) {
-        await this.writeJsonFile(HISTORY_FILE_PATH, validHistory);
-
-        console.log(`HistoryManager: Cleaned up ${history.length - validHistory.length} invalid entries`);
-      }
-
-      console.log('HistoryManager: Statistics refresh completed');
+      this.history = [];
+      await this.writeJsonFile(HISTORY_FILE_PATH, []);
+      console.log('HistoryManager: History cleared');
       return true;
-    } catch (error) {
-      console.error('HistoryManager: Error refreshing statistics:', error);
+    } catch (err) {
+      console.error('HistoryManager: Error clearing history:', err);
       return false;
     }
   }
 
-  // Search history
-  async searchHistory(query) {
+  // Reset play counts
+  async resetPlayCounts() {
     try {
-      const history = await this.getHistory();
-      const searchTerm = query.toLowerCase().trim();
-
-      if (!searchTerm) {
-        return [];
-      }
-
-      return history.filter(item =>
-        item &&
-        item.id &&
-        (item.title?.toLowerCase().includes(searchTerm) ||
-          item.artist?.toLowerCase().includes(searchTerm) ||
-          item.album?.toLowerCase().includes(searchTerm))
-      );
-    } catch (error) {
-      console.error('HistoryManager: Error searching history:', error);
-      return [];
+      this.history = this.history.map(item => ({ ...item, playCount: 1 }));
+      await this.saveHistoryToDisk();
+      return true;
+    } catch (err) {
+      return false;
     }
+  }
+
+  cleanup() {
+    this.saveProgress(true);
+    this.isTracking = false;
+    this.currentTrack = null;
+    this.startTime = null;
+    this.isBackgroundMode = false;
   }
 }
 

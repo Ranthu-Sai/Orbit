@@ -170,12 +170,21 @@ const ContextState = (props) => {
 
                 // Only process if it's actually a different track
                 if (currentTrackId !== newTrackId) {
-                    // ✅ Run history tracking in background (non-blocking)
-                    // Don't await - let it run async to avoid UI freeze
-                    Promise.all([
-                        trackingInfo.isTracking ? historyManager.stopTracking() : Promise.resolve(),
-                        event.track?.id ? historyManager.startTracking(event.track) : Promise.resolve()
-                    ]).catch(err => console.error('History tracking error:', err));
+                    // ✅ TRULY NON-BLOCKING: Use setImmediate to defer file I/O
+                    // This ensures history tracking runs AFTER the current JS call stack clears
+                    // preventing any UI freeze when opening fullscreen player
+                    setImmediate(() => {
+                        const trackingPromises = [];
+                        if (trackingInfo.isTracking) {
+                            trackingPromises.push(historyManager.stopTracking());
+                        }
+                        if (event.track?.id) {
+                            trackingPromises.push(historyManager.startTracking(event.track));
+                        }
+                        Promise.all(trackingPromises).catch(err =>
+                            console.error('History tracking error:', err)
+                        );
+                    });
 
                     // ✅ Add recommendations async (non-blocking)
                     // Defer to next tick to keep UI responsive
@@ -314,7 +323,10 @@ const ContextState = (props) => {
                                 if (currentTrack && playerState.state === 'playing' && !historyManager.isCurrentlyTracking) {
                                     // Resume tracking if song is playing and we're not already tracking
                                     console.log('Context: Resuming tracking for', currentTrack.title);
-                                    await historyManager.startTracking(currentTrack);
+                                    // Non-blocking: Don't await, let it run in background
+                                    historyManager.startTracking(currentTrack).catch(err =>
+                                        console.error('Error resuming tracking:', err)
+                                    );
                                 }
                             } catch (innerError) {
                                 console.error('Error in delayed tracking check:', innerError);

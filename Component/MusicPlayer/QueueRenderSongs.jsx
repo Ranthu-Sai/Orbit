@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState, memo, useCallback, useRef } from "react";
-import { View, Text, Platform, ToastAndroid } from "react-native";
+import { View, Text, Platform, ToastAndroid, DeviceEventEmitter } from "react-native";
 import { EachSongQueue } from "./EachSongQueue";
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import Context from "../../Context/Context";
@@ -910,6 +910,57 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       }, 500);
     }
   }, [isLocalSource, isLocalTrack, isOffline, filterQueueBySource]);
+
+  // Listen for queue-updated event (emitted when songs are added via AddSongsToQueue)
+  // This ensures the queue UI refreshes when prefetched/recommended songs are added
+  // IMPORTANT: Must be placed after all useCallback hooks to preserve React hooks order
+  useEffect(() => {
+    const refreshQueue = async () => {
+      if (isDragging || operationInProgressRef.current) return;
+
+      try {
+        const currentTrack = await TrackPlayer.getActiveTrack();
+        if (currentTrack) {
+          console.log('📋 Queue updated event received - refreshing queue display');
+          const filtered = await filterQueueBySource(currentTrack);
+
+          // Filter out duplicates
+          const uniqueIds = new Set();
+          const uniqueFiltered = filtered.filter(track => {
+            if (!track || !track.id || uniqueIds.has(track.id)) return false;
+            uniqueIds.add(track.id);
+            return true;
+          });
+
+          // Ensure current track is first
+          if (currentTrack.id && uniqueFiltered.length > 0) {
+            const currentTrackIndex = uniqueFiltered.findIndex(t => t.id === currentTrack.id);
+            if (currentTrackIndex > 0) {
+              const trackItem = uniqueFiltered.splice(currentTrackIndex, 1)[0];
+              uniqueFiltered.unshift(trackItem);
+            } else if (currentTrackIndex === -1) {
+              uniqueFiltered.unshift(currentTrack);
+            }
+          }
+
+          setUpcomingQueue(uniqueFiltered);
+        }
+      } catch (error) {
+        console.error('Error refreshing queue on update:', error);
+      }
+    };
+
+    // Add a small delay to ensure TrackPlayer queue is fully updated
+    const handleQueueUpdate = () => {
+      setTimeout(refreshQueue, 100);
+    };
+
+    const subscription = DeviceEventEmitter.addListener('queue-updated', handleQueueUpdate);
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isDragging, filterQueueBySource]);
 
   // Function to enhance track data with high-quality artwork
   const enhanceTrackWithHighQualityArtwork = (track) => {

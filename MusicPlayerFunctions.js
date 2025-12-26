@@ -321,8 +321,8 @@ async function PlayOneSong(song) {
       }
     }
 
-    // Start tracking this song in history
-    await historyManager.startTracking(song);
+    // NOTE: History tracking moved to AFTER TrackPlayer.play() to avoid blocking playback
+    // See below after TrackPlayer.play() call
 
     // Create a copy of the song with the selected playback URL and quality info
     const qualityIndex = await getIndexQuality();
@@ -363,6 +363,15 @@ async function PlayOneSong(song) {
     await TrackPlayer.reset();
     await TrackPlayer.add([songForPlayback]);
     await TrackPlayer.play();
+
+    // NON-BLOCKING: Start history tracking AFTER playback begins
+    // Uses InteractionManager to run after all UI interactions complete,
+    // preventing any lag, hangs, or unresponsive UI from file I/O operations
+    InteractionManager.runAfterInteractions(() => {
+      historyManager.startTracking(song).catch(err =>
+        console.error('HistoryManager: Background tracking error:', err)
+      );
+    });
 
     // Signal that this is a single song playback (enable auto-recommendations)
     DeviceEventEmitter.emit('playback-mode-changed', { isPlaylist: false });
@@ -818,7 +827,10 @@ async function PlayNextSong() {
       // Get the new track and start tracking it
       const newTrack = await TrackPlayer.getActiveTrack();
       if (newTrack) {
-        await historyManager.startTracking(newTrack);
+        // Non-blocking: Don't await, let it run in background
+        historyManager.startTracking(newTrack).catch(err =>
+          console.error('History tracking error:', err)
+        );
         skipOperationManager.resetErrorCounter();
       }
 
@@ -866,7 +878,10 @@ async function PlayPreviousSong() {
       // Get the new track and start tracking it
       const newTrack = await TrackPlayer.getActiveTrack();
       if (newTrack) {
-        await historyManager.startTracking(newTrack);
+        // Non-blocking: Don't await, let it run in background
+        historyManager.startTracking(newTrack).catch(err =>
+          console.error('History tracking error:', err)
+        );
         // Reset error counter on successful track change
         skipOperationManager.resetErrorCounter();
       }
@@ -943,7 +958,10 @@ async function SkipToTrack(trackIndex) {
     // Get the new track and start tracking it
     const newTrack = await TrackPlayer.getActiveTrack();
     if (newTrack) {
-      await historyManager.startTracking(newTrack);
+      // Non-blocking: Don't await, let it run in background
+      historyManager.startTracking(newTrack).catch(err =>
+        console.error('History tracking error:', err)
+      );
     }
 
     await PlaySong();
