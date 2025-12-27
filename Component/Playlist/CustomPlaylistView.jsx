@@ -697,7 +697,7 @@ export const CustomPlaylistView = (props) => {
       url: url,
       title: track.title || 'Unknown',
       artist: track.artist || 'Unknown Artist',
-      artwork: track.image || track.artwork || DEFAULT_MUSIC_IMAGE,
+      artwork: getHighestQualityArtwork(track.image || track.artwork) || DEFAULT_MUSIC_IMAGE,
       duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
       language: track.language,
       artistID: track.artistID || track.primary_artists_id
@@ -739,6 +739,39 @@ export const CustomPlaylistView = (props) => {
       (urlArray[0]?.url || '');
   }, []);
 
+  // Helper function to get highest quality artwork (memoized)
+  const getHighestQualityArtwork = useCallback((imageData) => {
+    if (!imageData) return '';
+    if (typeof imageData === 'string') return imageData;
+
+    if (Array.isArray(imageData)) {
+      if (imageData.length === 0) return '';
+
+      // If array of objects, try to find highest quality or take last
+      if (typeof imageData[0] === 'object') {
+        // Start from end as higher quality is usually at the end
+        for (let i = imageData.length - 1; i >= 0; i--) {
+          const img = imageData[i];
+          if (img && (img.url || img.link)) {
+            return img.url || img.link;
+          }
+        }
+      }
+
+      // If array of strings, take the last one
+      if (typeof imageData[0] === 'string') {
+        const lastValid = imageData.filter(i => i && typeof i === 'string' && i.trim() !== '').pop();
+        return lastValid || '';
+      }
+    }
+
+    if (typeof imageData === 'object') {
+      return imageData.url || imageData.link || '';
+    }
+
+    return '';
+  }, []);
+
   // Safe image source getter function (memoized)
   const getSafeImageSource = useCallback((item) => {
     // For local songs that have numeric cover or missing artwork
@@ -749,21 +782,8 @@ export const CustomPlaylistView = (props) => {
       return LOCAL_MUSIC_IMAGE;
     }
 
-    // Safe image URL extraction
-    const getImageUrl = (imageData) => {
-      if (!imageData) return '';
-      if (typeof imageData === 'string') return imageData;
-      if (Array.isArray(imageData)) {
-        for (const img of imageData) {
-          if (typeof img === 'string' && img.trim() !== '') return img;
-          if (img && typeof img === 'object' && img.url) return img.url;
-        }
-      }
-      if (imageData && typeof imageData === 'object' && imageData.url) return imageData.url;
-      return '';
-    };
-
-    const imageUrl = getImageUrl(item.image) || getImageUrl(item.artwork);
+    // Safe image URL extraction using the helper
+    const imageUrl = getHighestQualityArtwork(item.image) || getHighestQualityArtwork(item.artwork);
 
     // For invalid URI values
     if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('file://')) {

@@ -12,7 +12,7 @@ import { SmallText } from '../Global/SmallText';
  * @param {function} onClose - Callback when modal is closed
  * @param {function} onImport - **Deprecated** - Handling import internally now, but can be used for cleanup
  */
-export const ImportPlaylistModal = ({ visible, onClose, onImportSuccess }) => {
+export const ImportPlaylistModal = ({ visible, onClose, onImportSuccess, customImportHandler }) => {
     const theme = useTheme();
     const [playlistLink, setPlaylistLink] = useState('');
     const [isImporting, setIsImporting] = useState(false);
@@ -28,25 +28,29 @@ export const ImportPlaylistModal = ({ visible, onClose, onImportSuccess }) => {
             return;
         }
 
-        // Basic validation for Spotify URL
-        const spotifyPlaylistRegex = /^https?:\/\/(open\.)?spotify\.com\/playlist\/[a-zA-Z0-9]+/;
-        if (!spotifyPlaylistRegex.test(trimmedLink)) {
-            ToastAndroid.show('Please enter a valid Spotify playlist link', ToastAndroid.SHORT);
-            return;
-        }
+        // Validation is now handled inside importSpotifyPlaylist (importFromLink)
+        // We just check if it's not empty
+
 
         setIsImporting(true);
         setProgress({ current: 0, total: 0, message: 'Starting import...' });
 
         try {
-            await importSpotifyPlaylist(trimmedLink, (current, total, message) => {
-                setProgress({ current, total, message });
-            });
+            if (customImportHandler) {
+                await customImportHandler(trimmedLink, (current, total, message) => {
+                    setProgress({ current, total, message });
+                });
+            } else {
+                await importSpotifyPlaylist(trimmedLink, (current, total, message) => {
+                    setProgress({ current, total, message });
+                });
+            }
 
             if (onImportSuccess) {
                 onImportSuccess();
             }
-            ToastAndroid.show('Playlist imported successfully!', ToastAndroid.SHORT);
+            const successMsg = customImportHandler ? 'Imported to Library successfully!' : 'Playlist imported successfully!';
+            ToastAndroid.show(successMsg, ToastAndroid.SHORT);
             onClose();
         } catch (error) {
             console.error('Error importing playlist:', error);
@@ -79,11 +83,11 @@ export const ImportPlaylistModal = ({ visible, onClose, onImportSuccess }) => {
                     {!isImporting ? (
                         <>
                             <SmallText
-                                text="Paste a public Spotify playlist link"
+                                text="Paste a link from Spotify, YouTube, or YouTube Music"
                                 style={[styles.modalLabel, { color: theme.colors.textSecondary || theme.colors.text, opacity: 0.7 }]}
                             />
                             <TextInput
-                                placeholder="Paste public Spotify playlist link"
+                                placeholder="Paste link (Playlist, Album, Song)"
                                 placeholderTextColor={theme.dark ? 'rgba(255,255,255,0.5)' : '#000000'}
                                 value={playlistLink}
                                 onChangeText={setPlaylistLink}

@@ -86,6 +86,41 @@ const getSongUrl = (urlData, quality = 4) => {
   }
 };
 
+// Helper function to get highest quality artwork
+// Helper function to get highest quality artwork
+const getHighestQualityArtwork = (imageData) => {
+  if (!imageData) return '';
+  if (typeof imageData === 'string') return imageData;
+
+  if (Array.isArray(imageData)) {
+    if (imageData.length === 0) return '';
+
+    // If array of objects, try to find highest quality or take last
+    if (typeof imageData[0] === 'object') {
+      // Sort by quality if possible or just take the last one which is usually highest for Saavn/JioSaavn
+      // Start from end
+      for (let i = imageData.length - 1; i >= 0; i--) {
+        const img = imageData[i];
+        if (img && (img.url || img.link)) {
+          return img.url || img.link;
+        }
+      }
+    }
+
+    // If array of strings, take the last one
+    if (typeof imageData[0] === 'string') {
+      const lastValid = imageData.filter(i => i && typeof i === 'string' && i.trim() !== '').pop();
+      return lastValid || '';
+    }
+  }
+
+  if (typeof imageData === 'object') {
+    return imageData.url || imageData.link || '';
+  }
+
+  return '';
+};
+
 export const EachSongMenuModal = ({ Visible, setVisible }) => {
   const { colors } = useTheme();
   const { updateTrack } = useContext(Context);
@@ -187,29 +222,17 @@ export const EachSongMenuModal = ({ Visible, setVisible }) => {
           return;
         }
 
-        // Safe image URL extraction
-        const getImageUrl = (imageData) => {
-          if (!imageData) return '';
-          if (typeof imageData === 'string') return imageData;
-          if (Array.isArray(imageData)) {
-            for (const img of imageData) {
-              if (typeof img === 'string' && img.trim() !== '') return img;
-              if (img && typeof img === 'object' && img.url) return img.url;
-            }
-          }
-          if (imageData && typeof imageData === 'object' && imageData.url) return imageData.url;
-          return '';
-        };
+        const artworkUrl = getHighestQualityArtwork(Visible.image);
 
         song = {
           url: songUrl,
           title: FormatTitleAndArtist(Visible.title),
           artist: FormatTitleAndArtist(Visible.artist),
-          artwork: getImageUrl(Visible.image),
+          artwork: artworkUrl,
           duration: Visible.duration,
           id: Visible.id,
           language: Visible.language,
-          image: getImageUrl(Visible.image),
+          image: artworkUrl,
           downloadUrl: Visible.url,
           // Preserve additional metadata
           year: Visible.year,
@@ -365,11 +388,11 @@ export const EachSongMenuModal = ({ Visible, setVisible }) => {
           url: songUrl,
           title: FormatTitleAndArtist(Visible.title),
           artist: FormatTitleAndArtist(Visible.artist),
-          artwork: Visible.image,
+          artwork: getHighestQualityArtwork(Visible.image),
           duration: Visible.duration,
           id: Visible.id,
           language: Visible.language,
-          image: Visible.image,
+          image: getHighestQualityArtwork(Visible.image),
           downloadUrl: Visible.url,
         }
       }
@@ -430,29 +453,17 @@ export const EachSongMenuModal = ({ Visible, setVisible }) => {
           return;
         }
 
-        // Safe image URL extraction
-        const getImageUrl = (imageData) => {
-          if (!imageData) return '';
-          if (typeof imageData === 'string') return imageData;
-          if (Array.isArray(imageData)) {
-            for (const img of imageData) {
-              if (typeof img === 'string' && img.trim() !== '') return img;
-              if (img && typeof img === 'object' && img.url) return img.url;
-            }
-          }
-          if (imageData && typeof imageData === 'object' && imageData.url) return imageData.url;
-          return '';
-        };
+        const artworkUrl = getHighestQualityArtwork(Visible.image);
 
         song = {
           url: songUrl,
           title: FormatTitleAndArtist(Visible.title),
           artist: FormatTitleAndArtist(Visible.artist),
-          artwork: getImageUrl(Visible.image),
+          artwork: artworkUrl,
           duration: Visible.duration,
           id: Visible.id,
           language: Visible.language,
-          image: getImageUrl(Visible.image),
+          image: artworkUrl,
           downloadUrl: Visible.url,
           // Preserve additional metadata
           year: Visible.year,
@@ -516,21 +527,9 @@ export const EachSongMenuModal = ({ Visible, setVisible }) => {
 
     // Safe image URL extraction for playlist cover - use last song's artwork
     const lastSong = playlist[playlist.length - 1];
-    const getImageUrl = (imageData) => {
-      if (!imageData) return '';
-      if (typeof imageData === 'string') return imageData;
-      if (Array.isArray(imageData)) {
-        for (const img of imageData) {
-          if (typeof img === 'string' && img.trim() !== '') return img;
-          if (img && typeof img === 'object' && img.url) return img.url;
-        }
-      }
-      if (imageData && typeof imageData === 'object' && imageData.url) return imageData.url;
-      return '';
-    };
 
     // Check artwork first (where we now store extracted URLs), then fallback to image
-    const imageUrl = getImageUrl(lastSong.artwork) || getImageUrl(lastSong.image);
+    const imageUrl = getHighestQualityArtwork(lastSong.artwork) || getHighestQualityArtwork(lastSong.image);
     return imageUrl ? { uri: imageUrl } : require('../../Images/wav.png');
   };
   return (

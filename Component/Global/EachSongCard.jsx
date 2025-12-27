@@ -653,8 +653,8 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
             song={{
               title,
               artist,
-              artwork: typeof safeImageUri === 'string' ? safeImageUri : '',
-              image: typeof safeImageUri === 'string' ? safeImageUri : '',
+              artwork: image,
+              image: image,
               id,
               url,
               duration,

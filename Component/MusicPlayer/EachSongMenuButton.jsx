@@ -155,6 +155,40 @@ export const EachSongMenuButton = ({
     setMenuVisible(false);
   };
 
+  // Helper function to get highest quality artwork
+  const getHighestQualityArtwork = (imageData) => {
+    if (!imageData) return '';
+    if (typeof imageData === 'string') return imageData;
+
+    if (Array.isArray(imageData)) {
+      if (imageData.length === 0) return '';
+
+      // If array of objects, try to find highest quality or take last
+      if (typeof imageData[0] === 'object') {
+        // Sort by quality if possible or just take the last one which is usually highest for Saavn/JioSaavn
+        // Start from end
+        for (let i = imageData.length - 1; i >= 0; i--) {
+          const img = imageData[i];
+          if (img && (img.url || img.link)) {
+            return img.url || img.link;
+          }
+        }
+      }
+
+      // If array of strings, take the last one
+      if (typeof imageData[0] === 'string') {
+        const lastValid = imageData.filter(i => i && typeof i === 'string' && i.trim() !== '').pop();
+        return lastValid || '';
+      }
+    }
+
+    if (typeof imageData === 'object') {
+      return imageData.url || imageData.link || '';
+    }
+
+    return '';
+  };
+
   const addToQueue = async () => {
     closeMenu();
     if (!song?.id) {
@@ -240,7 +274,7 @@ export const EachSongMenuButton = ({
         url: songUrl,
         title: songMetadata.title || 'Unknown Title',
         artist: songMetadata.artist || 'Unknown Artist',
-        artwork: songMetadata.artwork || songMetadata.image,
+        artwork: getHighestQualityArtwork(songMetadata.artwork || songMetadata.image),
         id: song.id || Date.now().toString(),
         duration: songMetadata.duration || 0,
         language: songMetadata.language || '',
@@ -342,7 +376,7 @@ export const EachSongMenuButton = ({
         url: songUrl,
         title: songMetadata.title || 'Unknown Title',
         artist: songMetadata.artist || 'Unknown Artist',
-        artwork: songMetadata.artwork || songMetadata.image,
+        artwork: getHighestQualityArtwork(songMetadata.artwork || songMetadata.image),
         id: song.id || Date.now().toString(),
         duration: songMetadata.duration || 0,
         language: songMetadata.language || '',
@@ -403,7 +437,7 @@ export const EachSongMenuButton = ({
             url: songUrl,
             title: song.title || 'Unknown',
             artist: song.artist || 'Unknown',
-            artwork: song.artwork || song.image,
+            artwork: getHighestQualityArtwork(song.artwork || song.image),
             id: song.id || Date.now().toString()
           });
           await TrackPlayer.play();
@@ -413,7 +447,7 @@ export const EachSongMenuButton = ({
             url: songUrl,
             title: song.title || 'Unknown',
             artist: song.artist || 'Unknown',
-            artwork: song.artwork || song.image,
+            artwork: getHighestQualityArtwork(song.artwork || song.image),
             id: song.id || Date.now().toString()
           }, currentTrack + 1);
         }

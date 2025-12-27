@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { DeviceEventEmitter } from "react-native";
 
 async function GetLikedSongs() {
   try {
@@ -28,6 +29,7 @@ async function SetLikedSongs(title, artist, image, id, url, duration, language) 
   try {
     const jsonValue = JSON.stringify(value);
     await AsyncStorage.setItem('LikedSongs', jsonValue);
+    DeviceEventEmitter.emit('favorites-updated');
   } catch (e) {
     console.log("Liked Song Save Error");
   }
@@ -41,6 +43,7 @@ async function DeleteALikedSong(id) {
   try {
     const jsonValue = JSON.stringify(value);
     await AsyncStorage.setItem('LikedSongs', jsonValue);
+    DeviceEventEmitter.emit('favorites-updated');
   } catch (e) {
     console.log("Liked Song Save Error");
   }

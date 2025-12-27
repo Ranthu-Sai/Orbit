@@ -39,36 +39,14 @@ export const CustomPlaylist = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [animationsInitialized, setAnimationsInitialized] = useState(false);
-
   // State for embedded playlist view
   const [showPlaylistDetail, setShowPlaylistDetail] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState(null);
   const [selectedPlaylistData, setSelectedPlaylistData] = useState(null);
 
-  const [animationValues] = useState({
-    translateY: new Map(),
-    opacity: new Map()
-  });
-
   // Track mount state
   const isMounted = useRef(true);
   const isInitialLoad = useRef(true);
-
-  // Initialize animation value for an item if it doesn't exist
-  const getAnimationValues = (id, index) => {
-    const key = id || `item-${index}`;
-
-    if (!animationValues.translateY.has(key)) {
-      animationValues.translateY.set(key, new Animated.Value(20));
-      animationValues.opacity.set(key, new Animated.Value(0));
-    }
-
-    return {
-      translateY: animationValues.translateY.get(key),
-      opacity: animationValues.opacity.get(key)
-    };
-  };
 
   // CACHE-FIRST LOADING for playlists
   const loadPlaylists = async (forceRefresh = false) => {
@@ -159,17 +137,12 @@ export const CustomPlaylist = () => {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // Hard refresh: Clear cache, animations, and force reload
+    // Hard refresh: Clear cache and force reload
     CacheManager.invalidate(CACHE_KEYS.CUSTOM_PLAYLISTS);
     clearPlaylistCache();
-    setAnimationsInitialized(false);
-    animationValues.translateY.clear();
-    animationValues.opacity.clear();
     // Load fresh data
     loadPlaylists(true);
-  }, [animationValues]);
-
-  // ...
+  }, []);
 
   const handleCreatePlaylist = async () => {
     if (playlistName.trim()) {
@@ -199,83 +172,8 @@ export const CustomPlaylist = () => {
     loadPlaylists(true);
   }, []);
 
-  // Run animations once when playlists are loaded
-  useEffect(() => {
-    if ((userPlaylists.length > 0 || Object.keys(playlists).length > 0 || likedPlaylists.length > 0) && !animationsInitialized) {
-      // Animate user playlists
-      userPlaylists.forEach((item, index) => {
-        const key = item.id || `item-${index}`;
-        const vals = getAnimationValues(key, index);
-
-        Animated.timing(vals.translateY, {
-          toValue: 0,
-          duration: 300,
-          easing: Easing.out(Easing.cubic),
-          delay: index * 100,
-          useNativeDriver: true,
-        }).start();
-
-        Animated.timing(vals.opacity, {
-          toValue: 1,
-          duration: 300,
-          delay: index * 100,
-          useNativeDriver: true,
-        }).start();
-      });
-
-      // Animate liked playlists
-      likedPlaylists.forEach((item, index) => {
-        const key = `liked-${item.id}`;
-        const vals = getAnimationValues(key, index);
-
-        Animated.timing(vals.translateY, {
-          toValue: 0,
-          duration: 300,
-          easing: Easing.out(Easing.cubic),
-          delay: index * 100 + (userPlaylists.length * 100),
-          useNativeDriver: true,
-        }).start();
-
-        Animated.timing(vals.opacity, {
-          toValue: 1,
-          duration: 300,
-          delay: index * 100 + (userPlaylists.length * 100),
-          useNativeDriver: true,
-        }).start();
-      });
-
-      // Animate legacy playlists
-      Object.keys(playlists).forEach((item, index) => {
-        const key = item;
-        const vals = getAnimationValues(key, index);
-
-        Animated.timing(vals.translateY, {
-          toValue: 0,
-          duration: 300,
-          easing: Easing.out(Easing.cubic),
-          delay: index * 100 + (userPlaylists.length * 100) + (likedPlaylists.length * 100),
-          useNativeDriver: true,
-        }).start();
-
-        Animated.timing(vals.opacity, {
-          toValue: 1,
-          duration: 300,
-          delay: index * 100 + (userPlaylists.length * 100) + (likedPlaylists.length * 100),
-          useNativeDriver: true,
-        }).start();
-      });
-
-      setAnimationsInitialized(true);
-    }
-  }, [userPlaylists, playlists, likedPlaylists, animationsInitialized, animationValues]);
-
   // Listen for playlist updates (imports, creates, deletes)
   useEffect(() => {
-    // Reset animations on mount to ensure they run even with cached data
-    setAnimationsInitialized(false);
-    animationValues.translateY.clear();
-    animationValues.opacity.clear();
-
     const subscription = DeviceEventEmitter.addListener('playlist-updated', () => {
       console.log('Playlist update event received, refreshing...');
       CacheManager.invalidate(CACHE_KEYS.CUSTOM_PLAYLISTS);
@@ -407,9 +305,6 @@ export const CustomPlaylist = () => {
 
 
   const renderPlaylist = ({ item, index }) => {
-    // Use the pre-calculated animation values
-    const animations = getAnimationValues(item, index);
-
     const handlePlaylistPress = () => {
       const playlist = playlists[item];
       if (playlist) {
@@ -442,47 +337,33 @@ export const CustomPlaylist = () => {
     };
 
     return (
-      <Animated.View style={{ transform: [{ translateY: animations.translateY }], opacity: animations.opacity }}>
-        <Pressable
-          style={styles.playlistItem}
-          onPress={handlePlaylistPress}
-          android_ripple={{ color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)', borderless: false }}
-        >
-          <View style={styles.playlistCoverContainer}>
-            <FastImage
-              source={getPlaylistCover()}
-              style={styles.playlistCover}
-              resizeMode={FastImage.resizeMode.cover}
-            />
-          </View>
-          <View style={styles.playlistDetails}>
-            <Text style={[styles.playlistName, { color: theme.colors.text }]}>
-              {item}
-            </Text>
-            <Text style={[styles.songCount, { color: theme.colors.textSecondary }]}>
-              {playlists[item] ? playlists[item].length : 0} songs
-            </Text>
-          </View>
-
-          {/* Three-dot menu button - REMOVED */}
-          {/* <Pressable
-            style={styles.optionsButton}
-            onPress={(event) => handlePlaylistOptions(item, event)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MaterialCommunityIcons name="dots-vertical" size={24} color={theme.colors.text} />
-          </Pressable> */}
-        </Pressable>
-      </Animated.View>
+      <Pressable
+        style={styles.playlistItem}
+        onPress={handlePlaylistPress}
+        android_ripple={{ color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)', borderless: false }}
+      >
+        <View style={styles.playlistCoverContainer}>
+          <FastImage
+            source={getPlaylistCover()}
+            style={styles.playlistCover}
+            resizeMode={FastImage.resizeMode.cover}
+          />
+        </View>
+        <View style={styles.playlistDetails}>
+          <Text style={[styles.playlistName, { color: theme.colors.text }]}>
+            {item}
+          </Text>
+          <Text style={[styles.songCount, { color: theme.colors.textSecondary }]}>
+            {playlists[item] ? playlists[item].length : 0} songs
+          </Text>
+        </View>
+      </Pressable>
     );
   };
 
   const renderUserPlaylist = ({ item, index }) => {
     // Reduce logging to avoid console spam
     // console.log(`Rendering user playlist: ${item.name} (${item.id})`);
-
-    // Use the pre-calculated animation values
-    const animations = getAnimationValues(item.id, index);
 
     const handlePlaylistPress = () => {
       // Navigate to the playlist view with the songs from this playlist
@@ -518,45 +399,31 @@ export const CustomPlaylist = () => {
     };
 
     return (
-      <Animated.View style={{ transform: [{ translateY: animations.translateY }], opacity: animations.opacity, width: '100%' }}>
-        <Pressable
-          style={styles.playlistItem}
-          onPress={handlePlaylistPress}
-          android_ripple={{ color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)', borderless: false }}
-        >
-          <View style={styles.playlistCoverContainer}>
-            <FastImage
-              source={getPlaylistCover()}
-              style={styles.playlistCover}
-              resizeMode={FastImage.resizeMode.cover}
-            />
-          </View>
-          <View style={styles.playlistDetails}>
-            <Text style={[styles.playlistName, { color: theme.colors.text }]}>
-              {item.name}
-            </Text>
-            <Text style={[styles.songCount, { color: theme.colors.textSecondary }]}>
-              {item.songs ? item.songs.length : 0} songs
-            </Text>
-          </View>
-
-          {/* Three-dot menu button - REMOVED */}
-          {/* <Pressable
-            style={styles.optionsButton}
-            onPress={(event) => handlePlaylistOptions(item, event)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MaterialCommunityIcons name="dots-vertical" size={24} color={theme.colors.text} />
-          </Pressable> */}
-        </Pressable>
-      </Animated.View>
+      <Pressable
+        style={styles.playlistItem}
+        onPress={handlePlaylistPress}
+        android_ripple={{ color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)', borderless: false }}
+      >
+        <View style={styles.playlistCoverContainer}>
+          <FastImage
+            source={getPlaylistCover()}
+            style={styles.playlistCover}
+            resizeMode={FastImage.resizeMode.cover}
+          />
+        </View>
+        <View style={styles.playlistDetails}>
+          <Text style={[styles.playlistName, { color: theme.colors.text }]}>
+            {item.name}
+          </Text>
+          <Text style={[styles.songCount, { color: theme.colors.textSecondary }]}>
+            {item.songs ? item.songs.length : 0} songs
+          </Text>
+        </View>
+      </Pressable>
     );
   };
 
   const renderLikedPlaylist = ({ item, index }) => {
-    // Use animation values for liked playlists
-    const animations = getAnimationValues(`liked-${item.id}`, index);
-
     const handlePlaylistPress = () => {
       // Instead of navigating, toggle embedded view
       if (item.id) {
@@ -597,39 +464,35 @@ export const CustomPlaylist = () => {
     const imageUrl = getImageUrl(item.image);
 
     return (
-      <Animated.View style={{ transform: [{ translateY: animations.translateY }], opacity: animations.opacity, width: '100%' }}>
-        <Pressable
-          style={styles.playlistItem}
-          onPress={handlePlaylistPress}
-          android_ripple={{ color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)', borderless: false }}
-        >
-          {imageUrl ? (
+      <Pressable
+        style={styles.playlistItem}
+        onPress={handlePlaylistPress}
+        android_ripple={{ color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)', borderless: false }}
+      >
+        {imageUrl ? (
+          <FastImage
+            source={{ uri: imageUrl }}
+            style={styles.playlistCover}
+            resizeMode={FastImage.resizeMode.cover}
+          />
+        ) : (
+          <View style={styles.playlistCoverContainer}>
             <FastImage
-              source={{ uri: imageUrl }}
+              source={DEFAULT_WAVE_IMAGE}
               style={styles.playlistCover}
               resizeMode={FastImage.resizeMode.cover}
             />
-          ) : (
-            <View style={styles.playlistCoverContainer}>
-              <FastImage
-                source={DEFAULT_WAVE_IMAGE}
-                style={styles.playlistCover}
-                resizeMode={FastImage.resizeMode.cover}
-              />
-            </View>
-          )}
-          <View style={styles.playlistDetails}>
-            <Text style={[styles.playlistName, { color: theme.colors.text }]}>
-              {item.name}
-            </Text>
-            <Text style={[styles.songCount, { color: theme.colors.textSecondary }]}>
-              {item.follower || 'Playlist'}
-            </Text>
           </View>
-
-          {/* Liked playlists don't have edit/delete options since they're from external sources */}
-        </Pressable>
-      </Animated.View>
+        )}
+        <View style={styles.playlistDetails}>
+          <Text style={[styles.playlistName, { color: theme.colors.text }]}>
+            {item.name}
+          </Text>
+          <Text style={[styles.songCount, { color: theme.colors.textSecondary }]}>
+            {item.follower || 'Playlist'}
+          </Text>
+        </View>
+      </Pressable>
     );
   };
 
@@ -686,7 +549,7 @@ export const CustomPlaylist = () => {
     return (
       <ScrollView
         style={styles.playlistsScrollContainer}
-        contentContainerStyle={styles.playlistsContentContainer}
+        contentContainerStyle={[styles.playlistsContentContainer, { paddingBottom: 150 }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -991,11 +854,11 @@ const styles = StyleSheet.create({
   playlistItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    marginVertical: 6,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    marginHorizontal: 0,
+    paddingVertical: 10,
+    paddingHorizontal: 16, // Match list style
+    marginVertical: 0,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
   },
   playlistIcon: {
     width: 50,

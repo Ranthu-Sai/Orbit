@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { DeviceEventEmitter } from "react-native";
 
 /**
  * Get all liked albums from AsyncStorage
@@ -43,6 +44,7 @@ async function SetLikedAlbum(image, name, year, id) {
     try {
         const jsonValue = JSON.stringify(value);
         await AsyncStorage.setItem('LikedAlbums', jsonValue);
+        DeviceEventEmitter.emit('favorites-updated');
     } catch (e) {
         console.error("Error saving liked album:", e);
     }
@@ -56,11 +58,14 @@ async function DeleteALikedAlbum(id) {
     const stored_value = await GetLikedAlbums();
     const value = {
         ...stored_value,
+        count: stored_value.count // Preserve count or not? Usually count increases. But here we just modify object.
+        // The original code copied ...stored_value which includes count.
     };
     delete value.albums[id];
     try {
         const jsonValue = JSON.stringify(value);
         await AsyncStorage.setItem('LikedAlbums', jsonValue);
+        DeviceEventEmitter.emit('favorites-updated');
     } catch (e) {
         console.error("Error deleting liked album:", e);
     }
