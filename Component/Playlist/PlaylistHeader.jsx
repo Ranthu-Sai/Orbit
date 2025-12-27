@@ -423,8 +423,8 @@ export const PlaylistHeader = ({
                         {/* Like Button */}
                         <IconButton
                             icon={isLiked ? 'heart' : 'heart-outline'}
-                            iconColor={isLiked ? '#E91E63' : theme.colors.text}
-                            size={26}
+                            iconColor={isLiked ? '#E91E63' : '#FFFFFF'}
+                            size={22}
                             onPress={handleLikePress}
                             style={styles.actionIcon}
                         />
@@ -432,21 +432,21 @@ export const PlaylistHeader = ({
                         {/* Download Button */}
                         {isDownloading ? (
                             <View style={[styles.actionIcon, { padding: 8, justifyContent: 'center', alignItems: 'center' }]}>
-                                <ActivityIndicator size={22} color={theme.colors.primary} />
+                                <ActivityIndicator size={18} color={theme.colors.primary} />
                             </View>
                         ) : allDownloaded ? (
                             <IconButton
                                 icon="check-circle"
                                 iconColor="#4CAF50"
-                                size={26}
+                                size={22}
                                 disabled
                                 style={styles.actionIcon}
                             />
                         ) : (
                             <IconButton
                                 icon="download-outline"
-                                iconColor={theme.colors.text}
-                                size={26}
+                                iconColor={'#FFFFFF'}
+                                size={22}
                                 onPress={handleDownloadAllPress}
                                 style={styles.actionIcon}
                             />
@@ -477,8 +477,8 @@ export const PlaylistHeader = ({
                     icon="shuffle"
                     onPress={handleShufflePress}
                     disabled={isLoading}
-                    style={[styles.shuffleButton, { borderColor: theme.colors.text }]}
-                    labelStyle={[styles.buttonLabel, { color: theme.colors.text }]}
+                    style={[styles.shuffleButton, { borderColor: '#FFFFFF' }]}
+                    labelStyle={[styles.buttonLabel, { color: '#FFFFFF' }]}
                     contentStyle={styles.buttonContent}
                 >
                     Shuffle

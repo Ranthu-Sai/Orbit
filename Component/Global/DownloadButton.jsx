@@ -34,7 +34,7 @@ const CircularProgress = ({ progress, size = 20, thickness = 2, color = '#1DB954
           height: `${progress}%`,
           backgroundColor: color,
         }} />
-        
+
         {/* Percentage text */}
         <SmallText
           text={`${Math.round(progress)}%`}
@@ -43,7 +43,7 @@ const CircularProgress = ({ progress, size = 20, thickness = 2, color = '#1DB954
             color: 'white',
             fontWeight: 'bold',
             textShadowColor: 'rgba(0,0,0,0.75)',
-            textShadowOffset: {width: 0, height: 1},
+            textShadowOffset: { width: 0, height: 1 },
             textShadowRadius: 2
           }}
         />
@@ -52,23 +52,23 @@ const CircularProgress = ({ progress, size = 20, thickness = 2, color = '#1DB954
   );
 };
 
-export const DownloadButton = ({ 
-  songs = [], 
-  albumName = "", 
-  size = "normal", 
+export const DownloadButton = ({
+  songs = [],
+  albumName = "",
+  size = "normal",
   individual = false,
-  songId = null 
+  songId = null
 }) => {
   const { colors } = useTheme();
   const [downloadStatus, setDownloadStatus] = useState({});
   const [isDownloading, setIsDownloading] = useState(false);
   const [overallProgress, setOverallProgress] = useState(0);
-  
+
   // Determine button size based on prop
   const buttonSize = size === "large" ? 48 : size === "small" ? 36 : 44;
-  const iconSize = size === "large" ? 30 : size === "small" ? 22 : 26;
-  const progressSize = size === "large" ? 38 : size === "small" ? 30 : 34;
-  
+  const iconSize = size === "large" ? 26 : size === "small" ? 18 : 22;
+  const progressSize = size === "large" ? 34 : size === "small" ? 26 : 30;
+
   // Check download status on mount
   useEffect(() => {
     const checkDownloadedItems = async () => {
@@ -87,25 +87,25 @@ export const DownloadButton = ({
         // For album/playlist
         const songStatuses = {};
         let downloadedCount = 0;
-        
+
         // Check each song's download status
         for (const song of songs) {
           if (!song || !song.id) continue;
-          
+
           const isDownloaded = await StorageManager.isSongDownloaded(song.id);
           songStatuses[song.id] = {
             isDownloaded,
             progress: isDownloaded ? 100 : 0,
             isDownloading: false
           };
-          
+
           if (isDownloaded) {
             downloadedCount++;
           }
         }
-        
+
         setDownloadStatus(songStatuses);
-        
+
         // If all songs are downloaded, set overall progress to 100%
         if (downloadedCount === songs.length) {
           setOverallProgress(100);
@@ -114,10 +114,10 @@ export const DownloadButton = ({
         }
       }
     };
-    
+
     checkDownloadedItems();
   }, [songs, individual, songId]);
-  
+
   // Get storage permissions (for Android)
   const getPermission = async () => {
     try {
@@ -125,9 +125,9 @@ export const DownloadButton = ({
         handleDownload();
         return;
       }
-      
+
       const deviceVersion = DeviceInfo.getSystemVersion();
-      
+
       if (parseInt(deviceVersion) >= 13) {
         handleDownload();
       } else {
@@ -140,7 +140,7 @@ export const DownloadButton = ({
             buttonNegative: "Cancel"
           }
         );
-        
+
         if (granted === PermissionsAndroid.RESULTS.GRANTED) {
           handleDownload();
         } else {
@@ -155,7 +155,7 @@ export const DownloadButton = ({
       Alert.alert('Error', 'Could not request storage permissions');
     }
   };
-  
+
   // Handle download logic
   const handleDownload = async () => {
     if (isDownloading) {
@@ -262,46 +262,46 @@ export const DownloadButton = ({
       setOverallProgress(100);
     }
   };
-  
+
   // Render the appropriate button based on state
   const renderButton = () => {
     if (isDownloading) {
       return (
-        <View style={{ 
-          width: buttonSize, 
-          height: buttonSize, 
-          justifyContent: 'center', 
-          alignItems: 'center' 
+        <View style={{
+          width: buttonSize,
+          height: buttonSize,
+          justifyContent: 'center',
+          alignItems: 'center'
         }}>
           <CircularProgress progress={overallProgress} size={progressSize} thickness={2} />
         </View>
       );
     }
-    
+
     // If individual song
     if (individual && songId) {
       const isDownloaded = downloadStatus[songId]?.isDownloaded;
-      
+
       if (isDownloaded) {
         return <AntDesign name="checkcircle" size={iconSize} color="#4CAF50" />;
       }
-      
-      return <AntDesign name="download" size={iconSize} color={colors.text} />;
+
+      return <AntDesign name="download" size={iconSize} color="#FFFFFF" />;
     }
-    
+
     // For albums/playlists
-    const allDownloaded = songs.length > 0 && Object.keys(downloadStatus).length > 0 && 
-                          Object.values(downloadStatus).every(status => status.isDownloaded);
-    
+    const allDownloaded = songs.length > 0 && Object.keys(downloadStatus).length > 0 &&
+      Object.values(downloadStatus).every(status => status.isDownloaded);
+
     if (allDownloaded) {
       return <AntDesign name="checkcircle" size={iconSize} color="#4CAF50" />;
     }
-    
+
     return <AntDesign name="download" size={iconSize} color="#FFFFFF" />;
   };
-  
+
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={[
         styles.container,
         { width: buttonSize, height: buttonSize },

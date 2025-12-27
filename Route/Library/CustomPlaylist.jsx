@@ -671,14 +671,14 @@ export const CustomPlaylist = () => {
                 onPress={() => setImportModalVisible(true)}
                 android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: true, radius: 20 }}
               >
-                <FileInput size={30} color={theme.colors.primary} />
+                <FileInput size={24} color={'#FFFFFF'} />
               </Pressable>
               <Pressable
                 style={styles.addButton}
                 onPress={() => setModalVisible(true)}
                 android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: true, radius: 20 }}
               >
-                <MaterialIcons name="playlist-add" size={30} color={theme.colors.primary} />
+                <MaterialIcons name="playlist-add" size={24} color={'#FFFFFF'} />
               </Pressable>
             </View>
           </View>
