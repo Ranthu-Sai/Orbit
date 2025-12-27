@@ -13,6 +13,7 @@ import { useNavigation, useTheme } from '@react-navigation/native';
 import { Search, ArrowLeft } from 'lucide-react-native';
 import { MainWrapper } from '../../Layout/MainWrapper';
 import { PodcastCard } from '../../Component/Podcast/PodcastCard';
+import { PodcastSkeleton } from '../../Component/Podcast/PodcastSkeleton';
 import { EpisodeCardHorizontal } from '../../Component/Podcast/EpisodeCard';
 import { PodcastHorizontalSlider } from '../../Component/Podcast/PodcastHorizontalSlider';
 import { CategoryChipList } from '../../Component/Podcast/CategoryChip';
@@ -438,61 +439,81 @@ export const PodcastScreen = () => {
 
     return (
         <MainWrapper>
-            <FlatList
-                data={listData}
-                keyExtractor={(item) => item.id}
-                renderItem={renderRow}
-                ListHeaderComponent={
-                    <ListHeader
-                        isSearching={isSearching}
-                        dark={dark}
-                        navigation={navigation}
-                        searchQuery={searchQuery}
-                        setSearchQuery={setSearchQuery}
-                        handleSearch={handleSearch}
-                        clearSearch={clearSearch}
-                        theme={theme}
-                        recentEpisodes={recentEpisodes}
-                        loading={initialLoading}
-                        handlePlayEpisode={handlePlayEpisode}
-                        categories={categories}
-                        selectedCategory={selectedCategory}
-                        handleCategorySelect={handleCategorySelect}
-                        trendingPodcasts={trendingPodcasts}
-                    />
-                }
-                ListFooterComponent={renderFooter}
-                ListEmptyComponent={() => (
-                    <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-                        {initialLoading ? (
-                            <ActivityIndicator size="large" color={theme.colors.primary} />
-                        ) : (
-                            <Text style={{ color: dark ? '#888' : '#666' }}>
-                                {isSearching
-                                    ? loadingSearch
-                                        ? 'Searching...'
-                                        : `No podcasts found for "${searchQuery}"`
-                                    : 'No podcasts available'
-                                }
-                            </Text>
-                        )}
-                    </View>
-                )}
-                onEndReached={handleEndReached}
-                onEndReachedThreshold={0.5}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        colors={[theme.colors.primary]}
-                    />
-                }
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 100 }}
-                removeClippedSubviews={true}
-                maxToRenderPerBatch={10}
-                windowSize={10}
-            />
+            {initialLoading ? (
+                <PodcastSkeleton />
+            ) : (
+                <FlatList
+                    data={listData}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderRow}
+                    ListHeaderComponent={
+                        <ListHeader
+                            isSearching={isSearching}
+                            dark={dark}
+                            navigation={navigation}
+                            searchQuery={searchQuery}
+                            setSearchQuery={setSearchQuery}
+                            handleSearch={handleSearch}
+                            clearSearch={clearSearch}
+                            theme={theme}
+                            recentEpisodes={recentEpisodes}
+                            loading={initialLoading}
+                            handlePlayEpisode={handlePlayEpisode}
+                            categories={categories}
+                            selectedCategory={selectedCategory}
+                            handleCategorySelect={handleCategorySelect}
+                            trendingPodcasts={trendingPodcasts}
+                        />
+                    }
+                    ListFooterComponent={renderFooter}
+                    ListEmptyComponent={() => (
+                        <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                            <View style={{ width: '100%', alignItems: 'center' }}>
+                                {isSearching && loadingSearch ? (
+                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12 }}>
+                                        {[1, 2, 3, 4, 5, 6].map(i => (
+                                            <View key={i} style={{
+                                                width: (SCREEN_WIDTH - 48) / 2,
+                                                marginBottom: 12,
+                                            }}>
+                                                <View style={{
+                                                    width: '100%',
+                                                    height: (SCREEN_WIDTH - 48) / 2,
+                                                    borderRadius: 8,
+                                                    backgroundColor: dark ? '#2A2A2A' : '#E0E0E0',
+                                                    marginBottom: 8
+                                                }} />
+                                                <View style={{ width: '80%', height: 14, backgroundColor: dark ? '#2A2A2A' : '#E0E0E0', borderRadius: 4 }} />
+                                            </View>
+                                        ))}
+                                    </View>
+                                ) : (
+                                    <Text style={{ color: dark ? '#888' : '#666' }}>
+                                        {isSearching
+                                            ? `No podcasts found for "${searchQuery}"`
+                                            : 'No podcasts available'
+                                        }
+                                    </Text>
+                                )}
+                            </View>
+                        </View>
+                    )}
+                    onEndReached={handleEndReached}
+                    onEndReachedThreshold={0.5}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={[theme.colors.primary]}
+                        />
+                    }
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ paddingBottom: 100 }}
+                    removeClippedSubviews={true}
+                    maxToRenderPerBatch={10}
+                    windowSize={10}
+                />
+            )}
         </MainWrapper>
     );
 };

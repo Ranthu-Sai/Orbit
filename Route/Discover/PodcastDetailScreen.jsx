@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import { ArrowLeft, Play, Shuffle, Share2 } from 'lucide-react-native';
+import { PodcastDetailSkeleton, EpisodeListSkeleton } from '../../Component/Podcast/PodcastDetailSkeleton';
 import { EpisodeCard } from '../../Component/Podcast/EpisodeCard';
 import { Spacer } from '../../Component/Global/Spacer';
 import {
@@ -163,9 +164,7 @@ export const PodcastDetailScreen = () => {
         return (
             <View style={{ flex: 1, backgroundColor: dark ? '#121212' : '#FFFFFF' }}>
                 <StatusBar translucent backgroundColor="transparent" barStyle={dark ? "light-content" : "dark-content"} />
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                </View>
+                <PodcastDetailSkeleton />
             </View>
         );
     }
@@ -370,9 +369,7 @@ export const PodcastDetailScreen = () => {
 
                         {/* Loading episodes */}
                         {loadingEpisodes && (
-                            <View style={{ paddingVertical: 30, alignItems: 'center' }}>
-                                <ActivityIndicator size="small" color={theme.colors.primary} />
-                            </View>
+                            <EpisodeListSkeleton />
                         )}
                     </>
                 )}
