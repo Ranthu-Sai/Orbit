@@ -10,6 +10,7 @@ import { HomeSkeletonLoader } from "../../Component/Home/HomeSkeletonLoader";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { getHomePageData } from "../../Api/HomePage";
 import { getYTMusicHomeFeed } from "../../Api/YTMusic";
+import { clearCache as clearApiCache, CACHE_GROUPS as API_CACHE_GROUPS } from "../../Api/CacheManager";
 import { EachPlaylistCard } from "../../Component/Global/EachPlaylistCard";
 import { GetLanguageValue } from "../../LocalStorage/Languages";
 import { TopHeader } from "../../Component/Home/TopHeader";
@@ -19,6 +20,7 @@ import { YTMusicHomeSection } from '../../Component/Home/YTMusicHomeSection';
 import { deduplicateAlbums } from '../../Utils/AlbumUtils';
 import { CacheManager } from '../../Utils/NavigationCacheManager';
 import { CACHE_TTL, CACHE_KEYS, generateCacheKey } from '../../Utils/CacheConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Add a utility function to truncate text
 const truncateText = (text, limit = 30) => {
@@ -84,6 +86,7 @@ export const Home = () => {
   // Track if initial load has happened
   const isInitialLoad = useRef(true);
   const isMounted = useRef(true);
+  const ytMusicSectionRef = useRef(null);
 
   // Get random chart indices
   const randomizeCharts = useCallback((charts) => {
@@ -156,18 +159,47 @@ export const Home = () => {
         // Step 3: Fetch fresh data
         const Languages = await GetLanguageValue();
         const [data, homefeedResult] = await Promise.allSettled([
-          getHomePageData(Languages),
-          getYTMusicHomeFeed(15)
+          getHomePageData(Languages, forceRefresh),
+          getYTMusicHomeFeed(15, forceRefresh)
         ]);
 
         if (!isMounted.current) return;
 
         if (data.status === 'fulfilled' && data.value) {
-          setData(data.value);
-          randomizeCharts(data.value?.data?.charts);
-          // Cache the data with 15-minute TTL
-          CacheManager.set(cacheKey, data.value, CACHE_TTL.HOME_DATA);
-          console.log('[Home] Data cached with 15-minute TTL');
+          // Create a mutable copy to shuffle if needed
+          const fetchedData = JSON.parse(JSON.stringify(data.value));
+
+          // On manual refresh, shuffle Saavn playlists and albums for new positions
+          if (forceRefresh && fetchedData.data) {
+            if (fetchedData.data.playlists && fetchedData.data.playlists.length > 0) {
+              fetchedData.data.playlists = shuffleArray(fetchedData.data.playlists);
+              console.log('🔀 Shuffled Saavn playlists for fresh positions');
+            }
+            if (fetchedData.data.trending?.albums && fetchedData.data.trending.albums.length > 0) {
+              fetchedData.data.trending.albums = shuffleArray(fetchedData.data.trending.albums);
+              console.log('🔀 Shuffled Saavn albums for fresh positions');
+            }
+          }
+
+          // Diagnostic: Log what Saavn API returned
+          const saavnPlaylists = fetchedData?.data?.playlists || [];
+          const saavnAlbums = fetchedData?.data?.trending?.albums || [];
+          const saavnCharts = fetchedData?.data?.charts || [];
+
+          console.log('📦 [Saavn API Response]:', {
+            fromCache: fetchedData?.fromCache || false,
+            playlistCount: saavnPlaylists.length,
+            albumCount: saavnAlbums.length,
+            chartCount: saavnCharts.length,
+            shuffled: forceRefresh ? '✅ YES' : '❌ NO',
+          });
+
+          setData(fetchedData);
+          // Always randomize charts on refresh
+          randomizeCharts(fetchedData?.data?.charts);
+          // Cache the shuffled data
+          CacheManager.set(cacheKey, fetchedData, CACHE_TTL.HOME_DATA);
+          console.log('[Home] Data cached with TTL');
         }
 
         if (homefeedResult.status === 'fulfilled' && homefeedResult.value?.data) {
@@ -182,18 +214,48 @@ export const Home = () => {
     } finally {
       if (isMounted.current) {
         setLoading(false);
-        setRefreshing(false);
+        // Do NOT set refreshing to false here, let onRefresh handle it
+        if (!forceRefresh) {
+          setRefreshing(false);
+        }
         isInitialLoad.current = false;
       }
     }
   }
 
   // Pull to refresh handler - ONLY way to force refresh
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Invalidate cache before refresh
+    // Invalidate UI-level cache (NavigationCacheManager)
     CacheManager.invalidateByPrefix(CACHE_KEYS.HOME);
-    fetchHomePageData(true);
+    // Clear API-level cache (Api/CacheManager) to force fresh network requests
+    await clearApiCache(API_CACHE_GROUPS.HOME);
+    // Clear additional Saavn-specific cache keys from AsyncStorage
+    try {
+      const allKeys = await AsyncStorage.getAllKeys();
+      const saavnKeys = allKeys.filter(k =>
+        k.includes('home_') || k.includes('cache_home') || k.includes('api_cache_home')
+      );
+      if (saavnKeys.length > 0) {
+        await AsyncStorage.multiRemove(saavnKeys);
+        console.log('🧹 Cleared Saavn AsyncStorage keys:', saavnKeys.length);
+      }
+    } catch (e) {
+      console.log('⚠️ Failed to clear some Saavn cache keys:', e.message);
+    }
+    console.log('🧹 Cleared all Home caches (UI + API + Saavn)');
+
+    // Trigger hard refresh for both sections
+    console.log('🔄 Home - Triggering hard refresh for all sections...');
+    const homePromise = fetchHomePageData(true);
+    const ytPromise = ytMusicSectionRef.current?.refresh ? ytMusicSectionRef.current.refresh() : Promise.resolve();
+
+    await Promise.allSettled([homePromise, ytPromise]);
+
+    if (isMounted.current) {
+      setRefreshing(false);
+      console.log('✅ Home - Hard refresh complete');
+    }
   }, []);
 
   // Cleanup on unmount
@@ -329,7 +391,7 @@ export const Home = () => {
               />
 
               {/* YouTube Music Home Section */}
-              <YTMusicHomeSection />
+              <YTMusicHomeSection ref={ytMusicSectionRef} />
 
               <View style={{ paddingHorizontal: 13, marginTop: 8 }}>
                 <HorizontalScrollSongs id={getChartId(1)} />

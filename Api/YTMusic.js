@@ -442,7 +442,7 @@ async function getYTMusicSearchPlaylistData(searchText, page = 1, limit = 20) {
   }
 }
 
-async function getYTMusicHomeFeed(limit = 10) {
+async function getYTMusicHomeFeed(limit = 10, forceRefresh = false) {
   const cacheKey = `ytmusic_homefeed_limit_${limit}`;
 
   const fetchFunction = async () => {
@@ -558,7 +558,7 @@ async function getYTMusicHomeFeed(limit = 10) {
   };
 
   try {
-    return await getCachedData(cacheKey, fetchFunction, 7200, CACHE_GROUPS.HOME); // Cache for 2 hours (7200 seconds)
+    return await getCachedData(cacheKey, fetchFunction, 7200, CACHE_GROUPS.HOME, forceRefresh); // Cache for 2 hours (7200 seconds)
   } catch (error) {
     console.error('Error getting YTMusic homefeed data:', error);
     return {

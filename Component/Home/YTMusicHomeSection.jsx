@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { View, Text, Dimensions, FlatList } from "react-native";
 import { Heading } from "../Global/Heading";
 import { EachPlaylistCard } from "../Global/EachPlaylistCard";
@@ -16,10 +16,18 @@ const truncateText = (text, limit = 30) => {
   return text.length > limit ? text.substring(0, limit) + '...' : text;
 };
 
-export const YTMusicHomeSection = () => {
+export const YTMusicHomeSection = forwardRef((props, ref) => {
   const [ytMusicItems, setYtMusicItems] = useState([]); // Changed from ytMusicSongs to ytMusicItems
   const [loading, setLoading] = useState(true);
   const [hasData, setHasData] = useState(false);
+
+  // Expose refresh method to parent
+  useImperativeHandle(ref, () => ({
+    refresh: async () => {
+      console.log('🔄 YTMusic Home - Hard refresh triggered via ref');
+      await fetchYTMusicHomeData(true);
+    }
+  }));
 
   // Complete cache reset function
   const resetAllCaches = async () => {
@@ -485,4 +493,4 @@ export const YTMusicHomeSection = () => {
       )}
     </View>
   );
-};
+});
