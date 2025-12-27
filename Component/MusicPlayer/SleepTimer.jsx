@@ -315,7 +315,7 @@ export const SleepTimerButton = ({ size = 25, iconColor }) => {
   const resolvedLabelColor = iconColor ? iconColor : (themeMode === 'light' ? theme.colors.text : 'white');
 
   return (
-    <View style={styles.container}>
+    <>
       <IconButton
         icon={() => (
           <MaterialCommunityIcons
@@ -329,18 +329,6 @@ export const SleepTimerButton = ({ size = 25, iconColor }) => {
         style={{ margin: 0, padding: 0 }}
         rippleColor="rgba(255, 255, 255, 0.2)"
       />
-
-      {isTimerActive && (
-        <Text
-          style={[
-            styles.remainingTime,
-            { color: resolvedLabelColor },
-            isTimerPaused && { color: theme.colors.notification },
-          ]}
-        >
-          {formatTime(remainingTime)} {isTimerPaused && ''}
-        </Text>
-      )}
 
       <Modal
         animationType="slide"
@@ -427,7 +415,7 @@ export const SleepTimerButton = ({ size = 25, iconColor }) => {
           </View>
         </View>
       </Modal>
-    </View>
+    </>
   );
 };
 

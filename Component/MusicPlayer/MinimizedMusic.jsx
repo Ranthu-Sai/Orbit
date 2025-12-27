@@ -434,7 +434,7 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
                 />
               </View>
               <SmallText
-                text={displaySong?.artist?.length > 20 ? displaySong.artist.substring(0, 20) + '...' : displaySong?.artist ?? "Explore now!"}
+                text={displaySong?.artist && displaySong.artist.length > 20 ? displaySong.artist.substring(0, 20) + '...' : displaySong?.artist ?? "Explore now!"}
                 maxLine={1}
                 style={{
                   color: colors.textSecondary,

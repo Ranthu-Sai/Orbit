@@ -5,6 +5,7 @@ import Animated from "react-native-reanimated";
 import { useActiveTrack } from "react-native-track-player";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "react-native-paper";
+import { GestureDetector } from "react-native-gesture-handler";
 import SongInfoModal from './SongInfoModal';
 
 import { Spacer } from "../Global/Spacer";
@@ -20,6 +21,7 @@ import { OfflineBanner, QualityIndicator, LocalTracksList, useOffline } from "..
 import { useThemeManager } from "./ThemeManager";
 import { BlurredBackground } from "./Background";
 import { useNavigationHandler, BackButtonHandler } from "./NavigationHandler";
+import { useDragToCloseGestureControl } from "./GestureControls";
 
 import { useLocalTracks, LocalTracksErrorBoundary } from "./LocalTracks";
 import {
@@ -50,7 +52,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: Dimensions.get("window").height * 0.6,
+    height: Dimensions.get("window").height * 0.35,
     zIndex: 0,
   },
   bottomGradient: {
@@ -151,6 +153,11 @@ const styles = StyleSheet.create({
   fallbackBackground: {
     flex: 1,
   },
+  draggableArea: {
+    width: "100%",
+    alignItems: "center",
+    zIndex: 3,
+  },
 });
 
 export const FullScreenMusic = ({ Index, setIndex }) => {
@@ -191,8 +198,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
     showMenu,
     closeMenu,
     getMenuOptions,
-  } =
-    useFullScreenMusicMenu(currentPlaying, isOffline);
+  } = useFullScreenMusicMenu(currentPlaying, isOffline);
 
   const {
     localTracks,
@@ -209,6 +215,14 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
     setIndex(0);
     handlePlayerClose();
   };
+
+  // Drag-to-close gesture for the draggable area
+  const handleDragToClose = useCallback(() => {
+    setIndex(0); // Minimize the player
+  }, [setIndex]);
+
+  const { createDragToCloseGesture } = useDragToCloseGestureControl(handleDragToClose);
+  const dragToCloseGesture = useMemo(() => createDragToCloseGesture(), [createDragToCloseGesture]);
 
   // Optimized handlers for instant button response
   const handleQueueToggle = useCallback(() => {
@@ -300,87 +314,93 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
         colors={getGradientColors()}
         style={styles.gradientContainer}
       >
-        <View
-          style={[
-            styles.headerContainer,
-            { paddingTop: insets.top + 16 },
-          ]}
-        >
-          <IconButton
-            icon="chevron-down"
-            size={30}
-            onPress={() => setIndex(0)}
-            iconColor={iconColor}
-            style={styles.closeButton}
-            rippleColor="rgba(255, 255, 255, 0.2)"
-          />
+        {/* Draggable area - Header and Artwork only (icons outside for touch events) */}
+        <GestureDetector gesture={dragToCloseGesture}>
+          <View style={styles.draggableArea}>
+            <View
+              style={[
+                styles.headerContainer,
+                { paddingTop: insets.top + 16 },
+              ]}
+            >
+              <IconButton
+                icon="chevron-down"
+                size={30}
+                onPress={() => setIndex(0)}
+                iconColor={iconColor}
+                style={styles.closeButton}
+                rippleColor="rgba(255, 255, 255, 0.2)"
+              />
 
-          <View style={styles.headerActions}>
-            <LyricsHandler
-              currentPlayingTrack={currentPlaying}
-              isOffline={isOffline}
-              Index={Index}
-              currentArtworkSource={currentArtworkSource}
-              iconColor={iconColor}
-            />
-            <View style={{ width: 2 }} />
-            <FullScreenMusicMenuButton onPress={showMenu} size={25} color={iconColor} />
+              <View style={styles.headerActions}>
+                <LyricsHandler
+                  currentPlayingTrack={currentPlaying}
+                  isOffline={isOffline}
+                  Index={Index}
+                  currentArtworkSource={currentArtworkSource}
+                  iconColor={iconColor}
+                />
+                <View style={{ width: 2 }} />
+                <FullScreenMusicMenuButton onPress={showMenu} size={25} color={iconColor} />
+              </View>
+            </View>
+
+            <Spacer height={5} />
+
+            <Surface
+              style={[styles.albumSurface, { width: width * 0.9, height: width * 0.9 }]}
+            >
+              <AlbumArtworkDisplay
+                currentPlaying={currentPlaying}
+                artworkSource={currentArtworkSource}
+                onClose={handlePlayerCloseAction}
+              />
+            </Surface>
+          </View>
+        </GestureDetector>
+
+        {/* Song info and icons - outside GestureDetector for proper touch handling */}
+        <View style={{ width: "100%", paddingHorizontal: 16, marginTop: 8, marginBottom: 8, zIndex: 5 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+            <View style={{ flex: 1 }}>
+              <SongInfoDisplay
+                currentPlaying={currentPlaying}
+                isOffline={isOffline}
+                getTextColor={getTextColor}
+              />
+            </View>
+            <View style={styles.iconContainer}>
+              <View style={[styles.iconWrapper, { transform: [{ translateY: 1 }] }]}>
+                <View style={styles.iconButton}>
+                  <LikeSongButton size={24} color={iconColor} />
+                </View>
+              </View>
+              <View style={[styles.iconWrapper, { transform: [{ translateY: 1 }] }]}>
+                <View style={styles.iconButton}>
+                  <SleepTimerButton size={24} iconColor={iconColor} />
+                </View>
+              </View>
+              <View style={[styles.iconWrapper, { marginRight: 0, transform: [{ translateY: 1 }] }]}>
+                <View style={styles.iconButton}>
+                  <SmartDownloadControl
+                    songData={currentPlaying}
+                    isOffline={isOffline}
+                    size={28}
+                    iconColor={iconColor}
+                  />
+                </View>
+              </View>
+            </View>
           </View>
         </View>
 
-        <Spacer height={5} />
-
-        <Surface
-          style={[styles.albumSurface, { width: width * 0.9, height: width * 0.9 }]}
-        >
-          <AlbumArtworkDisplay
-            currentPlaying={currentPlaying}
-            artworkSource={currentArtworkSource}
-            onClose={handlePlayerCloseAction}
-          />
-        </Surface>
-
-        <Spacer height={8} />
-
+        {/* Non-draggable area - Progress bar and controls */}
         <View
           style={[
             styles.contentContainer,
             { minHeight: Dimensions.get("window").height * 0.55 },
           ]}
         >
-          <View style={{ marginBottom: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
-              <View style={{ flex: 1 }}>
-                <SongInfoDisplay
-                  currentPlaying={currentPlaying}
-                  isOffline={isOffline}
-                  getTextColor={getTextColor}
-                />
-              </View>
-              <View style={styles.iconContainer}>
-                <View style={[styles.iconWrapper, { transform: [{ translateY: 1 }] }]}>
-                  <View style={styles.iconButton}>
-                    <LikeSongButton size={24} color={iconColor} />
-                  </View>
-                </View>
-                <View style={[styles.iconWrapper, { transform: [{ translateY: -5 }] }]}>
-                  <View style={styles.iconButton}>
-                    <SleepTimerButton size={24} iconColor={iconColor} />
-                  </View>
-                </View>
-                <View style={[styles.iconWrapper, { marginRight: 0, transform: [{ translateY: 1 }] }]}>
-                  <View style={styles.iconButton}>
-                    <SmartDownloadControl
-                      songData={currentPlaying}
-                      isOffline={isOffline}
-                      size={28}
-                      iconColor={iconColor}
-                    />
-                  </View>
-                </View>
-              </View>
-            </View>
-          </View>
 
           <View style={{ marginBottom: 12 }}>
             <ProgressBar />

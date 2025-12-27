@@ -1,23 +1,33 @@
 import { useTheme } from "@react-navigation/native";
 import AntDesign from "react-native-vector-icons/AntDesign";
-import { memo, useContext, useEffect, useState, useRef, useCallback } from "react";
+import { memo, useEffect, useState, useRef, useCallback } from "react";
 import { DeleteALikedSong, GetLikedSongs, SetLikedSongs } from "../../LocalStorage/StoreLikedSongs";
-import { Animated, InteractionManager, ToastAndroid, DeviceEventEmitter } from "react-native";
+import { Animated, ToastAndroid, DeviceEventEmitter } from "react-native";
 import { IconButton } from "react-native-paper";
-import Context from "../../Context/Context";
+import { useActiveTrack } from "react-native-track-player";
 
 export const LikeSongButton = memo(function LikeSongButton({ size = 24, color }) {
-  const { currentPlaying } = useContext(Context);
+  // Use useActiveTrack for reliable, real-time track info
+  const currentPlaying = useActiveTrack();
   const theme = useTheme();
   const [Liked, setLiked] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const isProcessingRef = useRef(false);
+  const lastTrackIdRef = useRef(null);
 
-  const getIsLiked = useCallback(async () => {
-    if (!currentPlaying?.id) return;
-    const LikedSongs = await GetLikedSongs();
-    setLiked(!!LikedSongs.songs[currentPlaying.id]);
-  }, [currentPlaying]);
+  const getIsLiked = useCallback(async (trackId) => {
+    if (!trackId) {
+      setLiked(false);
+      return;
+    }
+    try {
+      const LikedSongs = await GetLikedSongs();
+      setLiked(!!LikedSongs.songs[trackId]);
+    } catch (error) {
+      console.error('Error checking liked status:', error);
+      setLiked(false);
+    }
+  }, []);
 
   const handlePress = useCallback(async () => {
     if (isProcessingRef.current || !currentPlaying?.id) return;
@@ -94,13 +104,22 @@ export const LikeSongButton = memo(function LikeSongButton({ size = 24, color })
     }
   }, [currentPlaying, scaleAnim]);
 
+  // Reset liked state immediately when track changes
   useEffect(() => {
-    // PERFORMANCE: Defer AsyncStorage call until after animations complete
-    const task = InteractionManager.runAfterInteractions(() => {
-      getIsLiked();
-    });
-    return () => task.cancel();
-  }, [currentPlaying, getIsLiked]);
+    const currentId = currentPlaying?.id;
+
+    // If track changed, immediately reset and check new status
+    if (currentId !== lastTrackIdRef.current) {
+      // Immediately reset to false to prevent stale UI
+      setLiked(false);
+      lastTrackIdRef.current = currentId;
+
+      // Then check actual liked status
+      if (currentId) {
+        getIsLiked(currentId);
+      }
+    }
+  }, [currentPlaying?.id, getIsLiked]);
 
   const iconSize = size || 20;
 

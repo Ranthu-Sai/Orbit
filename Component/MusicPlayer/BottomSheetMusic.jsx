@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, useEffect, useRef, useState, useMemo } from "react";
 import { BackHandler, StyleSheet, Text, Keyboard, Platform, DeviceEventEmitter } from "react-native";
-import BottomSheet, { BottomSheetView, useBottomSheetTimingConfigs } from "@gorhom/bottom-sheet";
+import BottomSheet, { BottomSheetView, useBottomSheetSpringConfigs } from "@gorhom/bottom-sheet";
 import { Easing } from "react-native-reanimated";
 import { MinimizedMusic } from "./MinimizedMusic";
 import { FullScreenMusic } from "./FullScreenMusic";
@@ -134,10 +134,14 @@ const BottomSheetMusic = React.memo(({ color }) => {
   // OPTIMISTIC UI: Also show when loadingSong is set
   // Timing animation config for smooth, predictable open/close transitions
   // Using timing instead of spring to avoid stuck transitions
-  // OPTIMIZED: Reduced duration to 200ms with faster out-easing for snappy close
-  const animationConfigs = useBottomSheetTimingConfigs({
-    duration: 200,
-    easing: Easing.out(Easing.cubic),
+  // OPTIMIZED: Higher stiffness spring for fast, responsive open/close
+  const animationConfigs = useBottomSheetSpringConfigs({
+    damping: 25,
+    stiffness: 300,
+    mass: 0.4,
+    overshootClamping: true,
+    restDisplacementThreshold: 0.01,
+    restSpeedThreshold: 0.01,
   });
 
   const shouldShowPlayer = useMemo(() => {
@@ -371,7 +375,7 @@ const BottomSheetMusic = React.memo(({ color }) => {
   // Ultra-fast render with optimized JSX
   return (
     <BottomSheet
-      enableContentPanningGesture={true}
+      enableContentPanningGesture={false}
       enableHandlePanningGesture={true}
       detached={false}
       enableOverDrag={true}

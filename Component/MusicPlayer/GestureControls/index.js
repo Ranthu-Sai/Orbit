@@ -6,6 +6,9 @@ export { useNavigationGestureControl } from "./NavigationGestureControl";
 // Tap-to-Close Gesture Control
 export { useTapToCloseGestureControl } from "./TapToCloseGestureControl";
 
+// Drag-to-Close Gesture Control
+export { useDragToCloseGestureControl } from "./DragToCloseGestureControl";
+
 // Gesture Manager Components
 export { GestureManager, SimpleGestureManager } from "./GestureManager";
 
