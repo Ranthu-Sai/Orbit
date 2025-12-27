@@ -314,39 +314,39 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
         colors={getGradientColors()}
         style={styles.gradientContainer}
       >
-        {/* Draggable area - Header and Artwork only (icons outside for touch events) */}
+        {/* Header - outside GestureDetector for immediate touch response */}
+        <View
+          style={[
+            styles.headerContainer,
+            { paddingTop: insets.top + 16, zIndex: 10 },
+          ]}
+        >
+          <IconButton
+            icon="chevron-down"
+            size={30}
+            onPress={() => setIndex(0)}
+            iconColor={iconColor}
+            style={styles.closeButton}
+            rippleColor="rgba(255, 255, 255, 0.2)"
+          />
+
+          <View style={styles.headerActions}>
+            <LyricsHandler
+              currentPlayingTrack={currentPlaying}
+              isOffline={isOffline}
+              Index={Index}
+              currentArtworkSource={currentArtworkSource}
+              iconColor={iconColor}
+            />
+            <View style={{ width: 2 }} />
+            <FullScreenMusicMenuButton onPress={showMenu} size={25} color={iconColor} />
+          </View>
+        </View>
+
+        {/* Draggable area - Artwork only */}
         <GestureDetector gesture={dragToCloseGesture}>
           <View style={styles.draggableArea}>
-            <View
-              style={[
-                styles.headerContainer,
-                { paddingTop: insets.top + 16 },
-              ]}
-            >
-              <IconButton
-                icon="chevron-down"
-                size={30}
-                onPress={() => setIndex(0)}
-                iconColor={iconColor}
-                style={styles.closeButton}
-                rippleColor="rgba(255, 255, 255, 0.2)"
-              />
-
-              <View style={styles.headerActions}>
-                <LyricsHandler
-                  currentPlayingTrack={currentPlaying}
-                  isOffline={isOffline}
-                  Index={Index}
-                  currentArtworkSource={currentArtworkSource}
-                  iconColor={iconColor}
-                />
-                <View style={{ width: 2 }} />
-                <FullScreenMusicMenuButton onPress={showMenu} size={25} color={iconColor} />
-              </View>
-            </View>
-
             <Spacer height={5} />
-
             <Surface
               style={[styles.albumSurface, { width: width * 0.9, height: width * 0.9 }]}
             >
