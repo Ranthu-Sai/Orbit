@@ -32,9 +32,9 @@ import { CacheManager } from "../../Utils/NavigationCacheManager";
 import { CACHE_TTL } from "../../Utils/CacheConfig";
 
 import { ImportPlaylistModal } from "../../Component/Playlist/ImportPlaylistModal";
-import { importToLibrary } from "../../Utils/PlaylistImportLogic";
+import { EachSongMenuModal } from "../../Component/Global/EachSongMenuModal";
 
-const DEFAULT_ALBUM_IMAGE = require("../../Images/default.jpg");
+// ... existing code ...
 
 export const LikedSongPage = () => {
   const navigation = useNavigation();
@@ -60,6 +60,9 @@ export const LikedSongPage = () => {
 
   // Import Modal State
   const [importModalVisible, setImportModalVisible] = useState(false);
+
+  // Menu Modal State
+  const [activeMenuSong, setActiveMenuSong] = useState({ visible: false });
 
   // Track mount state
   const isMounted = useRef(true);
@@ -291,6 +294,19 @@ export const LikedSongPage = () => {
           AddPlaylist(playData);
           updateTrack();
         }}
+        onLongPress={() => {
+          setActiveMenuSong({
+            visible: true,
+            id: item.id,
+            title: item.title,
+            artist: item.artist,
+            image: typeof item?.artwork === "string" ? item.artwork : item?.artwork?.[2]?.url || "",
+            url: typeof item.url === "string" ? item.url : item.url?.[0]?.url || "",
+            duration: item.duration,
+            source: 'favorites',
+            isLocalMusic: false
+          });
+        }}
         android_ripple={{
           color: theme.dark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
           borderless: false
@@ -356,8 +372,20 @@ export const LikedSongPage = () => {
             AddPlaylist(playData);
             updateTrack();
           }}
-          android_ripple={{ color: theme.colors.card, borderless: false }}
-        >
+          onLongPress={() => {
+            setActiveMenuSong({
+              visible: true,
+              id: item.id,
+              title: item.title,
+              artist: item.artist,
+              image: typeof item?.artwork === "string" ? item.artwork : item?.artwork?.[2]?.url || "",
+              url: typeof item.url === "string" ? item.url : item.url?.[0]?.url || "",
+              duration: item.duration,
+              source: 'favorites',
+              isLocalMusic: false
+            });
+          }}
+          android_ripple={{ color: theme.colors.card, borderless: false }}>
           <FastImage
             source={imageSource}
             style={styles.cardImage}
@@ -367,20 +395,17 @@ export const LikedSongPage = () => {
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
             colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.7)", "rgba(0,0,0,0.95)"]}
-            style={styles.cardGradient}
-          >
+            style={styles.cardGradient}>
             <Text
               style={styles.cardTitle}
               numberOfLines={2}
-              ellipsizeMode="tail"
-            >
+              ellipsizeMode="tail">
               {item?.title || "Unknown"}
             </Text>
             <Text
               style={styles.cardSubtitle}
               numberOfLines={1}
-              ellipsizeMode="tail"
-            >
+              ellipsizeMode="tail">
               {item?.artist || "Unknown"} • Song
             </Text>
           </LinearGradient>
@@ -639,12 +664,16 @@ export const LikedSongPage = () => {
           loadFavoritesData(true);
         }}
         customImportHandler={async (url, onProgress) => {
-          await importToLibrary(url, onProgress);
+          const { importFromLink } = require("../../Utils/PlaylistImportLogic");
+          await importFromLink(url, onProgress);
         }}
       />
+
+      <EachSongMenuModal Visible={activeMenuSong} setVisible={setActiveMenuSong} />
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {

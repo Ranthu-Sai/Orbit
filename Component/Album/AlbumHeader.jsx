@@ -451,15 +451,6 @@ export const AlbumHeader = ({
                                 style={styles.actionIcon}
                             />
                         )}
-
-                        {/* More Options */}
-                        <IconButton
-                            icon="dots-vertical"
-                            iconColor={theme.colors.text}
-                            size={26}
-                            onPress={() => {/* TODO: Show options menu */ }}
-                            style={styles.actionIcon}
-                        />
                     </View>
                 </View>
             </View>

@@ -219,6 +219,7 @@ export const SpotifyService = {
                 description: `Album by ${data.artists.map(a => a.name).join(', ')} • ${data.release_date}`,
                 image: data.images?.[0]?.url,
                 owner: data.artists[0]?.name,
+                year: data.release_date?.split('-')[0] || '',
                 totalTracks: data.total_tracks,
                 tracks: tracks.map(track => {
                     if (!track) return null;
@@ -289,3 +290,5 @@ export const SpotifyService = {
         }
     }
 };
+
+export default SpotifyService;

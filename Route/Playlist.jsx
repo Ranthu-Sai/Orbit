@@ -14,6 +14,7 @@ import { Spacer } from "../Component/Global/Spacer";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GetLikedPlaylist, SetLikedPlaylist } from "../LocalStorage/StoreLikedPlaylists";
 import { useActiveTrack, usePlaybackState } from "react-native-track-player";
+import { EachSongMenuModal } from "../Component/Global/EachSongMenuModal";
 import { CacheManager } from '../Utils/NavigationCacheManager';
 import { CACHE_TTL, CACHE_KEYS, generateCacheKey } from '../Utils/CacheConfig';
 
@@ -516,6 +517,18 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
     return true;
   };
 
+  // State for long-press menu
+  const [activeMenuSong, setActiveMenuSong] = useState({ visible: false });
+
+  // Function to handle long press on song item
+  const handleLongPress = useCallback((songData) => {
+    console.log("🖱️ [Playlist] Long Press detected on:", songData?.title);
+    setActiveMenuSong({
+      ...songData,
+      visible: true
+    });
+  }, []);
+
   // IMPORTANT: All hooks must be called unconditionally before any early returns
   // This is a React rule - hooks must be called in the same order on every render
 
@@ -549,6 +562,21 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
     // Get download URL properly for menu options
     const downloadUrlData = e?.downloadUrl || e?.download_url;
 
+    // Prepare song object for the menu
+    const songForMenu = {
+      title: e?.song || e?.name || e?.title,
+      artist: formattedArtist,
+      image: imageUrl,
+      id: e?.id,
+      url: downloadUrlData,
+      duration: e?.duration,
+      language: e?.language,
+      artistID: e?.artist_id || e?.primary_artists_id,
+      albumId: e?.album_id || e?.album?.id,
+      source: e?.source || source || 'saavn',
+      isLibraryLiked: false // Playlist songs technically aren't verified as "liked" here without extra check
+    };
+
     return (
       <EachSongCard
         isFromPlaylist={true}
@@ -562,14 +590,15 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
         id={e?.id}
         url={downloadUrlData}
         title={truncateText(e?.song || e?.name, 22)}
-        source={e?.source || 'saavn'}
+        source={e?.source || source || 'saavn'}
         style={styles.songCard}
         showNumber={true}
         activeTrackId={activeTrack?.id}
         isPlaying={playbackState.state === "playing" || playbackState.state === 3}
+        onLongPress={() => handleLongPress(songForMenu)}
       />
     );
-  }, [Data, activeTrack?.id, playbackState.state, theme]);
+  }, [Data, activeTrack?.id, playbackState.state, theme, handleLongPress, source]);
 
   // Header component for FlatList
   const renderHeader = useCallback(() => {
@@ -659,6 +688,12 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
           />
         </View>
       )}
+
+      {/* Long Press Menu Modal */}
+      <EachSongMenuModal
+        Visible={activeMenuSong}
+        setVisible={setActiveMenuSong}
+      />
     </MainWrapper>
   );
 };

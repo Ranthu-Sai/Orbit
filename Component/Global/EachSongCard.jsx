@@ -17,7 +17,7 @@ import { requestStoragePermission } from '../../Utils/PermissionManager';
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
 import queueManager from '../../Utils/QueueManager';
 
-export const EachSongCard = memo(function EachSongCard({ title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', truncateTitle = false, onDeleteComplete, activeTrackId, isPlaying, item }) {
+export const EachSongCard = memo(function EachSongCard({ title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', truncateTitle = false, onDeleteComplete, activeTrackId, isPlaying, item, onLongPress }) {
   const theme = useTheme();
   const { colors } = theme;
   const width1 = Dimensions.get("window").width;
@@ -570,6 +570,10 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
     <>
       <Pressable
         onPress={AddSongToPlayer}
+        onLongPress={() => {
+          console.log("🖱️ [EachSongCard] Long Press triggered. Prop detected:", !!onLongPress);
+          if (onLongPress) onLongPress();
+        }}
         android_ripple={{
           color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)',
           borderless: false,
@@ -673,4 +677,3 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
     </>
   );
 })
-

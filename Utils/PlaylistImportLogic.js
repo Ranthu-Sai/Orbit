@@ -25,6 +25,11 @@ export const importFromLink = async (url, onProgress) => {
         const { source, type, id } = linkInfo;
 
         // 2. Route based on Source
+        // SPECIAL ROUTE For Albums to ensure they are saved as Albums not Playlists
+        if (type === 'album') {
+            return await importToLibrary(url, onProgress);
+        }
+
         if (source === 'spotify') {
             return await handleSpotifyImport(type, id, onProgress);
         } else if (source === 'youtube' || source === 'ytmusic') {
@@ -52,6 +57,47 @@ export const importToLibrary = async (url, onProgress) => {
         }
 
         const { source, type, id } = linkInfo;
+
+        // SPECIAL HANDLING FOR ALBUMS
+        if (type === 'album') {
+            onProgress(0, 0, 'Fetching Album info...');
+            let albumInfo = null;
+
+            if (source === 'spotify') {
+                albumInfo = await SpotifyService.getAlbum(id);
+            } else if (source === 'youtube' || source === 'ytmusic') {
+                albumInfo = await YouTubeMusicService.getAlbum(id);
+            }
+
+            if (albumInfo) {
+                // Try to import as a whole ALBUM first
+                onProgress(0, 0, `Searching for album: ${albumInfo.name}...`);
+                const query = `${albumInfo.name} ${albumInfo.owner || albumInfo.artist || ''}`;
+
+                try {
+                    // Search specifically for ALBUMS
+                    const searchResults = await YouTubeMusicService.search(query, 'albums');
+                    const albumMatch = searchResults?.find(item => item.title.toLowerCase() === albumInfo.name.toLowerCase()) || searchResults?.[0];
+
+                    if (albumMatch) {
+                        onProgress(50, 100, 'Adding Album to Library...');
+                        await SetLikedAlbum(
+                            albumMatch.thumbnails?.[0]?.url || albumInfo.image,
+                            albumMatch.title,
+                            albumMatch.year || albumInfo.year || new Date().getFullYear().toString(),
+                            albumMatch.browseId || albumMatch.id
+                        );
+                        onProgress(100, 100, 'Album Imported Successfully!');
+                        return true;
+                    }
+                } catch (e) {
+                    console.warn('Album search failed, falling back to songs', e);
+                }
+            }
+            onProgress(0, 0, 'Album not found directly, importing songs...');
+        }
+
+
         let songsToImport = [];
 
         // 1. Fetch Songs
@@ -71,11 +117,6 @@ export const importToLibrary = async (url, onProgress) => {
 
         for (const song of songsToImport) {
             if (song) {
-                // Determine if it's an album or song import
-                // For now, we import everything as Liked Songs unless it's specifically an Album link acting on Liked Albums page
-                // But the requirement says "Import any song... same do with albums".
-                // We'll standard Add to Liked Songs
-
                 await SetLikedSongs(
                     song.title,
                     song.artist,
@@ -168,7 +209,7 @@ const fetchSpotifySongs = async (type, id, onProgress) => {
 const matchSpotifyTracksOnYouTube = async (tracks, onProgress) => {
     const matchedSongs = [];
     let processed = 0;
-    const CHUNK_SIZE = 6; // Increased from 3 to 6
+    const CHUNK_SIZE = 10; // Increased to 10 for better speed
 
     for (let i = 0; i < tracks.length; i += CHUNK_SIZE) {
         const chunk = tracks.slice(i, i + CHUNK_SIZE);

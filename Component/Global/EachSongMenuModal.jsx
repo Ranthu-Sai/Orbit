@@ -130,13 +130,13 @@ export const EachSongMenuModal = ({ Visible, setVisible }) => {
   const [isFavorite, setIsFavorite] = useState(false);
 
   // Check if the song is a local music file
-  const isLocalMusic = Visible.isLocalMusic === true;
+  const isLocalMusic = Visible?.isLocalMusic === true;
 
 
 
   // Check if the song is a favorite when the modal opens
   React.useEffect(() => {
-    if (Visible.visible && Visible.id) {
+    if (Visible?.visible && Visible?.id) {
       const checkFavoriteStatus = async () => {
         if (isLocalMusic) {
           const isFav = await IsLocalMusicFavorite(Visible.id);
@@ -145,20 +145,20 @@ export const EachSongMenuModal = ({ Visible, setVisible }) => {
       };
       checkFavoriteStatus();
     }
-  }, [Visible.visible, Visible.id, isLocalMusic]);
+  }, [Visible?.visible, Visible?.id, isLocalMusic]);
 
   async function actualDownload() {
     try {
       // Prepare song data for unified service
       const songData = {
-        id: Visible.id,
-        title: Visible.title,
-        artist: Visible.artist,
-        url: Visible.url,
-        image: Visible.image,
-        artwork: Visible.image,
-        duration: Visible.duration,
-        language: Visible.language,
+        id: Visible?.id,
+        title: Visible?.title,
+        artist: Visible?.artist,
+        url: Visible?.url,
+        image: Visible?.image,
+        artwork: Visible?.image,
+        duration: Visible?.duration,
+        language: Visible?.language,
         source: 'saavn' // Default source for online music
       };
 
@@ -197,12 +197,12 @@ export const EachSongMenuModal = ({ Visible, setVisible }) => {
       if (isLocalMusic) {
         // Format local music for player
         song = {
-          url: Visible.path,
-          title: FormatTitleAndArtist(Visible.title),
-          artist: FormatTitleAndArtist(Visible.artist),
-          artwork: Visible.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
-          duration: Visible.duration,
-          id: Visible.id,
+          url: Visible?.path,
+          title: FormatTitleAndArtist(Visible?.title),
+          artist: FormatTitleAndArtist(Visible?.artist),
+          artwork: Visible?.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+          duration: Visible?.duration,
+          id: Visible?.id,
           isLocalMusic: true
         };
       } else {
@@ -226,24 +226,24 @@ export const EachSongMenuModal = ({ Visible, setVisible }) => {
 
         song = {
           url: songUrl,
-          title: FormatTitleAndArtist(Visible.title),
-          artist: FormatTitleAndArtist(Visible.artist),
+          title: FormatTitleAndArtist(Visible?.title),
+          artist: FormatTitleAndArtist(Visible?.artist),
           artwork: artworkUrl,
-          duration: Visible.duration,
-          id: Visible.id,
-          language: Visible.language,
+          duration: Visible?.duration,
+          id: Visible?.id,
+          language: Visible?.language,
           image: artworkUrl,
-          downloadUrl: Visible.url,
+          downloadUrl: Visible?.url,
           // Preserve additional metadata
-          year: Visible.year,
-          playCount: Visible.playCount,
-          label: Visible.label,
-          copyright: Visible.copyright,
-          hasLyrics: Visible.hasLyrics,
-          album: Visible.album,
-          artists: Visible.artists,
-          releaseDate: Visible.releaseDate,
-          explicitContent: Visible.explicitContent
+          year: Visible?.year,
+          playCount: Visible?.playCount,
+          label: Visible?.label,
+          copyright: Visible?.copyright,
+          hasLyrics: Visible?.hasLyrics,
+          album: Visible?.album,
+          artists: Visible?.artists,
+          releaseDate: Visible?.releaseDate,
+          explicitContent: Visible?.explicitContent
         }
       }
 
@@ -359,12 +359,12 @@ export const EachSongMenuModal = ({ Visible, setVisible }) => {
       if (isLocalMusic) {
         // Format local music for queue
         song = {
-          url: Visible.path,
-          title: FormatTitleAndArtist(Visible.title),
-          artist: FormatTitleAndArtist(Visible.artist),
-          artwork: Visible.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
-          duration: Visible.duration,
-          id: Visible.id,
+          url: Visible?.path,
+          title: FormatTitleAndArtist(Visible?.title),
+          artist: FormatTitleAndArtist(Visible?.artist),
+          artwork: Visible?.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+          duration: Visible?.duration,
+          id: Visible?.id,
           isLocalMusic: true
         };
       } else {
@@ -372,10 +372,10 @@ export const EachSongMenuModal = ({ Visible, setVisible }) => {
         const quality = await getIndexQuality();
 
         // Get the song URL safely
-        const songUrl = getSongUrl(Visible.url, quality);
+        const songUrl = getSongUrl(Visible?.url, quality);
 
         if (!songUrl) {
-          console.error("Invalid song URL structure for queue:", Visible.url);
+          console.error("Invalid song URL structure for queue:", Visible?.url);
           ToastAndroid.showWithGravity(
             `Cannot add to queue: Invalid URL`,
             ToastAndroid.SHORT,
@@ -386,14 +386,14 @@ export const EachSongMenuModal = ({ Visible, setVisible }) => {
 
         song = {
           url: songUrl,
-          title: FormatTitleAndArtist(Visible.title),
-          artist: FormatTitleAndArtist(Visible.artist),
-          artwork: getHighestQualityArtwork(Visible.image),
-          duration: Visible.duration,
-          id: Visible.id,
-          language: Visible.language,
-          image: getHighestQualityArtwork(Visible.image),
-          downloadUrl: Visible.url,
+          title: FormatTitleAndArtist(Visible?.title),
+          artist: FormatTitleAndArtist(Visible?.artist),
+          artwork: getHighestQualityArtwork(Visible?.image),
+          duration: Visible?.duration,
+          id: Visible?.id,
+          language: Visible?.language,
+          image: getHighestQualityArtwork(Visible?.image),
+          downloadUrl: Visible?.url,
         }
       }
 
@@ -536,62 +536,82 @@ export const EachSongMenuModal = ({ Visible, setVisible }) => {
     <>
       <Modal
         onBackButtonPress={() => setVisible({ visible: false })}
-        onBackdropPress={() => setVisible({ visible: false })}
-        isVisible={Visible.visible}
-        backdropOpacity={0}
-        animationIn="fadeIn"
-        animationOut="fadeOut"
-        animationInTiming={50}
-        animationOutTiming={50}
+        onSwipeComplete={() => setVisible({ visible: false })}
+        swipeDirection={['down']}
+        isVisible={Visible?.visible || false}
+        backdropOpacity={0.4}
+        animationIn="slideInUp"
+        animationOut="slideOutDown"
         useNativeDriver
         hideModalContentWhileAnimating
         style={{
           margin: 0,
-          position: 'absolute',
-          top: typeof Visible.position?.y === 'number' ? Visible.position.y : 0,
-          right: 16,
-          justifyContent: 'flex-start',
+          justifyContent: 'flex-end',
         }}
       >
         <View style={{
-          backgroundColor: colors.card, // Themed background
-          borderRadius: 10,
-          width: 200,
+          backgroundColor: colors.card,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          width: '100%',
           overflow: 'hidden',
           elevation: 10,
-          transform: [
-            { translateY: -50 },
-            { scale: Visible.visible ? 1 : 0.95 }
-          ],
-          opacity: Visible.visible ? 1 : 0,
+          paddingBottom: 20,
         }}>
+          {/* Drawer Handle */}
+          <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 8 }}>
+            <View style={{
+              width: 40,
+              height: 4,
+              backgroundColor: colors.text,
+              opacity: 0.2,
+              borderRadius: 2
+            }} />
+          </View>
 
           <MenuButton
-            icon={<MaterialCommunityIcons name="play-speed" size={22} color={colors.text} />}
+            icon={<MaterialCommunityIcons name="play-speed" size={24} color={colors.text} />}
             text="Play Next"
             onPress={playNext}
             textColor={colors.text}
           />
           <MenuButton
-            icon={<MaterialCommunityIcons name="playlist-plus" size={22} color={colors.text} />}
+            icon={<MaterialCommunityIcons name="playlist-plus" size={24} color={colors.text} />}
             text="Add to Queue"
             onPress={addSongToQueue}
             textColor={colors.text}
           />
           <MenuButton
-            icon={<MaterialCommunityIcons name="playlist-plus" size={22} color={colors.text} />}
+            icon={<MaterialCommunityIcons name="playlist-music" size={24} color={colors.text} />}
             text="Add to Playlist"
             onPress={handleAddToPlaylist}
           />
           {isLocalMusic ? (
             <MenuButton
-              icon={<MaterialCommunityIcons name={isFavorite ? "heart" : "heart-outline"} size={22} color={isFavorite ? "#ff5252" : colors.text} />}
+              icon={<MaterialCommunityIcons name={isFavorite ? "heart" : "heart-outline"} size={24} color={isFavorite ? "#ff5252" : colors.text} />}
               text={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
               onPress={toggleLocalMusicFavorite}
             />
+          ) : Visible?.source === 'favorites' ? (
+            <MenuButton
+              icon={<MaterialCommunityIcons name="heart-broken" size={24} color={colors.text} />}
+              text="Remove from Favorites"
+              onPress={async () => {
+                try {
+                  const { DeleteALikedSong } = require('../../LocalStorage/StoreLikedSongs');
+                  await DeleteALikedSong(Visible?.id);
+                  ToastAndroid.show("Removed from Favorites", ToastAndroid.SHORT);
+                  setVisible({ visible: false });
+                } catch (e) {
+                  console.error(e);
+                  ToastAndroid.show("Failed to remove", ToastAndroid.SHORT);
+                }
+              }}
+              textColor={colors.text}
+            />
           ) : (
             <MenuButton
-              icon={<MaterialCommunityIcons name="download" size={22} color={colors.text} />}
+              icon={<MaterialCommunityIcons name="download" size={24} color={colors.text} />}
               text="Download"
               onPress={getPermission}
               textColor={colors.text}
@@ -714,8 +734,8 @@ const MenuButton = ({ icon, text, onPress, textColor: textColorProp }) => {
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 12,
-        paddingHorizontal: 16,
+        paddingVertical: 16,
+        paddingHorizontal: 24,
       }}
     >
       {icon}
@@ -723,8 +743,9 @@ const MenuButton = ({ icon, text, onPress, textColor: textColorProp }) => {
         text={text}
         style={{
           color: finalTextColor,
-          marginLeft: 16,
-          fontSize: 14,
+          marginLeft: 20,
+          fontSize: 16,
+          fontWeight: '500',
         }}
       />
     </Pressable>

@@ -981,7 +981,7 @@ export const CustomPlaylistView = (props) => {
                   try {
                     // Get the current queue and track index
                     const queue = await TrackPlayer.getQueue();
-                    const currentIndex = await TrackPlayer.getCurrentTrack();
+                    const currentIndex = await TrackPlayer.getActiveTrackIndex();
 
                     if (currentIndex !== null && currentIndex >= 0) {
                       // Insert the song right after the current track
@@ -1019,6 +1019,46 @@ export const CustomPlaylistView = (props) => {
               >
                 <MaterialCommunityIcons name="playlist-play" size={24} color={theme.colors.text} />
                 <Text style={[staticStyles.menuText, { color: theme.colors.text }]}>Play Next</Text>
+              </Pressable>
+
+              <Pressable
+                style={[staticStyles.menuOption, { paddingHorizontal: 16 }]}
+                onPress={async () => {
+                  setMenuVisible(false);
+                  try {
+                    const formattedTrack = formatTrack(selectedSong);
+                    const queue = await TrackPlayer.getQueue();
+
+                    if (queue.length > 0) {
+                      // Add to the end of the queue
+                      await TrackPlayer.add([formattedTrack]);
+
+                      // Update Context queue
+                      if (setQueue && Queue) {
+                        setQueue([...Queue, formattedTrack]);
+                      }
+
+                      ToastAndroid.show('Added to queue', ToastAndroid.SHORT);
+                    } else {
+                      // If queue is empty, start playing
+                      await TrackPlayer.reset();
+                      await TrackPlayer.add([formattedTrack]);
+                      await TrackPlayer.play();
+
+                      if (setQueue) setQueue([formattedTrack]);
+                      if (setCurrentPlaying) setCurrentPlaying(formattedTrack);
+                      if (updateTrack) updateTrack();
+
+                      ToastAndroid.show('Now playing', ToastAndroid.SHORT);
+                    }
+                  } catch (error) {
+                    console.error('Error adding song to queue:', error);
+                    ToastAndroid.show('Failed to add to queue', ToastAndroid.SHORT);
+                  }
+                }}
+              >
+                <MaterialCommunityIcons name="playlist-plus" size={24} color={theme.colors.text} />
+                <Text style={[staticStyles.menuText, { color: theme.colors.text }]}>Add to Queue</Text>
               </Pressable>
 
               {isUserPlaylist && (

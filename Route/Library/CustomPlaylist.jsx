@@ -12,13 +12,14 @@ import { FileInput, Import } from "lucide-react-native";
 import FastImage from "react-native-fast-image";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getUserPlaylists, createPlaylist, clearPlaylistCache } from "../../Utils/PlaylistManager";
+import { getUserPlaylists, createPlaylist, clearPlaylistCache, deletePlaylist, updatePlaylist } from "../../Utils/PlaylistManager";
 import { CacheManager } from '../../Utils/NavigationCacheManager';
 import { CACHE_TTL, CACHE_KEYS } from '../../Utils/CacheConfig';
 import { ImportPlaylistModal } from "../../Component/Playlist/ImportPlaylistModal";
 import { DeviceEventEmitter, RefreshControl } from "react-native";
 import { Playlist } from "../Playlist";
 import { PlaylistListSkeleton } from "../../Component/Global/PlaylistListSkeleton";
+import { PlaylistMenuDrawer } from "../../Component/Global/PlaylistMenuDrawer";
 
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -199,52 +200,52 @@ export const CustomPlaylist = () => {
 
 
 
-  const handleDeletePlaylist = async (playlistName) => {
-    const customPlaylists = await GetCustomPlaylists();
-    delete customPlaylists[playlistName];
-    await AsyncStorage.setItem('CustomPlaylists', JSON.stringify(customPlaylists));
-    loadPlaylists();
-    setMenuVisible(false);
-    ToastAndroid.show('Playlist deleted', ToastAndroid.SHORT);
-  };
+  // Delete playlist - receives playlist data directly from drawer callback
+  const handleMenuDelete = async (playlist) => {
+    if (!playlist) {
+      console.log('No playlist data received for delete');
+      return;
+    }
 
-  const handleDeleteUserPlaylist = async (playlistId) => {
+    console.log('Deleting playlist:', playlist.name, 'type:', playlist.type);
+
     try {
-      // Get existing playlists
-      const allPlaylists = await getUserPlaylists();
-
-      // Filter out the playlist to delete
-      const updatedPlaylists = allPlaylists.filter(p => p.id !== playlistId);
-
-      // Save the updated playlists - await to ensure operation completes
-      await AsyncStorage.setItem('userPlaylists', JSON.stringify(updatedPlaylists));
-
-      // Clear playlist cache to ensure fresh data
-      clearPlaylistCache();
-
-      // Close modal first
-      setMenuVisible(false);
-
-      // Show feedback
-      ToastAndroid.show('Playlist deleted', ToastAndroid.SHORT);
-
-      // Reload playlists after a short delay to ensure AsyncStorage is updated
-      setTimeout(() => {
-        loadPlaylists();
-      }, 300);
+      if (playlist.type === 'user') {
+        // Use proper file-based delete from PlaylistManager
+        const success = await deletePlaylist(playlist.id);
+        if (success) {
+          // Invalidate cache and reload
+          CacheManager.invalidate(CACHE_KEYS.CUSTOM_PLAYLISTS);
+          loadPlaylists(true);
+        }
+      } else if (playlist.type === 'legacy') {
+        // Delete legacy playlist from AsyncStorage
+        const customPlaylists = await GetCustomPlaylists();
+        delete customPlaylists[playlist.name];
+        await AsyncStorage.setItem('CustomPlaylists', JSON.stringify(customPlaylists));
+        CacheManager.invalidate(CACHE_KEYS.CUSTOM_PLAYLISTS);
+        ToastAndroid.show('Playlist deleted', ToastAndroid.SHORT);
+        loadPlaylists(true);
+      } else if (playlist.type === 'liked') {
+        ToastAndroid.show("Cannot delete liked playlists from here", ToastAndroid.SHORT);
+      }
     } catch (error) {
-      console.error('Error deleting user playlist:', error);
+      console.error('Error deleting playlist:', error);
       ToastAndroid.show('Failed to delete playlist', ToastAndroid.SHORT);
-      setMenuVisible(false);
     }
   };
 
-  const handleEditPlaylist = () => {
-    // For user playlists, get the name; for legacy playlists, use the name directly
-    const nameToEdit = typeof selectedPlaylist === 'object' ? selectedPlaylist.name : selectedPlaylist;
-    setNewPlaylistName(nameToEdit);
+  // Rename playlist - receives playlist data directly from drawer callback
+  const handleMenuRename = (playlist) => {
+    if (!playlist) {
+      console.log('No playlist data received for rename');
+      return;
+    }
+
+    console.log('Renaming playlist:', playlist.name, 'type:', playlist.type);
+    setSelectedPlaylist(playlist);
+    setNewPlaylistName(playlist.name || '');
     setEditModalVisible(true);
-    setMenuVisible(false);
   };
 
   const handleUpdatePlaylistName = async () => {
@@ -253,52 +254,77 @@ export const CustomPlaylist = () => {
       return;
     }
 
+    if (!selectedPlaylist) {
+      ToastAndroid.show('No playlist selected', ToastAndroid.SHORT);
+      return;
+    }
+
     try {
-      // Handle updating user playlist vs legacy playlist
-      if (typeof selectedPlaylist === 'object' && selectedPlaylist.id) {
-        // This is a user playlist object
-        const userPlaylists = await getUserPlaylists();
-        const playlistIndex = userPlaylists.findIndex(p => p.id === selectedPlaylist.id);
+      if (selectedPlaylist.type === 'user') {
+        // Use proper file-based update from PlaylistManager
+        const success = await updatePlaylist(selectedPlaylist.id, {
+          name: newPlaylistName.trim()
+        });
 
-        if (playlistIndex !== -1) {
-          // Update the name
-          userPlaylists[playlistIndex].name = newPlaylistName.trim();
-          userPlaylists[playlistIndex].lastModified = Date.now();
-
-          // Save updated playlists
-          await AsyncStorage.setItem('userPlaylists', JSON.stringify(userPlaylists));
-          loadPlaylists();
+        if (success) {
           setEditModalVisible(false);
-          ToastAndroid.show('Playlist name updated', ToastAndroid.SHORT);
+          CacheManager.invalidate(CACHE_KEYS.CUSTOM_PLAYLISTS);
+          ToastAndroid.show('Playlist renamed', ToastAndroid.SHORT);
+          loadPlaylists(true);
         }
-      } else if (typeof selectedPlaylist === 'string') {
-        // This is a legacy playlist name
+      } else if (selectedPlaylist.type === 'legacy') {
+        // Rename legacy playlist in AsyncStorage
+        const oldName = selectedPlaylist.name;
         const customPlaylists = await GetCustomPlaylists();
-        customPlaylists[newPlaylistName] = customPlaylists[selectedPlaylist];
-        delete customPlaylists[selectedPlaylist];
+        const trimmedName = newPlaylistName.trim();
+
+        if (customPlaylists[trimmedName] && trimmedName !== oldName) {
+          ToastAndroid.show('Playlist with this name already exists', ToastAndroid.SHORT);
+          return;
+        }
+
+        customPlaylists[trimmedName] = customPlaylists[oldName];
+        if (trimmedName !== oldName) {
+          delete customPlaylists[oldName];
+        }
 
         await AsyncStorage.setItem('CustomPlaylists', JSON.stringify(customPlaylists));
-        loadPlaylists();
         setEditModalVisible(false);
-        ToastAndroid.show('Playlist name updated', ToastAndroid.SHORT);
+        CacheManager.invalidate(CACHE_KEYS.CUSTOM_PLAYLISTS);
+        ToastAndroid.show('Playlist renamed', ToastAndroid.SHORT);
+        loadPlaylists(true);
       }
     } catch (error) {
-      console.error('Error updating playlist name:', error);
-      ToastAndroid.show('Failed to update playlist name', ToastAndroid.SHORT);
+      console.error('Error renaming playlist:', error);
+      ToastAndroid.show('Failed to rename playlist', ToastAndroid.SHORT);
     }
   };
 
-  const handlePlaylistOptions = (playlist, event) => {
-    // Set the selected playlist - could be an object (user playlist) or string (legacy playlist)
-    setSelectedPlaylist(playlist);
+  const handlePlaylistOptions = (playlist, event, type = 'legacy') => {
+    // Normalize playlist data for the drawer
+    let playlistData = null;
 
-    // Position the menu near the three dots
-    setMenuPosition({
-      x: event.nativeEvent.pageX - 150, // Position menu to the left of touch point
-      y: event.nativeEvent.pageY - 20,  // Position slightly above touch point
-    });
+    if (type === 'legacy') {
+      // Legacy 'playlist' arg is just the name (string)
+      playlistData = {
+        name: playlist,
+        songs: playlists[playlist],
+        type: 'legacy'
+      };
+    } else if (type === 'user') {
+      // User 'playlist' arg is the full object
+      playlistData = {
+        ...playlist,
+        type: 'user'
+      };
+    } else if (type === 'liked') {
+      playlistData = {
+        ...playlist,
+        type: 'liked'
+      };
+    }
 
-    // Show the menu
+    setSelectedPlaylist(playlistData);
     setMenuVisible(true);
   };
 
@@ -340,6 +366,7 @@ export const CustomPlaylist = () => {
       <Pressable
         style={styles.playlistItem}
         onPress={handlePlaylistPress}
+        onLongPress={(e) => handlePlaylistOptions(item, e, 'legacy')}
         android_ripple={{ color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)', borderless: false }}
       >
         <View style={styles.playlistCoverContainer}>
@@ -402,6 +429,7 @@ export const CustomPlaylist = () => {
       <Pressable
         style={styles.playlistItem}
         onPress={handlePlaylistPress}
+        onLongPress={(e) => handlePlaylistOptions(item, e, 'user')}
         android_ripple={{ color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)', borderless: false }}
       >
         <View style={styles.playlistCoverContainer}>
@@ -467,6 +495,7 @@ export const CustomPlaylist = () => {
       <Pressable
         style={styles.playlistItem}
         onPress={handlePlaylistPress}
+        onLongPress={(e) => handlePlaylistOptions(item, e, 'liked')}
         android_ripple={{ color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)', borderless: false }}
       >
         {imageUrl ? (
@@ -667,52 +696,14 @@ export const CustomPlaylist = () => {
         onImportSuccess={onImportSuccess}
       />
 
-      {/* Options Menu Modal */}
-      <Modal
+      {/* Options Menu Drawer */}
+      <PlaylistMenuDrawer
         visible={menuVisible}
-        transparent={true}
-        onRequestClose={() => setMenuVisible(false)}
-        animationType="fade"
-      >
-        <Pressable
-          style={styles.menuModalOverlay}
-          onPress={() => setMenuVisible(false)}
-        >
-          <View
-            style={[
-              styles.menuContainer,
-              {
-                top: menuPosition.y,
-                left: menuPosition.x
-              }
-            ]}
-          >
-            <Pressable
-              style={styles.menuItem}
-              onPress={handleEditPlaylist}
-              android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
-            >
-              <MaterialIcons name="edit" size={24} color="white" />
-              <Text style={styles.menuItemText}>Rename</Text>
-            </Pressable>
-            <Pressable
-              style={styles.menuItem}
-              onPress={() => {
-                // Check if this is a user playlist object or legacy playlist name
-                if (typeof selectedPlaylist === 'object' && selectedPlaylist.id) {
-                  handleDeleteUserPlaylist(selectedPlaylist.id);
-                } else if (typeof selectedPlaylist === 'string') {
-                  handleDeletePlaylist(selectedPlaylist);
-                }
-              }}
-              android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
-            >
-              <MaterialIcons name="delete" size={24} color="#FF5252" />
-              <Text style={[styles.menuItemText, { color: '#FF5252' }]}>Delete</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
+        onClose={() => setMenuVisible(false)}
+        playlist={selectedPlaylist}
+        onRename={handleMenuRename}
+        onDelete={handleMenuDelete}
+      />
 
       {/* Create Playlist Modal */}
       <Modal
