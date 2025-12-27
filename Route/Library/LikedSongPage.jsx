@@ -33,6 +33,8 @@ import { CACHE_TTL } from "../../Utils/CacheConfig";
 
 import { ImportPlaylistModal } from "../../Component/Playlist/ImportPlaylistModal";
 import { EachSongMenuModal } from "../../Component/Global/EachSongMenuModal";
+import { AlbumMenuDrawer } from "../../Component/Global/AlbumMenuDrawer";
+import { DeleteALikedAlbum } from "../../LocalStorage/StoreLikedAlbums";
 
 // ... existing code ...
 
@@ -63,6 +65,10 @@ export const LikedSongPage = () => {
 
   // Menu Modal State
   const [activeMenuSong, setActiveMenuSong] = useState({ visible: false });
+
+  // Album Menu Drawer State
+  const [albumMenuVisible, setAlbumMenuVisible] = useState(false);
+  const [activeAlbum, setActiveAlbum] = useState(null);
 
   // Track mount state
   const isMounted = useRef(true);
@@ -430,6 +436,10 @@ export const LikedSongPage = () => {
             source: 'favorites',
           });
         }}
+        onLongPress={() => {
+          setActiveAlbum(item);
+          setAlbumMenuVisible(true);
+        }}
         android_ripple={{
           color: theme.dark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
           borderless: false
@@ -475,6 +485,10 @@ export const LikedSongPage = () => {
               timestamp: Date.now(),
               source: 'favorites',
             });
+          }}
+          onLongPress={() => {
+            setActiveAlbum(item);
+            setAlbumMenuVisible(true);
           }}
           android_ripple={{ color: theme.colors.card, borderless: false }}
         >
@@ -670,6 +684,17 @@ export const LikedSongPage = () => {
       />
 
       <EachSongMenuModal Visible={activeMenuSong} setVisible={setActiveMenuSong} />
+
+      <AlbumMenuDrawer
+        visible={albumMenuVisible}
+        onClose={() => setAlbumMenuVisible(false)}
+        album={activeAlbum}
+        onRemove={async (album) => {
+          await DeleteALikedAlbum(album.id);
+          ToastAndroid.show('Album removed from favorites', ToastAndroid.SHORT);
+          // Cache is auto-invalidated via DeviceEventEmitter in DeleteALikedAlbum
+        }}
+      />
     </View>
   );
 };
