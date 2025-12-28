@@ -14,6 +14,8 @@ import ArtistSongs from './Route/ArtistSongs';
 import ArtistItems from './Route/ArtistItems';
 import SectionListPage from './Route/SectionListPage';
 import LoginScreen from './Component/Auth/LoginScreen';
+import { ChangeName } from './Route/Home/ChangeName';
+import { SelectLanguages } from './Route/Home/SelectLanguages';
 import CodePush from "react-native-code-push";
 import { useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -258,6 +260,8 @@ function App() {
                     <Stack.Screen name="ArtistItems" component={ArtistItems} />
                     <Stack.Screen name="SectionListPage" component={SectionListPage} />
                     <Stack.Screen name="LoginScreen" component={LoginScreen} />
+                    <Stack.Screen name="ChangeName" component={ChangeName} />
+                    <Stack.Screen name="SelectLanguages" component={SelectLanguages} />
                   </Stack.Navigator>
                 </NavigationContainer>
               </PaperProvider>

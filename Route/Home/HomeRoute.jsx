@@ -11,8 +11,6 @@ import { LikedPlaylistPage } from "../Library/LikedPlaylistPage";
 import { SettingsPage } from "./SettingsPage";
 import { LoginScreen } from "../LoginScreen";
 import { RegisterScreen } from "../RegisterScreen";
-import { ChangeName } from "./ChangeName";
-import { SelectLanguages } from "./SelectLanguages";
 import ShowPlaylistofType from "../../Component/Discover/ShowPlaylistofType";
 import { HistoryPage } from "../Library/HistoryPage";
 
@@ -81,8 +79,6 @@ export const HomeRoute = () => {
         component={RegisterScreen}
         options={{ title: 'DAB Music Register' }}
       />
-      <Stack.Screen name={"ChangeName"} component={ChangeName} />
-      <Stack.Screen name={"SelectLanguages"} component={SelectLanguages} />
       <Stack.Screen name="ShowPlaylistofType" component={ShowPlaylistofType} />
 
     </Stack.Navigator>
