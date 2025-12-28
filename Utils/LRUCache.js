@@ -41,6 +41,10 @@ class LRUCacheManager {
 
         // Lock to prevent concurrent evictions
         this.evictionInProgress = false;
+
+        // Throttling for disk full warnings
+        this.lastDiskFullWarning = 0;
+        this.diskFullWarningCooldown = 30000; // 30 seconds
     }
 
     /**
@@ -209,6 +213,16 @@ class LRUCacheManager {
     }
 
     /**
+     * More aggressive eviction specifically for disk full scenarios
+     */
+    async emergencyEvict() {
+        // Evict 50% of the cache or at least 10 items
+        const countToEvict = Math.max(10, Math.ceil(this.metadata.size * 0.5));
+        console.log(`[LRUCache:${this.namespace}] 🚨 Emergency eviction: Clearing ${countToEvict} items due to full disk`);
+        return await this.evictOldest(countToEvict);
+    }
+
+    /**
      * Get an item from cache
      * @param {string} key - Cache key
      * @returns {Promise<any|null>} - Cached data or null
@@ -299,10 +313,16 @@ class LRUCacheManager {
             } catch (storageError) {
                 // Check for disk full error
                 if (this._isDiskFullError(storageError)) {
-                    console.log(`[LRUCache:${this.namespace}] ⚠️ Disk full detected, performing LRU eviction...`);
+                    const now = Date.now();
+                    const shouldWarn = now - this.lastDiskFullWarning > this.diskFullWarningCooldown;
 
-                    // Evict oldest entries
-                    const evicted = await this.evictOldest();
+                    if (shouldWarn) {
+                        console.log(`[LRUCache:${this.namespace}] ⚠️ Disk full detected, performing aggressive LRU eviction...`);
+                        this.lastDiskFullWarning = now;
+                    }
+
+                    // Emergency evict - more aggressive than normal
+                    const evicted = await this.emergencyEvict();
 
                     if (evicted > 0) {
                         // Retry save after eviction
@@ -310,11 +330,13 @@ class LRUCacheManager {
                             await AsyncStorage.setItem(storageKey, dataString);
                             this._touch(key, dataSize);
                             await this._saveMetadata();
-                            console.log(`[LRUCache:${this.namespace}] ✅ Saved after eviction`);
+                            if (shouldWarn) console.log(`[LRUCache:${this.namespace}] ✅ Saved after emergency eviction`);
                             return true;
                         } catch (retryError) {
-                            console.warn(`[LRUCache:${this.namespace}] Save failed even after eviction`);
+                            if (shouldWarn) console.warn(`[LRUCache:${this.namespace}] Save failed even after emergency eviction`);
                         }
+                    } else if (shouldWarn) {
+                        console.warn(`[LRUCache:${this.namespace}] Emergency eviction could not find any items to remove`);
                     }
                 }
 
