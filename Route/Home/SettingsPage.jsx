@@ -1,6 +1,6 @@
 import { MainWrapper } from "../../Layout/MainWrapper";
 import { PaddingConatiner } from "../../Layout/PaddingConatiner";
-import { ScrollView, ToastAndroid, View, TouchableOpacity } from "react-native";
+import { ScrollView, ToastAndroid, View, TouchableOpacity, Alert } from "react-native";
 import { List, Card, Text, Switch, TouchableRipple, Portal, Modal } from "react-native-paper";
 import { useRef } from "react";
 
@@ -28,9 +28,12 @@ import { getColorSchemeOptions } from "../../Theme/colorSchemes";
 import { settingsConfig } from "../../config/settingsConfig";
 import { useThemeContext } from "../../Context/ThemeContext";
 import { StorageManager } from "../../Utils/StorageManager";
+import dabAuthService from "../../Utils/DabAuthService";
+import { dabLogout, dabGetCurrentUser } from "../../Api/DabAPI";
 
 export const SettingsPage = ({ navigation }) => {
-  const { colors } = useTheme();
+  const theme = useTheme();
+  const { colors } = theme;
   const { changeFontSize, changeColorScheme, toggleTheme } = useThemeContext();
   const [font, setFont] = useState(settingsConfig.defaults.fontSize);
   const [playback, setPlayback] = useState(settingsConfig.defaults.playbackQuality);
@@ -41,6 +44,8 @@ export const SettingsPage = ({ navigation }) => {
   const [lyricsProvider, setLyricsProvider] = useState(settingsConfig.defaults.lyricsProvider);
   const [lyricsAnimationStyle, setLyricsAnimationStyle] = useState(settingsConfig.defaults.lyricsAnimationStyle);
   const [downloadPathInfo, setDownloadPathInfo] = useState(null);
+  const [dabUser, setDabUser] = useState(dabAuthService.getUser());
+  const [isDabAuth, setIsDabAuth] = useState(dabAuthService.isAuth());
 
   async function loadSettings() {
     try {
@@ -254,182 +259,226 @@ export const SettingsPage = ({ navigation }) => {
 
   useEffect(() => {
     loadSettings();
+    // Verify DAB session on load
+    dabGetCurrentUser().catch(err => console.error("Error verifying DAB session:", err));
+
+    // Listen for DAB Auth changes
+    const authListener = (state) => {
+      setDabUser(state.user);
+      setIsDabAuth(state.isAuthenticated);
+    };
+
+    dabAuthService.addListener(authListener);
+
+    return () => {
+      dabAuthService.removeListener(authListener);
+    };
   }, []);
+
+  async function handleDabLogout() {
+    try {
+      const result = await dabLogout();
+      if (result.success) {
+        ToastAndroid.show("Logged out from DAB Music", ToastAndroid.SHORT);
+      }
+    } catch (error) {
+      console.error("DAB Logout error:", error);
+    }
+  }
 
   return (
     <MainWrapper>
-      <PaddingConatiner>
-        <Text variant="headlineMedium" style={{ textAlign: 'left', marginBottom: 20, marginLeft: 16, color: colors.text, fontWeight: 'bold' }}>
-          Settings
-        </Text>
-        <ScrollView
-          style={{ marginBottom: 52 }}
-          contentContainerStyle={{ paddingBottom: 120 }}
-          contentInsetAdjustmentBehavior="automatic"
+      <Text variant="headlineMedium" style={{ textAlign: 'left', marginTop: 20, marginBottom: 20, marginLeft: 16, color: colors.text, fontWeight: 'bold' }}>
+        Settings
+      </Text>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 170 }}
+        contentInsetAdjustmentBehavior="automatic"
+      >
+        <TouchableRipple
+          onPress={() => navigation.navigate("ChangeName")}
+          rippleColor={theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'}
+          style={{ paddingHorizontal: 16, paddingVertical: 4 }}
         >
-          <View style={{ padding: 16 }}>
-            <List.Item
-              title="Change Name"
-              titleStyle={{ color: colors.text, fontWeight: 'bold' }}
-              left={() => <List.Icon icon="account-edit" color={colors.primary} />}
-              right={() => <List.Icon icon="chevron-right" color={colors.text} />}
-              onPress={() => navigation.navigate("ChangeName")}
-              style={{ paddingHorizontal: 0, paddingVertical: 0 }}
-            />
-          </View>
-          <View style={{ padding: 16 }}>
-            <List.Item
-              title="Select Languages"
-              titleStyle={{ color: colors.text, fontWeight: 'bold' }}
-              left={() => <List.Icon icon="translate" color={colors.primary} />}
-              right={() => <List.Icon icon="chevron-right" color={colors.text} />}
-              onPress={() => navigation.navigate("SelectLanguages")}
-              style={{ paddingHorizontal: 0, paddingVertical: 0 }}
-            />
-          </View>
-
-          {/* YouTube Music Authentication */}
-          <View style={{ marginTop: 8, marginBottom: 8 }}>
-            <Text variant="titleMedium" style={{ paddingHorizontal: 16, paddingBottom: 8, color: colors.text, opacity: 0.7 }}>
-              YouTube Music
-            </Text>
-          </View>
-          <View style={{ padding: 16 }}>
-            <List.Item
-              title="Login to YouTube Music"
-              description="Login to access personalized content and bypass restrictions"
-              titleStyle={{ color: colors.text, fontWeight: 'bold' }}
-              descriptionStyle={{ color: colors.text, opacity: 0.7, fontSize: 12 }}
-              left={() => <List.Icon icon="youtube" color="#FF0000" />}
-              right={() => <List.Icon icon="chevron-right" color={colors.text} />}
-              onPress={() => navigation.navigate("LoginScreen")}
-              style={{ paddingHorizontal: 0, paddingVertical: 0 }}
-            />
-          </View>
-
-          {/* DAB Music Authentication */}
-          <View style={{ marginTop: 8, marginBottom: 8 }}>
-            <Text variant="titleMedium" style={{ paddingHorizontal: 16, paddingBottom: 8, color: colors.text, opacity: 0.7 }}>
-              DAB Music (FLAC)
-            </Text>
-          </View>
-          <View style={{ padding: 16 }}>
-            <List.Item
-              title="DAB Login"
-              description="Login to access DAB Music features"
-              titleStyle={{ color: colors.text, fontWeight: 'bold' }}
-              descriptionStyle={{ color: colors.text, opacity: 0.7, fontSize: 12 }}
-              left={() => <List.Icon icon="login" color={colors.primary} />}
-              right={() => <List.Icon icon="chevron-right" color={colors.text} />}
-              onPress={() => navigation.navigate("Login")}
-              style={{ paddingHorizontal: 0, paddingVertical: 0 }}
-            />
-          </View>
-          <View style={{ padding: 16 }}>
-            <List.Item
-              title="DAB Register"
-              description="Create a new DAB Music account"
-              titleStyle={{ color: colors.text, fontWeight: 'bold' }}
-              descriptionStyle={{ color: colors.text, opacity: 0.7, fontSize: 12 }}
-              left={() => <List.Icon icon="account-plus" color={colors.primary} />}
-              right={() => <List.Icon icon="chevron-right" color={colors.text} />}
-              onPress={() => navigation.navigate("Register")}
-              style={{ paddingHorizontal: 0, paddingVertical: 0 }}
-            />
-          </View>
-
-          {/* App Settings */}
-          <View style={{ marginTop: 8, marginBottom: 8 }}>
-            <Text variant="titleMedium" style={{ paddingHorizontal: 16, paddingBottom: 8, color: colors.text, opacity: 0.7 }}>
-              App Settings
-            </Text>
-          </View>
-
-          <DropDownMenu
-            title="Font Size"
-            icon="format-size"
-            data={settingsConfig.fontSizes}
-            selectedValue={font}
-            onSelect={handleFontSizeChange}
+          <List.Item
+            title="Change Name"
+            titleStyle={{ color: colors.text, fontWeight: 'bold' }}
+            left={() => <List.Icon icon="account-edit" color={colors.primary} />}
+            right={() => <List.Icon icon="chevron-right" color={colors.text} />}
+            style={{ paddingHorizontal: 0, paddingVertical: 0 }}
           />
-          <DropDownMenu
-            title="Playback Quality"
-            icon="volume-high"
-            data={settingsConfig.playbackQualities}
-            selectedValue={playback}
-            onSelect={handlePlaybackQualityChange}
+        </TouchableRipple>
+
+        <TouchableRipple
+          onPress={() => navigation.navigate("SelectLanguages")}
+          rippleColor={theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'}
+          style={{ paddingHorizontal: 16, paddingVertical: 4 }}
+        >
+          <List.Item
+            title="Select Languages"
+            titleStyle={{ color: colors.text, fontWeight: 'bold' }}
+            left={() => <List.Icon icon="translate" color={colors.primary} />}
+            right={() => <List.Icon icon="chevron-right" color={colors.text} />}
+            style={{ paddingHorizontal: 0, paddingVertical: 0 }}
           />
-          <DropDownMenu
-            title="Download Path"
-            icon="folder-download"
-            data={settingsConfig.downloadPaths}
-            selectedValue={download}
-            onSelect={handleDownloadPathChange}
+        </TouchableRipple>
+
+        {/* YouTube Music Authentication */}
+        <View style={{ marginTop: 8, marginBottom: 8 }}>
+          <Text variant="titleMedium" style={{ paddingHorizontal: 16, paddingBottom: 8, color: colors.text, opacity: 0.7 }}>
+            YouTube Music
+          </Text>
+        </View>
+
+        <TouchableRipple
+          onPress={() => navigation.navigate("LoginScreen")}
+          rippleColor={theme.dark ? 'rgba(255, 0, 0, 0.15)' : 'rgba(255, 0, 0, 0.05)'}
+          style={{ paddingHorizontal: 16, paddingVertical: 4 }}
+        >
+          <List.Item
+            title="Login to YouTube Music"
+            description="Login to access personalized content and bypass restrictions"
+            titleStyle={{ color: colors.text, fontWeight: 'bold' }}
+            descriptionStyle={{ color: colors.text, opacity: 0.7, fontSize: 12 }}
+            left={() => <List.Icon icon="youtube" color="#FF0000" />}
+            right={() => <List.Icon icon="chevron-right" color={colors.text} />}
+            style={{ paddingHorizontal: 0, paddingVertical: 0 }}
           />
-          {downloadPathInfo && (
-            <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
-              <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.7, fontSize: 12 }}>
-                Files saved to: {downloadPathInfo.songsPath}
+        </TouchableRipple>
+
+        {/* DAB Music Authentication */}
+        <View style={{ marginTop: 8, marginBottom: 8 }}>
+          <Text variant="titleMedium" style={{ paddingHorizontal: 16, paddingBottom: 8, color: colors.text, opacity: 0.7 }}>
+            DAB Music (FLAC)
+          </Text>
+        </View>
+
+        <TouchableRipple
+          onPress={() => {
+            if (isDabAuth) {
+              Alert.alert(
+                "DAB Music Account",
+                `Logged in as ${dabUser?.username || dabUser?.email}\n\nDo you want to logout?`,
+                [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Logout", onPress: handleDabLogout, style: "destructive" }
+                ]
+              );
+            } else {
+              navigation.navigate("Login");
+            }
+          }}
+          rippleColor={theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'}
+          style={{ paddingHorizontal: 16, paddingVertical: 4 }}
+        >
+          <List.Item
+            title={isDabAuth ? (dabUser?.username || dabUser?.email) : "DAB Login"}
+            description={isDabAuth ? "Tap to manage account" : "Login to access DAB Music features"}
+            titleStyle={{ color: colors.text, fontWeight: 'bold' }}
+            descriptionStyle={{ color: colors.text, opacity: 0.7, fontSize: 12 }}
+            left={() => <List.Icon icon={isDabAuth ? "account" : "login"} color={colors.primary} />}
+            right={() => <List.Icon icon="chevron-right" color={colors.text} />}
+            style={{ paddingHorizontal: 0, paddingVertical: 0 }}
+          />
+        </TouchableRipple>
+
+        {/* App Settings */}
+        <View style={{ marginTop: 8, marginBottom: 8 }}>
+          <Text variant="titleMedium" style={{ paddingHorizontal: 16, paddingBottom: 8, color: colors.text, opacity: 0.7 }}>
+            App Settings
+          </Text>
+        </View>
+
+        <DropDownMenu
+          title="Font Size"
+          icon="format-size"
+          data={settingsConfig.fontSizes}
+          selectedValue={font}
+          onSelect={handleFontSizeChange}
+        />
+        <DropDownMenu
+          title="Playback Quality"
+          icon="volume-high"
+          data={settingsConfig.playbackQualities}
+          selectedValue={playback}
+          onSelect={handlePlaybackQualityChange}
+        />
+        <DropDownMenu
+          title="Download Path"
+          icon="folder-download"
+          data={settingsConfig.downloadPaths}
+          selectedValue={download}
+          onSelect={handleDownloadPathChange}
+        />
+        {downloadPathInfo && (
+          <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+            <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.7, fontSize: 12 }}>
+              Files saved to: {downloadPathInfo.songsPath}
+            </Text>
+            {downloadPathInfo.requestedPath !== download && (
+              <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.5, fontSize: 11 }}>
+                Note: Using fallback path due to device restrictions
               </Text>
-              {downloadPathInfo.requestedPath !== download && (
-                <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.5, fontSize: 11 }}>
-                  Note: Using fallback path due to device restrictions
-                </Text>
-              )}
-            </View>
-          )}
-          <DropDownMenu
-            title="Color Scheme"
-            icon="palette"
-            data={getColorSchemeOptions()}
-            selectedValue={colorScheme}
-            onSelect={handleColorSchemeChange}
-          />
-          <DropDownMenu
-            title="Music Source"
-            icon="music"
-            data={settingsConfig.musicSources}
-            selectedValue={musicSource}
-            onSelect={handleMusicSourceChange}
-          />
-          <DropDownMenu
-            title="Lyrics Provider"
-            icon="text-box-search"
-            data={settingsConfig.lyricsProviders}
-            selectedValue={lyricsProvider}
-            onSelect={handleLyricsProviderChange}
-          />
-          <DropDownMenu
-            title="Lyrics Animation"
-            icon="animation-play"
-            data={settingsConfig.lyricsAnimationStyles}
-            selectedValue={lyricsAnimationStyle}
-            onSelect={handleLyricsAnimationStyleChange}
-          />
+            )}
+          </View>
+        )}
+        <DropDownMenu
+          title="Color Scheme"
+          icon="palette"
+          data={getColorSchemeOptions()}
+          selectedValue={colorScheme}
+          onSelect={handleColorSchemeChange}
+        />
+        <DropDownMenu
+          title="Music Source"
+          icon="music"
+          data={settingsConfig.musicSources}
+          selectedValue={musicSource}
+          onSelect={handleMusicSourceChange}
+        />
+        <DropDownMenu
+          title="Lyrics Provider"
+          icon="text-box-search"
+          data={settingsConfig.lyricsProviders}
+          selectedValue={lyricsProvider}
+          onSelect={handleLyricsProviderChange}
+        />
+        <DropDownMenu
+          title="Lyrics Animation"
+          icon="animation-play"
+          data={settingsConfig.lyricsAnimationStyles}
+          selectedValue={lyricsAnimationStyle}
+          onSelect={handleLyricsAnimationStyleChange}
+        />
 
-          <View style={{ padding: 16 }}>
-            <List.Item
-              title="Dark Mode"
-              titleStyle={{ color: colors.text, fontWeight: 'bold' }}
-              left={() => <List.Icon icon={themePreference === 'dark' ? 'moon-waning-crescent' : 'white-balance-sunny'} color={colors.primary} />}
-              right={() => (
+        <TouchableRipple
+          onPress={handleThemeToggle}
+          rippleColor={theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'}
+          style={{ paddingHorizontal: 16, paddingVertical: 4 }}
+        >
+          <List.Item
+            title="Dark Mode"
+            titleStyle={{ color: colors.text, fontWeight: 'bold' }}
+            left={() => <List.Icon icon={themePreference === 'dark' ? 'moon-waning-crescent' : 'white-balance-sunny'} color={colors.primary} />}
+            right={() => (
+              <View pointerEvents="none">
                 <Switch
                   value={themePreference === 'dark'}
                   onValueChange={handleThemeToggle}
                   color={colors.primary}
                 />
-              )}
-              style={{ paddingHorizontal: 0, paddingVertical: 0 }}
-            />
-          </View>
+              </View>
+            )}
+            style={{ paddingHorizontal: 0, paddingVertical: 0 }}
+          />
+        </TouchableRipple>
 
-          <View style={{ marginTop: 16, paddingHorizontal: 16, marginBottom: 16 }}>
-            <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.7 }}>
-              *Note: If you change name or select languages, please restart the app to see all changes. All other settings take effect immediately.
-            </Text>
-          </View>
-        </ScrollView>
-      </PaddingConatiner>
+        <View style={{ marginTop: 16, paddingHorizontal: 16, marginBottom: 16 }}>
+          <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.7 }}>
+            *Note: If you change name or select languages, please restart the app to see all changes. All other settings take effect immediately.
+          </Text>
+        </View>
+      </ScrollView>
     </MainWrapper>
   );
 }
@@ -437,7 +486,8 @@ export const SettingsPage = ({ navigation }) => {
 
 function DropDownMenu({ title, icon, data, selectedValue, onSelect }) {
   const [showDropdown, setShowDropdown] = useState(false);
-  const { colors } = useTheme();
+  const theme = useTheme();
+  const { colors } = theme;
   const dropdownRef = useRef(null);
 
   // Find the selected option to display its label
@@ -452,40 +502,32 @@ function DropDownMenu({ title, icon, data, selectedValue, onSelect }) {
 
   return (
     <View>
-      <View style={{
-        padding: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      }}>
-        <TouchableRipple
-          onPress={() => setShowDropdown(!showDropdown)}
-          rippleColor="rgba(0, 0, 0, 0.1)"
-          style={{
-            flex: 1,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <List.Icon icon={icon} color={colors.primary} style={{ margin: 0, marginRight: 16 }} />
-              <Text style={{ color: colors.text, fontSize: 16, fontWeight: 'bold' }}>{title}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ color: colors.text, marginRight: 8, opacity: 0.7 }}>
-                {displayValue}
-              </Text>
-              <List.Icon
-                icon={showDropdown ? 'menu-up' : 'menu-down'}
-                color={colors.text}
-                style={{ opacity: 0.7 }}
-              />
-            </View>
-          </>
-        </TouchableRipple>
-      </View>
+      <TouchableRipple
+        onPress={() => setShowDropdown(!showDropdown)}
+        rippleColor={theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'}
+        style={{ paddingHorizontal: 16, paddingVertical: 12 }}
+      >
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <List.Icon icon={icon} color={colors.primary} style={{ margin: 0, marginRight: 16 }} />
+            <Text style={{ color: colors.text, fontSize: 16, fontWeight: 'bold' }}>{title}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={{ color: colors.text, marginRight: 8, opacity: 0.7 }}>
+              {displayValue}
+            </Text>
+            <List.Icon
+              icon={showDropdown ? 'menu-up' : 'menu-down'}
+              color={colors.text}
+              style={{ opacity: 0.7 }}
+            />
+          </View>
+        </View>
+      </TouchableRipple>
 
       <Portal>
         <Modal

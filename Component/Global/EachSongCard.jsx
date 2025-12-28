@@ -313,6 +313,53 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
         };
         PlayOneSong(song);
         return;
+      } else if (source === 'spotify') {
+        // Handle Spotify songs - PlayOneSong will map to YTMusic
+        const song = {
+          url: '', // PlayOneSong will map and fetch from YTMusic
+          title: formatText(title),
+          artist: formatText(artist),
+          artwork: safeImageUri,
+          image: safeImageUri,
+          duration: duration,
+          id,
+          spotifyId: id, // Mark as Spotify track
+          source: 'spotify', // Important for PlayOneSong to detect
+          language,
+          artistID,
+          // Preserve additional metadata
+          ...(Data?.data?.results?.[index] && {
+            album: Data.data.results[index].album,
+            explicit: Data.data.results[index].explicit,
+            previewUrl: Data.data.results[index].previewUrl,
+          })
+        };
+        PlayOneSong(song);
+        return;
+      } else if (source === 'dab' || isDabTrack || (!isNaN(url) && String(url).length > 5)) {
+        // Handle DAB Music tracks
+        const song = {
+          url: url, // Numeric ID for DAB
+          title: formatText(title),
+          artist: formatText(artist),
+          artwork: safeImageUri,
+          image: safeImageUri,
+          duration: duration,
+          id,
+          source: 'dab',
+          isDabTrack: true,
+          language,
+          artistID,
+          // Preserve additional metadata
+          ...(Data?.data?.results?.[index] && {
+            album: Data.data.results[index].album,
+            audioQuality: Data.data.results[index].audioQuality,
+            isHiRes: Data.data.results[index].isHiRes,
+            qualityLabel: Data.data.results[index].qualityLabel,
+          })
+        };
+        PlayOneSong(song);
+        return;
       } else {
         // Handle Saavn songs (existing logic)
         const quality = await getIndexQuality()

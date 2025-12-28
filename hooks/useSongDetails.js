@@ -59,6 +59,18 @@ const useSongDetails = (track) => {
           (track.id?.length === 11 && !track.isLocalMusic);
 
         if (isYTMusicTrack) {
+          // Real-time quality detection (Bypass misleading Saavn-inherited '320kbps')
+          let actualQuality = track.currentPlayingQuality;
+          if (!actualQuality || actualQuality === '320kbps' || actualQuality === '320kbs') {
+            actualQuality = 'High Quality';
+          }
+
+          if (track.url && (track.url.includes('youtube') || track.url.includes('googlevideo'))) {
+            // YT stream URLs usually have mime type in them
+            if (track.url.includes('mime=audio/webm')) actualQuality = 'Opus 128kbps';
+            else if (track.url.includes('mime=audio/mp4')) actualQuality = 'AAC 256kbps';
+          }
+
           // Extract artist info from various fields
           const artistInfo = track.artist || track.primaryArtists ||
             (track.artists?.primary ? formatArtists(track.artists.primary) : 'Unknown Artist');
@@ -74,7 +86,7 @@ const useSongDetails = (track) => {
             ],
             additionalInfo: [
               { label: 'Video ID', value: track.id || 'N/A' },
-              { label: 'Quality', value: track.currentPlayingQuality || '320kbps' },
+              { label: 'Quality', value: actualQuality },
               { label: 'Type', value: track.type || 'Song' },
               { label: 'Year', value: track.year || 'N/A' },
             ],
@@ -83,7 +95,95 @@ const useSongDetails = (track) => {
               { label: 'Song ID', value: track.id || 'N/A' },
             ],
             imageUrl: track.artwork || track.image,
-            availableQualities: ['128kbps', '256kbps', '320kbps'],
+            availableQualities: ['128kbps', '256kbps'],
+          });
+          setLoading(false);
+          return;
+        }
+
+        // For Spotify tracks, use existing track data
+        const isSpotifyTrack = track.source === 'spotify' || track.spotifyId;
+        if (isSpotifyTrack) {
+          // Real-time quality detection for Spotify-mapped tracks (Bypass misleading '320kbps')
+          let actualQuality = track.currentPlayingQuality;
+          if (!actualQuality || actualQuality === '320kbps' || actualQuality === '320kbs' || actualQuality === 'Mapped Stream') {
+            actualQuality = 'Mapped (High Quality)';
+          }
+
+          if (track.url && (track.url.includes('youtube') || track.url.includes('googlevideo'))) {
+            if (track.url.includes('mime=audio/webm')) actualQuality = 'Opus 128kbps (Mapped)';
+            else if (track.url.includes('mime=audio/mp4')) actualQuality = 'AAC 256kbps (Mapped)';
+          }
+
+          setSongDetails({
+            basicInfo: [
+              { label: 'Title', value: track.title || track.name || 'Unknown Track' },
+              { label: 'Artist', value: track.artist || 'Unknown Artist' },
+              { label: 'Album', value: track.album || 'N/A' },
+              { label: 'Duration', value: formatDuration(track.duration) },
+              { label: 'Source', value: 'Spotify', highlight: true },
+              { label: 'Streaming VIA', value: 'YouTube Music', highlight: true },
+            ],
+            additionalInfo: [
+              { label: 'Spotify ID', value: track.id || track.spotifyId || 'N/A' },
+              { label: 'Quality', value: actualQuality },
+              { label: 'Explicit', value: track.explicit ? 'Yes' : 'No' },
+              { label: 'Preview', value: track.previewUrl ? 'Available' : 'N/A' },
+            ],
+            mediaInfo: [
+              { label: 'Primary Source', value: 'Spotify' },
+              { label: 'YT Content ID', value: track.ytMusicVideoId || 'Mapped on Play' },
+            ],
+            imageUrl: track.artwork || track.image,
+            availableQualities: ['Spotify Original', 'Mapped 256kbps'],
+          });
+          setLoading(false);
+          return;
+        }
+
+        // For DAB tracks, use existing track data
+        const isDabTrack = track.isDabTrack ||
+          track.source === 'dab' ||
+          track.sourceType === 'dab' ||
+          (track.url && (track.url.includes('qobuz') || track.url.includes('dab-music'))) ||
+          (!isNaN(track.url) && String(track.url).length > 5 && String(track.url).length < 15) ||
+          (!isNaN(track.id) && String(track.id).length >= 6 && String(track.id).length <= 7); // Reliable DAB ID detection
+
+        if (isDabTrack) {
+          // Real-time quality detection from URL (most accurate)
+          let actualQuality = track.currentPlayingQuality || track.qualityLabel || 'Lossless FLAC';
+          if (track.url && (track.url.includes('qobuz') || track.url.includes('dab-music'))) {
+            const fmtMatch = track.url.match(/[?&]fmt=(\d+)/);
+            const fmt = fmtMatch ? fmtMatch[1] : null;
+            const formatMap = {
+              '5': 'MP3 320kbps',
+              '6': 'FLAC 16-bit/44.1kHz',
+              '7': 'FLAC 24-bit/96kHz',
+              '27': 'FLAC 24-bit/192kHz'
+            };
+            if (fmt && formatMap[fmt]) actualQuality = formatMap[fmt];
+          }
+
+          setSongDetails({
+            basicInfo: [
+              { label: 'Title', value: track.title || track.name || 'Unknown Track' },
+              { label: 'Artist', value: track.artist || 'Unknown Artist' },
+              { label: 'Album', value: track.album || 'N/A' },
+              { label: 'Duration', value: formatDuration(track.duration) },
+              { label: 'Source', value: 'DAB Music (FLAC)', highlight: true },
+            ],
+            additionalInfo: [
+              { label: 'Track ID', value: track.id || 'N/A' },
+              { label: 'Quality', value: actualQuality },
+              { label: 'Explicit', value: track.explicit ? 'Yes' : 'No' },
+              { label: 'Type', value: 'DAB Content' },
+            ],
+            mediaInfo: [
+              { label: 'Streaming', value: 'DAB Direct' },
+              { label: 'Bitrate', value: 'High Fidelity' },
+            ],
+            imageUrl: track.artwork || track.image,
+            availableQualities: ['Lossless FLAC'],
           });
           setLoading(false);
           return;
@@ -91,6 +191,7 @@ const useSongDetails = (track) => {
 
         // For online tracks, fetch from API
         const response = await axios.get(`https://jiosavan-api-with-playlist.vercel.app/api/songs/${track.id}`);
+        console.log('🌐 [Saavn API Response]:', JSON.stringify(response.data, null, 2));
 
         if (response.data && response.data.success) {
           const data = response.data.data?.[0]; // Get first item from array

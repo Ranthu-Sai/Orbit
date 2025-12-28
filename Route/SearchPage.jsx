@@ -10,6 +10,7 @@ import {
   getYTMusicSearchSuggestions
 } from "../Api/YTMusic";
 import dabMusicService from "../Utils/DabMusicService";
+import { SpotifyService } from "../Utils/SpotifyService";
 import { View, TouchableOpacity, TextInput, Pressable, Dimensions, FlatList, StyleSheet, Text, Modal, Alert, BackHandler } from "react-native";
 import SongDisplay from "../Component/SearchPage/SongDisplay";
 import { SearchPageSkeleton } from "../Component/Search/SearchSkeletonLoader";
@@ -107,7 +108,10 @@ export const SearchPage = ({ navigation }) => {
   // Fetch Suggestions AND Quick Results while typing
   useEffect(() => {
     const fetchSuggestionsAndQuickResults = async () => {
-      if (!query || query.trim().length < 2) {
+      // RATE LIMIT OPTIMIZATION: Minimum 5 characters for Spotify, 2 for others
+      // Spotify now only fetches results on manual search (Enter) to save RPM.
+      const minLength = selectedSource === 'spotify' ? 5 : 2;
+      if (!query || query.trim().length < minLength) {
         setSuggestions([]);
         setQuickResults([]);
         return;
@@ -129,6 +133,11 @@ export const SearchPage = ({ navigation }) => {
         } else if (selectedSource === 'dab') {
           const tracks = await dabMusicService.searchTracks(query, 3);
           quickData = { data: { results: tracks } };
+        } else if (selectedSource === 'spotify') {
+          // RATE LIMIT OPTIMIZATION: Disabled auto-fetching for Spotify to save RPM.
+          // Results will now only appear when the user hits 'Enter'.
+          // Suggestions (YTMusic) still provide the 'instant' feel.
+          quickData = null;
         }
 
         if (quickData?.data?.results) {
@@ -143,7 +152,7 @@ export const SearchPage = ({ navigation }) => {
       if (query.trim() && showSuggestions) {
         fetchSuggestionsAndQuickResults();
       }
-    }, 300); // Debounce
+    }, 500); // 500ms Debounce (Optimized for rate limiting)
 
     return () => clearTimeout(timeoutId);
   }, [query, showSuggestions, selectedSource]);
@@ -202,6 +211,18 @@ export const SearchPage = ({ navigation }) => {
         } else if (ActiveTab === 2) {
           data = await getYTMusicSearchAlbumData(text, 1, limit);
         } else if (ActiveTab === 3) {
+          data = await getYTMusicSearchArtistData(text, 1, limit);
+        }
+      } else if (selectedSource === 'spotify') {
+        // Spotify search - Artists handled by YTMusic
+        if (ActiveTab === 0) {
+          data = await SpotifyService.search(text, 'tracks', limit);
+        } else if (ActiveTab === 1) {
+          data = await SpotifyService.search(text, 'playlists', limit);
+        } else if (ActiveTab === 2) {
+          data = await SpotifyService.search(text, 'albums', limit);
+        } else if (ActiveTab === 3) {
+          // Artists - Use YTMusic as per requirement
           data = await getYTMusicSearchArtistData(text, 1, limit);
         }
       } else {
@@ -478,7 +499,7 @@ export const SearchPage = ({ navigation }) => {
       </View>
 
       <View style={{ zIndex: 10 }}>
-        {(selectedSource === 'saavn' || selectedSource === 'ytmusic') && (
+        {(selectedSource === 'saavn' || selectedSource === 'ytmusic' || selectedSource === 'spotify') && (
           <Tabs tabs={["Songs", "Playlists", "Albums", "Artists"]} setState={setActiveTab} state={ActiveTab} />
         )}
       </View>
@@ -487,6 +508,13 @@ export const SearchPage = ({ navigation }) => {
         <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
           <Text style={{ color: colors.text, opacity: 0.7, fontSize: 12, textAlign: 'center' }}>
             🎵 DAB Music (High-Quality FLAC)
+          </Text>
+        </View>
+      )}
+      {selectedSource === 'spotify' && (
+        <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+          <Text style={{ color: colors.text, opacity: 0.7, fontSize: 12, textAlign: 'center' }}>
+            🎵 Spotify Search → Plays via YTMusic
           </Text>
         </View>
       )}
@@ -510,7 +538,7 @@ export const SearchPage = ({ navigation }) => {
             // DAB only supports Songs (no tabs shown)
             <SongDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />
           ) : (
-            // Saavn and YTMusic support all categories
+            // Saavn, YTMusic, and Spotify support all categories
             <>
               {ActiveTab === 0 && <SongDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />}
               {ActiveTab === 1 && <PlaylistDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />}
@@ -566,6 +594,17 @@ export const SearchPage = ({ navigation }) => {
             >
               <Text style={[styles.sourceText, { color: colors.text }]}>DAB (FLAC)</Text>
               {selectedSource === 'dab' && <Text style={[styles.checkmark, { color: colors.primary }]}>✓</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.sourceOption, selectedSource === 'spotify' && styles.selectedOption]}
+              onPress={() => {
+                saveSelectedSource('spotify');
+                setModalVisible(false);
+              }}
+            >
+              <Text style={[styles.sourceText, { color: colors.text }]}>Spotify</Text>
+              {selectedSource === 'spotify' && <Text style={[styles.checkmark, { color: colors.primary }]}>✓</Text>}
             </TouchableOpacity>
           </View>
         </Pressable>

@@ -107,6 +107,7 @@ export const LoginScreen = ({ navigation }) => {
             mode="contained"
             onPress={handleSubmit}
             style={{ marginTop: 16 }}
+            textColor="white"
             loading={loading}
             disabled={loading}
           >

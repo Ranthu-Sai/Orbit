@@ -82,6 +82,8 @@ class YouTubeStreamingService {
                 ? await NativeStreaming.getStreamUrlForDownload(videoId, cookies || '')
                 : await NativeStreaming.getStreamUrl(videoId, cookies || '');
 
+            console.log('📦 [Native YouTube Result]:', JSON.stringify(result, null, 2));
+
             if (result && result.url) {
                 console.log(`✅ Native streaming successful (format: ${result.format})`);
 

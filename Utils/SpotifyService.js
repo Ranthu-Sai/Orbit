@@ -288,6 +288,202 @@ export const SpotifyService = {
             console.error('Error fetching Spotify track:', error);
             throw error;
         }
+    },
+
+    /**
+     * Search Spotify for tracks, albums, and playlists
+     * @param {string} query - Search query
+     * @param {string} type - Type of search: 'tracks', 'albums', 'playlists', or 'all'
+     * @param {number} limit - Number of results to return (default 20)
+     * @returns {Promise<Object>} Search results in app-compatible format
+     */
+    // In-memory cache to stay within rate limits
+    // query -> { timestamp, data }
+    searchCache: new Map(),
+    CACHE_TTL: 300000, // 5 minutes
+
+    /**
+     * Optimized Spotify Search
+     * - Uses consolidated type query (track,album,playlist) in a single request
+     * - Implements in-memory caching to avoid redundant rate-limit hits
+     * - Minimum query length enforcement
+     */
+    search: async (query, type = 'all', limit = 20) => {
+        if (!query || query.trim().length < 5) {
+            return { status: 'SUCCESS', success: true, data: { total: 0, results: [] } };
+        }
+
+        const normalizedQuery = query.trim().toLowerCase();
+        const cacheKey = `${normalizedQuery}_${type}_${limit}`;
+        const allCacheKey = `${normalizedQuery}_all_${limit}`;
+
+        // 1. Check Cache (Check specific or 'all' results)
+        let cached = SpotifyService.searchCache.get(cacheKey);
+
+        // If not found, check if we have an 'all' result for this query that contains the type we need
+        if (!cached && type !== 'all') {
+            const allCached = SpotifyService.searchCache.get(allCacheKey);
+            if (allCached && (Date.now() - allCached.timestamp < SpotifyService.CACHE_TTL)) {
+                console.log(`🚀 Spotify Search [CACHE REDIRECT]: Reusing 'all' cache for type: ${type}`);
+
+                // Construct a specific result from the 'all' data
+                const filteredResults = type === 'tracks' || type === 'songs'
+                    ? allCached.data.data.tracks
+                    : (type === 'albums' ? allCached.data.data.albums : allCached.data.data.playlists);
+
+                return {
+                    ...allCached.data,
+                    data: {
+                        ...allCached.data.data,
+                        results: filteredResults
+                    }
+                };
+            }
+        }
+
+        if (cached && (Date.now() - cached.timestamp < SpotifyService.CACHE_TTL)) {
+            console.log(`🚀 Spotify Search [CACHE HIT]: "${query}"`);
+            return cached.data;
+        }
+
+        try {
+            const token = await SpotifyService.getAccessToken();
+            const baseUrl = SPOTIFY_API_BASE_URL || 'https://api.spotify.com/v1';
+
+            // Map our type names to Spotify API types
+            // If type is 'all' (default for quick results), fetch EVERYTHING in one request!
+            const spotifyType = type === 'all'
+                ? 'track,album,playlist'
+                : (type === 'tracks' || type === 'songs' ? 'track' : type === 'albums' ? 'album' : 'playlist');
+
+            console.log(`🔍 Spotify Search [API]: "${query}" types: ${spotifyType}`);
+
+            const response = await fetch(
+                `${baseUrl}/search?q=${encodeURIComponent(query)}&type=${spotifyType}&limit=${limit}`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    }
+                }
+            );
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('Spotify Search Error:', errorData);
+                throw new Error(`Spotify Search Failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // Transform results
+            const transformTracks = (items) => items?.map(track => ({
+                id: track.id,
+                spotifyId: track.id,
+                name: track.name,
+                title: track.name,
+                artist: track.artists.map(a => a.name).join(', '),
+                primaryArtists: track.artists.map(a => a.name).join(', '),
+                album: track.album.name,
+                albumId: track.album.id,
+                duration: Math.floor(track.duration_ms / 1000),
+                image: track.album.images?.map(img => ({
+                    url: img.url,
+                    quality: img.width <= 64 ? '50x50' : img.width <= 300 ? '150x150' : '500x500'
+                })).reverse() || [],
+                artwork: track.album.images?.[0]?.url,
+                type: 'song',
+                source: 'spotify',
+                explicit: track.explicit,
+                previewUrl: track.preview_url,
+                externalUrl: track.external_urls?.spotify
+            })) || [];
+
+            const transformAlbums = (items) => items?.map(album => ({
+                id: album.id,
+                spotifyId: album.id,
+                name: album.name,
+                title: album.name,
+                artist: album.artists.map(a => a.name).join(', '),
+                artists: album.artists.map(a => a.name).join(', '),
+                year: album.release_date?.split('-')[0] || '',
+                releaseDate: album.release_date,
+                totalTracks: album.total_tracks,
+                image: album.images?.map(img => ({
+                    url: img.url,
+                    link: img.url,
+                    quality: img.width <= 64 ? '50x50' : img.width <= 300 ? '150x150' : '500x500'
+                })).reverse() || [],
+                artwork: album.images?.[0]?.url,
+                type: 'album',
+                source: 'spotify',
+                externalUrl: album.external_urls?.spotify
+            })) || [];
+
+            const transformPlaylists = (items) => items?.filter(p => p !== null).map(playlist => ({
+                id: playlist.id,
+                spotifyId: playlist.id,
+                name: playlist.name,
+                title: playlist.name,
+                description: playlist.description,
+                owner: playlist.owner?.display_name,
+                createdBy: playlist.owner?.display_name,
+                songCount: playlist.tracks?.total || 0,
+                image: playlist.images?.map(img => ({
+                    url: img.url,
+                    link: img.url,
+                    quality: img.width ? (img.width <= 64 ? '50x50' : img.width <= 300 ? '150x150' : '500x500') : '150x150'
+                })).reverse() || [],
+                artwork: playlist.images?.[0]?.url,
+                type: 'playlist',
+                source: 'spotify',
+                externalUrl: playlist.external_urls?.spotify
+            })) || [];
+
+            // Consolidate all results
+            let results = [];
+            if (type === 'all') {
+                results = [
+                    ...transformTracks(data.tracks?.items),
+                    ...transformAlbums(data.albums?.items),
+                    ...transformPlaylists(data.playlists?.items)
+                ];
+            } else {
+                if (spotifyType === 'track') results = transformTracks(data.tracks?.items);
+                else if (spotifyType === 'album') results = transformAlbums(data.albums?.items);
+                else if (spotifyType === 'playlist') results = transformPlaylists(data.playlists?.items);
+            }
+
+            const finalData = {
+                status: 'SUCCESS',
+                success: true,
+                data: {
+                    total: results.length,
+                    results: results,
+                    // Pass specific categories back for intelligent tab caching
+                    tracks: type === 'all' ? transformTracks(data.tracks?.items) : [],
+                    albums: type === 'all' ? transformAlbums(data.albums?.items) : [],
+                    playlists: type === 'all' ? transformPlaylists(data.playlists?.items) : []
+                }
+            };
+
+            // 2. Save to Cache
+            SpotifyService.searchCache.set(cacheKey, {
+                timestamp: Date.now(),
+                data: finalData
+            });
+
+            return finalData;
+
+        } catch (error) {
+            console.error('Spotify search error:', error);
+            return {
+                status: 'FAILED',
+                success: false,
+                message: error.message,
+                data: { total: 0, results: [] }
+            };
+        }
     }
 };
 

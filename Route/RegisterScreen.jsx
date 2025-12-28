@@ -1,6 +1,6 @@
 import { MainWrapper } from "../Layout/MainWrapper";
 import { PaddingConatiner } from "../Layout/PaddingConatiner";
-import { View, Alert } from "react-native";
+import { View, Alert, ToastAndroid } from "react-native";
 import { Text, TextInput, Button, HelperText } from "react-native-paper";
 import { useState } from "react";
 import { useTheme } from "@react-navigation/native";
@@ -58,16 +58,15 @@ export const RegisterScreen = ({ navigation }) => {
       console.log("📋 Registration result:", result);
 
       if (result.success) {
-        Alert.alert(
-          "Success!",
-          result.message || "Registration successful! Please login to continue.",
-          [
-            {
-              text: "OK",
-              onPress: () => navigation.replace("Login"),
-            },
-          ]
-        );
+        // Show success message and navigate
+        if (typeof ToastAndroid !== 'undefined') {
+          ToastAndroid.show("Registration successful! Please login.", ToastAndroid.SHORT);
+        } else {
+          Alert.alert("Success", "Registration successful! Please login.");
+        }
+
+        // Auto-navigate to login
+        navigation.replace("Login");
       } else {
         const errorMessage = result.message || "Registration failed";
         console.log("📛 Registration failed:", errorMessage);
@@ -178,6 +177,7 @@ export const RegisterScreen = ({ navigation }) => {
             mode="contained"
             onPress={handleSubmit}
             style={{ marginTop: 16 }}
+            textColor="white"
             loading={loading}
             disabled={loading}
           >

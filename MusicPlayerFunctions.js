@@ -153,6 +153,8 @@ async function PlayOneSong(song) {
       return;
     }
 
+    console.log('🎵 [New Track Selection]:', JSON.stringify(song, null, 2));
+
     // Ensure player is initialized
     if (!isPlayerInitialized) {
       console.log('Player not initialized, setting up...');
@@ -197,19 +199,28 @@ async function PlayOneSong(song) {
         );
 
         if (streamData && streamData.url) {
+          console.log('🌐 [YTMusic API Response]:', JSON.stringify(streamData, null, 2));
           playbackUrl = streamData.url;
           // Update song with stream data and headers
           // IMPORTANT: Preserve artist from original song data
+          // Determine quality label from format
+          const formatMap = {
+            'opus': 'Opus 128kbps',
+            'm4a': 'AAC 256kbps',
+            'm4p': 'AAC 256kbps',
+            'webm': 'Opus 128kbps'
+          };
+          const ytQuality = formatMap[streamData.format] || streamData.format || 'High Quality';
+
           updatedSong = {
             ...updatedSong,
             url: streamData.url,
-            headers: streamData.headers,  // CRITICAL: Pass headers to TrackPlayer
-            userAgent: streamData.headers?.['User-Agent'],  // Explicit for ExoPlayer
+            headers: streamData.headers,
+            userAgent: streamData.headers?.['User-Agent'],
             artwork: streamData.thumbnail || updatedSong.artwork,
             duration: streamData.duration || updatedSong.duration,
-            // Only use stream title if we don't have a good title already
+            currentPlayingQuality: ytQuality, // Store actual stream quality
             title: updatedSong.title || streamData.title,
-            // Preserve artist from original song data (don't use stream artist)
             artist: updatedSong.artist || 'Unknown Artist',
           };
           console.log('YouTube stream URL fetched successfully');
@@ -228,6 +239,73 @@ async function PlayOneSong(song) {
         if (error.name !== 'AbortError') {
           ToastAndroid.show('Error loading YouTube stream', ToastAndroid.SHORT);
         }
+        return;
+      }
+    }
+    // Check if this is a SPOTIFY track - needs to be mapped to YTMusic
+    else if (song.source === 'spotify' || song.spotifyId) {
+      try {
+        console.log('🎵 Spotify Track detected! Mapping to YTMusic:', song.title, '-', song.artist);
+
+        // OPTIMISTIC UI: Emit early metadata so mini player shows immediately
+        // Uses Spotify artwork while we search for YTMusic match
+        const earlyArtwork = extractArtwork(song) || song.artwork || song.image || '';
+        DeviceEventEmitter.emit('song-loading-started', {
+          id: song.id,
+          title: song.title || song.name || 'Loading...',
+          artist: song.artist || 'Finding on YTMusic...',
+          artwork: earlyArtwork,
+          image: earlyArtwork,
+          duration: song.duration,
+          isLoading: true,
+          isSpotifyMapping: true, // Flag for UI to show mapping indicator
+        });
+        console.log('📱 Emitted optimistic UI for Spotify → YTMusic mapping');
+
+        // Use YouTubeMusicService.searchAndStream to find and get stream URL
+        const YouTubeMusicService = require('./Utils/YouTubeMusicService').default;
+        const searchQuery = `${song.title || song.name} ${song.artist || ''}`.trim();
+
+        const ytMusicResult = await YouTubeMusicService.searchAndStream(
+          song.title || song.name,
+          song.artist || ''
+        );
+
+        if (ytMusicResult && ytMusicResult.url && !ytMusicResult.error) {
+          console.log('🌐 [Spotify-Mapped YTMusic Response]:', JSON.stringify(ytMusicResult, null, 2));
+          playbackUrl = ytMusicResult.url;
+
+          // Update song with YTMusic stream data while strictly PRESERVING Spotify metadata
+          // Determine quality label from format
+          const formatMap = {
+            'opus': 'Opus 128kbps',
+            'm4a': 'AAC 256kbps',
+            'm4p': 'AAC 256kbps',
+            'webm': 'Opus 128kbps'
+          };
+          const ytQuality = formatMap[ytMusicResult.format] || ytMusicResult.format || 'High Quality';
+
+          updatedSong = {
+            ...updatedSong,
+            url: ytMusicResult.url,
+            headers: ytMusicResult.headers,
+            userAgent: ytMusicResult.headers?.['User-Agent'],
+            // Add technical YTMusic data but keep Spotify metadata for UI
+            ytMusicVideoId: ytMusicResult.videoId,
+            mappedFromSpotify: true,
+            currentPlayingQuality: ytQuality,
+          };
+
+          console.log('✅ Spotify → YTMusic mapping successful:', ytMusicResult.videoId);
+          skipOperationManager.resetErrorCounter();
+        } else {
+          console.error('❌ Failed to find YTMusic match for Spotify track');
+          ToastAndroid.show('Could not find song on YTMusic', ToastAndroid.SHORT);
+          return;
+        }
+      } catch (error) {
+        console.error('❌ Error mapping Spotify to YTMusic:', error);
+        ToastAndroid.show('Error finding song on YTMusic', ToastAndroid.SHORT);
         return;
       }
     }
@@ -255,6 +333,8 @@ async function PlayOneSong(song) {
           updatedSong = {
             ...updatedSong,
             url: streamUrl,
+            source: 'dab',
+            isDabTrack: true,
             currentPlayingQuality: dabQuality  // Set actual FLAC quality
           };
           console.log('✅ DAB stream URL fetched successfully');
