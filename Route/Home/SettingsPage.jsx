@@ -1,7 +1,7 @@
 import { MainWrapper } from "../../Layout/MainWrapper";
 import { PaddingConatiner } from "../../Layout/PaddingConatiner";
-import { ScrollView, ToastAndroid, View, TouchableOpacity, Alert } from "react-native";
-import { List, Card, Text, Switch, TouchableRipple, Portal, Modal } from "react-native-paper";
+import { ScrollView, ToastAndroid, View, TouchableOpacity, Alert, Image, TextInput } from "react-native";
+import { List, Card, Text, Switch, TouchableRipple, Portal, Modal, Avatar, Button } from "react-native-paper";
 import { useRef } from "react";
 
 import {
@@ -30,6 +30,8 @@ import { useThemeContext } from "../../Context/ThemeContext";
 import { StorageManager } from "../../Utils/StorageManager";
 import dabAuthService from "../../Utils/DabAuthService";
 import { dabLogout, dabGetCurrentUser } from "../../Api/DabAPI";
+import ytAuthService from "../../Utils/YouTubeAuthService";
+import YouTubeAccountModal from "../../Component/Modals/YouTubeAccountModal";
 
 export const SettingsPage = ({ navigation }) => {
   const theme = useTheme();
@@ -46,6 +48,13 @@ export const SettingsPage = ({ navigation }) => {
   const [downloadPathInfo, setDownloadPathInfo] = useState(null);
   const [dabUser, setDabUser] = useState(dabAuthService.getUser());
   const [isDabAuth, setIsDabAuth] = useState(dabAuthService.isAuth());
+
+  // YouTube auth state - use null/false as initial values, will be updated via listener
+  const [ytUser, setYtUser] = useState(null);
+  const [isYtAuth, setIsYtAuth] = useState(false);
+  const [showYtAccountModal, setShowYtAccountModal] = useState(false);
+  const [showNameEditDialog, setShowNameEditDialog] = useState(false);
+  const [editingName, setEditingName] = useState('');
 
   async function loadSettings() {
     try {
@@ -262,16 +271,30 @@ export const SettingsPage = ({ navigation }) => {
     // Verify DAB session on load
     dabGetCurrentUser().catch(err => console.error("Error verifying DAB session:", err));
 
+    // Initialize YouTube auth service and set initial state
+    ytAuthService.init().then(() => {
+      setYtUser(ytAuthService.getUser());
+      setIsYtAuth(ytAuthService.isAuth());
+    });
+
     // Listen for DAB Auth changes
     const authListener = (state) => {
       setDabUser(state.user);
       setIsDabAuth(state.isAuthenticated);
     };
 
+    // Listen for YouTube Auth changes
+    const ytAuthListener = (state) => {
+      setYtUser(state.user);
+      setIsYtAuth(state.isAuthenticated);
+    };
+
     dabAuthService.addListener(authListener);
+    ytAuthService.addListener(ytAuthListener);
 
     return () => {
       dabAuthService.removeListener(authListener);
+      ytAuthService.removeListener(ytAuthListener);
     };
   }, []);
 
@@ -285,6 +308,36 @@ export const SettingsPage = ({ navigation }) => {
       console.error("DAB Logout error:", error);
     }
   }
+
+  async function handleYtLogout() {
+    try {
+      const result = await ytAuthService.logout();
+      if (result.success) {
+        ToastAndroid.show("Logged out from YouTube Music", ToastAndroid.SHORT);
+      }
+    } catch (error) {
+      console.error("YouTube Logout error:", error);
+    }
+  }
+
+  function handleYtEditName() {
+    // Show name edit dialog
+    setEditingName(ytUser?.name !== 'YouTube User' ? ytUser?.name || '' : '');
+    setShowNameEditDialog(true);
+  }
+
+  async function saveYtName() {
+    if (editingName && editingName.trim()) {
+      const currentUser = ytAuthService.getUser() || {};
+      await ytAuthService.setUser({
+        ...currentUser,
+        name: editingName.trim()
+      });
+      ToastAndroid.show("Display name updated", ToastAndroid.SHORT);
+    }
+    setShowNameEditDialog(false);
+  }
+
 
   return (
     <MainWrapper>
@@ -331,20 +384,87 @@ export const SettingsPage = ({ navigation }) => {
         </View>
 
         <TouchableRipple
-          onPress={() => navigation.navigate("LoginScreen")}
+          onPress={() => setShowYtAccountModal(true)}
           rippleColor={theme.dark ? 'rgba(255, 0, 0, 0.15)' : 'rgba(255, 0, 0, 0.05)'}
           style={{ paddingHorizontal: 16, paddingVertical: 4 }}
         >
           <List.Item
-            title="Login to YouTube Music"
-            description="Login to access personalized content and bypass restrictions"
+            title={isYtAuth ? (ytUser?.name || 'YouTube User') : "Login to YouTube Music"}
+            description={isYtAuth
+              ? (ytUser?.handle ? ytUser.handle + ' • Signed in' : 'Signed in • Tap to manage account')
+              : "Login to access personalized content and bypass restrictions"
+            }
             titleStyle={{ color: colors.text, fontWeight: 'bold' }}
             descriptionStyle={{ color: colors.text, opacity: 0.7, fontSize: 12 }}
-            left={() => <List.Icon icon="youtube" color="#FF0000" />}
+            left={() => (
+              isYtAuth && ytUser?.avatarUrl
+                ? <Avatar.Image size={40} source={{ uri: ytUser.avatarUrl }} style={{ marginLeft: 0 }} />
+                : <List.Icon icon={isYtAuth ? "account-circle" : "youtube"} color={isYtAuth ? colors.primary : "#FF0000"} />
+            )}
             right={() => <List.Icon icon="chevron-right" color={colors.text} />}
             style={{ paddingHorizontal: 0, paddingVertical: 0 }}
           />
         </TouchableRipple>
+
+        {/* YouTube Account Modal */}
+        <YouTubeAccountModal
+          visible={showYtAccountModal}
+          onDismiss={() => setShowYtAccountModal(false)}
+          user={ytUser}
+          onLogout={handleYtLogout}
+          onLogin={() => navigation.navigate("LoginScreen")}
+          onRefresh={() => navigation.navigate("LoginScreen")}
+          onEditName={handleYtEditName}
+        />
+
+        {/* Name Edit Dialog */}
+        <Portal>
+          <Modal
+            visible={showNameEditDialog}
+            onDismiss={() => setShowNameEditDialog(false)}
+            contentContainerStyle={{
+              backgroundColor: colors.card,
+              padding: 20,
+              margin: 20,
+              borderRadius: 12
+            }}
+          >
+            <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
+              Edit Display Name
+            </Text>
+            <TextInput
+              value={editingName}
+              onChangeText={setEditingName}
+              placeholder="Enter your name..."
+              placeholderTextColor={colors.text + '80'}
+              style={{
+                backgroundColor: colors.background,
+                color: colors.text,
+                padding: 12,
+                borderRadius: 8,
+                fontSize: 16,
+                marginBottom: 16
+              }}
+              autoFocus
+            />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+              <Button
+                mode="text"
+                onPress={() => setShowNameEditDialog(false)}
+                textColor={colors.text}
+              >
+                Cancel
+              </Button>
+              <Button
+                mode="contained"
+                onPress={saveYtName}
+                buttonColor={colors.primary}
+              >
+                Save
+              </Button>
+            </View>
+          </Modal>
+        </Portal>
 
         {/* DAB Music Authentication */}
         <View style={{ marginTop: 8, marginBottom: 8 }}>

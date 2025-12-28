@@ -115,6 +115,13 @@ Any trademark, service mark, trade name, or other intellectual property rights u
 
 **Notice to Copyright Holders**: If you are the owner of any content accessible through this app and have concerns, we kindly ask that you do not take legal action immediately. Please contact us directly via our community channels or by opening a GitHub issue. We respect intellectual property rights and will promptly remove any infringing content or links upon valid request.
 
+## 💖 Credits & Acknowledgments
+
+**Orbit** is a derivative work based on **[Melody](https://github.com/Infinite-Null/Melody)** by **Ankit Kumar Shah**. We thank the original author and contributors of Melody for their foundational work that made this project possible.
+
+Additional acknowledgments:
+- **[ArchiveTune](https://github.com/ArchiveTune/ArchiveTune)** & **[OuterTune](https://github.com/vfsfitvnm/OuterTune)** — For the UI design inspiration and their sophisticated approach to YouTube Music integration.
+
+
 ---
-<p align="center">Official Fork of <a href="https://github.com/Infinite-Null/Melody">Melody</a> </p>
 <p align="center">🎵 Refined with ❤️ by <a href="https://github.com/gauravxdev">Gaurav Sharma</a> 🎵</p>
