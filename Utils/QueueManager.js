@@ -42,11 +42,13 @@ class QueueManager {
 
                 // Map YouTube recommendations to queue format
                 // Filter out items without valid videoId first
+                // CRITICAL: Also filter out the current song to prevent duplicates
                 const queueSongs = nextData.items
                     .filter(song => {
                         const videoId = song.videoId || song.id;
                         // Validate videoId exists and is a valid YouTube video ID format
-                        return videoId && typeof videoId === 'string' && videoId.length === 11;
+                        // ALSO: Filter out the currently playing song to prevent duplicates
+                        return videoId && typeof videoId === 'string' && videoId.length === 11 && videoId !== songId;
                     })
                     .slice(0, limit)
                     .map(song => {
@@ -316,6 +318,8 @@ class QueueManager {
 
     /**
      * Start monitoring queue and fetch more recommendations when near end
+     * NOTE: This ONLY sets up the listener. Initial recommendations should be
+     * loaded separately via buildQueueFromRecommendations before calling this.
      * @param {string} originalVideoId - The original video ID to base recommendations on
      */
     startContinuousQueueMonitor(originalVideoId) {
@@ -324,7 +328,7 @@ class QueueManager {
         this.isFetchingMore = false;
         this.fetchThreshold = 5; // Fetch more when 5 songs left in queue
 
-        // Set up track change listener
+        // Set up track change listener (only triggers when tracks actually change)
         if (!this.trackChangeSubscription) {
             console.log('📡 Starting continuous queue monitor');
             this.trackChangeSubscription = TrackPlayer.addEventListener(
@@ -332,6 +336,8 @@ class QueueManager {
                 this._onTrackChange.bind(this)
             );
         }
+        // NOTE: No immediate trigger here - initial recommendations are loaded
+        // by PlayOneSong calling buildQueueFromRecommendations directly
     }
 
     /**
@@ -434,6 +440,34 @@ class QueueManager {
                             }));
                             await AddSongsToQueue(taggedSongs);
                             console.log(`✅ Added ${newSongs.length} more ${recommendationSource} songs to extend queue!`);
+
+                            // 🎵 PREMIUM UX: Trigger sequential prefetch for N+1 → N+2
+                            // IMPORTANT: Use fresh index lookup to handle queue rearrangement
+                            setImmediate(async () => {
+                                try {
+                                    const smartPrefetchManager = require('./SmartPrefetchManager').default;
+                                    // Get FRESH current index for N+1
+                                    let currentIndex = await TrackPlayer.getActiveTrackIndex();
+                                    if (currentIndex !== null && currentIndex !== undefined) {
+                                        console.log(`🎵 Queue populated! Prefetching N+1 at index ${currentIndex + 1}`);
+                                        await smartPrefetchManager._prefetchTrackAtIndex(currentIndex + 1);
+
+                                        // N+2 after N+1 completes - get FRESH index again
+                                        setImmediate(async () => {
+                                            try {
+                                                const freshIdx = await TrackPlayer.getActiveTrackIndex();
+                                                if (freshIdx !== null && freshIdx !== undefined) {
+                                                    await smartPrefetchManager._prefetchTrackAtIndex(freshIdx + 2);
+                                                }
+                                            } catch (e) {
+                                                console.log('N+2 prefetch skipped:', e.message);
+                                            }
+                                        });
+                                    }
+                                } catch (prefetchError) {
+                                    console.log('Prefetch trigger error:', prefetchError.message);
+                                }
+                            });
 
                             // Update currentVideoId to the last added song for diverse next refill
                             const lastAdded = newSongs[newSongs.length - 1];

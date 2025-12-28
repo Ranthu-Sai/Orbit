@@ -18,13 +18,15 @@ class YouTubeMusicService {
     // Stream URL extraction via native bridge
     static async getStreamUrl(videoId) {
         const stream = await NativeStreaming.getStreamUrl(videoId, '');
-        // Map native result to expected format
+        // Map native result to expected format, including bitrate and mimeType
         return {
             ...stream,
             url: stream.url,
             // Add formats structure if needed (Native returns one best stream)
             all_formats: [],
-            format: stream.format || 'opus' // Return actual format from native result
+            format: stream.format || 'opus',
+            mimeType: stream.mimeType || 'audio/webm',
+            bitrate: stream.bitrate || 0
         };
     }
 

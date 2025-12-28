@@ -47,6 +47,9 @@ class YouTubeStreamingService {
                 const cachedData = await CacheManager.getStreamUrlAsync(videoId, 'ytmusic');
                 if (cachedData && cachedData.url) {
                     console.log(`🚀 [Cache] Stream URL cache HIT for ${videoId} (format: ${cachedData.format})`);
+                    // Estimate bitrate based on codec if not cached
+                    const estimatedBitrate = cachedData.bitrate ||
+                        (cachedData.mimeType?.includes('webm') ? 148000 : 256000);
                     return {
                         url: cachedData.url,
                         headers: {
@@ -55,6 +58,7 @@ class YouTubeStreamingService {
                         },
                         format: cachedData.format || 'opus',
                         mimeType: cachedData.mimeType || 'audio/webm',
+                        bitrate: estimatedBitrate,
                         fromCache: true
                     };
                 }
@@ -82,7 +86,7 @@ class YouTubeStreamingService {
                 ? await NativeStreaming.getStreamUrlForDownload(videoId, cookies || '')
                 : await NativeStreaming.getStreamUrl(videoId, cookies || '');
 
-            console.log('📦 [Native YouTube Result]:', JSON.stringify(result, null, 2));
+            // Verbose logging removed for cleaner console
 
             if (result && result.url) {
                 console.log(`✅ Native streaming successful (format: ${result.format})`);
@@ -97,7 +101,7 @@ class YouTubeStreamingService {
                     format: format,
                     mimeType: mimeType,
                 });
-                console.log(`📦 [Cache] Stream URL cached for ${videoId} (format: ${format}, 3-hour TTL)`);
+                // Cache log removed for cleaner console
 
                 return {
                     url: result.url,

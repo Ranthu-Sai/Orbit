@@ -137,18 +137,51 @@ const ContextState = (props) => {
                     const currentTrack = await TrackPlayer.getActiveTrack();
                     if (currentTrack) {
                         console.error(`❌ Playback error for: ${currentTrack.title}`);
+
+                        // IMPROVED: Try on-demand fetch before skipping
+                        // This recovers tracks that weren't prefetched in time
+                        const smartPrefetchManager = require('../Utils/SmartPrefetchManager').default;
+
+                        if (smartPrefetchManager.needsStream(currentTrack)) {
+                            console.log(`🔄 ContextState: Attempting on-demand recovery for: ${currentTrack.title}`);
+
+                            try {
+                                const streamData = await smartPrefetchManager.fetchOnDemand(currentTrack.id);
+
+                                if (streamData && streamData.url) {
+                                    // Replace the track with the fetched URL and play
+                                    const currentIndex = await TrackPlayer.getActiveTrackIndex();
+                                    const updatedTrack = {
+                                        ...currentTrack,
+                                        url: streamData.url,
+                                        headers: streamData.headers,
+                                        _needsStream: false,
+                                        _prefetched: true
+                                    };
+
+                                    await TrackPlayer.remove(currentIndex);
+                                    await TrackPlayer.add(updatedTrack, currentIndex);
+                                    await TrackPlayer.skip(currentIndex);
+                                    await TrackPlayer.play();
+
+                                    console.log(`✅ ContextState: On-demand recovery successful for: ${currentTrack.title}`);
+                                    return; // Recovery successful, don't skip
+                                }
+                            } catch (recoveryError) {
+                                console.log(`⚠️ ContextState: On-demand recovery failed:`, recoveryError.message);
+                            }
+                        }
                     }
                 } catch (error) {
                     console.error('Error getting track info during error:', error);
                 }
 
-                // PRIMARY: SmartPrefetchManager handles auto-recovery
-                // FALLBACK: If still in error after 2 seconds, manually recover
+                // FALLBACK: If on-demand fetch failed, skip to next track
                 setTimeout(async () => {
                     try {
                         const state = await TrackPlayer.getPlaybackState();
 
-                        // If still in error state, SmartPrefetchManager didn't fix it
+                        // If still in error state, skip to next
                         if (state.state === 'error' || state.state === 'none') {
                             console.log('🔄 ContextState: Fallback recovery - skipping to next track');
                             await TrackPlayer.skipToNext();
@@ -157,7 +190,7 @@ const ContextState = (props) => {
                     } catch (err) {
                         console.error('Error in fallback recovery:', err);
                     }
-                }, 2000);
+                }, 1000); // Reduced from 2000ms since we already tried on-demand fetch
             }
 
             if (event.type === Event.PlaybackActiveTrackChanged) {
@@ -187,6 +220,32 @@ const ContextState = (props) => {
                             console.error('History tracking error:', err)
                         );
                     });
+
+                    // ✅ CONTINUOUS PREFETCH: Trigger prefetch for N+1 and N+2 on every track change
+                    // This ensures upcoming songs are always ready, not just on initial play
+                    if (event.track?.id && event.index !== undefined) {
+                        setTimeout(async () => {
+                            try {
+                                const smartPrefetchManager = require('../Utils/SmartPrefetchManager').default;
+                                const currentIdx = await TrackPlayer.getActiveTrackIndex();
+
+                                if (currentIdx !== null && currentIdx !== undefined) {
+                                    // Prefetch N+1
+                                    console.log(`🔄 ContextState: Triggering continuous prefetch from index ${currentIdx}`);
+                                    await smartPrefetchManager._prefetchTrackAtIndex(currentIdx + 1);
+
+                                    // Prefetch N+2
+                                    await smartPrefetchManager._prefetchTrackAtIndex(currentIdx + 2);
+                                    console.log(`✅ ContextState: Continuous prefetch complete for N+1 and N+2`);
+                                }
+                            } catch (prefetchErr) {
+                                // Silence expected errors
+                                if (!prefetchErr.message?.includes("doesn't exist")) {
+                                    console.log('Continuous prefetch error:', prefetchErr.message);
+                                }
+                            }
+                        }, 500); // Small delay to let track change settle
+                    }
 
                     // ✅ Add recommendations async (non-blocking)
                     // Defer to next tick to keep UI responsive

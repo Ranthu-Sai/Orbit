@@ -289,10 +289,15 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
               quality = 'FLAC';
             }
           }
+          // Check for Spotify-mapped tracks (stream via YTMusic)
+          else if (currentPlaying.mappedFromSpotify || currentPlaying.source === 'spotify') {
+            source = 'youtube'; // Streaming via YouTube
+            quality = currentPlaying.currentPlayingQuality || 'Opus ~148kbps';
+          }
           // Check for YouTube (11-character ID)
           else if (currentPlaying.id && typeof currentPlaying.id === 'string' && currentPlaying.id.length === 11) {
             source = 'youtube';
-            quality = currentPlaying.currentPlayingQuality || '';
+            quality = currentPlaying.currentPlayingQuality || 'Opus ~148kbps';
           }
           // Default to Saavn
           else {

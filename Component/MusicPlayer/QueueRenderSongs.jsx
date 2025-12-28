@@ -783,10 +783,32 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         return true;
       });
 
-      // Get the track that was moved (from original position in params.data)
-      const movedTrackId = data[from]?.id;
+      // CRITICAL FIX: In DraggableFlatList, `data` is the NEW array after drag
+      // - `from` = original index (before drag)
+      // - `to` = new index (after drag/where user dropped it)
+      // - `data` = reordered array with the item already at its new position
+      // So the moved track is at `data[to]`, NOT `data[from]`!
+      const movedTrackId = data[to]?.id;
+      const movedTrackTitle = data[to]?.title;
+      console.log(`🎯 Moved track: "${movedTrackTitle}" from visual ${from} to visual ${to}`);
+
       if (!movedTrackId) {
         console.error('Could not identify the moved track');
+        setIsDragging(false);
+        operationInProgressRef.current = false;
+        return;
+      }
+
+      // BLOCK moves to position 0 - current track can't be displaced
+      if (to === 0) {
+        console.log('⚠️ Cannot move to position 0 (current track position) - syncing with TrackPlayer');
+        const freshQueue = await TrackPlayer.getQueue();
+        const currentTrack = await TrackPlayer.getActiveTrack();
+        if (freshQueue && currentTrack) {
+          const currentIndex = freshQueue.findIndex(t => t.id === currentTrack.id);
+          const upcoming = currentIndex >= 0 ? freshQueue.slice(currentIndex) : freshQueue;
+          setUpcomingQueue(upcoming);
+        }
         setIsDragging(false);
         operationInProgressRef.current = false;
         return;
@@ -805,103 +827,185 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       const actualFromIndex = fullQueue.findIndex(t => t.id === movedTrackId);
 
       if (actualFromIndex === -1) {
-        console.error('Track not found in TrackPlayer queue');
+        console.error('Track not found in TrackPlayer queue:', movedTrackId);
         setIsDragging(false);
         operationInProgressRef.current = false;
         return;
       }
 
-      // NEW APPROACH: Calculate destination based on the track that will be AFTER the moved track
-      // In uniqueData (the post-drag order), the track at position 'to' is our moved track
-      // The track at position 'to + 1' (if exists) is what should come after it
+      // Get the current track's ACTUAL index in TrackPlayer queue
+      const currentTrackTPIndex = await TrackPlayer.getActiveTrackIndex();
+      const currentTrackId = currentPlaying?.id;
+
+      console.log(`📍 Current track "${currentPlaying?.title}" is at TrackPlayer index ${currentTrackTPIndex}`);
+
+      // ANCHOR-BASED APPROACH: Find the track that should come AFTER the moved track
+      // In the post-drag array (data), the track at position (to + 1) is the anchor
+      // We find where this anchor is in TrackPlayer and insert BEFORE it
       let actualToIndex;
 
-      // Get track that should be at position AFTER our moved track in the new order
-      const trackAfterMoved = uniqueData[to + 1];
+      const anchorTrack = uniqueData[to + 1]; // Track that should come AFTER moved track
 
-      if (trackAfterMoved) {
-        // Find where this "after" track is in the full queue - our moved track goes before it
-        const afterIndex = fullQueue.findIndex(t => t.id === trackAfterMoved.id);
-        if (afterIndex !== -1) {
-          // We want to be right before this track
-          // But if we're moving from below, the index will shift
-          if (actualFromIndex < afterIndex) {
-            actualToIndex = afterIndex - 1;
+      if (anchorTrack) {
+        // Find anchor position in TrackPlayer
+        const anchorIndex = fullQueue.findIndex(t => t.id === anchorTrack.id);
+
+        if (anchorIndex !== -1) {
+          // Insert moved track right before the anchor
+          // But if we're moving FROM before the anchor, the anchor will shift down by 1
+          // after we remove the source track
+          if (actualFromIndex < anchorIndex) {
+            // Moving forward: after removal, anchor shifts down, so target is anchorIndex - 1
+            actualToIndex = anchorIndex - 1;
           } else {
-            actualToIndex = afterIndex;
+            // Moving backward: anchor doesn't shift, target is anchorIndex
+            actualToIndex = anchorIndex;
           }
+          console.log(`📎 Using anchor track "${anchorTrack.title}" at TP index ${anchorIndex}`);
         } else {
-          // Fallback: no movement if we can't find anchor
-          actualToIndex = actualFromIndex;
+          // Anchor not found - use offset-based fallback
+          actualToIndex = currentTrackTPIndex + to;
+          console.log(`⚠️ Anchor not found, using offset-based: ${actualToIndex}`);
         }
       } else {
-        // Moving to the end of the visible queue
-        // Find the last visible track and place after it
+        // Moving to end of visible queue - place after the last visible track
         const lastVisibleTrack = uniqueData[uniqueData.length - 1];
         if (lastVisibleTrack && lastVisibleTrack.id !== movedTrackId) {
           const lastIndex = fullQueue.findIndex(t => t.id === lastVisibleTrack.id);
           if (lastIndex !== -1) {
-            // Move to position after the last track
+            // Move to position right after the last track
             if (actualFromIndex <= lastIndex) {
-              actualToIndex = lastIndex;
+              actualToIndex = lastIndex; // After removal, this becomes the last position
             } else {
               actualToIndex = lastIndex + 1;
             }
           } else {
-            actualToIndex = actualFromIndex;
+            actualToIndex = currentTrackTPIndex + to;
           }
         } else {
-          // If the last track IS the moved track, we're already at the end
+          // The moved track is the last one - no move needed
           actualToIndex = actualFromIndex;
         }
       }
 
+      console.log(`📊 Index calculation: actualFrom=${actualFromIndex}, actualTo=${actualToIndex}`);
       console.log('Queue move operation:', {
         visualFrom: from,
         visualTo: to,
         actualFrom: actualFromIndex,
         actualTo: actualToIndex,
-        trackTitle: uniqueData[to]?.title || movedTrackId
+        currentTrackTPIndex: currentTrackTPIndex,
+        trackTitle: movedTrackTitle
       });
 
-      // Use TrackPlayer.move() - this doesn't interrupt playback!
+      // SAFER APPROACH: Use remove() + add() instead of move() for precise control
+      // TrackPlayer.move() has inconsistent behavior across platforms
       if (actualFromIndex !== -1 && actualToIndex !== -1 && actualFromIndex !== actualToIndex) {
-        await TrackPlayer.move(actualFromIndex, actualToIndex);
-        console.log('Track moved successfully without playback interruption');
+        // Store the track to move
+        const trackToMove = fullQueue[actualFromIndex];
 
-        // Small delay to let TrackPlayer queue settle before any follow-up operations
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Step 1: Remove the track from its current position
+        await TrackPlayer.remove(actualFromIndex);
+        console.log(`Removed track from index ${actualFromIndex}`);
 
-        // Update UI with the new order from DraggableFlatList
-        setUpcomingQueue(uniqueData);
+        // Step 2: Recalculate insertion index after removal
+        // If we removed from BEFORE the target, the target shifts down by 1
+        let insertIndex = actualToIndex;
+        if (actualFromIndex < actualToIndex) {
+          insertIndex = actualToIndex - 1;
+        }
+
+        // CRITICAL: Ensure we never insert at position 0 or before current track
+        // Position 0 is reserved for the currently playing track
+        if (insertIndex <= currentTrackTPIndex) {
+          insertIndex = currentTrackTPIndex + 1;
+          console.log(`⚠️ Adjusted insert index to ${insertIndex} to protect current track`);
+        }
+
+        // Step 3: Add the track at the calculated position
+        await TrackPlayer.add(trackToMove, insertIndex);
+        console.log(`Added track at index ${insertIndex}`);
+
+        // Small delay to let TrackPlayer queue settle
+        await new Promise(resolve => setTimeout(resolve, 150));
+
+        // CRITICAL: Sync visual queue with ACTUAL TrackPlayer queue after move
+        const freshQueue = await TrackPlayer.getQueue();
+        const currentTrack = await TrackPlayer.getActiveTrack();
+        const currentTrackId = currentTrack?.id;
+        const newCurrentIndex = freshQueue.findIndex(t => t.id === currentTrackId);
+
+        console.log(`🔍 After reorder: currentTrack="${currentTrack?.title}", foundAt=${newCurrentIndex}`);
+
+        if (newCurrentIndex === -1) {
+          console.error('⚠️ Current track lost after move! This should not happen.');
+        }
+
+        // Get tracks from current position onwards
+        let syncedUpcoming = newCurrentIndex >= 0 ? freshQueue.slice(newCurrentIndex) : freshQueue;
+
+        // EXTRA PROTECTION: Ensure current track is ALWAYS first
+        if (syncedUpcoming.length > 0 && syncedUpcoming[0]?.id !== currentTrackId) {
+          console.warn('⚠️ Current track not first in synced queue, fixing...');
+          const currentInSync = syncedUpcoming.findIndex(t => t.id === currentTrackId);
+          if (currentInSync > 0) {
+            // Move current track to front
+            const currTrack = syncedUpcoming.splice(currentInSync, 1)[0];
+            syncedUpcoming.unshift(currTrack);
+          }
+        }
+
+        // Filter out duplicates
+        const seenIds = new Set();
+        const uniqueSynced = syncedUpcoming.filter(track => {
+          if (!track?.id || seenIds.has(track.id)) return false;
+          seenIds.add(track.id);
+          return true;
+        });
+
+        // DEBUG: Log actual TrackPlayer queue after move to verify correct order
+        const first5 = uniqueSynced.slice(0, 5).map((t, i) => `${i}: ${t.title?.substring(0, 15)}`);
+        console.log('📋 Visual queue after sync (first 5):', first5.join(' | '));
+
+        // Update UI with the SYNCED order from TrackPlayer
+        setUpcomingQueue(uniqueSynced);
       } else {
         console.log('No move executed (indices same or invalid) - syncing UI with TrackPlayer');
-        // If no move was needed or possible, sync with actual TrackPlayer state
+        // Sync with actual TrackPlayer state
         const freshQueue = await TrackPlayer.getQueue();
         const currentTrack = await TrackPlayer.getActiveTrack();
         if (freshQueue && currentTrack) {
           const currentIndex = freshQueue.findIndex(t => t.id === currentTrack.id);
-          // Get just the upcoming tracks (after current)
           const upcoming = currentIndex >= 0 ? freshQueue.slice(currentIndex) : freshQueue;
           setUpcomingQueue(upcoming);
         }
       }
 
-      console.log(`Drag completed - queue updated with ${uniqueData.length} tracks`);
+      console.log(`Drag completed - queue synced with TrackPlayer`);
 
-      // Trigger prefetch for the new next track after reorder
-      // This ensures prefetching works correctly after queue reorder
-      try {
-        const smartPrefetchManager = require('../../Utils/SmartPrefetchManager').default;
-        const currentIndex = await TrackPlayer.getActiveTrackIndex();
-        if (currentIndex !== null && currentIndex !== undefined) {
-          // Prefetch next 2 tracks after reorder
-          smartPrefetchManager._prefetchTrackAtIndex(currentIndex + 1);
-          smartPrefetchManager._prefetchTrackAtIndex(currentIndex + 2);
+      // Trigger prefetch for the new next tracks after reorder
+      // IMPORTANT: Use delay to ensure TrackPlayer queue is fully settled
+      // Prefetch both N+1 and N+2 for smooth playback
+      setTimeout(async () => {
+        try {
+          const smartPrefetchManager = require('../../Utils/SmartPrefetchManager').default;
+          // Prefetch N+1 first
+          await smartPrefetchManager._prefetchNextFromCurrent();
+
+          // Then prefetch N+2
+          const currentIdx = await TrackPlayer.getActiveTrackIndex();
+          if (currentIdx !== null && currentIdx !== undefined) {
+            console.log(`🎵 After reorder: Starting N+2 prefetch at index ${currentIdx + 2}`);
+            await smartPrefetchManager._prefetchTrackAtIndex(currentIdx + 2);
+            console.log(`✅ After reorder: N+2 prefetch complete`);
+          }
+        } catch (prefetchError) {
+          // Silence expected errors when queue isn't ready
+          if (!prefetchError.message?.includes("doesn't exist")) {
+            console.log('Prefetch after reorder skipped:', prefetchError.message);
+          }
         }
-      } catch (prefetchError) {
-        console.log('Prefetch after reorder error (non-fatal):', prefetchError.message);
-      }
+      }, 500); // Wait 500ms for queue to fully settle
     } catch (error) {
       console.error('Error in drag end handler:', error);
     } finally {
@@ -917,7 +1021,7 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         skipNextQueueInitRef.current = false;
       }, 500);
     }
-  }, [isLocalSource, isLocalTrack, isOffline, filterQueueBySource]);
+  }, [isLocalSource, isLocalTrack, isOffline, filterQueueBySource, currentPlaying]);
 
   // Listen for queue-updated event (emitted when songs are added via AddSongsToQueue)
   // This ensures the queue UI refreshes when prefetched/recommended songs are added

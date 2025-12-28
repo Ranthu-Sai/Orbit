@@ -3,7 +3,7 @@ import { View, Text } from 'react-native';
 
 /**
  * QualityIndicator - Displays song quality indicator for online playback
- * Shows "Now Playing - {quality}" format with transparent background
+ * Shows quality format (e.g., "148 kbps", "FLAC") with transparent background
  */
 const QualityIndicator = ({
     style,
@@ -25,18 +25,29 @@ const QualityIndicator = ({
     }
     // Rendering quality indicator
 
-    // Format quality text with "Now Playing -" prefix
+    // Format quality text (just the quality, no prefix)
     const formatQuality = (qual) => {
         if (!qual) return '';
 
         // Handle FLAC formats - keep as is
         if (qual.includes('FLAC')) {
-            return `Now Playing - ${qual}`;
+            return qual;
         }
 
-        // Handle bitrate formats
-        const numericQuality = qual.replace(/kbps/i, '').trim();
-        return `Now Playing - ${numericQuality} kbps`;
+        // Extract just the numeric bitrate (remove codec prefix like 'Opus ', 'AAC ')
+        // Match patterns like "Opus 148kbps", "AAC 256kbps", "148kbps", "~148kbps"
+        const bitrateMatch = qual.match(/~?(\d+)\s*kbps/i);
+        if (bitrateMatch) {
+            return `${bitrateMatch[1]} kbps`;
+        }
+
+        // Fallback: just remove 'kbps' and other text
+        const numericQuality = qual.replace(/[^\d]/g, '');
+        if (numericQuality) {
+            return `${numericQuality} kbps`;
+        }
+
+        return qual;
     };
 
     const qualityStyle = {

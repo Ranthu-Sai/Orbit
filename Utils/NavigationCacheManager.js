@@ -314,7 +314,7 @@ class NavigationCacheManager {
             }
         })();
 
-        console.log(`[CacheManager] Stream URL cached for ${source}:${videoId} (TTL: ${ttl / 1000 / 60} minutes, format: ${entry.format})`);
+        // Verbose logging removed for cleaner console
     }
 
     /**

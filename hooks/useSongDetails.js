@@ -59,16 +59,11 @@ const useSongDetails = (track) => {
           (track.id?.length === 11 && !track.isLocalMusic);
 
         if (isYTMusicTrack) {
-          // Real-time quality detection (Bypass misleading Saavn-inherited '320kbps')
-          let actualQuality = track.currentPlayingQuality;
-          if (!actualQuality || actualQuality === '320kbps' || actualQuality === '320kbs') {
-            actualQuality = 'High Quality';
-          }
-
-          if (track.url && (track.url.includes('youtube') || track.url.includes('googlevideo'))) {
-            // YT stream URLs usually have mime type in them
-            if (track.url.includes('mime=audio/webm')) actualQuality = 'Opus 128kbps';
-            else if (track.url.includes('mime=audio/mp4')) actualQuality = 'AAC 256kbps';
+          // Trust currentPlayingQuality from MusicPlayerFunctions (contains actual bitrate like 'Opus 148kbps')
+          let actualQuality = track.currentPlayingQuality || 'Opus ~148kbps';
+          // Ensure we never show Saavn-inherited 320kbps for YouTube tracks
+          if (actualQuality === '320kbps' || actualQuality === '320kbs' || actualQuality === 'High Quality') {
+            actualQuality = 'Opus ~148kbps';
           }
 
           // Extract artist info from various fields
@@ -95,7 +90,7 @@ const useSongDetails = (track) => {
               { label: 'Song ID', value: track.id || 'N/A' },
             ],
             imageUrl: track.artwork || track.image,
-            availableQualities: ['128kbps', '256kbps'],
+            availableQualities: ['Opus ~128-160kbps'],
           });
           setLoading(false);
           return;
@@ -104,15 +99,11 @@ const useSongDetails = (track) => {
         // For Spotify tracks, use existing track data
         const isSpotifyTrack = track.source === 'spotify' || track.spotifyId;
         if (isSpotifyTrack) {
-          // Real-time quality detection for Spotify-mapped tracks (Bypass misleading '320kbps')
-          let actualQuality = track.currentPlayingQuality;
-          if (!actualQuality || actualQuality === '320kbps' || actualQuality === '320kbs' || actualQuality === 'Mapped Stream') {
-            actualQuality = 'Mapped (High Quality)';
-          }
-
-          if (track.url && (track.url.includes('youtube') || track.url.includes('googlevideo'))) {
-            if (track.url.includes('mime=audio/webm')) actualQuality = 'Opus 128kbps (Mapped)';
-            else if (track.url.includes('mime=audio/mp4')) actualQuality = 'AAC 256kbps (Mapped)';
+          // Trust currentPlayingQuality from MusicPlayerFunctions (contains actual bitrate like 'Opus 148kbps')
+          let actualQuality = track.currentPlayingQuality || 'Opus ~148kbps';
+          // Ensure we never show Saavn-inherited 320kbps for Spotify tracks
+          if (actualQuality === '320kbps' || actualQuality === '320kbs' || actualQuality === 'Mapped Stream' || actualQuality === 'High Quality') {
+            actualQuality = 'Opus ~148kbps';
           }
 
           setSongDetails({
@@ -135,7 +126,7 @@ const useSongDetails = (track) => {
               { label: 'YT Content ID', value: track.ytMusicVideoId || 'Mapped on Play' },
             ],
             imageUrl: track.artwork || track.image,
-            availableQualities: ['Spotify Original', 'Mapped 256kbps'],
+            availableQualities: ['Opus ~128-160kbps (YT Mapped)'],
           });
           setLoading(false);
           return;

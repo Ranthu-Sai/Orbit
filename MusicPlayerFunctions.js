@@ -153,7 +153,6 @@ async function PlayOneSong(song) {
       return;
     }
 
-    console.log('🎵 [New Track Selection]:', JSON.stringify(song, null, 2));
 
     // Ensure player is initialized
     if (!isPlayerInitialized) {
@@ -199,18 +198,17 @@ async function PlayOneSong(song) {
         );
 
         if (streamData && streamData.url) {
-          console.log('🌐 [YTMusic API Response]:', JSON.stringify(streamData, null, 2));
+          // Verbose logging removed for cleaner console
           playbackUrl = streamData.url;
           // Update song with stream data and headers
           // IMPORTANT: Preserve artist from original song data
-          // Determine quality label from format
-          const formatMap = {
-            'opus': 'Opus 128kbps',
-            'm4a': 'AAC 256kbps',
-            'm4p': 'AAC 256kbps',
-            'webm': 'Opus 128kbps'
-          };
-          const ytQuality = formatMap[streamData.format] || streamData.format || 'High Quality';
+          // Determine quality label from actual bitrate and mimeType
+          // Estimate bitrate based on codec if not available
+          const isOpus = streamData.mimeType?.includes('webm');
+          const estimatedBitrate = streamData.bitrate || (isOpus ? 148000 : 256000);
+          const bitrateKbps = Math.round(estimatedBitrate / 1000);
+          const codec = isOpus ? 'Opus' : 'AAC';
+          const ytQuality = `${codec} ${bitrateKbps}kbps`;
 
           updatedSong = {
             ...updatedSong,
@@ -276,14 +274,13 @@ async function PlayOneSong(song) {
           playbackUrl = ytMusicResult.url;
 
           // Update song with YTMusic stream data while strictly PRESERVING Spotify metadata
-          // Determine quality label from format
-          const formatMap = {
-            'opus': 'Opus 128kbps',
-            'm4a': 'AAC 256kbps',
-            'm4p': 'AAC 256kbps',
-            'webm': 'Opus 128kbps'
-          };
-          const ytQuality = formatMap[ytMusicResult.format] || ytMusicResult.format || 'High Quality';
+          // Determine quality label from actual bitrate and mimeType
+          // Estimate bitrate based on codec if not available
+          const isOpus = ytMusicResult.mimeType?.includes('webm');
+          const estimatedBitrate = ytMusicResult.bitrate || (isOpus ? 148000 : 256000);
+          const bitrateKbps = Math.round(estimatedBitrate / 1000);
+          const codec = isOpus ? 'Opus' : 'AAC';
+          const ytQuality = `${codec} ${bitrateKbps}kbps`;
 
           updatedSong = {
             ...updatedSong,
@@ -447,7 +444,9 @@ async function PlayOneSong(song) {
     const songForPlayback = {
       ...updatedSong,
       url: playbackUrl,
-      currentPlayingQuality: currentQuality,
+      // CRITICAL: Preserve existing quality for YTMusic/Spotify/DAB tracks
+      // Only use Saavn quality setting if no quality was already set by stream handler
+      currentPlayingQuality: updatedSong.currentPlayingQuality || currentQuality,
       artwork: playingArtwork // Use enhanced w500 quality
     };
 
@@ -467,22 +466,51 @@ async function PlayOneSong(song) {
     // Signal that this is a single song playback (enable auto-recommendations)
     DeviceEventEmitter.emit('playback-mode-changed', { isPlaylist: false });
 
-    // Auto-recommendations for individual YouTube Music song plays (search results, single songs)
-    // This builds the initial queue - continuous monitor will refill when low
-    // Reuse isYouTubeSong variable from line 161 (already declared)
+    // CORRECT FLOW: Load initial recommendations immediately after playback starts
+    // 1. Song plays -> 2. Recommendations API called -> 3. Songs added to queue
+    // 4. Monitor set up for refill when 5 songs left
+    // NON-BLOCKING: Use InteractionManager for proper deferral (better than setTimeout)
+    // This waits for animations to complete before starting background work
+    InteractionManager.runAfterInteractions(async () => {
+      try {
+        // Determine source based on song type
+        const isYTId = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
+        const source = isYTId ? 'ytmusic' : 'saavn';
 
-    // NOTE: All recommendations (YTMusic, Saavn) are now handled by QueueManager's 
-    // continuous monitor (_onTrackChange) to ensure consistency and prevent 
-    // duplicate API calls when a song starts.
+        // Load initial recommendations
+        const recommendations = await queueManager.buildQueueFromRecommendations(song.id, source, 20);
 
-    // NOTE: Saavn recommendations are handled by QueueManager's continuous monitor (_onTrackChange)
-    // to avoid duplicate API calls. The monitor triggers when queue is near empty.
+        if (recommendations && recommendations.length > 0) {
+          // SAFETY: Filter out the currently playing song to prevent duplicates
+          const filteredRecs = recommendations.filter(rec => rec.id !== song.id);
 
-    // Set up continuous queue monitoring - fetch more when near end
-    // NON-BLOCKING: Defer to allow UI to stay responsive during playback start
-    setTimeout(() => {
-      queueManager.startContinuousQueueMonitor(song.id);
-    }, 100);
+          if (filteredRecs.length > 0) {
+            await AddSongsToQueue(filteredRecs);
+            console.log(`✅ Initial queue loaded: ${filteredRecs.length} songs`);
+
+            // 🎵 PREMIUM UX: Trigger initial prefetch for N+1 immediately after queue loads
+            // This ensures the next song is ready even faster
+            setImmediate(() => {
+              const smartPrefetchManager = require('./Utils/SmartPrefetchManager').default;
+              smartPrefetchManager._prefetchTrackAtIndex(1)
+                .catch(err => {
+                  // Silence expected errors when queue isn't ready
+                  if (!err.message?.includes("doesn't exist")) {
+                    console.log('Initial N+1 prefetch skipped:', err.message);
+                  }
+                });
+            });
+          }
+        }
+
+        // Now start the monitor (it will only trigger refill when 5 songs remain)
+        queueManager.startContinuousQueueMonitor(song.id);
+      } catch (err) {
+        console.error('Error loading initial recommendations:', err);
+        // Still start monitor even if initial load fails
+        queueManager.startContinuousQueueMonitor(song.id);
+      }
+    });
   } catch (error) {
     console.error('Error playing song:', error);
   }
@@ -846,6 +874,10 @@ async function SetProgressSong(value) {
 }
 
 async function PlayNextSong() {
+  // INSTANT RESPONSE: Cancel any in-flight prefetches immediately
+  const smartPrefetchManager = require('./Utils/SmartPrefetchManager').default;
+  smartPrefetchManager.cancelAllPrefetches();
+
   // Use SkipOperationManager to debounce and lock skip operations
   const executed = await skipOperationManager.executeSkip(async (signal) => {
     try {
@@ -886,36 +918,51 @@ async function PlayNextSong() {
         nextTrack.url?.startsWith('ytmusic://') ||
         nextTrack.url?.includes('music.youtube.com');
 
+      // 🚀 OPTIMISTIC UI: Emit metadata IMMEDIATELY for instant visual feedback
+      // This shows artwork + title while stream is being fetched in background
+      DeviceEventEmitter.emit('song-loading-started', {
+        id: nextTrack.id,
+        title: nextTrack.title || 'Loading...',
+        artist: nextTrack.artist || 'Loading...',
+        artwork: nextTrack.artwork || nextTrack.image || '',
+        image: nextTrack.artwork || nextTrack.image || '',
+        duration: nextTrack.duration,
+        isLoading: true,
+      });
+      console.log('📱 Optimistic UI: Showing next track metadata immediately');
+
       if (needsStream && !nextTrack._prefetched) {
         // FIRST: Check if SmartPrefetchManager has cached stream
-        const smartPrefetchManager = require('./Utils/SmartPrefetchManager').default;
         const cachedStream = smartPrefetchManager.getPrefetchedStream(nextTrack.id);
-
-        let streamData = cachedStream;
 
         if (cachedStream) {
           console.log('✅ Using cached prefetched stream for skip');
-        } else {
-          console.log('🔄 Track not in cache, fetching on-demand...');
-          // Use SmartPrefetchManager for on-demand fetch (with retry)
-          streamData = await smartPrefetchManager.fetchOnDemand(nextTrack.id);
-        }
-
-        if (streamData && streamData.url) {
-          // Replace track in queue with valid URL using SAFE non-blocking method
-          await smartPrefetchManager.replaceTrackAndWait(nextTrackIndex, nextTrack, streamData);
+          // Replace track in queue with valid URL
+          await smartPrefetchManager.replaceTrackAndWait(nextTrackIndex, nextTrack, cachedStream);
           console.log('✅ Track replaced with valid URL');
         } else {
-          // Failed to get stream - skip this track entirely
-          console.error('❌ Failed to get stream, removing track');
-          await TrackPlayer.remove(nextTrackIndex);
-          // Try to play the next one instead
-          await TrackPlayer.skipToNext();
-          return;
+          console.log('🔄 Track not in cache, fetching on-demand...');
+          // BACKGROUND FETCH: Start stream fetch, don't await initially
+          const streamPromise = smartPrefetchManager.fetchOnDemand(nextTrack.id);
+
+          // Wait for stream with timeout - if too slow, skip anyway
+          const streamData = await Promise.race([
+            streamPromise,
+            new Promise(resolve => setTimeout(() => resolve(null), 3000)) // 3 sec timeout
+          ]);
+
+          if (streamData && streamData.url) {
+            // Replace track in queue with valid URL
+            await smartPrefetchManager.replaceTrackAndWait(nextTrackIndex, nextTrack, streamData);
+            console.log('✅ Track replaced with valid URL');
+          } else {
+            // Stream fetch timed out or failed - rely on error handler to recover
+            console.log('⏳ Stream fetch slow/failed, skipping anyway - error handler will recover');
+          }
         }
       }
 
-      // Skip to next track - should now have valid URL
+      // Skip to next track
       await TrackPlayer.skipToNext();
 
       // Get the new track and start tracking it
@@ -950,6 +997,10 @@ async function PlayNextSong() {
 }
 
 async function PlayPreviousSong() {
+  // INSTANT RESPONSE: Cancel any in-flight prefetches immediately
+  const smartPrefetchManager = require('./Utils/SmartPrefetchManager').default;
+  smartPrefetchManager.cancelAllPrefetches();
+
   // Use SkipOperationManager to debounce and lock skip operations
   const executed = await skipOperationManager.executeSkip(async (signal) => {
     try {
@@ -967,6 +1018,75 @@ async function PlayPreviousSong() {
         throw new Error('AbortError');
       }
 
+      // Get current track and queue info
+      const currentTrack = await TrackPlayer.getCurrentTrack();
+      const queue = await TrackPlayer.getQueue();
+
+      console.log('⏮️ PlayPreviousSong - Current:', currentTrack, 'Queue:', queue.length);
+
+      // If there's no previous track, just return
+      if (currentTrack <= 0) {
+        console.log('No previous track available');
+        return;
+      }
+
+      const prevTrackIndex = currentTrack - 1;
+      const prevTrack = queue[prevTrackIndex];
+
+      if (!prevTrack) {
+        console.log('No previous track available');
+        return;
+      }
+
+      // Check if previous track needs stream (wasn't prefetched or has placeholder URL)
+      const needsStream = prevTrack._needsStream ||
+        prevTrack.url?.startsWith('ytmusic://') ||
+        prevTrack.url?.includes('music.youtube.com');
+
+      // 🚀 OPTIMISTIC UI: Emit metadata IMMEDIATELY for instant visual feedback
+      DeviceEventEmitter.emit('song-loading-started', {
+        id: prevTrack.id,
+        title: prevTrack.title || 'Loading...',
+        artist: prevTrack.artist || 'Loading...',
+        artwork: prevTrack.artwork || prevTrack.image || '',
+        image: prevTrack.artwork || prevTrack.image || '',
+        duration: prevTrack.duration,
+        isLoading: true,
+      });
+      console.log('📱 Optimistic UI: Showing previous track metadata immediately');
+
+      if (needsStream && !prevTrack._prefetched) {
+        // FIRST: Check if SmartPrefetchManager has cached stream
+        const cachedStream = smartPrefetchManager.getPrefetchedStream(prevTrack.id);
+
+        if (cachedStream) {
+          console.log('✅ Using cached prefetched stream for previous');
+          // Replace track in queue with valid URL
+          await smartPrefetchManager.replaceTrackAndWait(prevTrackIndex, prevTrack, cachedStream);
+          console.log('✅ Track replaced with valid URL');
+        } else {
+          console.log('🔄 Previous track not in cache, fetching on-demand...');
+          // BACKGROUND FETCH: Start stream fetch with timeout
+          const streamPromise = smartPrefetchManager.fetchOnDemand(prevTrack.id);
+
+          // Wait for stream with timeout - if too slow, skip anyway
+          const streamData = await Promise.race([
+            streamPromise,
+            new Promise(resolve => setTimeout(() => resolve(null), 3000)) // 3 sec timeout
+          ]);
+
+          if (streamData && streamData.url) {
+            // Replace track in queue with valid URL
+            await smartPrefetchManager.replaceTrackAndWait(prevTrackIndex, prevTrack, streamData);
+            console.log('✅ Previous track replaced with valid URL');
+          } else {
+            // Stream fetch timed out or failed - rely on error handler to recover
+            console.log('⏳ Stream fetch slow/failed, skipping anyway - error handler will recover');
+          }
+        }
+      }
+
+      // Skip to previous track
       await TrackPlayer.skipToPrevious();
 
       // Get the new track and start tracking it
@@ -980,7 +1100,12 @@ async function PlayPreviousSong() {
         skipOperationManager.resetErrorCounter();
       }
 
-      PlaySong();
+      // Ensure playback starts
+      const stateAfterSkip = await TrackPlayer.getState();
+      if (stateAfterSkip !== TrackPlayer.STATE_PLAYING) {
+        await TrackPlayer.play();
+      }
+
     } catch (error) {
       if (error.message === 'AbortError') {
         console.log('⏮️ Skip cancelled');

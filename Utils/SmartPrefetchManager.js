@@ -44,6 +44,20 @@ class SmartPrefetchManager {
 
         // Recovery lock - prevents queue cleanup during error recovery
         this.isRecovering = false;
+
+        // Abort controller for cancelling in-flight prefetches on skip
+        this.prefetchAbortController = null;
+    }
+
+    /**
+     * Cancel all pending prefetch operations (called when user skips)
+     */
+    cancelAllPrefetches() {
+        if (this.prefetchAbortController) {
+            this.prefetchAbortController.abort();
+            this.prefetchAbortController = null;
+        }
+        this.prefetchInProgress.clear();
     }
 
     // ==========================================
@@ -108,19 +122,20 @@ class SmartPrefetchManager {
             // Store current index for validation
             this.currentTrackIndex = currentIndex;
 
-            // Wait 2 seconds, then prefetch N+1 (Next) and N+2 (Buffer)
-            // This ensures meaningful prefetch even if TrackChanged event was missed
+            // Wait 2 seconds, then prefetch ONLY N+1 (Next song)
+            // Simple and reliable - avoids bridge saturation
             this.prefetchTimer = setTimeout(async () => {
                 // Validate we're still on the same track
                 const nowPlaying = await TrackPlayer.getActiveTrackIndex();
                 if (nowPlaying === this.currentTrackIndex) {
-                    console.log(`🎵 Buffered Strategy: ensuring N+1 and N+2 are ready...`);
-
-                    // Parallel prefetch for better performance
-                    Promise.all([
-                        this._prefetchTrackAtIndex(nowPlaying + 1),
-                        this._prefetchTrackAtIndex(nowPlaying + 2)
-                    ]).catch(err => console.log('Buffered prefetch error:', err.message));
+                    console.log(`🎵 Prefetching next song (N+1)...`);
+                    this._prefetchTrackAtIndex(nowPlaying + 1)
+                        .catch(err => {
+                            // Only log real errors, not expected ones like 'track doesn't exist'
+                            if (!err.message?.includes("doesn't exist") && !err.message?.includes('Invalid index')) {
+                                console.log('Prefetch error:', err.message);
+                            }
+                        });
                 }
             }, PREFETCH_DELAY_MS);
         }
@@ -191,16 +206,50 @@ class SmartPrefetchManager {
 
         this.currentTrackIndex = effectiveIndex;
 
-        // 🚀 IMMEDIATE ACTION: Prefetch next 3 songs aggressively
-        // This ensures auto-recommendation songs are ready before playback
-        console.log(`🚀 Track Changed: Aggressively prefetching N+1, N+2, N+3... (Effective Index: ${effectiveIndex})`);
+        // 🎵 SEQUENTIAL PREFETCH: N+1 first, then N+2 after N+1 completes
+        // IMPORTANT: Use dynamic index lookup to handle queue rearrangement
+        console.log(`🎵 Track Changed: Starting prefetch sequence from current position`);
 
-        // Prefetch in parallel for speed
-        Promise.all([
-            this._prefetchTrackAtIndex(effectiveIndex + 1),
-            this._prefetchTrackAtIndex(effectiveIndex + 2),
-            this._prefetchTrackAtIndex(effectiveIndex + 3)
-        ]).catch(err => console.log('Prefetch batch error:', err.message));
+        // Prefetch N+1 first (uses fresh index lookup internally)
+        try {
+            await this._prefetchNextFromCurrent();
+
+            // Only after N+1 completes, start N+2 (non-blocking)
+            // Use setImmediate to ensure UI thread is not blocked
+            setImmediate(async () => {
+                try {
+                    // Get FRESH current index - queue may have been rearranged
+                    const currentIdx = await TrackPlayer.getActiveTrackIndex();
+                    if (currentIdx !== null && currentIdx !== undefined) {
+                        console.log(`🎵 N+1 done, starting N+2 at index ${currentIdx + 2}`);
+                        await this._prefetchTrackAtIndex(currentIdx + 2);
+                        console.log(`✅ N+2 prefetch complete`);
+                    }
+                } catch (err) {
+                    // Silence expected errors
+                    if (!err.message?.includes("doesn't exist")) {
+                        console.log('N+2 prefetch skipped:', err.message);
+                    }
+                }
+            });
+        } catch (err) {
+            // Silence expected errors
+            if (!err.message?.includes("doesn't exist")) {
+                console.log('N+1 prefetch error:', err.message);
+            }
+        }
+    }
+
+    /**
+     * Prefetch the next song relative to CURRENT playing position
+     * Uses fresh index lookup to handle queue rearrangement
+     */
+    async _prefetchNextFromCurrent() {
+        const currentIdx = await TrackPlayer.getActiveTrackIndex();
+        if (currentIdx !== null && currentIdx !== undefined) {
+            console.log(`🎵 Prefetching N+1 at index ${currentIdx + 1}`);
+            await this._prefetchTrackAtIndex(currentIdx + 1);
+        }
     }
 
     /**
@@ -286,18 +335,26 @@ class SmartPrefetchManager {
      * Prefetch a single track by queue index
      */
     async _prefetchTrackAtIndex(index) {
+        let trackId = null; // Track ID for cleanup in finally block
+
         try {
             const queue = await TrackPlayer.getQueue();
 
             if (index < 0 || index >= queue.length) {
+                // Silent return - this is normal when queue is empty or at end
                 return; // Invalid index
             }
 
             const track = queue[index];
+            trackId = track.id; // Capture ID for finally block
 
             // Skip if not a YouTube track or already has valid URL
             if (!this.needsStream(track)) {
-                console.log(`⏭️ Track ${index} doesn't need prefetch`);
+                // Only log if it's actually a YouTube track to avoid cluttering logs
+                const isYT = track.source === 'ytmusic' || track.isYTMusic;
+                if (isYT) {
+                    console.log(`⏭️ Track ${index} (${track.title}) doesn't need prefetch (already has URL)`);
+                }
                 return;
             }
 
@@ -326,19 +383,28 @@ class SmartPrefetchManager {
                 // Store prefetched data
                 this._cacheStream(track.id, streamData);
 
-                // Replace track in queue with valid URL
-                await this._replaceTrackInQueue(index, track, streamData);
-
-                console.log(`✅ Prefetched & replaced track ${index}: ${track.title}`);
+                // NON-BLOCKING: Defer queue replacement to avoid blocking UI
+                // Use setImmediate to run after current call stack clears
+                setImmediate(() => {
+                    // Re-validate queue position before replacing (user may have skipped)
+                    TrackPlayer.getQueue().then(currentQueue => {
+                        // Find track by ID (index may have shifted)
+                        const currentIndex = currentQueue.findIndex(t => t.id === track.id);
+                        if (currentIndex !== -1 && currentQueue[currentIndex]?._needsStream) {
+                            this._replaceTrackInQueue(currentIndex, track, streamData)
+                                .then(() => console.log(`✅ Prefetched & replaced track ${currentIndex}: ${track.title}`))
+                                .catch(err => console.log('Queue replacement failed:', err.message));
+                        }
+                    }).catch(() => { });
+                });
             }
 
         } catch (error) {
             console.error(`❌ Prefetch failed for index ${index}:`, error.message);
         } finally {
-            // Clean up in-progress set
-            const queue = await TrackPlayer.getQueue();
-            if (index < queue.length) {
-                this.prefetchInProgress.delete(queue[index]?.id);
+            // Clean up in-progress set only if trackId was set
+            if (trackId) {
+                this.prefetchInProgress.delete(trackId);
             }
         }
     }
@@ -349,17 +415,41 @@ class SmartPrefetchManager {
 
     /**
      * Replace a track and WAIT for completion (for manual skips)
-     * Wraps in InteractionManager but returns Promise that resolves after
+     * SAFE: Verifies track ID before replacing to handle queue rearrangement
      */
     async replaceTrackAndWait(index, originalTrack, streamData) {
         try {
+            // Get FRESH queue state
+            const queue = await TrackPlayer.getQueue();
+
+            // Find track by ID - don't trust the index parameter
+            const actualIndex = queue.findIndex(t => t.id === originalTrack.id);
+
+            if (actualIndex === -1) {
+                console.log(`⚠️ Track ${originalTrack.id} no longer in queue, skipping replacement`);
+                return;
+            }
+
+            // Verify the track at this index is the one we expect
+            const trackAtIndex = queue[actualIndex];
+            if (trackAtIndex.id !== originalTrack.id) {
+                console.log(`⚠️ Track ID mismatch at index ${actualIndex}, skipping replacement`);
+                return;
+            }
+
+            // Skip if already has valid URL (already replaced)
+            if (!this.needsStream(trackAtIndex)) {
+                console.log(`⏭️ Track ${actualIndex} already has URL, skipping replacement`);
+                return;
+            }
+
             const updatedTrack = this._createUpdatedTrack(originalTrack, streamData);
 
-            // Remove old track and insert new one at same position
-            await TrackPlayer.remove(index);
-            await TrackPlayer.add(updatedTrack, index);
+            // Remove old track and insert new one at ACTUAL index (found by ID)
+            await TrackPlayer.remove(actualIndex);
+            await TrackPlayer.add(updatedTrack, actualIndex);
 
-            console.log(`🔄 Replaced track at index ${index}`);
+            console.log(`🔄 Replaced track at index ${actualIndex}`);
         } catch (error) {
             console.error('Error replacing track:', error.message);
         }
