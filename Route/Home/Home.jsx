@@ -443,12 +443,25 @@ export const Home = () => {
             <ScrollView
               style={{ zIndex: -1 }}
               onScroll={(e) => {
-                if (e.nativeEvent.contentOffset.y > scrollThreshold && !showHeader) {
+                const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+
+                // Header visibility logic
+                if (contentOffset.y > scrollThreshold && !showHeader) {
                   setShowHeader(true)
-                } else if (e.nativeEvent.contentOffset.y < scrollThreshold && showHeader) {
+                } else if (contentOffset.y < scrollThreshold && showHeader) {
                   setShowHeader(false)
                 }
+
+                // Lazy loading trigger - load more when 80% scrolled
+                const scrollProgress = (contentOffset.y + layoutMeasurement.height) / contentSize.height;
+                if (scrollProgress > 0.8) {
+                  // Trigger lazy loading for YTMusic feed
+                  if (ytMusicFeedRef.current?.loadMore) {
+                    ytMusicFeedRef.current.loadMore();
+                  }
+                }
               }}
+              scrollEventThrottle={16}
               refreshControl={
                 <RefreshControl
                   refreshing={refreshing}

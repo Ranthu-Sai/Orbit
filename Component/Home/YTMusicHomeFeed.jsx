@@ -15,13 +15,81 @@ import { EachPlaylistCard } from '../Global/EachPlaylistCard';
 import { EachAlbumCard } from '../Global/EachAlbumCard';
 import { EachSongCard } from '../Global/EachSongCard';
 import { PlaylistRowSkeleton } from './PlaylistRowSkeleton';
+import { QuickPicksSkeleton } from './YTMusic/QuickPicksSkeleton';
 import YouTubeMusicService from '../../Utils/YouTubeMusicService';
 import ytAuthService from '../../Utils/YouTubeAuthService';
 import listeningHistoryService from '../../Utils/ListeningHistoryService';
 import localRecommendationService from '../../Utils/LocalRecommendationService';
 
-const CACHE_KEY = 'ytmusic_home_feed_full_v6';
+const CACHE_KEY = 'ytmusic_home_feed_full_v7';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Sections to filter out - these are YouTube video categories, not music
+// OuterTune approach: hide video-like content and show only music-focused sections
+const VIDEO_SECTION_TITLES = [
+    'true crime',
+    'religion',
+    'motivation',
+    'comedy',
+    'gaming',
+    'sports',
+    'news',
+    'education',
+    'science & technology',
+    'travel & events',
+    'autos & vehicles',
+    'pets & animals',
+    'howto & style',
+    'people & blogs',
+    'entertainment',
+    'film & animation',
+    'nonprofits & activism',
+    // Add more as needed
+];
+
+// Check if a section is video-like (non-music content)
+const isVideoSection = (section) => {
+    const title = (section.title || '').toLowerCase().trim();
+
+    // Check against known video category titles
+    if (VIDEO_SECTION_TITLES.some(videoTitle => title.includes(videoTitle))) {
+        return true;
+    }
+
+    // Check if items have video-like thumbnails (16:9 aspect ratio)
+    const contents = section.contents || section.items || [];
+    if (contents.length > 0) {
+        const firstItem = contents[0];
+        const thumbnails = firstItem?.thumbnails || [];
+
+        if (thumbnails.length > 0) {
+            const thumb = thumbnails[0];
+            // Video thumbnails are typically 16:9 (width/height > 1.5)
+            // Music thumbnails are typically 1:1 or close to square
+            if (thumb.width && thumb.height) {
+                const aspectRatio = thumb.width / thumb.height;
+                // If aspect ratio is > 1.4, it's likely a video thumbnail
+                if (aspectRatio > 1.4) {
+                    console.log(`[YTMusicHomeFeed] Filtering video section: "${section.title}" (aspect ratio: ${aspectRatio.toFixed(2)})`);
+                    return true;
+                }
+            }
+        }
+
+        // Check if items don't have typical music identifiers
+        const hasNoMusicContent = contents.every(item =>
+            !item.videoId && !item.playlistId && !item.browseId?.startsWith('MPRE') &&
+            !item.browseId?.startsWith('UC') && !item.browseId?.startsWith('VL')
+        );
+
+        if (hasNoMusicContent && contents.length > 2) {
+            console.log(`[YTMusicHomeFeed] Filtering non-music section: "${section.title}"`);
+            return true;
+        }
+    }
+
+    return false;
+};
 
 // Get best thumbnail from array
 const getBestThumbnail = (thumbnails, videoId = null) => {
@@ -171,12 +239,11 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
     const [userName, setUserName] = useState('');
     const isMounted = useRef(true);
 
-    useImperativeHandle(ref, () => ({
-        refresh: async () => {
-            console.log('🔄 YTMusicHomeFeed - Hard refresh triggered');
-            await fetchHomeData(true);
-        }
-    }));
+    // Lazy loading state - show 3 sections initially, load 2 more on scroll
+    const INITIAL_SECTIONS = 3;
+    const SECTIONS_PER_LOAD = 2;
+    const [visibleCount, setVisibleCount] = useState(INITIAL_SECTIONS);
+
 
     const fetchHomeData = async (forceRefresh = false) => {
         try {
@@ -222,8 +289,12 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
             if (homeData && Array.isArray(homeData) && homeData.length > 0 && isMounted.current) {
                 console.log('[YTMusicHomeFeed] Received sections:', homeData.length);
 
-                // Process ALL sections from the API
-                let processedSections = homeData.map(section => {
+                // Filter out video-like sections (OuterTune approach)
+                const filteredData = homeData.filter(section => !isVideoSection(section));
+                console.log('[YTMusicHomeFeed] After filtering video sections:', filteredData.length);
+
+                // Process music-only sections from the API
+                let processedSections = filteredData.map(section => {
                     const sectionTitle = section.title || 'Music';
                     const contents = section.contents || [];
 
@@ -348,10 +419,32 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
     }, []);
 
 
+    // Get the visible sections based on lazy loading
+    const visibleSections = sections.slice(0, visibleCount);
+    const hasMoreSections = visibleCount < sections.length;
+
+    // Load more sections callback - called from parent scroll
+    const loadMoreSections = () => {
+        if (hasMoreSections) {
+            console.log(`[YTMusicHomeFeed] Loading more sections: ${visibleCount} -> ${visibleCount + SECTIONS_PER_LOAD}`);
+            setVisibleCount(prev => Math.min(prev + SECTIONS_PER_LOAD, sections.length));
+        }
+    };
+
+    // Expose methods to parent via ref - MUST be before conditional returns
+    useImperativeHandle(ref, () => ({
+        refresh: async () => {
+            console.log('🔄 YTMusicHomeFeed - Hard refresh triggered');
+            setVisibleCount(INITIAL_SECTIONS); // Reset lazy loading on refresh
+            await fetchHomeData(true);
+        },
+        loadMore: loadMoreSections,
+    }), [hasMoreSections, visibleCount, sections.length]);
+
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
-                <PlaylistRowSkeleton count={4} showHeading={true} />
+                <QuickPicksSkeleton />
                 <PlaylistRowSkeleton count={4} showHeading={true} />
                 <PlaylistRowSkeleton count={4} showHeading={true} />
                 <PlaylistRowSkeleton count={4} showHeading={true} />
@@ -361,17 +454,9 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
 
     return (
         <View style={styles.container}>
-            {/* Auth Status Banner */}
-            {isLoggedIn && userName && (
-                <View style={[styles.authBanner, { backgroundColor: colors.card }]}>
-                    <Text style={[styles.authText, { color: colors.text }]}>
-                        Welcome back, {userName}
-                    </Text>
-                </View>
-            )}
 
-            {/* Render ALL sections from API */}
-            {sections.map((section, index) => {
+            {/* Render visible sections with lazy loading */}
+            {visibleSections.map((section, index) => {
                 // Quick Picks / Song sections
                 if (section.type === 'songs' && section.songs?.length > 0) {
                     return (
@@ -404,6 +489,13 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
                     />
                 );
             })}
+
+            {/* Loading indicator for more sections */}
+            {hasMoreSections && (
+                <View style={styles.loadMoreContainer}>
+                    <PlaylistRowSkeleton count={4} showHeading={true} />
+                </View>
+            )}
 
             {/* Empty State */}
             {sections.length === 0 && !loading && (
@@ -459,6 +551,9 @@ const styles = StyleSheet.create({
     emptyState: {
         padding: 40,
         alignItems: 'center',
+    },
+    loadMoreContainer: {
+        marginTop: 8,
     },
     emptyText: {
         fontSize: 14,

@@ -618,7 +618,7 @@ export const SettingsPage = ({ navigation }) => {
           onSelect={handleHomeFeedSourceChange}
         />
         <DropDownMenu
-          title="YTMusic Content Language"
+          title="YTM Content Language"
           icon="translate"
           data={[
             { label: 'English', value: 'en' },
