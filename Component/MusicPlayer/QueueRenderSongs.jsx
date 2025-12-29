@@ -157,7 +157,7 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
   };
 
   // Function to filter queue based on track source with offline support
-  const filterQueueBySource = useCallback(async (currentTrack) => {
+  const filterQueueBySource = useCallback(async (currentTrack, providedQueue = null) => {
     try {
       if (!currentTrack) return [];
 
@@ -173,8 +173,8 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       if (sourceType === 'mymusic') {
         console.log('Playing from MyMusic - showing only MyMusic tracks in queue');
 
-        // PERFORMANCE: Use Context Queue instead of native bridge call
-        const fullQueue = Queue || [];
+        // PERFORMANCE: Use provided queue if available, otherwise fallback to Context
+        const fullQueue = providedQueue || Queue || [];
 
         // Filter to only include tracks from MyMusic source, regardless of online/offline status
         const myMusicTracks = fullQueue.filter(track => track.sourceType === 'mymusic');
@@ -200,8 +200,8 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         console.log('Playing downloaded track - showing all downloaded tracks in queue');
 
         // Always use downloaded tracks in offline mode or when explicitly playing downloaded music
-        // PERFORMANCE: Use Context Queue instead of native bridge call
-        const fullQueue = Queue || [];
+        // PERFORMANCE: Use provided queue if available, otherwise fallback to Context
+        const fullQueue = providedQueue || Queue || [];
 
         // Filter to only include downloaded tracks
         const downloadSourceTracks = fullQueue.filter(track =>
@@ -241,9 +241,9 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
 
       // For online tracks in online mode - normal behavior
       if (!isOffline) {
-        // PERFORMANCE: Use Context Queue instead of native bridge call
-        let fullQueue = Queue || [];
-        console.log(`filterQueueBySource: Context.Queue has ${fullQueue.length} tracks`);
+        // PERFORMANCE: Use provided queue if available, otherwise fallback to Context
+        let fullQueue = providedQueue || Queue || [];
+        console.log(`filterQueueBySource: Queue source has ${fullQueue.length} tracks (Manual: ${!!providedQueue})`);
 
         // FALLBACK: If Context.Queue is empty (due to React state batching delay),
         // fetch directly from TrackPlayer to ensure we have the latest queue
@@ -1046,7 +1046,13 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         const currentTrack = await TrackPlayer.getActiveTrack();
         if (currentTrack) {
           console.log('📋 Queue updated event received - refreshing queue display');
-          const filtered = await filterQueueBySource(currentTrack);
+
+          // CRITICAL FIX: Fetch fresh queue directly from TrackPlayer
+          // Context.Queue might be stale due to React state batching when this event fires
+          const freshQueue = await TrackPlayer.getQueue();
+          console.log(`📋 Fresh queue from TrackPlayer: ${freshQueue.length} tracks`);
+
+          const filtered = await filterQueueBySource(currentTrack, freshQueue);
 
           // Filter out duplicates
           const uniqueIds = new Set();

@@ -388,7 +388,8 @@ class SmartPrefetchManager {
             // FALLBACK: If optimized check fails, try full queue fetch
             // This ensures robustness even if getTrack(index) is unreliable
             if (!track) {
-                console.log(`⚠️ Track at index ${index} not found via getTrack, trying fallback...`);
+                // Reduced noise: This is expected during initial queue population
+                // console.log(`ℹ️ SmartPrefetch: Track at index ${index} not yet available, will retry.`);
                 // Fallback to getting full queue
                 const queue = await TrackPlayer.getQueue();
                 if (index >= 0 && index < queue.length) {
@@ -396,7 +397,7 @@ class SmartPrefetchManager {
                     usingOptimizedMethod = false;
                     console.log(`✅ Track found via fallback queue fetch: ${track.title}`);
                 } else {
-                    console.log(`❌ Track index ${index} invalid even in full queue (len: ${queue.length})`);
+                    // Reduced noise: Track doesn't exist yet, this is common during lazy loading
                     return;
                 }
             }
