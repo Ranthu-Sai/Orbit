@@ -141,10 +141,17 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
       // then queue a small batch of next songs in background.
       const isYtMusicPlaylist = current && ((current.source === 'ytmusic') || (typeof current.id === 'string' && current.id.length === 11));
 
-      if (isYtMusicPlaylist && current) {
+      // SPOTIFY PLAYLIST SUPPORT: Detect Spotify playlists for optimistic UI
+      const isSpotifyPlaylist = current && (current.source === 'spotify' || current.spotifyId);
+
+      // DAB PLAYLIST SUPPORT: Detect DAB playlists for optimistic UI
+      const isDabPlaylist = current && (current.source === 'dab' || current.isDabTrack);
+
+      if ((isYtMusicPlaylist || isSpotifyPlaylist || isDabPlaylist) && current) {
         // Use the new AddPlaylist logic which handles slicing and lazy loading
         // Pass the full songs array and the ID of the song to start from
-        console.log(`[Playback] YTMusic Playlist: Playing from song ${current.id || current.videoId} (Index: ${index})`);
+        const sourceType = isDabPlaylist ? 'DAB' : (isSpotifyPlaylist ? 'Spotify' : 'YTMusic');
+        console.log(`[Playback] ${sourceType} Playlist: Playing from song ${current.id || current.videoId} (Index: ${index})`);
 
         // Pass the raw songs array - AddPlaylist processes it
         await AddPlaylist(songs, current.id || current.videoId);

@@ -13,10 +13,13 @@ import { getYTMusicHomeFeed } from "../../Api/YTMusic";
 import { clearCache as clearApiCache, CACHE_GROUPS as API_CACHE_GROUPS } from "../../Api/CacheManager";
 import { EachPlaylistCard } from "../../Component/Global/EachPlaylistCard";
 import { GetLanguageValue } from "../../LocalStorage/Languages";
+import { GetHomeFeedSource } from "../../LocalStorage/AppSettings";
 import { TopHeader } from "../../Component/Home/TopHeader";
 import { DisplayTopGenres } from "../../Component/Home/DisplayTopGenres";
 import NetInfo from '@react-native-community/netinfo';
 import { YTMusicHomeSection } from '../../Component/Home/YTMusicHomeSection';
+import { SaavnHomeFeed } from '../../Component/Home/SaavnHomeFeed';
+import { YTMusicHomeFeed } from '../../Component/Home/YTMusicHomeFeed';
 import { deduplicateAlbums } from '../../Utils/AlbumUtils';
 import { CacheManager } from '../../Utils/NavigationCacheManager';
 import { CACHE_TTL, CACHE_KEYS, generateCacheKey } from '../../Utils/CacheConfig';
@@ -78,7 +81,8 @@ export const Home = () => {
   const [refreshing, setRefreshing] = useState(false);
   const { width, height } = Dimensions.get('window');
   const [Data, setData] = useState({ data: { charts: [], playlists: [], trending: { albums: [] } } });
-  const [chartIndices, setChartIndices] = useState([0, 1, 2, 3]); // Dynamic chart indices
+  const [chartIndices, setChartIndices] = useState([0, 1, 2, 3]);
+  const [homeFeedSource, setHomeFeedSource] = useState('Hybrid');
 
   // Calculate 5% of screen height for scroll threshold
   const scrollThreshold = height * 0.05;
@@ -87,6 +91,8 @@ export const Home = () => {
   const isInitialLoad = useRef(true);
   const isMounted = useRef(true);
   const ytMusicSectionRef = useRef(null);
+  const ytMusicFeedRef = useRef(null);
+  const saavnFeedRef = useRef(null);
 
   // Get random chart indices
   const randomizeCharts = useCallback((charts) => {
@@ -262,6 +268,12 @@ export const Home = () => {
   // Initial load - only on mount, not on focus
   useEffect(() => {
     fetchHomePageData(false);
+    // Load home feed source preference
+    GetHomeFeedSource().then(source => {
+      if (source && isMounted.current) {
+        setHomeFeedSource(source);
+      }
+    });
   }, []);
 
   // Combine playlists from both sources - NO SHUFFLE (preserve consistent order)
@@ -294,6 +306,133 @@ export const Home = () => {
   const hasData = allPlaylists.length > 0 || allAlbums.length > 0;
   const showSkeleton = Loading || (!hasData && isInitialLoad.current);
 
+  // Render feed content based on homeFeedSource setting
+  const renderFeedContent = () => {
+    if (homeFeedSource === 'Saavn') {
+      return (
+        <SaavnHomeFeed
+          refreshing={refreshing}
+          onRefreshComplete={() => setRefreshing(false)}
+        />
+      );
+    }
+
+    if (homeFeedSource === 'YTMusic') {
+      return (
+        <>
+          <RouteHeading showSearch={true} showSettings={true} />
+          <YTMusicHomeFeed
+            ref={ytMusicFeedRef}
+            refreshing={refreshing}
+            onRefreshComplete={() => setRefreshing(false)}
+          />
+        </>
+      );
+    }
+
+    // Hybrid mode - show both Saavn and YTMusic content
+    return (
+      <>
+        <DisplayTopGenres />
+        <View style={{ paddingHorizontal: 13 }}>
+          <HorizontalScrollSongs id={getChartId(0)} />
+        </View>
+        <View style={{ paddingHorizontal: 13 }}>
+          <Heading text={"Recommended Playlists"} />
+        </View>
+        <FlatList
+          horizontal={true}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingLeft: 10,
+            paddingRight: 5,
+            gap: 2,
+          }}
+          data={allPlaylists}
+          keyExtractor={(item, index) => `playlist-${item.id}-${index}`}
+          renderItem={({ item, index }) => (
+            <EachPlaylistCard
+              name={truncateText(item.title || item.name, 30)}
+              follower={truncateText(item.subtitle || item.artists, 30)}
+              key={index}
+              image={getImageUrl(item.image)}
+              id={item.id}
+              source="Home"
+              MainContainerStyle={{
+                marginHorizontal: 4,
+              }}
+            />
+          )}
+        />
+        <View style={{ paddingHorizontal: 13 }}>
+          <Heading text={"Trending Albums"} />
+        </View>
+        <FlatList
+          horizontal={true}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingLeft: 10,
+            paddingRight: 5,
+            gap: 2,
+          }}
+          data={allAlbums}
+          keyExtractor={(item, index) => `album-${item.id}-${index}`}
+          renderItem={({ item, index }) => (
+            <EachAlbumCard
+              image={getImageUrl(item.image)}
+              artists={truncateText(item.artists || item.artist, 30)}
+              key={index}
+              name={truncateText(item.name || item.title, 30)}
+              id={item.id}
+              source="Home"
+            />
+          )}
+        />
+
+        {/* YouTube Music Home Section */}
+        <YTMusicHomeSection ref={ytMusicSectionRef} />
+
+        <View style={{ paddingHorizontal: 13, marginTop: 8 }}>
+          <HorizontalScrollSongs id={getChartId(1)} />
+          {offline && (
+            <View style={{
+              paddingHorizontal: 13,
+              marginTop: 8
+            }}>
+              <Text style={{
+                color: '#666',
+                textAlign: 'center',
+                marginTop: 10,
+                marginBottom: 10
+              }}>
+                You're offline. Some content may not be available.
+              </Text>
+            </View>
+          )}
+        </View>
+        <PaddingConatiner>
+          <Heading text={"Top Charts"} />
+        </PaddingConatiner>
+        <FlatList
+          horizontal={true}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingLeft: 13,
+          }}
+          data={[1]}
+          renderItem={() => <RenderTopCharts playlist={Data?.data?.charts || []} />}
+          keyExtractor={() => 'top-charts'}
+        />
+        <PaddingConatiner>
+          <HorizontalScrollSongs id={getChartId(2)} />
+        </PaddingConatiner>
+        <PaddingConatiner>
+          <HorizontalScrollSongs id={getChartId(3)} />
+        </PaddingConatiner>
+      </>
+    );
+  };
+
   return (
     <MainWrapper>
       {
@@ -320,109 +459,11 @@ export const Home = () => {
               }
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{
-                paddingBottom: 180, // Increased from 120 for more bottom margin
+                paddingBottom: 180,
               }}
             >
-              <RouteHeading showSearch={true} showSettings={true} />
-
-              <DisplayTopGenres />
-              <View style={{ paddingHorizontal: 13 }}>
-                <HorizontalScrollSongs id={getChartId(0)} />
-              </View>
-              <View style={{ paddingHorizontal: 13 }}>
-                <Heading text={"Recommended Playlists"} />
-              </View>
-              <FlatList
-                horizontal={true}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{
-                  paddingLeft: 10, // Reduced from 15
-                  paddingRight: 5, // Reduced from 10
-                  gap: 2, // Reduced from 20
-                }}
-                data={allPlaylists}
-                keyExtractor={(item, index) => `playlist-${item.id}-${index}`}
-
-                renderItem={({ item, index }) => (
-                  <EachPlaylistCard
-                    name={truncateText(item.title || item.name, 30)}
-                    follower={truncateText(item.subtitle || item.artists, 30)}
-                    key={index}
-                    image={getImageUrl(item.image)}
-                    id={item.id}
-                    source="Home"
-                    MainContainerStyle={{
-                      marginHorizontal: 4, // Add horizontal margin
-                    }}
-                  />
-                )}
-              />
-              <View style={{ paddingHorizontal: 13 }}>
-                <Heading text={"Trending Albums"} />
-              </View>
-              <FlatList
-                horizontal={true}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{
-                  paddingLeft: 10, // Reduced from 15
-                  paddingRight: 5, // Reduced from 10
-                  gap: 2, // Reduced from 20
-                }}
-                data={allAlbums}
-                keyExtractor={(item, index) => `album-${item.id}-${index}`}
-
-                renderItem={({ item, index }) => (
-                  <EachAlbumCard
-                    image={getImageUrl(item.image)}
-                    artists={truncateText(item.artists || item.artist, 30)}
-                    key={index}
-                    name={truncateText(item.name || item.title, 30)}
-                    id={item.id}
-                    source="Home"
-                  />
-                )}
-              />
-
-              {/* YouTube Music Home Section */}
-              <YTMusicHomeSection ref={ytMusicSectionRef} />
-
-              <View style={{ paddingHorizontal: 13, marginTop: 8 }}>
-                <HorizontalScrollSongs id={getChartId(1)} />
-                {offline && (
-                  <View style={{
-                    paddingHorizontal: 13,
-                    marginTop: 8
-                  }}>
-                    <Text style={{
-                      color: '#666',
-                      textAlign: 'center',
-                      marginTop: 10,
-                      marginBottom: 10
-                    }}>
-                      You're offline. Some content may not be available.
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <PaddingConatiner>
-                <Heading text={"Top Charts"} />
-              </PaddingConatiner>
-              <FlatList
-                horizontal={true}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{
-                  paddingLeft: 13,
-                }}
-                data={[1]}
-                renderItem={() => <RenderTopCharts playlist={Data?.data?.charts || []} />}
-                keyExtractor={() => 'top-charts'}
-              />
-              <PaddingConatiner>
-                <HorizontalScrollSongs id={getChartId(2)} />
-              </PaddingConatiner>
-              <PaddingConatiner>
-                <HorizontalScrollSongs id={getChartId(3)} />
-              </PaddingConatiner>
+              {homeFeedSource !== 'YTMusic' && <RouteHeading showSearch={true} showSettings={true} />}
+              {renderFeedContent()}
             </ScrollView>
             <TopHeader showHeader={showHeader} />
           </View>

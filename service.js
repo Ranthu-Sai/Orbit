@@ -3,6 +3,7 @@ import TrackPlayer, { Capability, Event } from "react-native-track-player";
 import historyManager from './Utils/HistoryManager';
 import autoRecommendations from './Utils/AutoRecommendations';
 import DownloadQueueService from './Utils/DownloadQueueService';
+import listeningHistoryService from './Utils/ListeningHistoryService';
 import { PlayNextSong, PlayPreviousSong } from './MusicPlayerFunctions';
 
 let isPlayerInitialized = false;
@@ -64,6 +65,10 @@ export const PlaybackService = async function () {
 
     // Initialize history manager (now lightweight)
     await historyManager.initialize();
+
+    // Initialize listening history service for personalized Quick Picks
+    await listeningHistoryService.initialize();
+    console.log('Listening history service initialized');
 
   } catch (error) {
     if (error.message && error.message.includes('player has already been initialized')) {

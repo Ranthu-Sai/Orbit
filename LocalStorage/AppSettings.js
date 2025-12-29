@@ -234,6 +234,30 @@ async function SetMusicSource(musicSource) {
   }
 }
 
+// Get home feed source preference
+async function GetHomeFeedSource() {
+  try {
+    const value = await AsyncStorage.getItem('HomeFeedSource');
+    if (value !== null) {
+      return value
+    } else {
+      return 'Hybrid' // Default home feed source
+    }
+  } catch (e) {
+    console.log("Home feed source read error");
+    return 'Hybrid' // Fallback to Hybrid
+  }
+}
+
+// Set home feed source preference
+async function SetHomeFeedSource(homeFeedSource) {
+  try {
+    await AsyncStorage.setItem('HomeFeedSource', homeFeedSource);
+  } catch (e) {
+    console.log("Home feed source save error");
+  }
+}
+
 // Get lyrics provider preference
 async function GetLyricsProvider() {
   try {
@@ -375,6 +399,8 @@ export {
   SetCustomColorsEnabled,
   GetMusicSource,
   SetMusicSource,
+  GetHomeFeedSource,
+  SetHomeFeedSource,
   GetLyricsProvider,
   SetLyricsProvider,
   GetLyricsAnimationStyle,

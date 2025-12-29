@@ -627,11 +627,17 @@ class SmartPrefetchManager {
 
         const isYTMusic = hasYouTubeIdFormat || hasYTMusicFlag || hasYTMusicSource;
 
-        if (!isYTMusic) return false;
+        // SPOTIFY SUPPORT: Check if it's a Spotify track needing mapping to YTMusic
+        const isSpotify = track.source === 'spotify' || track.spotifyId || track._needsSpotifyMapping;
+
+        // DAB SUPPORT: Check if it's a DAB track needing stream
+        const isDab = track.source === 'dab' || track.isDabTrack || track._needsDabStream;
+
+        if (!isYTMusic && !isSpotify && !isDab) return false;
 
         // Check if URL is placeholder or missing
         const url = track.url || '';
-        return !url || url.startsWith('ytmusic://') || url.includes('music.youtube.com');
+        return !url || url.startsWith('ytmusic://') || url.startsWith('spotify://') || url.startsWith('dab://') || url.includes('music.youtube.com');
     }
 
     /**

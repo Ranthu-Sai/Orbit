@@ -21,10 +21,11 @@ export const settingsConfig = {
     { label: 'Downloads', value: 'Downloads' }
   ],
 
-  // Music source options
-  musicSources: [
-    { label: 'Ytmusic', value: 'Ytmusic' },
-    { label: 'Saavn', value: 'Savaan' }
+  // Home Feed Source options
+  homeFeedSources: [
+    { label: 'Hybrid (Both)', value: 'Hybrid' },
+    { label: 'Saavn Only', value: 'Saavn' },
+    { label: 'YTMusic Only', value: 'YTMusic' }
   ],
 
   // Lyrics provider options
@@ -49,6 +50,7 @@ export const settingsConfig = {
     themePreference: 'dark',
     colorScheme: 'default',
     musicSource: 'Ytmusic',
+    homeFeedSource: 'Hybrid',
     lyricsProvider: 'LrcLib',
     lyricsAnimationStyle: 'Smooth'
   }

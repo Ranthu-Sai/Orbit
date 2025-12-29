@@ -10,59 +10,99 @@ import { enhanceYTMusicArtwork } from '../Utils/ArtworkEnhancer';
 const INNERTUBE_API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
 const INNERTUBE_API_URL = 'https://music.youtube.com/youtubei/v1';
 
+// Client ID for WEB_REMIX (YouTube Music Web)
+const WEB_REMIX_CLIENT_ID = '67';
+const WEB_REMIX_CLIENT_VERSION = '1.20241127.01.00';
+const WEB_REMIX_CLIENT_NAME = 'WEB_REMIX';
+
+// Match OuterTune's headers exactly
 const HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:88.0) Gecko/20100101 Firefox/88.0',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Content-Type': 'application/json',
     'Origin': 'https://music.youtube.com',
+    'Referer': 'https://music.youtube.com/',
+    'X-Goog-Api-Format-Version': '1',
+    'X-YouTube-Client-Name': WEB_REMIX_CLIENT_ID,
+    'X-YouTube-Client-Version': WEB_REMIX_CLIENT_VERSION,
 };
 
 const WEB_REMIX_CONTEXT = {
     context: {
         client: {
-            clientName: 'WEB_REMIX',
-            clientVersion: '1.20250310.01.00',
+            clientName: WEB_REMIX_CLIENT_NAME,
+            clientVersion: WEB_REMIX_CLIENT_VERSION,
             originalUrl: 'https://music.youtube.com',
             hl: 'en',
-            gl: 'IN'
+            gl: 'IN',
+            // visitorData will be added dynamically if available
         }
     }
 };
+
 
 class InnerTubeClient {
 
     /**
      * Helper to make API requests
+     * @param {string} endpoint - API endpoint
+     * @param {object} body - Request body
+     * @param {string} gl - Country code
+     * @param {string|null} authCookies - Optional auth cookies for personalized content
+     * @param {string} hl - Host language (e.g., 'en', 'hi', 'en-IN')
+     * @param {string|null} visitorData - Optional visitor data for personalization
+     * @param {string|null} dataSyncId - Optional data sync ID for logged-in personalization
      */
-    static async request(endpoint, body, gl = 'IN') {
+    static async request(endpoint, body, gl = 'IN', authCookies = null, hl = 'en', visitorData = null, dataSyncId = null) {
         try {
             const url = `${INNERTUBE_API_URL}/${endpoint}?key=${INNERTUBE_API_KEY}`;
+
+            // Get stored visitorData if not provided
+            let effectiveVisitorData = visitorData;
+            if (!effectiveVisitorData) {
+                try {
+                    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+                    effectiveVisitorData = await AsyncStorage.getItem('innertube_visitor_data');
+                } catch (e) { }
+            }
+
             console.log('🌐 InnerTube request:', {
                 endpoint,
-                url,
-                gl, // Log the country code
-                hl: 'en',
-                INNERTUBE_API_URL,
-                INNERTUBE_API_KEY: INNERTUBE_API_KEY ? 'present' : 'missing'
+                gl,
+                hl,
+                authenticated: !!authCookies,
+                hasVisitorData: !!effectiveVisitorData,
             });
 
-            // Create context with dynamic GL
-            // IMPORTANT: "gl" in the top level context object is critical
+            // Create context with dynamic GL, HL, and visitorData (like OuterTune)
+            const client = {
+                ...WEB_REMIX_CONTEXT.context.client,
+                visitorData: effectiveVisitorData,
+            };
+
+            // Only add gl and hl if they are not SYSTEM_DEFAULT
+            if (gl && gl !== 'SYSTEM_DEFAULT') client.gl = gl;
+            if (hl && hl !== 'SYSTEM_DEFAULT') client.hl = hl;
+
             const requestContext = {
                 context: {
-                    client: {
-                        ...WEB_REMIX_CONTEXT.context.client,
-                        gl: gl,
-                        hl: 'en' // Force English language
-                    },
+                    client: client,
                     user: {
-                        lockedSafetyMode: false
+                        lockedSafetyMode: false,
+                        // Add onBehalfOfUser for logged-in personalization (like OuterTune)
+                        ...(dataSyncId && authCookies ? { onBehalfOfUser: dataSyncId } : {})
                     }
                 }
             };
 
+            // Build headers with optional auth cookies
+            const requestHeaders = { ...HEADERS };
+            if (authCookies) {
+                requestHeaders['Cookie'] = authCookies;
+            }
+
             const response = await fetch(url, {
                 method: 'POST',
-                headers: HEADERS,
+                headers: requestHeaders,
                 body: JSON.stringify({
                     ...requestContext,
                     ...body
@@ -70,12 +110,23 @@ class InnerTubeClient {
             });
 
             const data = await response.json();
+
+            // Extract and store visitorData from response for future requests (like OuterTune)
+            if (data?.responseContext?.visitorData && !effectiveVisitorData) {
+                try {
+                    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+                    await AsyncStorage.setItem('innertube_visitor_data', data.responseContext.visitorData);
+                    console.log('📍 Stored new visitorData for personalization');
+                } catch (e) { }
+            }
+
             return data;
         } catch (error) {
             console.error(`InnerTube request failed for ${endpoint}:`, error);
             return null;
         }
     }
+
 
     /**
      * Parse time string (e.g., "3:45", "1:23:45") to seconds
@@ -99,11 +150,126 @@ class InnerTubeClient {
     }
 
     /**
-     * Get Home Feed
+     * Reset visitor data to get fresh personalization
+     * Call this when user wants to reset their YouTube Music recommendations
      */
+    static async resetVisitorData() {
+        try {
+            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+            await AsyncStorage.removeItem('innertube_visitor_data');
+            // Also clear the home feed cache
+            await AsyncStorage.removeItem('ytmusic_home_feed_full_v6');
+            console.log('🔄 Reset visitorData - recommendations will be refreshed');
+            return true;
+        } catch (e) {
+            console.error('Failed to reset visitorData:', e);
+            return false;
+        }
+    }
+
+    /**
+     * Get current visitor data (for debugging)
+     */
+    static async getVisitorData() {
+        try {
+            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+            return await AsyncStorage.getItem('innertube_visitor_data');
+        } catch (e) {
+            return null;
+        }
+    }
+    /**
+ * Get Home Feed with continuation support
+ * Fetches ALL sections by following continuation tokens (like OuterTune)
+ * Uses auth cookies if user is logged in for personalized content
+ */
     static async getHome() {
-        const data = await this.request('browse', { browseId: 'FEmusic_home' });
-        return this.parseHome(data);
+        let authCookies = null;
+
+        // Try to get auth cookies for personalized content
+        try {
+            const ytAuthService = require('../Utils/YouTubeAuthService').default;
+            if (ytAuthService.isAuth()) {
+                authCookies = await ytAuthService.getCookies();
+                console.log('🔐 InnerTube getHome: Using authenticated request');
+            }
+        } catch (e) {
+            console.log('InnerTube getHome: Proceeding without auth');
+        }
+
+        // Get user's language and country preference from settings
+        // Note: Language affects UI text, songs are based on listening HISTORY (visitorData)
+        // Use an account with listening history for personalized recommendations
+        let userLanguage = 'SYSTEM_DEFAULT';
+        let userCountry = 'SYSTEM_DEFAULT';
+        try {
+            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+            const storedLang = await AsyncStorage.getItem('ytmusic_language');
+            const storedCountry = await AsyncStorage.getItem('ytmusic_country');
+            if (storedLang) userLanguage = storedLang;
+            if (storedCountry) userCountry = storedCountry;
+            console.log(`🌍 InnerTube getHome: Using locale ${userLanguage}/${userCountry}`);
+        } catch (e) {
+            console.log('InnerTube getHome: Using system default locale');
+        }
+
+        // Initial request with user's language preference
+        const data = await this.request('browse', { browseId: 'FEmusic_home' }, userCountry, authCookies, userLanguage);
+
+        // Parse initial sections, chips, and continuation token
+        const { sections, chips, continuation } = this.parseHomeWithContinuation(data);
+        console.log(`📊 InnerTube getHome: Initial sections: ${sections.length}, chips: ${chips?.length || 0}`);
+
+        let allSections = [...sections];
+        const seenTitles = new Set(sections.map(s => s.title));
+
+        // If we have chips, use them to load more content (more reliable than continuation)
+        if (chips && chips.length > 0) {
+            console.log(`🎨 InnerTube getHome: Found ${chips.length} chips, loading content from each...`);
+
+            // Load content from up to 5 chips
+            const chipPromises = chips.slice(0, 5).map(async (chip, idx) => {
+                if (!chip.params) return [];
+
+                console.log(`🏷️ Loading chip ${idx + 1}: "${chip.title}" with params`);
+                const chipData = await this.request('browse', {
+                    browseId: 'FEmusic_home',
+                    params: chip.params
+                }, userCountry, authCookies, userLanguage);
+
+                const chipResult = this.parseHomeWithContinuation(chipData);
+                return chipResult.sections;
+            });
+
+            const chipResults = await Promise.all(chipPromises);
+
+            chipResults.forEach(chipSections => {
+                chipSections.forEach(section => {
+                    if (!seenTitles.has(section.title)) {
+                        seenTitles.add(section.title);
+                        allSections.push(section);
+                        console.log(`✅ Added from chip: "${section.title}"`);
+                    }
+                });
+            });
+        }
+
+        // Also try continuation if available (may or may not work)
+        if (continuation && allSections.length < 10) {
+            console.log('🔄 InnerTube getHome: Trying continuation...');
+            const contData = await this.request('browse', { continuation }, userCountry, authCookies, userLanguage);
+            const contResult = this.parseHomeContinuation(contData);
+
+            contResult.sections.forEach(section => {
+                if (!seenTitles.has(section.title)) {
+                    seenTitles.add(section.title);
+                    allSections.push(section);
+                }
+            });
+        }
+
+        console.log(`🎉 InnerTube getHome: Total sections fetched: ${allSections.length}`);
+        return allSections;
     }
 
     /**
@@ -279,7 +445,7 @@ class InnerTubeClient {
                     if (items.length > 0) {
                         sections.push({
                             title: shelf.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.[0]?.text || '',
-                            contents: items // 'contents' matches YTMusic.js expectations
+                            contents: items
                         });
                     }
                 }
@@ -287,6 +453,148 @@ class InnerTubeClient {
         } catch (e) { console.error('Parse Home Error', e); }
         return sections;
     }
+
+    /**
+     * Parse home response and extract continuation token and chips
+     */
+    static parseHomeWithContinuation(data) {
+        const sections = [];
+        let continuation = null;
+        let chips = [];
+
+        try {
+            console.log('🔍 parseHomeWithContinuation: Analyzing response structure...');
+            console.log('🔍 Response has contents:', !!data?.contents);
+            console.log('🔍 Response has singleColumnBrowseResultsRenderer:', !!data?.contents?.singleColumnBrowseResultsRenderer);
+
+            const tabs = data?.contents?.singleColumnBrowseResultsRenderer?.tabs;
+            console.log('🔍 Tabs found:', tabs?.length || 0);
+
+            if (!tabs) {
+                console.log('❌ No tabs found in response');
+                console.log('🔍 Response keys:', Object.keys(data || {}));
+                return { sections: [], continuation: null, chips: [] };
+            }
+
+            const sectionListRenderer = tabs[0]?.tabRenderer?.content?.sectionListRenderer;
+            const content = sectionListRenderer?.contents;
+
+            console.log('🔍 SectionListRenderer contents count:', content?.length || 0);
+            console.log('🔍 SectionListRenderer has continuations:', !!sectionListRenderer?.continuations);
+
+            // Extract chips from header (used for loading more content)
+            const chipCloud = sectionListRenderer?.header?.chipCloudRenderer?.chips;
+            if (chipCloud && Array.isArray(chipCloud)) {
+                chips = chipCloud.map(chip => {
+                    const chipRenderer = chip.chipCloudChipRenderer;
+                    if (!chipRenderer) return null;
+                    return {
+                        title: chipRenderer.text?.runs?.[0]?.text || '',
+                        params: chipRenderer.navigationEndpoint?.browseEndpoint?.params || null,
+                        isSelected: chipRenderer.isSelected || false
+                    };
+                }).filter(c => c && c.params && !c.isSelected);
+                console.log('🎨 Found chips:', chips.map(c => c.title).join(', '));
+            }
+
+            // Get continuation token for more sections
+            continuation = sectionListRenderer?.continuations?.[0]?.nextContinuationData?.continuation ||
+                sectionListRenderer?.continuations?.[0]?.reloadContinuationData?.continuation;
+
+            console.log('🔍 Continuation token found:', continuation ? 'YES' : 'NO');
+
+            content?.forEach((section, idx) => {
+                if (section.musicCarouselShelfRenderer) {
+                    const shelf = section.musicCarouselShelfRenderer;
+                    const title = shelf.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.[0]?.text || '';
+                    const items = shelf.contents?.map(item => this.parseItem(item)).filter(i => i) || [];
+                    console.log(`🎯 Section ${idx}: "${title}" - ${items.length} items`);
+                    if (items.length > 0) {
+                        sections.push({
+                            title,
+                            contents: items
+                        });
+                    }
+                } else if (section.musicImmersiveCarouselShelfRenderer) {
+                    // Handle immersive carousel (sometimes used for featured content)
+                    const shelf = section.musicImmersiveCarouselShelfRenderer;
+                    const title = shelf.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.[0]?.text || 'Featured';
+                    const items = shelf.contents?.map(item => this.parseItem(item)).filter(i => i) || [];
+                    console.log(`🎯 Immersive Section ${idx}: "${title}" - ${items.length} items`);
+                    if (items.length > 0) {
+                        sections.push({
+                            title,
+                            contents: items
+                        });
+                    }
+                } else {
+                    console.log(`⏭️ Section ${idx}: Skipped (not a carousel shelf). Keys:`, Object.keys(section));
+                }
+            });
+        } catch (e) {
+            console.error('Parse Home With Continuation Error', e);
+        }
+
+        console.log(`📊 parseHomeWithContinuation: Returning ${sections.length} sections, ${chips.length} chips`);
+        return { sections, continuation, chips };
+    }
+
+    /**
+     * Parse home continuation response
+     * Handles both continuationContents (proper continuation) and contents (fallback)
+     */
+    static parseHomeContinuation(data) {
+        const sections = [];
+        let continuation = null;
+
+        try {
+            console.log('🔍 parseHomeContinuation: Analyzing response...');
+            console.log('🔍 Has continuationContents:', !!data?.continuationContents);
+            console.log('🔍 Has contents:', !!data?.contents);
+            console.log('🔍 Response keys:', Object.keys(data || {}));
+
+            const sectionListContinuation = data?.continuationContents?.sectionListContinuation;
+
+            if (sectionListContinuation) {
+                console.log('✅ Found sectionListContinuation with', sectionListContinuation.contents?.length || 0, 'sections');
+
+                // Get next continuation token
+                continuation = sectionListContinuation.continuations?.[0]?.nextContinuationData?.continuation ||
+                    sectionListContinuation.continuations?.[0]?.reloadContinuationData?.continuation;
+
+                // Parse sections
+                sectionListContinuation.contents?.forEach((section, idx) => {
+                    if (section.musicCarouselShelfRenderer) {
+                        const shelf = section.musicCarouselShelfRenderer;
+                        const title = shelf.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.[0]?.text || '';
+                        const items = shelf.contents?.map(item => this.parseItem(item)).filter(i => i) || [];
+                        console.log(`🎯 Continuation Section ${idx}: "${title}" - ${items.length} items`);
+                        if (items.length > 0) {
+                            sections.push({
+                                title,
+                                contents: items
+                            });
+                        }
+                    }
+                });
+            } else if (data?.contents?.singleColumnBrowseResultsRenderer) {
+                // Fallback: API returned fresh content instead of continuation
+                // Parse it as a fresh response but skip duplicates
+                console.log('⚠️ No continuationContents, falling back to fresh response parsing');
+                const result = this.parseHomeWithContinuation(data);
+                sections.push(...result.sections);
+                continuation = result.continuation;
+            } else {
+                console.log('❌ No valid response structure found');
+            }
+        } catch (e) {
+            console.error('Parse Home Continuation Error', e);
+        }
+
+        console.log(`📊 parseHomeContinuation: Returning ${sections.length} sections, continuation: ${!!continuation}`);
+        return { sections, continuation };
+    }
+
 
     static parseSearch(data, filter) {
         const results = [];

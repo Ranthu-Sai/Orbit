@@ -310,6 +310,21 @@ async function PlayOneSong(song) {
     else if (song.isDabTrack || song.source === 'dab' || (!isNaN(song.url) && String(song.url).length > 5)) {
       try {
         console.log('🎵 DAB Track detected! Fetching stream URL for ID:', song.id);
+
+        // OPTIMISTIC UI: Emit early metadata so mini player shows immediately
+        const earlyArtwork = extractArtwork(song) || song.artwork || song.image || '';
+        DeviceEventEmitter.emit('song-loading-started', {
+          id: song.id,
+          title: song.title || song.name || 'Loading...',
+          artist: song.artist || 'Loading...',
+          artwork: earlyArtwork,
+          image: earlyArtwork,
+          duration: song.duration,
+          isLoading: true,
+          isDabTrack: true, // Flag for UI to show DAB indicator
+        });
+        console.log('📱 Emitted optimistic UI for DAB Music');
+
         await dabMusicService.initialize();
         const streamUrl = await dabMusicService.getStreamUrl(song.id);
 
@@ -599,34 +614,126 @@ async function AddPlaylist(songs, startSongId = null) {
       }
       // Check if this is a DAB Music track
       else if (song.isDabTrack || song.source === 'dab' || (!isNaN(song.url) && String(song.url).length > 5)) {
-        try {
-          // For DAB tracks, we might also want to lazy load if there are many?
-          // For now, keeping existing logic but logging
-          // console.log('🎵 DAB Track detected in playlist:', song.id);
-          await dabMusicService.initialize();
-          const streamUrl = await dabMusicService.getStreamUrl(song.id);
+        const isFirstSong = index === 0;
 
-          if (streamUrl) {
-            playbackUrl = streamUrl;
-            // Parse format from URL to determine quality
-            const fmtMatch = streamUrl.match(/[?&]fmt=(\d+)/);
-            const fmt = fmtMatch ? fmtMatch[1] : null;
-            const formatMap = {
-              '5': 'MP3 320kbps',
-              '6': 'FLAC 16-bit/44.1kHz',
-              '7': 'FLAC 24-bit/96kHz',
-              '27': 'FLAC 24-bit/192kHz'
-            };
-            const dabQuality = formatMap[fmt] || 'FLAC';
+        if (isFirstSong) {
+          try {
+            console.log('🎵 Fetching DAB stream for first playlist song:', song.title);
 
-            updatedSong = {
-              ...updatedSong,
-              url: streamUrl,
-              currentPlayingQuality: dabQuality
-            };
+            // OPTIMISTIC UI: Emit early metadata so player shows immediately
+            const earlyArtwork = extractArtwork(song) || song.artwork || song.image || '';
+            DeviceEventEmitter.emit('song-loading-started', {
+              id: song.id,
+              title: song.title || song.name || 'Loading...',
+              artist: song.artist || 'Loading...',
+              artwork: earlyArtwork,
+              image: earlyArtwork,
+              duration: song.duration,
+              isLoading: true,
+              isDabTrack: true,
+            });
+
+            await dabMusicService.initialize();
+            const streamUrl = await dabMusicService.getStreamUrl(song.id);
+
+            if (streamUrl) {
+              playbackUrl = streamUrl;
+              // Parse format from URL to determine quality
+              const fmtMatch = streamUrl.match(/[?&]fmt=(\d+)/);
+              const fmt = fmtMatch ? fmtMatch[1] : null;
+              const formatMap = {
+                '5': 'MP3 320kbps',
+                '6': 'FLAC 16-bit/44.1kHz',
+                '7': 'FLAC 24-bit/96kHz',
+                '27': 'FLAC 24-bit/192kHz'
+              };
+              const dabQuality = formatMap[fmt] || 'FLAC';
+
+              updatedSong = {
+                ...updatedSong,
+                url: streamUrl,
+                source: 'dab',
+                isDabTrack: true,
+                currentPlayingQuality: dabQuality
+              };
+              console.log('✅ DAB stream URL fetched for first song');
+            }
+          } catch (error) {
+            console.error('Error fetching DAB stream for first song:', error);
           }
-        } catch (error) {
-          // console.error('❌ Error fetching DAB stream (soft fail):', error.message);
+        } else {
+          // LAZY LOAD: Set placeholder and flags for later processing
+          playbackUrl = `dab://${song.id}`;
+          updatedSong._needsStream = true;
+          updatedSong._needsDabStream = true;
+          updatedSong.source = 'dab';
+          updatedSong.isDabTrack = true;
+          updatedSong.sourceType = 'online';
+          updatedSong.url = playbackUrl;
+          updatedSong.currentPlayingQuality = currentQuality;
+        }
+      }
+      // SPOTIFY SUPPORT: Handle Spotify tracks (map to YTMusic for playback)
+      else if (song.source === 'spotify' || song.spotifyId) {
+        const isFirstSong = index === 0;
+
+        if (isFirstSong) {
+          try {
+            console.log('🎵 Fetching YTMusic stream for first Spotify playlist song:', song.title);
+
+            // OPTIMISTIC UI: Emit early metadata so player shows immediately
+            const earlyArtwork = extractArtwork(song) || song.artwork || song.image || '';
+            DeviceEventEmitter.emit('song-loading-started', {
+              id: song.id,
+              title: song.title || song.name || 'Loading...',
+              artist: song.artist || 'Finding on YTMusic...',
+              artwork: earlyArtwork,
+              image: earlyArtwork,
+              duration: song.duration,
+              isLoading: true,
+              isSpotifyMapping: true,
+            });
+
+            // Use YouTubeMusicService to map and get stream URL
+            const YouTubeMusicService = require('./Utils/YouTubeMusicService').default;
+            const ytMusicResult = await YouTubeMusicService.searchAndStream(
+              song.title || song.name,
+              song.artist || ''
+            );
+
+            if (ytMusicResult && ytMusicResult.url && !ytMusicResult.error) {
+              playbackUrl = ytMusicResult.url;
+              const isOpus = ytMusicResult.mimeType?.includes('webm');
+              const estimatedBitrate = ytMusicResult.bitrate || (isOpus ? 148000 : 256000);
+              const bitrateKbps = Math.round(estimatedBitrate / 1000);
+              const codec = isOpus ? 'Opus' : 'AAC';
+
+              updatedSong = {
+                ...updatedSong,
+                url: ytMusicResult.url,
+                headers: ytMusicResult.headers,
+                userAgent: ytMusicResult.headers?.['User-Agent'],
+                ytMusicVideoId: ytMusicResult.videoId,
+                mappedFromSpotify: true,
+                currentPlayingQuality: `${codec} ${bitrateKbps}kbps`,
+              };
+              console.log('✅ Spotify → YTMusic mapping successful for first song');
+            } else {
+              console.error('❌ Failed to map first Spotify song to YTMusic');
+            }
+          } catch (error) {
+            console.error('Error mapping first Spotify playlist song:', error);
+          }
+        } else {
+          // LAZY LOAD: Set placeholder and flags for later processing
+          playbackUrl = `spotify://${song.id || song.spotifyId}`;
+          updatedSong._needsStream = true;
+          updatedSong._needsSpotifyMapping = true;
+          updatedSong.source = 'spotify';
+          updatedSong.spotifyId = song.id || song.spotifyId;
+          updatedSong.sourceType = 'online';
+          updatedSong.url = playbackUrl;
+          updatedSong.currentPlayingQuality = currentQuality;
         }
       } else {
         // Standard file/download URL logic (Saavn, etc.)
@@ -916,6 +1023,8 @@ async function PlayNextSong() {
       // Check if next track needs stream (wasn't prefetched or still has placeholder URL)
       const needsStream = nextTrack._needsStream ||
         nextTrack.url?.startsWith('ytmusic://') ||
+        nextTrack.url?.startsWith('spotify://') ||
+        nextTrack.url?.startsWith('dab://') ||
         nextTrack.url?.includes('music.youtube.com');
 
       // 🚀 OPTIMISTIC UI: Emit metadata IMMEDIATELY for instant visual feedback
@@ -1041,6 +1150,8 @@ async function PlayPreviousSong() {
       // Check if previous track needs stream (wasn't prefetched or has placeholder URL)
       const needsStream = prevTrack._needsStream ||
         prevTrack.url?.startsWith('ytmusic://') ||
+        prevTrack.url?.startsWith('spotify://') ||
+        prevTrack.url?.startsWith('dab://') ||
         prevTrack.url?.includes('music.youtube.com');
 
       // 🚀 OPTIMISTIC UI: Emit metadata IMMEDIATELY for instant visual feedback

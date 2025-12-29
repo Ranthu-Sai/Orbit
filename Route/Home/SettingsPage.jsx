@@ -3,6 +3,7 @@ import { PaddingConatiner } from "../../Layout/PaddingConatiner";
 import { ScrollView, ToastAndroid, View, TouchableOpacity, Alert, Image, TextInput } from "react-native";
 import { List, Card, Text, Switch, TouchableRipple, Portal, Modal, Avatar, Button } from "react-native-paper";
 import { useRef } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import {
   GetDownloadPath,
@@ -21,6 +22,8 @@ import {
   SetLyricsProvider,
   GetLyricsAnimationStyle,
   SetLyricsAnimationStyle,
+  GetHomeFeedSource,
+  SetHomeFeedSource,
 } from "../../LocalStorage/AppSettings";
 import { useEffect, useState } from "react";
 import { useTheme } from "@react-navigation/native";
@@ -43,8 +46,11 @@ export const SettingsPage = ({ navigation }) => {
   const [themePreference, setThemePreference] = useState(settingsConfig.defaults.themePreference);
   const [colorScheme, setColorScheme] = useState(settingsConfig.defaults.colorScheme);
   const [musicSource, setMusicSource] = useState(settingsConfig.defaults.musicSource);
+  const [homeFeedSource, setHomeFeedSource] = useState(settingsConfig.defaults.homeFeedSource);
   const [lyricsProvider, setLyricsProvider] = useState(settingsConfig.defaults.lyricsProvider);
   const [lyricsAnimationStyle, setLyricsAnimationStyle] = useState(settingsConfig.defaults.lyricsAnimationStyle);
+  const [ytMusicLanguage, setYtMusicLanguage] = useState('en');
+  const [ytMusicCountry, setYtMusicCountry] = useState('IN');
   const [downloadPathInfo, setDownloadPathInfo] = useState(null);
   const [dabUser, setDabUser] = useState(dabAuthService.getUser());
   const [isDabAuth, setIsDabAuth] = useState(dabAuthService.isAuth());
@@ -74,8 +80,10 @@ export const SettingsPage = ({ navigation }) => {
       setThemePreference(themePref || settingsConfig.defaults.themePreference);
       setColorScheme(colorSchemePref || settingsConfig.defaults.colorScheme);
       setMusicSource(musicSourcePref || settingsConfig.defaults.musicSource);
-      setMusicSource(musicSourcePref || settingsConfig.defaults.musicSource);
       setLyricsProvider(lyricsProviderPref || settingsConfig.defaults.lyricsProvider);
+
+      const loadedHomeFeedSource = await GetHomeFeedSource();
+      setHomeFeedSource(loadedHomeFeedSource || settingsConfig.defaults.homeFeedSource);
 
       const loadedLyricsAnimationStyle = await GetLyricsAnimationStyle();
       setLyricsAnimationStyle(loadedLyricsAnimationStyle || settingsConfig.defaults.lyricsAnimationStyle);
@@ -94,6 +102,12 @@ export const SettingsPage = ({ navigation }) => {
       // Load download path information
       const pathInfo = await StorageManager.getDownloadPathInfo();
       setDownloadPathInfo(pathInfo);
+
+      // Load YTMusic language and country preference
+      const savedYtLang = await AsyncStorage.getItem('ytmusic_language');
+      const savedYtCountry = await AsyncStorage.getItem('ytmusic_country');
+      if (savedYtLang) setYtMusicLanguage(savedYtLang);
+      if (savedYtCountry) setYtMusicCountry(savedYtCountry);
     } catch (error) {
       console.error('Error loading settings:', error);
       // Set default values if there's an error
@@ -224,6 +238,53 @@ export const SettingsPage = ({ navigation }) => {
         ToastAndroid.SHORT,
         ToastAndroid.CENTER,
       );
+    }
+  }
+
+  async function handleHomeFeedSourceChange(value) {
+    try {
+      await SetHomeFeedSource(value);
+      setHomeFeedSource(value);
+      ToastAndroid.showWithGravity(
+        `Home feed source changed to ${value}`,
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+    } catch (error) {
+      console.error('Error updating home feed source:', error);
+      ToastAndroid.showWithGravity(
+        'Failed to update home feed source',
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+    }
+  }
+
+  async function handleYtMusicLanguageChange(value) {
+    try {
+      await AsyncStorage.setItem('ytmusic_language', value);
+      setYtMusicLanguage(value);
+      ToastAndroid.showWithGravity(
+        `YTMusic UI language changed to ${value}`,
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+    } catch (error) {
+      console.error('Error updating YTMusic language:', error);
+    }
+  }
+
+  async function handleYtMusicCountryChange(value) {
+    try {
+      await AsyncStorage.setItem('ytmusic_country', value);
+      setYtMusicCountry(value);
+      ToastAndroid.showWithGravity(
+        `YTMusic region changed to ${value}. Pull to refresh home feed.`,
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+    } catch (error) {
+      console.error('Error updating YTMusic country:', error);
     }
   }
 
@@ -550,11 +611,66 @@ export const SettingsPage = ({ navigation }) => {
           onSelect={handleColorSchemeChange}
         />
         <DropDownMenu
-          title="Music Source"
-          icon="music"
-          data={settingsConfig.musicSources}
-          selectedValue={musicSource}
-          onSelect={handleMusicSourceChange}
+          title="Home Feed Source"
+          icon="home-variant"
+          data={settingsConfig.homeFeedSources}
+          selectedValue={homeFeedSource}
+          onSelect={handleHomeFeedSourceChange}
+        />
+        <DropDownMenu
+          title="YTMusic Content Language"
+          icon="translate"
+          data={[
+            { label: 'English', value: 'en' },
+            { label: 'Hindi', value: 'hi' },
+            { label: 'English (India)', value: 'en-IN' },
+            { label: 'Tamil', value: 'ta' },
+            { label: 'Telugu', value: 'te' },
+            { label: 'Kannada', value: 'kn' },
+            { label: 'Malayalam', value: 'ml' },
+            { label: 'Bengali', value: 'bn' },
+          ]}
+          selectedValue={ytMusicLanguage}
+          onSelect={handleYtMusicLanguageChange}
+        />
+        <DropDownMenu
+          title="YTMusic Region"
+          icon="earth"
+          data={[
+            { label: 'India', value: 'IN' },
+            { label: 'United States', value: 'US' },
+            { label: 'United Kingdom', value: 'GB' },
+            { label: 'Canada', value: 'CA' },
+            { label: 'Australia', value: 'AU' },
+            { label: 'Germany', value: 'DE' },
+            { label: 'France', value: 'FR' },
+            { label: 'Japan', value: 'JP' },
+            { label: 'South Korea', value: 'KR' },
+            { label: 'Brazil', value: 'BR' },
+            { label: 'Mexico', value: 'MX' },
+            { label: 'Italy', value: 'IT' },
+            { label: 'Spain', value: 'ES' },
+            { label: 'Russia', value: 'RU' },
+            { label: 'Netherlands', value: 'NL' },
+            { label: 'Poland', value: 'PL' },
+            { label: 'Sweden', value: 'SE' },
+            { label: 'Indonesia', value: 'ID' },
+            { label: 'Philippines', value: 'PH' },
+            { label: 'Pakistan', value: 'PK' },
+            { label: 'Bangladesh', value: 'BD' },
+            { label: 'Nigeria', value: 'NG' },
+            { label: 'South Africa', value: 'ZA' },
+            { label: 'Saudi Arabia', value: 'SA' },
+            { label: 'United Arab Emirates', value: 'AE' },
+            { label: 'Turkey', value: 'TR' },
+            { label: 'Thailand', value: 'TH' },
+            { label: 'Vietnam', value: 'VN' },
+            { label: 'Argentina', value: 'AR' },
+            { label: 'Chile', value: 'CL' },
+            { label: 'Colombia', value: 'CO' },
+          ]}
+          selectedValue={ytMusicCountry}
+          onSelect={handleYtMusicCountryChange}
         />
         <DropDownMenu
           title="Lyrics Provider"

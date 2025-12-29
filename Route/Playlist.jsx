@@ -5,6 +5,7 @@ import { EachSongCard } from "../Component/Global/EachSongCard";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { getPlaylistData } from "../Api/Playlist";
 import { getYTMusicPlaylistData } from "../Api/YTMusic";
+import { SpotifyService } from "../Utils/SpotifyService";
 import { DetailSkeletonLoader } from "../Component/Global/DetailSkeletonLoader";
 import { PlainText } from "../Component/Global/PlainText";
 import { SmallText } from "../Component/Global/SmallText";
@@ -207,6 +208,30 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
 
       if (effectiveSource === 'ytmusic') {
         data = await getYTMusicPlaylistData(id);
+      } else if (effectiveSource === 'spotify') {
+        // Fetch from Spotify API
+        const spotifyData = await SpotifyService.getPlaylist(id);
+        // Transform to match expected data structure
+        data = {
+          success: true,
+          data: {
+            id: spotifyData.id,
+            name: spotifyData.name,
+            description: spotifyData.description,
+            image: [{ url: spotifyData.image }, { url: spotifyData.image }, { url: spotifyData.image }],
+            follower: spotifyData.totalTracks + ' songs',
+            songs: spotifyData.tracks.map(track => ({
+              id: track.spotifyId,
+              name: track.title,
+              song: track.title,
+              title: track.title,
+              duration: track.duration,
+              artists: track.artist,
+              image: [{ url: track.artwork }, { url: track.artwork }, { url: track.artwork }],
+              source: 'spotify'
+            }))
+          }
+        };
       } else {
         data = await getPlaylistData(id);
       }
@@ -604,7 +629,7 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
   const renderHeader = useCallback(() => {
     const headerImageUrl = image ||
       Data?.data?.thumbnail ||
-      (Array.isArray(Data?.data?.image) ? Data.data.image[Data.data.image.length - 1]?.url : Data?.data?.image) ||
+      (Array.isArray(Data?.data?.image) ? (Data.data.image[2]?.url || Data.data.image[Data.data.image.length - 1]?.url) : Data?.data?.image) ||
       Data?.data?.songs?.[0]?.image?.[2]?.url ||
       Data?.data?.songs?.[0]?.images?.[2]?.url ||
       '';

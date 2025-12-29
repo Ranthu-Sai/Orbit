@@ -9,6 +9,7 @@ import { PlainText } from "../Component/Global/PlainText";
 import { SmallText } from "../Component/Global/SmallText";
 import { getAlbumData } from "../Api/Album";
 import { getYTMusicAlbumData } from "../Api/YTMusic";
+import { SpotifyService } from "../Utils/SpotifyService";
 
 import FormatArtist from "../Utils/FormatArtists";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -183,6 +184,29 @@ export const Album = ({ route }) => {
       let response;
       if (source === 'ytmusic') {
         response = await getYTMusicAlbumData(albumId);
+      } else if (source === 'spotify') {
+        // Fetch from Spotify API
+        const spotifyData = await SpotifyService.getAlbum(albumId);
+        // Transform to match expected data structure
+        response = {
+          success: true,
+          data: {
+            id: spotifyData.id,
+            name: spotifyData.name,
+            year: spotifyData.year,
+            image: [{ url: spotifyData.image }, { url: spotifyData.image }, { url: spotifyData.image }],
+            songs: spotifyData.tracks.map(track => ({
+              id: track.spotifyId,
+              name: track.title,
+              song: track.title,
+              title: track.title,
+              duration: track.duration,
+              artists: { primary: [{ name: track.artist }] },
+              image: [{ url: track.artwork }, { url: track.artwork }, { url: track.artwork }],
+              source: 'spotify'
+            }))
+          }
+        };
       } else {
         response = await getAlbumData(albumId);
       }

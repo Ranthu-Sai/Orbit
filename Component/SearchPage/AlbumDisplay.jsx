@@ -25,6 +25,9 @@ export default function AlbumsDisplay({ data, limit, Searchtext, source }) {
           if (source === 'ytmusic') {
             const { getYTMusicSearchAlbumData } = require('../../Api/YTMusic');
             fetchdata = await getYTMusicSearchAlbumData(text, page, limit);
+          } else if (source === 'spotify') {
+            // Spotify search returns all results at once, no pagination needed
+            return;
           } else {
             fetchdata = await getSearchAlbumData(text, page, limit);
           }
@@ -86,17 +89,21 @@ export default function AlbumsDisplay({ data, limit, Searchtext, source }) {
               // Safely extract image URL with fallbacks for different data formats
               let imageUrl = '';
               if (item.item?.image) {
-                if (Array.isArray(item.item.image) && item.item.image.length > 2) {
-                  // Handle object array format (YTMusic)
-                  if (item.item.image[2]?.url) {
-                    imageUrl = item.item.image[2].url;
-                  } else if (item.item.image[0]?.url) {
-                    imageUrl = item.item.image[0].url;
+                if (Array.isArray(item.item.image) && item.item.image.length > 0) {
+                  // Handle object array format (YTMusic, Spotify)
+                  // Prefer highest quality (index 2), fall back to last item, then first
+                  const bestImage = item.item.image[2] || item.item.image[item.item.image.length - 1] || item.item.image[0];
+                  if (bestImage) {
+                    imageUrl = bestImage.url || bestImage.link || '';
                   }
                 } else if (typeof item.item.image === 'string') {
                   // Handle direct URL string format (Saavn)
                   imageUrl = item.item.image;
                 }
+              }
+              // Fallback to artwork if image not found
+              if (!imageUrl && item.item?.artwork) {
+                imageUrl = item.item.artwork;
               }
 
               return (

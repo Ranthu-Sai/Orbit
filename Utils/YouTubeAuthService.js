@@ -97,6 +97,21 @@ class YouTubeAuthService {
     }
 
     /**
+     * Get stored cookies for authenticated API requests
+     * @returns {string|null} Cookie string or null if not authenticated
+     */
+    async getCookies() {
+        try {
+            const cookies = await AsyncStorage.getItem(YT_COOKIES_KEY);
+            return cookies || null;
+        } catch (error) {
+            console.error('YouTubeAuthService getCookies error:', error);
+            return null;
+        }
+    }
+
+
+    /**
      * Logout - clear all auth data
      */
     async logout() {
