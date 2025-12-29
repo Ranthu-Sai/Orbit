@@ -149,34 +149,47 @@ class SmartPrefetchManager {
      * PERFORMANCE FIX: Deferred with InteractionManager to prevent UI lag
      */
     _handleTrackChanged(event) {
-        // Check if track is a YouTube Music track (by source, not by stream status)
-        // We always want to prefetch next tracks for YTMusic, even if current track is ready
+        // Get track from event
         const track = event.track;
-        if (!track) {
-            // Log but don't exit - index might still be valid
-            console.log('🔔 SmartPrefetch: Track changed event', {
-                index: event.index,
-                trackId: undefined
-            });
-        } else {
-            // Check if it's YouTube Music source
+
+        // We want to prefetch NEXT tracks for ALL streaming sources
+        // Even if current track is resolved, next tracks may need prefetch
+        // So we check by source type, not by whether current track needs streaming
+
+        let shouldPrefetch = false;
+        let detectedSource = 'unknown';
+
+        if (track) {
+            // YTMusic tracks (including resolved ones with valid URLs)
             const isYTMusic = track.source === 'ytmusic' ||
                 track.isYTMusic === true ||
-                (track.id && track.id.length === 11 && !track.isLocalMusic);
+                (track.id && typeof track.id === 'string' && track.id.length === 11 && !track.isLocalMusic);
 
-            if (!isYTMusic) {
-                // Silently skip - this is not a YouTube Music track
-                return;
-            }
+            // Spotify tracks (even after resolution, source stays 'spotify')
+            const isSpotify = track.source === 'spotify' || track.spotifyId || track.mappedFromSpotify;
 
-            // Debug: Log event to verify handler is called (only for YTMusic)
+            // DAB tracks
+            const isDab = track.source === 'dab' || track.isDabTrack;
+
+            shouldPrefetch = isYTMusic || isSpotify || isDab;
+            detectedSource = isYTMusic ? 'ytmusic' : (isSpotify ? 'spotify' : (isDab ? 'dab' : 'other'));
+        } else {
+            // No track in event - try to check queue directly
+            // This can happen in some edge cases
+            shouldPrefetch = true; // Optimistically try to prefetch
+        }
+
+        // Log event for debugging (only for streaming sources)
+        if (shouldPrefetch) {
             console.log('🔔 SmartPrefetch: Track changed event', {
                 index: event.index,
-                trackId: track.id
+                trackId: track?.id,
+                source: detectedSource,
+                title: track?.title?.substring(0, 30)
             });
         }
 
-        if (event.index !== undefined && event.index !== null) {
+        if (event.index !== undefined && event.index !== null && shouldPrefetch) {
             this._cancelPendingPrefetch();
 
             // PERFORMANCE FIX: Defer heavy operations to prevent UI lag during playback start
@@ -377,7 +390,56 @@ class SmartPrefetchManager {
 
             console.log(`🔄 Prefetching track ${index}: ${track.title}`);
 
-            const streamData = await youtubeStreamingService.getStreamUrl(track.id);
+            let streamData = null;
+
+            // SPOTIFY HANDLING: Map to YTMusic first, then get stream
+            if (track.source === 'spotify' || track.spotifyId || track._needsSpotifyMapping || track.url?.startsWith('spotify://')) {
+                console.log(`🎵 Spotify track detected, mapping to YTMusic: ${track.title}`);
+                try {
+                    const YouTubeMusicService = require('./YouTubeMusicService').default;
+                    const ytMusicResult = await YouTubeMusicService.searchAndStream(
+                        track.title || track.name,
+                        track.artist || ''
+                    );
+
+                    if (ytMusicResult && ytMusicResult.url && !ytMusicResult.error) {
+                        streamData = {
+                            url: ytMusicResult.url,
+                            headers: ytMusicResult.headers,
+                            videoId: ytMusicResult.videoId,
+                            mappedFromSpotify: true
+                        };
+                        console.log(`✅ Spotify → YTMusic mapped for prefetch: ${track.title} → ${ytMusicResult.videoId}`);
+                    } else {
+                        console.error(`❌ Failed to map Spotify track to YTMusic: ${track.title}`);
+                    }
+                } catch (error) {
+                    console.error(`❌ Spotify mapping error for prefetch: ${error.message}`);
+                }
+            }
+            // DAB HANDLING: Get DAB stream
+            else if (track.source === 'dab' || track.isDabTrack || track._needsDabStream || track.url?.startsWith('dab://')) {
+                console.log(`🎵 DAB track detected, fetching stream: ${track.title}`);
+                try {
+                    const dabMusicService = require('./DabMusicService').default;
+                    await dabMusicService.initialize();
+                    const dabStreamUrl = await dabMusicService.getStreamUrl(track.id);
+
+                    if (dabStreamUrl) {
+                        streamData = {
+                            url: dabStreamUrl,
+                            headers: {}
+                        };
+                        console.log(`✅ DAB stream fetched for prefetch: ${track.title}`);
+                    }
+                } catch (error) {
+                    console.error(`❌ DAB stream error for prefetch: ${error.message}`);
+                }
+            }
+            // YTMUSIC HANDLING: Standard YouTube stream fetch
+            else {
+                streamData = await youtubeStreamingService.getStreamUrl(track.id);
+            }
 
             if (streamData && streamData.url) {
                 // Store prefetched data
@@ -717,6 +779,7 @@ class SmartPrefetchManager {
 
     /**
      * On-demand fetch for random song selection (with retry)
+     * Handles Spotify (maps to YTMusic) and DAB tracks
      */
     async fetchOnDemand(trackId) {
         console.log(`🎯 On-demand fetch for: ${trackId}`);
@@ -728,12 +791,58 @@ class SmartPrefetchManager {
             return cached;
         }
 
+        // Get track info from queue to determine source
+        let track = null;
+        try {
+            const queue = await TrackPlayer.getQueue();
+            track = queue.find(t => t.id === trackId);
+        } catch (e) {
+            console.warn('Could not get queue for track lookup');
+        }
+
         // Fetch with retry
         for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
             try {
                 console.log(`🔄 Fetch attempt ${attempt}/${MAX_RETRY_ATTEMPTS} for: ${trackId}`);
 
-                const streamData = await youtubeStreamingService.getStreamUrl(trackId);
+                let streamData = null;
+
+                // SPOTIFY HANDLING: Map to YTMusic first
+                if (track && (track.source === 'spotify' || track.spotifyId || track._needsSpotifyMapping || track.url?.startsWith('spotify://'))) {
+                    console.log(`🎵 On-demand: Mapping Spotify track to YTMusic: ${track.title}`);
+                    const YouTubeMusicService = require('./YouTubeMusicService').default;
+                    const ytMusicResult = await YouTubeMusicService.searchAndStream(
+                        track.title || track.name,
+                        track.artist || ''
+                    );
+
+                    if (ytMusicResult && ytMusicResult.url && !ytMusicResult.error) {
+                        streamData = {
+                            url: ytMusicResult.url,
+                            headers: ytMusicResult.headers,
+                            videoId: ytMusicResult.videoId,
+                            mappedFromSpotify: true
+                        };
+                    }
+                }
+                // DAB HANDLING: Get DAB stream
+                else if (track && (track.source === 'dab' || track.isDabTrack || track._needsDabStream || track.url?.startsWith('dab://'))) {
+                    console.log(`🎵 On-demand: Fetching DAB stream: ${track.title}`);
+                    const dabMusicService = require('./DabMusicService').default;
+                    await dabMusicService.initialize();
+                    const dabStreamUrl = await dabMusicService.getStreamUrl(trackId);
+
+                    if (dabStreamUrl) {
+                        streamData = {
+                            url: dabStreamUrl,
+                            headers: {}
+                        };
+                    }
+                }
+                // YTMUSIC HANDLING: Standard YouTube stream fetch
+                else {
+                    streamData = await youtubeStreamingService.getStreamUrl(trackId);
+                }
 
                 if (streamData && streamData.url) {
                     // Cache it

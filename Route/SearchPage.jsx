@@ -511,13 +511,7 @@ export const SearchPage = ({ navigation }) => {
           </Text>
         </View>
       )}
-      {selectedSource === 'spotify' && (
-        <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
-          <Text style={{ color: colors.text, opacity: 0.7, fontSize: 12, textAlign: 'center' }}>
-            🎵 Spotify Search → Plays via YTMusic
-          </Text>
-        </View>
-      )}
+
       <Spacer height={15} />
 
       {/* Logic to show Suggestions OR History OR Results */}

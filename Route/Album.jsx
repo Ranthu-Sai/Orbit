@@ -197,12 +197,16 @@ export const Album = ({ route }) => {
             image: [{ url: spotifyData.image }, { url: spotifyData.image }, { url: spotifyData.image }],
             songs: spotifyData.tracks.map(track => ({
               id: track.spotifyId,
+              spotifyId: track.spotifyId,
               name: track.title,
               song: track.title,
               title: track.title,
               duration: track.duration,
-              artists: { primary: [{ name: track.artist }] },
+              artist: track.artist, // String format for playback/search
+              artists: { primary: [{ name: track.artist }] }, // Display format
+              primaryArtists: track.artist, // For FormatArtist compatibility
               image: [{ url: track.artwork }, { url: track.artwork }, { url: track.artwork }],
+              artwork: track.artwork, // Direct artwork URL
               source: 'spotify'
             }))
           }

@@ -4,6 +4,7 @@ import historyManager from './Utils/HistoryManager';
 import autoRecommendations from './Utils/AutoRecommendations';
 import DownloadQueueService from './Utils/DownloadQueueService';
 import listeningHistoryService from './Utils/ListeningHistoryService';
+import smartPrefetchManager from './Utils/SmartPrefetchManager';
 import { PlayNextSong, PlayPreviousSong } from './MusicPlayerFunctions';
 
 let isPlayerInitialized = false;
@@ -40,6 +41,9 @@ export const PlaybackService = async function () {
     // Download queue service - handles queue end for downloaded songs
     DownloadQueueService.initialize();
     console.log('Download queue service initialized');
+
+    // Initialize SmartPrefetchManager for N+1, N+2 prefetching
+    smartPrefetchManager.initialize();
 
     await TrackPlayer.updateOptions({
       android: {

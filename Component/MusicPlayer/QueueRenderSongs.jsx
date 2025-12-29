@@ -512,7 +512,9 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
     return () => {
       restoreConsole();
     };
-  }, [currentPlaying, isDragging, isOffline]);
+    // Use currentPlayingId as dependency instead of currentPlaying object
+    // This prevents excessive re-initialization when object reference changes but track is same
+  }, [currentPlaying?.id, isDragging, isOffline]);
 
   // Function to handle removing track from queue (used by swipe gesture)
   const handleRemoveFromQueue = async (displayIndex, trackId) => {

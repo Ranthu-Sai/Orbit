@@ -222,12 +222,16 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
             follower: spotifyData.totalTracks + ' songs',
             songs: spotifyData.tracks.map(track => ({
               id: track.spotifyId,
+              spotifyId: track.spotifyId,
               name: track.title,
               song: track.title,
               title: track.title,
               duration: track.duration,
-              artists: track.artist,
+              artist: track.artist, // String format for playback
+              artists: track.artist, // Also as artists for display
+              primaryArtists: track.artist, // For FormatArtist compatibility
               image: [{ url: track.artwork }, { url: track.artwork }, { url: track.artwork }],
+              artwork: track.artwork, // Direct artwork URL
               source: 'spotify'
             }))
           }

@@ -677,7 +677,7 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
             ellipsizeMode="tail"
           />
           <SmallText
-            text={truncateText(formatText(artist), isFromAlbum ? 30 : isFromPlaylist ? 32 : 35) + formatDuration(duration)}
+            text={truncateText(formatText(artist), isFromAlbum ? 30 : isFromPlaylist ? 32 : 35)}
             isArtistName={true}
             style={{
               width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.63 : isFromPlaylist ? 0.59 : 0.63),

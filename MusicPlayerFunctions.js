@@ -764,23 +764,67 @@ async function AddPlaylist(songs, startSongId = null) {
       const artworkUrl = extractArtwork(song) || extractArtwork(updatedSong);
 
       // Normalize Saavn song data (Saavn uses 'name' instead of 'title')
+      // Extract artist from multiple possible formats
+      let extractedArtist =
+        updatedSong.artist ||
+        song.artist ||  // Direct artist string (Spotify)
+        (typeof song.artists === 'string' ? song.artists : null) ||  // artists as string
+        song.primaryArtists ||  // primaryArtists field
+        (song.artists?.primary ? FormatArtist(song.artists.primary) : null) ||  // Saavn format
+        'Unknown Artist';
+
       const normalizedSong = {
         ...updatedSong,
         url: playbackUrl || updatedSong.url,
         title: updatedSong.title || updatedSong.name || song.name || 'Unknown',
-        artist: updatedSong.artist || (song.artists?.primary ? FormatArtist(song.artists.primary) : 'Unknown Artist'),
+        artist: extractedArtist,
         artwork: artworkUrl,
         image: artworkUrl,
         currentPlayingQuality: currentQuality
       };
 
+      // SAFETY: Ensure all songs have a URL - use placeholder if missing
+      // TrackPlayer throws "URL cannot be empty" if url is missing
+      if (!normalizedSong.url) {
+        // For Spotify tracks - use spotify:// placeholder
+        if (song.source === 'spotify' || song.spotifyId || updatedSong._needsSpotifyMapping) {
+          normalizedSong.url = `spotify://${song.id || song.spotifyId || 'unknown'}`;
+          normalizedSong._needsStream = true;
+          normalizedSong._needsSpotifyMapping = true;
+          normalizedSong.source = 'spotify';
+          console.log(`⚠️ Safety: Added Spotify placeholder URL for ${normalizedSong.title}`);
+        }
+        // For DAB tracks - use dab:// placeholder  
+        else if (song.source === 'dab' || song.isDabTrack || updatedSong._needsDabStream) {
+          normalizedSong.url = `dab://${song.id || 'unknown'}`;
+          normalizedSong._needsStream = true;
+          normalizedSong._needsDabStream = true;
+          normalizedSong.source = 'dab';
+          console.log(`⚠️ Safety: Added DAB placeholder URL for ${normalizedSong.title}`);
+        }
+        // For YTMusic tracks - use ytmusic:// placeholder
+        else if (isYouTubeSong) {
+          normalizedSong.url = `ytmusic://${song.id || song.videoId || 'unknown'}`;
+          normalizedSong._needsStream = true;
+          console.log(`⚠️ Safety: Added YTMusic placeholder URL for ${normalizedSong.title}`);
+        }
+        // Fallback: Skip songs with no URL and no identifiable source
+        else {
+          console.warn(`⚠️ Skipping song with no URL: ${normalizedSong.title}`);
+          return null;
+        }
+      }
+
       return normalizedSong;
     }));
+
+    // Filter out null entries (songs that were skipped)
+    const validSongs = processedSongs.filter(song => song !== null);
 
     // BATCHED PLAYLIST ADDITION
     // 1. Add first batch for instant playback
     const INITIAL_BATCH_SIZE = 20;
-    const initialBatch = processedSongs.slice(0, INITIAL_BATCH_SIZE);
+    const initialBatch = validSongs.slice(0, INITIAL_BATCH_SIZE);
 
     await TrackPlayer.reset();
     await TrackPlayer.add(initialBatch);
@@ -792,7 +836,7 @@ async function AddPlaylist(songs, startSongId = null) {
     console.log(`✅ Playlist: Added initial ${initialBatch.length} songs and started playback`);
 
     // 2. Add remaining songs in background
-    const remainingSongs = processedSongs.slice(INITIAL_BATCH_SIZE);
+    const remainingSongs = validSongs.slice(INITIAL_BATCH_SIZE);
 
     if (remainingSongs.length > 0) {
       InteractionManager.runAfterInteractions(async () => {
