@@ -13,11 +13,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer, { Event } from 'react-native-track-player';
 import { debounce } from './EventDebouncer';
+import YouTubeMusicService from './YouTubeMusicService';
 
 // Keys for AsyncStorage
 const LISTENING_SESSION_KEY = 'ytmusic_listening_session';
 const HOME_FEED_CACHE_KEY = 'ytmusic_home_feed_full_v6';
-const SONGS_UNTIL_REFRESH = 3; // Refresh after 3 songs played
+const SONGS_UNTIL_REFRESH = 1; // Refresh after every song for instant personalization (OuterTune style)
 
 class ListeningHistoryService {
     constructor() {
@@ -104,6 +105,10 @@ class ListeningHistoryService {
         this.sessionPlayCount++;
 
         console.log(`📊 ListeningHistory: Played song #${this.sessionPlayCount}: "${track.title}"`);
+
+        // Report playback to YouTube to update visitorData/history
+        // This makes personalization work (like OuterTune)
+        YouTubeMusicService.registerPlayback(songId);
 
         await this.saveSession();
 

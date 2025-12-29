@@ -18,6 +18,7 @@ import { PlaylistRowSkeleton } from './PlaylistRowSkeleton';
 import YouTubeMusicService from '../../Utils/YouTubeMusicService';
 import ytAuthService from '../../Utils/YouTubeAuthService';
 import listeningHistoryService from '../../Utils/ListeningHistoryService';
+import localRecommendationService from '../../Utils/LocalRecommendationService';
 
 const CACHE_KEY = 'ytmusic_home_feed_full_v6';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -193,6 +194,8 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
                             console.log('[YTMusicHomeFeed] Cache hit, sections:', parsed.length);
                             setSections(parsed);
                             setLoading(false);
+                            // Don't return, continue to fetch fresh data in background if needed
+                            // But for now we return to show cache instantly
                             return;
                         }
                     }
@@ -204,17 +207,23 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
             // Clear cache on force refresh
             if (forceRefresh) {
                 await AsyncStorage.removeItem(CACHE_KEY);
+                // Also clear local recs cache on force refresh
+                await localRecommendationService.clearCache();
             }
 
             console.log('[YTMusicHomeFeed] Fetching from API with chips support...');
 
-            const homeData = await YouTubeMusicService.getHomeFeed(100, forceRefresh);
+            // Fetch Home Feed AND Local Quick Picks in parallel
+            const [homeData, localQuickPicks] = await Promise.all([
+                YouTubeMusicService.getHomeFeed(100, forceRefresh),
+                localRecommendationService.getQuickPicks(forceRefresh)
+            ]);
 
             if (homeData && Array.isArray(homeData) && homeData.length > 0 && isMounted.current) {
                 console.log('[YTMusicHomeFeed] Received sections:', homeData.length);
 
                 // Process ALL sections from the API
-                const processedSections = homeData.map(section => {
+                let processedSections = homeData.map(section => {
                     const sectionTitle = section.title || 'Music';
                     const contents = section.contents || [];
 
@@ -265,14 +274,25 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
                     };
                 }).filter(section => section.items && section.items.length > 0);
 
-                console.log('[YTMusicHomeFeed] Processed sections:', processedSections.length);
+                // Inject Local Quick Picks if available
+                if (localQuickPicks && localQuickPicks.length > 0) {
+                    console.log('✨ [YTMusicHomeFeed] Injecting Local Quick Picks:', localQuickPicks.length);
+                    // Remove existing "Quick Picks" or "Start Radio" sections to avoid duplication
+                    processedSections = processedSections.filter(s =>
+                        !s.title.toLowerCase().includes('quick picks') &&
+                        !s.title.toLowerCase().includes('start radio')
+                    );
 
-                // Log section breakdown
-                const breakdown = processedSections.reduce((acc, s) => {
-                    acc[s.type] = (acc[s.type] || 0) + 1;
-                    return acc;
-                }, {});
-                console.log('[YTMusicHomeFeed] Section breakdown:', breakdown);
+                    // Add Local Quick Picks at the top
+                    processedSections.unshift({
+                        title: 'Quick Picks',
+                        type: 'songs',
+                        songs: localQuickPicks,
+                        items: localQuickPicks
+                    });
+                }
+
+                console.log('[YTMusicHomeFeed] Processed sections:', processedSections.length);
 
                 setSections(processedSections);
 

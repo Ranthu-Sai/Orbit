@@ -63,6 +63,20 @@ class YouTubeMusicService {
         return await InnerTubeClient.getNext(videoId, playlistId, continuation);
     }
 
+    /**
+     * Register playback with YouTube to update watch history and visitorData
+     * crucial for personalized recommendations
+     */
+    static async registerPlayback(videoId) {
+        // We use getNext as a lightweight way to register the "watch"
+        // This updates the visitorData in InnerTubeClient
+        console.log(`[YouTubeMusicService] Registering playback for ${videoId} to update history`);
+        // we don't await the result to avoid blocking, but we catch errors
+        InnerTubeClient.getNext(videoId).catch(e =>
+            console.log('[YouTubeMusicService] Failed to register playback:', e.message)
+        );
+    }
+
     static async getCharts(country = 'IN') {
         // Not implemented in InnerTubeClient yet, returning empty
         return { videos: [], artists: [], genres: [] };

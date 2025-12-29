@@ -65,6 +65,8 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
   const flatListRef = useRef(null);
   const operationInProgressRef = useRef(false);
   const skipNextQueueInitRef = useRef(false); // Skip queue re-init after reorder
+  const downloadedTracksCache = useRef(null); // PERFORMANCE: Cache downloaded tracks to avoid file I/O
+  const lastCacheTime = useRef(0); // Track when cache was last updated
 
   // Check network status on component mount
   useEffect(() => {
@@ -105,19 +107,28 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
     );
   };
 
-  // Function to get all downloaded tracks
-  const getDownloadedTracks = async () => {
+  // Function to get all downloaded tracks (CACHED to prevent repeated file I/O)
+  const getDownloadedTracks = async (forceRefresh = false) => {
     try {
+      const now = Date.now();
+      const CACHE_DURATION = 30000; // 30 seconds cache
+
+      // Return cached data if valid and not forcing refresh
+      if (!forceRefresh && downloadedTracksCache.current && (now - lastCacheTime.current) < CACHE_DURATION) {
+        return downloadedTracksCache.current;
+      }
+
       // Get all downloaded song metadata
       const allMetadata = await StorageManager.getAllDownloadedSongsMetadata();
 
       if (!allMetadata || Object.keys(allMetadata).length === 0) {
-        // No downloaded songs metadata found
+        downloadedTracksCache.current = [];
+        lastCacheTime.current = now;
         return [];
       }
 
-      // Format tracks with metadata
-      return await Promise.all(Object.values(allMetadata).map(async metadata => {
+      // Format tracks with metadata - use batch approach
+      const tracks = await Promise.all(Object.values(allMetadata).map(async metadata => {
         const artworkPath = await StorageManager.getArtworkPath(metadata.id);
         const songPath = await StorageManager.getSongPath(metadata.id);
 
@@ -134,9 +145,14 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
           sourceType: 'download'
         };
       }));
+
+      // Update cache
+      downloadedTracksCache.current = tracks;
+      lastCacheTime.current = now;
+      return tracks;
     } catch (error) {
       console.error('Error getting downloaded tracks:', error);
-      return [];
+      return downloadedTracksCache.current || [];
     }
   };
 

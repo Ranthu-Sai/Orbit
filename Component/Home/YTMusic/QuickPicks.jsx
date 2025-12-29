@@ -1,21 +1,21 @@
 /**
  * QuickPicks.jsx
  * 
- * OuterTune-style Quick Picks component.
- * Compact horizontal scroll with 4 songs per column, minimal UI.
+ * OuterTune-style Quick Picks component using Orbit's EachSongCard.
+ * Horizontal scroll with 4 songs per column.
  */
 
 import React from 'react';
-import { View, FlatList, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { View, FlatList, Text, StyleSheet, Dimensions } from 'react-native';
 import { useTheme } from '@react-navigation/native';
-import { PlayOneSong } from '../../../MusicPlayerFunctions';
+import { EachSongCard } from '../../Global/EachSongCard'; // User requested component
 import FormatTitleAndArtist from '../../../Utils/FormatTitleAndArtist';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const COLUMN_WIDTH = SCREEN_WIDTH * 0.88;
+const COLUMN_WIDTH = SCREEN_WIDTH * 0.92; // Slightly wider for full cards
 const SONGS_PER_COLUMN = 4;
 
-// Get best thumbnail
+// Get best thumbnail helper
 const getBestThumbnail = (thumbnails, videoId = null) => {
     if (videoId) {
         return `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
@@ -30,81 +30,40 @@ const getBestThumbnail = (thumbnails, videoId = null) => {
     return null;
 };
 
-// Single song item - compact OuterTune style
-const QuickPickItem = ({ song, onPress, colors, isLast }) => {
-    const thumbnail = getBestThumbnail(song.thumbnails, song.videoId);
-    const title = song.title || song.name || '';
-    const artist = song.artist || song.artists?.[0]?.name || '';
-
-    return (
-        <TouchableOpacity
-            style={[styles.itemContainer, !isLast && styles.itemBorder]}
-            onPress={() => onPress(song)}
-            activeOpacity={0.6}
-        >
-            <Image
-                source={{ uri: thumbnail }}
-                style={styles.thumbnail}
-                resizeMode="cover"
-            />
-            <View style={styles.textContainer}>
-                <Text
-                    style={[styles.title, { color: colors.text }]}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                >
-                    {FormatTitleAndArtist(title)}
-                </Text>
-                <Text
-                    style={[styles.artist, { color: colors.textSecondary || 'rgba(255,255,255,0.6)' }]}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                >
-                    {FormatTitleAndArtist(artist)}
-                </Text>
-            </View>
-        </TouchableOpacity>
-    );
-};
-
-// Column of 4 songs
-const QuickPickColumn = ({ songs, onPress, colors }) => {
+// Column of 4 EachSongCards
+const QuickPickColumn = ({ songs, colors }) => {
     return (
         <View style={styles.column}>
-            {songs.map((song, idx) => (
-                <QuickPickItem
-                    key={`${song.videoId || song.id}-${idx}`}
-                    song={song}
-                    onPress={onPress}
-                    colors={colors}
-                    isLast={idx === songs.length - 1}
-                />
-            ))}
+            {songs.map((song, idx) => {
+                const thumbnail = getBestThumbnail(song.thumbnails, song.videoId || song.id);
+                const title = song.title || song.name || '';
+                const artist = song.artist || song.artists?.[0]?.name || '';
+
+                return (
+                    <View key={`${song.videoId || song.id}-${idx}`} style={styles.cardContainer}>
+                        <EachSongCard
+                            id={song.videoId || song.id}
+                            title={title}
+                            artist={artist}
+                            image={thumbnail}
+                            duration={song.duration}
+                            width={COLUMN_WIDTH} // distinct prop for text truncation width
+                            titleandartistwidth={COLUMN_WIDTH - 120} // Adjust for thumbnail + buttons
+                            source={'ytmusic'}
+                            // key props for EachSongCard functionality
+                            url={song.url || ''}
+                            isFromPlaylist={false}
+                            showNumber={false}
+                        />
+                    </View>
+                );
+            })}
         </View>
     );
 };
 
 export const QuickPicks = ({ songs = [], title = 'Quick picks' }) => {
     const { colors } = useTheme();
-
-    const handlePress = async (song) => {
-        // Play the song
-        const songData = {
-            url: '',
-            title: song.title || song.name,
-            artist: song.artist || song.artists?.[0]?.name || '',
-            artwork: getBestThumbnail(song.thumbnails, song.videoId),
-            id: song.videoId || song.id,
-            duration: song.duration,
-            source: 'ytmusic'
-        };
-
-        try {
-            await PlayOneSong(songData);
-        } catch (e) {
-            console.error('QuickPicks play error:', e);
-        }
-    };
 
     if (!songs || songs.length === 0) {
         return null;
@@ -118,6 +77,9 @@ export const QuickPicks = ({ songs = [], title = 'Quick picks' }) => {
 
     return (
         <View style={styles.container}>
+            <View style={styles.headerRow}>
+                <Text style={[styles.heading, { color: colors.text }]}>{title}</Text>
+            </View>
             <FlatList
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -129,7 +91,6 @@ export const QuickPicks = ({ songs = [], title = 'Quick picks' }) => {
                 renderItem={({ item: columnSongs }) => (
                     <QuickPickColumn
                         songs={columnSongs}
-                        onPress={handlePress}
                         colors={colors}
                     />
                 )}
@@ -140,45 +101,28 @@ export const QuickPicks = ({ songs = [], title = 'Quick picks' }) => {
 
 const styles = StyleSheet.create({
     container: {
-        marginTop: 4,
+        marginTop: 16, // More breathing room
+        marginBottom: 8,
+    },
+    headerRow: {
+        marginHorizontal: 16,
+        marginBottom: 12,
+    },
+    heading: {
+        fontSize: 22, // Matches Home titles
+        fontWeight: 'bold',
+        fontFamily: 'CircularStd-Bold', // Use app font if available or default
     },
     listContainer: {
-        paddingHorizontal: 12,
+        paddingHorizontal: 8,
     },
     column: {
         width: COLUMN_WIDTH,
-        marginRight: 12,
+        marginRight: 8,
     },
-    itemContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 8,
-        paddingHorizontal: 4,
-    },
-    itemBorder: {
-        // Subtle separator between items
-    },
-    thumbnail: {
-        width: 48,
-        height: 48,
-        borderRadius: 4,
-        backgroundColor: '#333',
-    },
-    textContainer: {
-        flex: 1,
-        marginLeft: 12,
-        justifyContent: 'center',
-    },
-    title: {
-        fontSize: 15,
-        fontWeight: '500',
-        lineHeight: 20,
-    },
-    artist: {
-        fontSize: 13,
-        marginTop: 2,
-        lineHeight: 18,
-    },
+    cardContainer: {
+        marginBottom: 0, // EachSongCard has internal padding
+    }
 });
 
 export default QuickPicks;

@@ -57,11 +57,16 @@ const ContextState = (props) => {
         if (!isPlayerReady.current) return;
         try {
             const tracks = await TrackPlayer.getQueue();
-            // await SetQueueSongs(tracks)
-            const ids = tracks.map((e) => e.id)
-            const queuesId = Queue.map((e) => e.id)
-            if (JSON.stringify(ids) !== JSON.stringify(queuesId)) {
-                setQueue(tracks)
+            // PERFORMANCE: Use O(1) comparison instead of O(n) JSON.stringify
+            // Compare length and first/last IDs - if these match, queue is likely unchanged
+            const hasChanged = tracks.length !== Queue.length ||
+                (tracks.length > 0 && Queue.length > 0 && (
+                    tracks[0]?.id !== Queue[0]?.id ||
+                    tracks[tracks.length - 1]?.id !== Queue[Queue.length - 1]?.id
+                ));
+
+            if (hasChanged) {
+                setQueue(tracks);
             }
         } catch (error) {
             console.log('updateTrack: TrackPlayer not ready yet');
@@ -194,8 +199,7 @@ const ContextState = (props) => {
             }
 
             if (event.type === Event.PlaybackActiveTrackChanged) {
-                const trackingInfo = historyManager.getCurrentTrackingInfo();
-                const currentTrackId = trackingInfo?.currentTrack?.id;
+                // PERFORMANCE: Use event.track.id directly instead of blocking historyManager.getCurrentTrackingInfo() call
                 const newTrackId = event.track?.id;
 
                 // ✅ DEFER UI UPDATE: Use setImmediate to prevent blocking during track transition
@@ -204,13 +208,16 @@ const ContextState = (props) => {
                 });
 
                 // Only process if it's actually a different track
-                if (currentTrackId !== newTrackId) {
+                // Compare with last known track ID to avoid redundant operations
+                const lastTrackId = historyManager.isCurrentlyTracking ? historyManager.currentTrack?.id : null;
+
+                if (lastTrackId !== newTrackId) {
                     // ✅ TRULY NON-BLOCKING: Use setImmediate to defer file I/O
                     // This ensures history tracking runs AFTER the current JS call stack clears
                     // preventing any UI freeze when opening fullscreen player
                     setImmediate(() => {
                         const trackingPromises = [];
-                        if (trackingInfo.isTracking) {
+                        if (historyManager.isCurrentlyTracking) {
                             trackingPromises.push(historyManager.stopTracking());
                         }
                         if (event.track?.id) {
@@ -221,31 +228,8 @@ const ContextState = (props) => {
                         );
                     });
 
-                    // ✅ CONTINUOUS PREFETCH: Trigger prefetch for N+1 and N+2 on every track change
-                    // This ensures upcoming songs are always ready, not just on initial play
-                    if (event.track?.id && event.index !== undefined) {
-                        setTimeout(async () => {
-                            try {
-                                const smartPrefetchManager = require('../Utils/SmartPrefetchManager').default;
-                                const currentIdx = await TrackPlayer.getActiveTrackIndex();
-
-                                if (currentIdx !== null && currentIdx !== undefined) {
-                                    // Prefetch N+1
-                                    console.log(`🔄 ContextState: Triggering continuous prefetch from index ${currentIdx}`);
-                                    await smartPrefetchManager._prefetchTrackAtIndex(currentIdx + 1);
-
-                                    // Prefetch N+2
-                                    await smartPrefetchManager._prefetchTrackAtIndex(currentIdx + 2);
-                                    console.log(`✅ ContextState: Continuous prefetch complete for N+1 and N+2`);
-                                }
-                            } catch (prefetchErr) {
-                                // Silence expected errors
-                                if (!prefetchErr.message?.includes("doesn't exist")) {
-                                    console.log('Continuous prefetch error:', prefetchErr.message);
-                                }
-                            }
-                        }, 500); // Small delay to let track change settle
-                    }
+                    // NOTE: Prefetching is handled by SmartPrefetchManager (service.js)
+                    // Do NOT duplicate prefetch logic here to prevent double network calls
 
                     // ✅ Add recommendations async (non-blocking)
                     // Defer to next tick to keep UI responsive
@@ -260,7 +244,7 @@ const ContextState = (props) => {
 
             if (event.type === Event.PlaybackState) {
                 // Handle playback state changes for pause/resume tracking
-                console.log('Context: Playback state changed', event.state);
+                // NOTE: Removed console.log here as it fires frequently and adds overhead
 
                 if (event.state === 'playing') {
                     if (historyManager.isCurrentlyTracking) {
