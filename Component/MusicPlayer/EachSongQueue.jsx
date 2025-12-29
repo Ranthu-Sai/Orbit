@@ -11,7 +11,7 @@ import { useThemeContext } from "../../Context/ThemeContext";
 import { useThemeManager } from "./ThemeManager/useThemeManager";
 import { useDownload } from "../Download/useDownload";
 import { DownloadControl } from "../Download/DownloadControl";
-import TrackPlayer from "react-native-track-player";
+// TrackPlayer import removed to prevent callback leaks in list items
 import { GetLikedSongs, SetLikedSongs, DeleteALikedSong } from "../../LocalStorage/StoreLikedSongs";
 
 // Get screen dimensions for responsive layout
@@ -243,13 +243,7 @@ export const EachSongQueue = memo(function EachSongQueue({
         await onRemoveFromQueue(index, id);
         ToastAndroid.show('Removed from queue', ToastAndroid.SHORT);
       } else {
-        // Fallback: remove using TrackPlayer directly
-        const queue = await TrackPlayer.getQueue();
-        const trackIndex = queue.findIndex(track => track.id === id);
-        if (trackIndex !== -1) {
-          await TrackPlayer.remove(trackIndex);
-          ToastAndroid.show('Removed from queue', ToastAndroid.SHORT);
-        }
+        console.warn("onRemoveFromQueue not provided");
       }
     } catch (error) {
       console.error('Error removing from queue:', error);

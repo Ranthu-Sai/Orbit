@@ -16,7 +16,7 @@
 
 import TrackPlayer, { Event, State } from 'react-native-track-player';
 import youtubeStreamingService from './YouTubeStreamingService';
-import { InteractionManager } from 'react-native';
+import { InteractionManager, DeviceEventEmitter } from 'react-native';
 
 // Constants for configuration
 const PREFETCH_DELAY_MS = 2000; // 2 seconds after playback starts
@@ -78,6 +78,34 @@ class SmartPrefetchManager {
 
         // CRITICAL: Listen for playback errors to handle auto-completion failures
         TrackPlayer.addEventListener(Event.PlaybackError, this._handlePlaybackError.bind(this));
+
+        // NEW: Listen for queue updates to retry prefetch when queue grows
+        // This handles the case where prefetch starts before queue is built
+        this.queueUpdateListener = DeviceEventEmitter.addListener('queue-updated', async () => {
+            console.log('🔄 SmartPrefetch: Queue updated - checking if prefetch retry needed');
+            try {
+                const currentIndex = await TrackPlayer.getActiveTrackIndex();
+                const queue = await TrackPlayer.getQueue();
+
+                // If queue has grown and we haven't prefetched N+1 yet, do it now
+                if (queue.length > 1 && currentIndex !== undefined) {
+                    const nextIndex = currentIndex + 1;
+                    if (nextIndex < queue.length && !this.prefetchedTracks.has(queue[nextIndex]?.id)) {
+                        console.log(`🔄 SmartPrefetch: Retrying N+1 prefetch at index ${nextIndex}`);
+                        await this._prefetchTrackAtIndex(nextIndex);
+
+                        // Also try N+2
+                        const next2Index = currentIndex + 2;
+                        if (next2Index < queue.length && !this.prefetchedTracks.has(queue[next2Index]?.id)) {
+                            console.log(`🔄 SmartPrefetch: Retrying N+2 prefetch at index ${next2Index}`);
+                            await this._prefetchTrackAtIndex(next2Index);
+                        }
+                    }
+                }
+            } catch (e) {
+                // Silently ignore errors during retry
+            }
+        });
 
         this.isInitialized = true;
         this.errorHandlerRegistered = true;
@@ -351,14 +379,28 @@ class SmartPrefetchManager {
         let trackId = null; // Track ID for cleanup in finally block
 
         try {
-            const queue = await TrackPlayer.getQueue();
+            // PERFORMANCE: Optimistic check - try to get track at index first
+            // This avoids fetching the entire queue (O(N) bridge call)
+            // console.log(`🔍 Checking track at index ${index} for prefetch`);
+            let track = await TrackPlayer.getTrack(index);
+            let usingOptimizedMethod = true;
 
-            if (index < 0 || index >= queue.length) {
-                // Silent return - this is normal when queue is empty or at end
-                return; // Invalid index
+            // FALLBACK: If optimized check fails, try full queue fetch
+            // This ensures robustness even if getTrack(index) is unreliable
+            if (!track) {
+                console.log(`⚠️ Track at index ${index} not found via getTrack, trying fallback...`);
+                // Fallback to getting full queue
+                const queue = await TrackPlayer.getQueue();
+                if (index >= 0 && index < queue.length) {
+                    track = queue[index];
+                    usingOptimizedMethod = false;
+                    console.log(`✅ Track found via fallback queue fetch: ${track.title}`);
+                } else {
+                    console.log(`❌ Track index ${index} invalid even in full queue (len: ${queue.length})`);
+                    return;
+                }
             }
 
-            const track = queue[index];
             trackId = track.id; // Capture ID for finally block
 
             // Skip if not a YouTube track or already has valid URL
@@ -366,7 +408,7 @@ class SmartPrefetchManager {
                 // Only log if it's actually a YouTube track to avoid cluttering logs
                 const isYT = track.source === 'ytmusic' || track.isYTMusic;
                 if (isYT) {
-                    console.log(`⏭️ Track ${index} (${track.title}) doesn't need prefetch (already has URL)`);
+                    // console.log(`⏭️ Track ${ index } (${ track.title }) doesn't need prefetch (already has URL)`);
                 }
                 return;
             }
@@ -447,17 +489,30 @@ class SmartPrefetchManager {
 
                 // NON-BLOCKING: Defer queue replacement to avoid blocking UI
                 // Use setImmediate to run after current call stack clears
-                setImmediate(() => {
-                    // Re-validate queue position before replacing (user may have skipped)
-                    TrackPlayer.getQueue().then(currentQueue => {
-                        // Find track by ID (index may have shifted)
-                        const currentIndex = currentQueue.findIndex(t => t.id === track.id);
-                        if (currentIndex !== -1 && currentQueue[currentIndex]?._needsStream) {
-                            this._replaceTrackInQueue(currentIndex, track, streamData)
-                                .then(() => console.log(`✅ Prefetched & replaced track ${currentIndex}: ${track.title}`))
-                                .catch(err => console.log('Queue replacement failed:', err.message));
+                setImmediate(async () => {
+                    try {
+                        // PERFORMANCE: Try optimized index check first
+                        const trackAtIndex = await TrackPlayer.getTrack(index);
+
+                        // If track ID matches, we can proceed directly
+                        if (trackAtIndex && trackAtIndex.id === track.id) {
+                            if (this.needsStream(trackAtIndex)) {
+                                await this._replaceTrackInQueue(index, track, streamData);
+                                console.log(`✅ Prefetched & replaced track ${index}: ${track.title}`);
+                            }
+                            return;
                         }
-                    }).catch(() => { });
+
+                        // Fallback: Queue might have shifted, search by ID (heavy operation)
+                        const currentQueue = await TrackPlayer.getQueue();
+                        const currentIndex = currentQueue.findIndex(t => t.id === track.id);
+                        if (currentIndex !== -1 && this.needsStream(currentQueue[currentIndex])) {
+                            await this._replaceTrackInQueue(currentIndex, track, streamData);
+                            console.log(`✅ Prefetched & replaced track ${currentIndex}: ${track.title}`);
+                        }
+                    } catch (e) {
+                        console.log('Queue replacement failed:', e.message);
+                    }
                 });
             }
 
@@ -481,22 +536,24 @@ class SmartPrefetchManager {
      */
     async replaceTrackAndWait(index, originalTrack, streamData) {
         try {
-            // Get FRESH queue state
-            const queue = await TrackPlayer.getQueue();
+            // PERFORMANCE: Optimistic check - try TrackPlayer.getTrack(index) first
+            // This avoids serializing the entire queue (O(N)) over the bridge
+            let actualIndex = index;
+            const trackAtIndex = await TrackPlayer.getTrack(index);
 
-            // Find track by ID - don't trust the index parameter
-            const actualIndex = queue.findIndex(t => t.id === originalTrack.id);
+            // Check if track at index matches our ID
+            if (trackAtIndex && trackAtIndex.id === originalTrack.id) {
+                // Matches! Proceed with optimized path
+            } else {
+                // Mismatch (queue shifted?) - Fallback to full queue search (slow)
+                // console.log(`⚠️ Track ID mismatch at index ${index}, falling back to full queue search`);
+                const queue = await TrackPlayer.getQueue();
+                actualIndex = queue.findIndex(t => t.id === originalTrack.id);
 
-            if (actualIndex === -1) {
-                console.log(`⚠️ Track ${originalTrack.id} no longer in queue, skipping replacement`);
-                return;
-            }
-
-            // Verify the track at this index is the one we expect
-            const trackAtIndex = queue[actualIndex];
-            if (trackAtIndex.id !== originalTrack.id) {
-                console.log(`⚠️ Track ID mismatch at index ${actualIndex}, skipping replacement`);
-                return;
+                if (actualIndex === -1) {
+                    console.log(`⚠️ Track ${originalTrack.id} no longer in queue, skipping replacement`);
+                    return;
+                }
             }
 
             // Skip if already has valid URL (already replaced)

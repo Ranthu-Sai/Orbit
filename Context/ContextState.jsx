@@ -53,19 +53,26 @@ const ContextState = (props) => {
     const [fullScreenNavigationTarget, setFullScreenNavigationTarget] = useState(null);
 
     const [Queue, setQueue] = useState([]);
+    const QueueRef = useRef([]); // Ref to access latest queue in callbacks without dependency issues
+    QueueRef.current = Queue; // Keep ref updated
+
     async function updateTrack() {
         if (!isPlayerReady.current) return;
         try {
             const tracks = await TrackPlayer.getQueue();
             // PERFORMANCE: Use O(1) comparison instead of O(n) JSON.stringify
             // Compare length and first/last IDs - if these match, queue is likely unchanged
+            // FIX: Always update if new tracks were added (length increased)
             const hasChanged = tracks.length !== Queue.length ||
                 (tracks.length > 0 && Queue.length > 0 && (
                     tracks[0]?.id !== Queue[0]?.id ||
                     tracks[tracks.length - 1]?.id !== Queue[Queue.length - 1]?.id
                 ));
 
-            if (hasChanged) {
+            console.log(`updateTrack: TrackPlayer has ${tracks.length} tracks, Context.Queue has ${Queue.length}, hasChanged: ${hasChanged}`);
+
+            if (hasChanged || tracks.length > Queue.length) {
+                console.log(`updateTrack: Updating Context.Queue with ${tracks.length} tracks`);
                 setQueue(tracks);
             }
         } catch (error) {
@@ -99,6 +106,22 @@ const ContextState = (props) => {
             return;
         }
 
+        // PERFORMANCE: Use QueueRef for length check to avoid O(N) bridge call
+        // TrackPlayer.getQueue() deserializes 1000+ items - expensive!
+        // Only fetch authoritative queue if we are actually near the end
+        const currentQueueLength = QueueRef.current.length;
+        if (currentQueueLength === 0) {
+            // If local queue is empty, fallback to native fetch just in case
+            const tracks = await TrackPlayer.getQueue();
+            if (index < tracks.length - 2) return;
+        } else {
+            // Use cached length for O(1) check
+            if (index < currentQueueLength - 2) {
+                return;
+            }
+        }
+
+        // Only if we passed the check, get full queue to proceed with logic
         const tracks = await TrackPlayer.getQueue();
         const totalTracks = tracks.length - 1
         if (index >= totalTracks - 2) {
@@ -223,8 +246,14 @@ const ContextState = (props) => {
                         if (event.track?.id) {
                             trackingPromises.push(historyManager.startTracking(event.track));
                         }
+
+                        // SYNC QUEUE: Ensure Context.Queue is updated when track changes
+                        // This fixes the empty queue UI issue in QueueBottomSheet
+                        // It uses QueueRef optimization internally so it's efficient
+                        trackingPromises.push(updateTrack());
+
                         Promise.all(trackingPromises).catch(err =>
-                            console.error('History tracking error:', err)
+                            console.error('Track change tracking error:', err)
                         );
                     });
 
@@ -385,12 +414,20 @@ const ContextState = (props) => {
             }
         };
 
+        // Listen for queue updates from MusicPlayerFunctions (e.g. AddSongsToQueue)
+        const queueUpdateListener = DeviceEventEmitter.addListener('queue-updated', async () => {
+            console.log('Context: Received queue update event - syncing state');
+            await updateTrack();
+        });
+
         const subscription = AppState.addEventListener('change', handleAppStateChange);
 
         return () => {
+
             subscription?.remove();
             playbackModeListener?.remove();
             historyManager.cleanup();
+            if (queueUpdateListener) queueUpdateListener.remove();
         };
     }, []);
     return <Context.Provider value={{

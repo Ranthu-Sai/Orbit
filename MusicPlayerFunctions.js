@@ -1024,6 +1024,7 @@ async function SetProgressSong(value) {
   }
 }
 
+
 async function PlayNextSong() {
   // INSTANT RESPONSE: Cancel any in-flight prefetches immediately
   const smartPrefetchManager = require('./Utils/SmartPrefetchManager').default;

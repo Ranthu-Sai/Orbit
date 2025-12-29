@@ -162,8 +162,8 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       if (!currentTrack) return [];
 
       // Always get downloaded tracks to have ready (regardless of offline status)
+      // Cache used internally by getDownloadedTracks
       const downloadedTracks = await getDownloadedTracks();
-      console.log(`Found ${downloadedTracks.length} downloaded tracks for queue`);
 
       // Check if the current track has a sourceType (mymusic or download)
       const sourceType = (currentTrack.sourceType || (isLocalTrack(currentTrack) ? 'download' : 'online'))?.toString?.().toLowerCase();
@@ -173,8 +173,8 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       if (sourceType === 'mymusic') {
         console.log('Playing from MyMusic - showing only MyMusic tracks in queue');
 
-        // Get the full queue from TrackPlayer which should contain all MyMusic tracks
-        const fullQueue = await TrackPlayer.getQueue();
+        // PERFORMANCE: Use Context Queue instead of native bridge call
+        const fullQueue = Queue || [];
 
         // Filter to only include tracks from MyMusic source, regardless of online/offline status
         const myMusicTracks = fullQueue.filter(track => track.sourceType === 'mymusic');
@@ -200,8 +200,8 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         console.log('Playing downloaded track - showing all downloaded tracks in queue');
 
         // Always use downloaded tracks in offline mode or when explicitly playing downloaded music
-        // Get full queue but filter for downloaded tracks only
-        const fullQueue = await TrackPlayer.getQueue();
+        // PERFORMANCE: Use Context Queue instead of native bridge call
+        const fullQueue = Queue || [];
 
         // Filter to only include downloaded tracks
         const downloadSourceTracks = fullQueue.filter(track =>
@@ -241,11 +241,24 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
 
       // For online tracks in online mode - normal behavior
       if (!isOffline) {
-        // Get the full queue from TrackPlayer
-        const fullQueue = await TrackPlayer.getQueue();
+        // PERFORMANCE: Use Context Queue instead of native bridge call
+        let fullQueue = Queue || [];
+        console.log(`filterQueueBySource: Context.Queue has ${fullQueue.length} tracks`);
+
+        // FALLBACK: If Context.Queue is empty (due to React state batching delay),
+        // fetch directly from TrackPlayer to ensure we have the latest queue
+        if (fullQueue.length === 0) {
+          console.log('Context Queue is empty - fetching from TrackPlayer as fallback');
+          try {
+            fullQueue = await TrackPlayer.getQueue();
+            console.log(`filterQueueBySource: TrackPlayer fallback has ${fullQueue.length} tracks`);
+          } catch (e) {
+            console.log('TrackPlayer fallback failed, using current track only');
+          }
+        }
 
         if (fullQueue.length === 0) {
-          console.log('TrackPlayer queue is empty, using current track');
+          console.log('Both Context and TrackPlayer queues empty, using current track');
           return [currentTrack];
         }
 
@@ -293,7 +306,7 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       }
       return [];
     }
-  }, [isLocalTrack, isOffline, getDownloadedTracks]);
+  }, [isLocalTrack, isOffline, getDownloadedTracks, Queue]);
 
   // Debounce reference to prevent excessive updates
   const lastTrackUpdateRef = useRef(0);
@@ -413,37 +426,17 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         if (currentPlaying) {
           // Get the source type for the current track
           const sourceType = currentPlaying.sourceType || (isLocalTrack(currentPlaying) ? 'download' : 'online');
-          console.log('Initializing queue - current source type:', sourceType);
-          console.log('Network status - offline mode:', isOffline);
-
-          // Log more details about the current track for debugging
-          console.log('Current track details:', {
-            id: currentPlaying.id,
-            title: currentPlaying.title,
-            sourceType: sourceType,
-            isLocal: isLocalTrack(currentPlaying),
-            url: currentPlaying.url ? (typeof currentPlaying.url === 'string' ? currentPlaying.url.substring(0, 30) + '...' : 'non-string-url') : 'no-url'
-          });
 
           // Update local source flag based on source type
           setIsLocalSource(sourceType === 'mymusic' || sourceType === 'download' || isLocalTrack(currentPlaying));
 
-          // Always ensure we have the latest downloaded tracks
-          await getDownloadedTracks();
-
           // Filter queue based on current track's source type
+          // filterQueueBySource already calls getDownloadedTracks internally (now cached)
           const filtered = await filterQueueBySource(currentPlaying);
 
-          // Log filtered queue size
-          console.log(`Filtered queue contains ${filtered.length} tracks`);
           if (filtered.length > 0) {
-            // Log source types in filtered queue for debugging
-            const sourceTypes = {};
-            filtered.forEach(track => {
-              const trackSourceType = track.sourceType || (isLocalTrack(track) ? 'download' : 'online');
-              sourceTypes[trackSourceType] = (sourceTypes[trackSourceType] || 0) + 1;
-            });
-            console.log('Queue source type distribution:', sourceTypes);
+            // Log only count, not full distribution/structure
+            // console.log(`Filtered queue contains ${filtered.length} tracks`);
           }
 
           // Filter out duplicate songs based on ID
@@ -533,7 +526,7 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
   }, [currentPlaying?.id, isDragging, isOffline]);
 
   // Function to handle removing track from queue (used by swipe gesture)
-  const handleRemoveFromQueue = async (displayIndex, trackId) => {
+  const handleRemoveFromQueue = useCallback(async (displayIndex, trackId) => {
     operationInProgressRef.current = true;
     try {
       // Get the full TrackPlayer queue
@@ -571,6 +564,7 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       // Update the queue display
       const currentTrack = await TrackPlayer.getActiveTrack();
       if (currentTrack) {
+        // Re-filter using the updated queue state context if possible, or just standard filter
         const filtered = await filterQueueBySource(currentTrack);
         const uniqueIds = new Set();
         const uniqueFiltered = filtered.filter(track => {
@@ -588,10 +582,10 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
     } finally {
       operationInProgressRef.current = false;
     }
-  };
+  }, [filterQueueBySource]);
 
   // Function to handle track selection from the queue
-  const handleTrackSelect = async (item, displayIndex) => {
+  const handleTrackSelect = useCallback(async (item, displayIndex) => {
     operationInProgressRef.current = true;
     try {
       // Capture playback state in case we need to restore it
@@ -761,7 +755,7 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       setIsPendingAction(false);
       operationInProgressRef.current = false;
     }
-  };
+  }, [isLocalTrack, isOffline, filterQueueBySource]);
 
   // Handle drag start
   const handleDragStart = useCallback((params) => {
