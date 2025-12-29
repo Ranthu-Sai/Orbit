@@ -90,7 +90,7 @@ We’re more than just code. We’re a community of music lovers.
 
 <p align="center">
   <a href="https://t.me/OrbitMusicOfficial">
-    <img src="https://miro.medium.com/v2/resize:fit:720/format:webp/1*6kEaKNm8WMvWeP0W2B3W0g.png" alt="Telegram Community" width="200">
+    <img src="https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram Community" height="50">
   </a>
   &nbsp;&nbsp;
   <a href="https://discord.gg/JrMzKes3">

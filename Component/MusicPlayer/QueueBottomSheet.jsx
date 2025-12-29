@@ -127,18 +127,11 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
           </View>
           <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
-              <PlainText
-                text={"Queue"}
-                style={[styles.headerText, { color: getTextColor() }]}
-              />
-            </View>
-            <View style={styles.headerRight}>
               <Pressable
                 onPress={handleSmartShuffle}
                 disabled={isShuffling}
                 style={[
                   styles.actionButton,
-                  { marginRight: 10 },
                   isSmartShuffleActive && styles.smartShuffleActive
                 ]}
               >
@@ -153,6 +146,14 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
                   />
                 )}
               </Pressable>
+            </View>
+            <View style={styles.headerCenter}>
+              <PlainText
+                text={"Queue"}
+                style={[styles.headerText, { color: getTextColor() }]}
+              />
+            </View>
+            <View style={styles.headerRight}>
               <Pressable
                 onPress={() => setReorderMode(!reorderMode)}
                 style={styles.actionButton}
@@ -274,14 +275,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     width: '100%',
     paddingHorizontal: 16,
-    marginBottom: 4,
+    marginBottom: 0,
   },
   headerLeft: {
     flex: 1,
+    alignItems: 'flex-start',
+  },
+  headerCenter: {
+    flex: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flex: 1,
+    alignItems: 'flex-end',
   },
   actionButton: {
     padding: 8,
@@ -304,7 +311,7 @@ const styles = StyleSheet.create({
   },
   subHeaderText: {
     fontSize: 12,
-    marginTop: 4,
+    marginTop: 0,
     fontWeight: '500',
     // Color will be applied dynamically via theme
   }
