@@ -182,7 +182,6 @@ const useSongDetails = (track) => {
 
         // For online tracks, fetch from API
         const response = await axios.get(`https://jiosavan-api-with-playlist.vercel.app/api/songs/${track.id}`);
-        console.log('🌐 [Saavn API Response]:', JSON.stringify(response.data, null, 2));
 
         if (response.data && response.data.success) {
           const data = response.data.data?.[0]; // Get first item from array

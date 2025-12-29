@@ -336,7 +336,7 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
         };
         PlayOneSong(song);
         return;
-      } else if (source === 'dab' || isDabTrack || (!isNaN(url) && String(url).length > 5)) {
+      } else if (source === 'dab' || item?.isDabTrack || (!isNaN(url) && String(url).length > 5)) {
         // Handle DAB Music tracks
         const song = {
           url: url, // Numeric ID for DAB
@@ -365,19 +365,24 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
         const quality = await getIndexQuality()
 
         let songUrl;
-        if (url) {
-          if (Array.isArray(url) && url.length > quality && url[quality]?.url) {
-            songUrl = url[quality].url;
-          } else if (Array.isArray(url) && url.length > 0 && url[0]?.url) {
-            songUrl = url[0].url;
-          } else if (typeof url === 'string') {
-            songUrl = url;
+        // Try `url` prop first, then fallback to `item` data
+        const downloadUrlSource = url || item?.downloadUrl || item?.download_url;
+
+        if (downloadUrlSource) {
+          if (Array.isArray(downloadUrlSource) && downloadUrlSource.length > quality && downloadUrlSource[quality]?.url) {
+            songUrl = downloadUrlSource[quality].url;
+          } else if (Array.isArray(downloadUrlSource) && downloadUrlSource.length > 0 && downloadUrlSource[0]?.url) {
+            songUrl = downloadUrlSource[0].url;
+          } else if (typeof downloadUrlSource === 'string') {
+            songUrl = downloadUrlSource;
           }
         }
 
         if (!songUrl) {
+          console.warn(`[Saavn Playback] No valid URL found for song: "${title}" (ID: ${id}). url prop:`, url, 'item.downloadUrl:', item?.downloadUrl);
           return;
         }
+
 
         const song = {
           url: songUrl,

@@ -186,13 +186,6 @@ export const Home = () => {
           const saavnAlbums = fetchedData?.data?.trending?.albums || [];
           const saavnCharts = fetchedData?.data?.charts || [];
 
-          console.log('📦 [Saavn API Response]:', {
-            fromCache: fetchedData?.fromCache || false,
-            playlistCount: saavnPlaylists.length,
-            albumCount: saavnAlbums.length,
-            chartCount: saavnCharts.length,
-            shuffled: forceRefresh ? '✅ YES' : '❌ NO',
-          });
 
           setData(fetchedData);
           // Always randomize charts on refresh
