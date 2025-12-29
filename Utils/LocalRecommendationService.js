@@ -19,7 +19,7 @@ import historyManager from './HistoryManager';
 import InnerTubeClient from '../Api/InnertubeClient';
 
 const CACHE_KEY = 'orbit_local_quick_picks';
-const CACHE_EXPIRY = 1000 * 60 * 30; // 30 minutes
+const CACHE_EXPIRY = 1000 * 60 * 60 * 2; // 2 hours (reduced API calls while maintaining freshness)
 const SEED_SONGS_COUNT = 5; // Use last 5 songs as seeds
 const MIN_SONGS_PER_SEED = 5;
 

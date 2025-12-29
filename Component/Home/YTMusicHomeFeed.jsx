@@ -9,7 +9,6 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { View, FlatList, Text, StyleSheet, Dimensions } from 'react-native';
 import { useTheme } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Heading } from '../Global/Heading';
 import { EachPlaylistCard } from '../Global/EachPlaylistCard';
 import { EachAlbumCard } from '../Global/EachAlbumCard';
@@ -18,10 +17,12 @@ import { PlaylistRowSkeleton } from './PlaylistRowSkeleton';
 import { QuickPicksSkeleton } from './YTMusic/QuickPicksSkeleton';
 import YouTubeMusicService from '../../Utils/YouTubeMusicService';
 import ytAuthService from '../../Utils/YouTubeAuthService';
-import listeningHistoryService from '../../Utils/ListeningHistoryService';
 import localRecommendationService from '../../Utils/LocalRecommendationService';
+import { CacheManager } from '../../Utils/NavigationCacheManager';
+import { CACHE_TTL, CACHE_KEYS, generateCacheKey } from '../../Utils/CacheConfig';
 
-const CACHE_KEY = 'ytmusic_home_feed_full_v7';
+// Cache key for sections (without Quick Picks) - 24hr disk cache
+const SECTIONS_CACHE_KEY = 'ytmusic_home_sections_v1';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Sections to filter out - these are YouTube video categories, not music
@@ -251,111 +252,123 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
                 setLoading(true);
             }
 
-            // Check cache first
+            const cacheKey = generateCacheKey(CACHE_KEYS.HOME, 'ytmusic_sections');
+
+            // Always fetch Quick Picks (they have their own cache in LocalRecommendationService)
+            const quickPicksPromise = localRecommendationService.getQuickPicks(forceRefresh);
+
+            // Check disk cache for sections (24hr TTL) - NOT Quick Picks
+            let cachedSections = null;
             if (!forceRefresh) {
-                try {
-                    const cachedData = await AsyncStorage.getItem(CACHE_KEY);
-                    if (cachedData) {
-                        const parsed = JSON.parse(cachedData);
-                        if (parsed && Array.isArray(parsed) && parsed.length > 0) {
-                            console.log('[YTMusicHomeFeed] Cache hit, sections:', parsed.length);
-                            setSections(parsed);
-                            setLoading(false);
-                            // Don't return, continue to fetch fresh data in background if needed
-                            // But for now we return to show cache instantly
-                            return;
-                        }
+                // Try RAM cache first
+                cachedSections = CacheManager.get(cacheKey);
+                if (cachedSections) {
+                    console.log('[YTMusicHomeFeed] RAM cache HIT for sections:', cachedSections.length);
+                } else {
+                    // Try disk cache
+                    cachedSections = await CacheManager.getAsync(cacheKey);
+                    if (cachedSections) {
+                        console.log('[YTMusicHomeFeed] Disk cache HIT for sections:', cachedSections.length);
                     }
-                } catch (e) {
-                    console.log('[YTMusicHomeFeed] Cache read error:', e.message);
                 }
             }
 
             // Clear cache on force refresh
             if (forceRefresh) {
-                await AsyncStorage.removeItem(CACHE_KEY);
-                // Also clear local recs cache on force refresh
+                CacheManager.invalidate(cacheKey);
                 await localRecommendationService.clearCache();
+                console.log('[YTMusicHomeFeed] Cache cleared, fetching fresh...');
             }
 
-            console.log('[YTMusicHomeFeed] Fetching from API with chips support...');
+            let processedSections = cachedSections;
 
-            // Fetch Home Feed AND Local Quick Picks in parallel
-            const [homeData, localQuickPicks] = await Promise.all([
-                YouTubeMusicService.getHomeFeed(100, forceRefresh),
-                localRecommendationService.getQuickPicks(forceRefresh)
-            ]);
+            // Fetch from API if no cache or force refresh
+            if (!processedSections) {
+                console.log('[YTMusicHomeFeed] Fetching sections from API...');
 
-            if (homeData && Array.isArray(homeData) && homeData.length > 0 && isMounted.current) {
-                console.log('[YTMusicHomeFeed] Received sections:', homeData.length);
+                const homeData = await YouTubeMusicService.getHomeFeed(100, forceRefresh);
 
-                // Filter out video-like sections (OuterTune approach)
-                const filteredData = homeData.filter(section => !isVideoSection(section));
-                console.log('[YTMusicHomeFeed] After filtering video sections:', filteredData.length);
+                if (homeData && Array.isArray(homeData) && homeData.length > 0 && isMounted.current) {
+                    console.log('[YTMusicHomeFeed] Received sections:', homeData.length);
 
-                // Process music-only sections from the API
-                let processedSections = filteredData.map(section => {
-                    const sectionTitle = section.title || 'Music';
-                    const contents = section.contents || [];
+                    // Filter out video-like sections (OuterTune approach)
+                    const filteredData = homeData.filter(section => !isVideoSection(section));
+                    console.log('[YTMusicHomeFeed] After filtering video sections:', filteredData.length);
 
-                    // Categorize items by type
-                    const songs = contents.filter(item =>
-                        item.videoId && !item.playlistId && !item.browseId?.startsWith('MPRE')
-                    );
+                    // Process music-only sections from the API
+                    processedSections = filteredData.map(section => {
+                        const sectionTitle = section.title || 'Music';
+                        const contents = section.contents || [];
 
-                    const playlists = contents.filter(item =>
-                        item.playlistId ||
-                        (item.browseId && (item.browseId.startsWith('VL') || item.browseId.startsWith('RDCLAK')))
-                    );
+                        // Categorize items by type
+                        const songs = contents.filter(item =>
+                            item.videoId && !item.playlistId && !item.browseId?.startsWith('MPRE')
+                        );
 
-                    const albums = contents.filter(item =>
-                        item.browseId && (item.browseId.startsWith('MPRE') || item.browseId.startsWith('OLAK'))
-                    );
+                        const playlists = contents.filter(item =>
+                            item.playlistId ||
+                            (item.browseId && (item.browseId.startsWith('VL') || item.browseId.startsWith('RDCLAK')))
+                        );
 
-                    const artists = contents.filter(item =>
-                        item.browseId && item.browseId.startsWith('UC')
-                    );
+                        const albums = contents.filter(item =>
+                            item.browseId && (item.browseId.startsWith('MPRE') || item.browseId.startsWith('OLAK'))
+                        );
 
-                    // Determine primary content type
-                    let type = 'mixed';
-                    let items = contents;
+                        const artists = contents.filter(item =>
+                            item.browseId && item.browseId.startsWith('UC')
+                        );
 
-                    if (songs.length > playlists.length && songs.length > albums.length) {
-                        type = 'songs';
-                        items = songs;
-                    } else if (albums.length > playlists.length) {
-                        type = 'album';
-                        items = albums;
-                    } else if (playlists.length > 0) {
-                        type = 'playlist';
-                        items = playlists;
-                    } else if (artists.length > 0) {
-                        type = 'artist';
-                        items = artists;
-                    }
+                        // Determine primary content type
+                        let type = 'mixed';
+                        let items = contents;
 
-                    return {
-                        title: sectionTitle,
-                        type,
-                        items,
-                        songs,
-                        playlists,
-                        albums,
-                        artists
-                    };
-                }).filter(section => section.items && section.items.length > 0);
+                        if (songs.length > playlists.length && songs.length > albums.length) {
+                            type = 'songs';
+                            items = songs;
+                        } else if (albums.length > playlists.length) {
+                            type = 'album';
+                            items = albums;
+                        } else if (playlists.length > 0) {
+                            type = 'playlist';
+                            items = playlists;
+                        } else if (artists.length > 0) {
+                            type = 'artist';
+                            items = artists;
+                        }
 
-                // Inject Local Quick Picks if available
-                if (localQuickPicks && localQuickPicks.length > 0) {
-                    console.log('✨ [YTMusicHomeFeed] Injecting Local Quick Picks:', localQuickPicks.length);
-                    // Remove existing "Quick Picks" or "Start Radio" sections to avoid duplication
+                        return {
+                            title: sectionTitle,
+                            type,
+                            items,
+                            songs,
+                            playlists,
+                            albums,
+                            artists
+                        };
+                    }).filter(section => section.items && section.items.length > 0);
+
+                    // Remove any "Quick Picks" or "Start Radio" from API sections (we inject our own)
                     processedSections = processedSections.filter(s =>
                         !s.title.toLowerCase().includes('quick picks') &&
                         !s.title.toLowerCase().includes('start radio')
                     );
 
-                    // Add Local Quick Picks at the top
-                    processedSections.unshift({
+                    // Cache sections (without Quick Picks) to disk for 24 hours
+                    CacheManager.set(cacheKey, processedSections, CACHE_TTL.HOME_DATA);
+                    console.log('[YTMusicHomeFeed] Cached sections to disk:', processedSections.length);
+                }
+            }
+
+            // Wait for Quick Picks and inject them
+            const localQuickPicks = await quickPicksPromise;
+
+            if (processedSections && isMounted.current) {
+                let finalSections = [...processedSections];
+
+                // Inject Local Quick Picks at the top if available
+                if (localQuickPicks && localQuickPicks.length > 0) {
+                    console.log('✨ [YTMusicHomeFeed] Injecting Local Quick Picks:', localQuickPicks.length);
+                    finalSections.unshift({
                         title: 'Quick Picks',
                         type: 'songs',
                         songs: localQuickPicks,
@@ -363,12 +376,8 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
                     });
                 }
 
-                console.log('[YTMusicHomeFeed] Processed sections:', processedSections.length);
-
-                setSections(processedSections);
-
-                // Cache the processed data
-                await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(processedSections));
+                console.log('[YTMusicHomeFeed] Final sections with Quick Picks:', finalSections.length);
+                setSections(finalSections);
             }
         } catch (error) {
             console.error('[YTMusicHomeFeed] Fetch error:', error);
@@ -378,6 +387,7 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
             }
         }
     };
+
 
     // Handle refresh from parent
     useEffect(() => {
@@ -390,7 +400,7 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
         }
     }, [refreshing]);
 
-    // Initial load, auth listener, and listening history subscription
+    // Initial load and auth listener
     useEffect(() => {
         isMounted.current = true;
 
@@ -402,21 +412,14 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
         updateAuthState();
         ytAuthService.addListener(updateAuthState);
 
-        // Subscribe to listening history for personalized Quick Picks refresh
-        const unsubscribeHistory = listeningHistoryService.subscribe(async () => {
-            console.log('📊 YTMusicHomeFeed: Personalization triggered, refreshing...');
-            // Auto-refresh when user has listened to enough songs
-            await fetchHomeData(true);
-        });
-
         fetchHomeData(false);
 
         return () => {
             isMounted.current = false;
             ytAuthService.removeListener(updateAuthState);
-            unsubscribeHistory();
         };
     }, []);
+
 
 
     // Get the visible sections based on lazy loading
