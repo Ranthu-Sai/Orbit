@@ -489,15 +489,25 @@ async function PlayOneSong(song) {
     InteractionManager.runAfterInteractions(async () => {
       try {
         // Determine source based on song type
+        // SPOTIFY SUPPORT: If this is a Spotify song mapped to YTMusic, use the YTMusic videoId
+        const isSpotifyMapped = updatedSong.mappedFromSpotify && updatedSong.ytMusicVideoId;
         const isYTId = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
-        const source = isYTId ? 'ytmusic' : 'saavn';
+
+        // For Spotify-mapped songs, use YTMusic recommendations via the mapped videoId
+        const source = (isSpotifyMapped || isYTId) ? 'ytmusic' : 'saavn';
+        const recommendationSongId = isSpotifyMapped ? updatedSong.ytMusicVideoId : song.id;
+
+        console.log(`🎵 Loading recommendations: source=${source}, songId=${recommendationSongId}${isSpotifyMapped ? ' (Spotify→YTMusic)' : ''}`);
 
         // Load initial recommendations
-        const recommendations = await queueManager.buildQueueFromRecommendations(song.id, source, 20);
+        const recommendations = await queueManager.buildQueueFromRecommendations(recommendationSongId, source, 20);
 
         if (recommendations && recommendations.length > 0) {
           // SAFETY: Filter out the currently playing song to prevent duplicates
-          const filteredRecs = recommendations.filter(rec => rec.id !== song.id);
+          // For Spotify-mapped songs, also check against the YTMusic videoId
+          const filteredRecs = recommendations.filter(rec =>
+            rec.id !== song.id && rec.id !== recommendationSongId
+          );
 
           if (filteredRecs.length > 0) {
             await AddSongsToQueue(filteredRecs);
@@ -519,11 +529,15 @@ async function PlayOneSong(song) {
         }
 
         // Now start the monitor (it will only trigger refill when 5 songs remain)
-        queueManager.startContinuousQueueMonitor(song.id);
+        queueManager.startContinuousQueueMonitor(recommendationSongId);
       } catch (err) {
         console.error('Error loading initial recommendations:', err);
         // Still start monitor even if initial load fails
-        queueManager.startContinuousQueueMonitor(song.id);
+        // Use ytMusicVideoId for Spotify-mapped songs
+        const fallbackSongId = (updatedSong.mappedFromSpotify && updatedSong.ytMusicVideoId)
+          ? updatedSong.ytMusicVideoId
+          : song.id;
+        queueManager.startContinuousQueueMonitor(fallbackSongId);
       }
     });
   } catch (error) {

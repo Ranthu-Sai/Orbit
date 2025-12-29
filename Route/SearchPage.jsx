@@ -108,9 +108,9 @@ export const SearchPage = ({ navigation }) => {
   // Fetch Suggestions AND Quick Results while typing
   useEffect(() => {
     const fetchSuggestionsAndQuickResults = async () => {
-      // RATE LIMIT OPTIMIZATION: Minimum 5 characters for Spotify, 2 for others
+      // RATE LIMIT OPTIMIZATION: Minimum 3 characters for Spotify, 2 for others
       // Spotify now only fetches results on manual search (Enter) to save RPM.
-      const minLength = selectedSource === 'spotify' ? 5 : 2;
+      const minLength = selectedSource === 'spotify' ? 3 : 2;
       if (!query || query.trim().length < minLength) {
         setSuggestions([]);
         setQuickResults([]);

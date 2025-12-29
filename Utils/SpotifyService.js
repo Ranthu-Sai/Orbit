@@ -1,5 +1,5 @@
 import { SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, SPOTIFY_TOKEN_URL, SPOTIFY_API_BASE_URL } from './secrets';
-import { Buffer } from 'buffer';
+import base64 from 'base-64';
 
 console.log('🔍 SpotifyService Debug: Using direct secrets.js');
 console.log('🔍 SpotifyService Debug: SPOTIFY_CLIENT_ID Check:', SPOTIFY_CLIENT_ID ? 'Matches' : 'MISSING');
@@ -28,7 +28,7 @@ export const SpotifyService = {
                 throw new Error('Missing Spotify credentials in .env');
             }
 
-            const credentials = Buffer.from(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`).toString('base64');
+            const credentials = base64.encode(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`);
 
             const response = await fetch(SPOTIFY_TOKEN_URL || 'https://accounts.spotify.com/api/token', {
                 method: 'POST',
@@ -309,7 +309,7 @@ export const SpotifyService = {
      * - Minimum query length enforcement
      */
     search: async (query, type = 'all', limit = 20) => {
-        if (!query || query.trim().length < 5) {
+        if (!query || query.trim().length < 3) {
             return { status: 'SUCCESS', success: true, data: { total: 0, results: [] } };
         }
 
@@ -387,11 +387,11 @@ export const SpotifyService = {
                 album: track.album.name,
                 albumId: track.album.id,
                 duration: Math.floor(track.duration_ms / 1000),
-                image: track.album.images?.map(img => ({
+                image: (track.album?.images || []).map(img => ({
                     url: img.url,
                     quality: img.width <= 64 ? '50x50' : img.width <= 300 ? '150x150' : '500x500'
-                })).reverse() || [],
-                artwork: track.album.images?.[0]?.url,
+                })).reverse(),
+                artwork: track.album?.images?.[0]?.url,
                 type: 'song',
                 source: 'spotify',
                 explicit: track.explicit,
@@ -409,11 +409,11 @@ export const SpotifyService = {
                 year: album.release_date?.split('-')[0] || '',
                 releaseDate: album.release_date,
                 totalTracks: album.total_tracks,
-                image: album.images?.map(img => ({
+                image: (album.images || []).map(img => ({
                     url: img.url,
                     link: img.url,
                     quality: img.width <= 64 ? '50x50' : img.width <= 300 ? '150x150' : '500x500'
-                })).reverse() || [],
+                })).reverse(),
                 artwork: album.images?.[0]?.url,
                 type: 'album',
                 source: 'spotify',
@@ -429,11 +429,11 @@ export const SpotifyService = {
                 owner: playlist.owner?.display_name,
                 createdBy: playlist.owner?.display_name,
                 songCount: playlist.tracks?.total || 0,
-                image: playlist.images?.map(img => ({
+                image: (playlist.images || []).map(img => ({
                     url: img.url,
                     link: img.url,
                     quality: img.width ? (img.width <= 64 ? '50x50' : img.width <= 300 ? '150x150' : '500x500') : '150x150'
-                })).reverse() || [],
+                })).reverse(),
                 artwork: playlist.images?.[0]?.url,
                 type: 'playlist',
                 source: 'spotify',
