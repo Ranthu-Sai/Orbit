@@ -355,7 +355,7 @@ export const PlaylistHeader = ({
         }
     }, [isLoading, isPlaying, playlistId, songsData, playlistData, updateTrack]);
 
-    // Shuffle and play
+    // Shuffle and play - PERFORMANCE OPTIMIZED
     const handleShufflePress = useCallback(async () => {
         if (isLoading) return;
 
@@ -369,7 +369,14 @@ export const PlaylistHeader = ({
                 return;
             }
 
-            // Shuffle the songs array
+            // Optimistic UI: Show toast immediately
+            ToastAndroid.show(`Preparing ${songs.length} songs...`, ToastAndroid.SHORT);
+
+            // PERFORMANCE: Yield to next frame before CPU-intensive shuffle
+            // This ensures UI renders the loading state first
+            await new Promise(r => requestAnimationFrame(r));
+
+            // Shuffle the songs array (Fisher-Yates)
             const shuffled = [...songs];
             for (let i = shuffled.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -379,7 +386,6 @@ export const PlaylistHeader = ({
             await AddPlaylist(shuffled);
             setIsPlaying(true);
             updateTrack?.();
-            ToastAndroid.show(`Shuffling ${shuffled.length} songs`, ToastAndroid.SHORT);
         } catch (error) {
             console.error('Error shuffling playlist:', error);
             ToastAndroid.show('Failed to shuffle playlist', ToastAndroid.SHORT);

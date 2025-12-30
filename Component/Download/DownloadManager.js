@@ -11,7 +11,7 @@ import { getIndexQuality } from '../../MusicPlayerFunctions';
  * Provides a clean interface for downloading songs with progress tracking
  */
 export class DownloadManager {
-  
+
   /**
    * Downloads a song with progress tracking and metadata saving
    * @param {Object} songData - Song data object
@@ -265,6 +265,31 @@ export class DownloadManager {
   static async getDownloadUrl(song) {
     try {
       const quality = await getIndexQuality();
+
+      // ============================================================
+      // SPOTIFY SOURCE - Map to YTMusic first, then get stream URL
+      // Detection: source='spotify' OR spotifyId OR _needsSpotifyMapping flag
+      // ============================================================
+      if (song.source === 'spotify' || song.spotifyId || song._needsSpotifyMapping || song.url?.startsWith('spotify://')) {
+        console.log('🎵 DownloadManager: Spotify track detected, mapping to YTMusic:', song.title || song.name);
+        try {
+          const YouTubeMusicService = require('../../Utils/YouTubeMusicService').default;
+          const ytMusicResult = await YouTubeMusicService.searchAndStream(
+            song.title || song.name,
+            song.artist || song.primaryArtists || song.artists || ''
+          );
+
+          if (ytMusicResult && ytMusicResult.url && !ytMusicResult.error) {
+            console.log('✅ DownloadManager: Spotify → YTMusic mapped:', song.title, '→', ytMusicResult.videoId);
+            return ytMusicResult.url;
+          }
+          console.error('❌ DownloadManager: Failed to map Spotify track:', song.title);
+          return null;
+        } catch (spotifyError) {
+          console.error('❌ DownloadManager: Spotify mapping error:', spotifyError.message);
+          return null;
+        }
+      }
 
       // Method 1: downloadUrl array (most common)
       if (song.downloadUrl && Array.isArray(song.downloadUrl)) {

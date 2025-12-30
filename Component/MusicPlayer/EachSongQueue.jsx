@@ -9,7 +9,7 @@ import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityI
 import { Swipeable } from "react-native-gesture-handler";
 import { useThemeContext } from "../../Context/ThemeContext";
 import { useThemeManager } from "./ThemeManager/useThemeManager";
-import { useDownload } from "../Download/useDownload";
+// useDownload hook removed - download state is now passed as props from parent to prevent callback leak
 import { DownloadControl } from "../Download/DownloadControl";
 // TrackPlayer import removed to prevent callback leaks in list items
 import { GetLikedSongs, SetLikedSongs, DeleteALikedSong } from "../../LocalStorage/StoreLikedSongs";
@@ -31,24 +31,23 @@ export const EachSongQueue = memo(function EachSongQueue({
   reorderMode = false,
   // Props to avoid hook leak (passed from parent instead of calling hooks in EVERY item)
   playerState,
-  currentPlaying
+  currentPlaying,
+  // Download state props (lifted from parent to avoid 87+ hook instances)
+  isDownloaded: propIsDownloaded = false,
+  isDownloading: propIsDownloading = false,
+  downloadProgress: propDownloadProgress = 0,
+  onDownloadPress = null
 }) {
   const { theme, themeMode } = useThemeContext();
   const { getOpacityColor } = useThemeManager();
   const swipeableRef = useRef(null);
 
-  // Get download state from hook (for online songs)
-  const {
-    isDownloaded: hookIsDownloaded,
-    isDownloading,
-    downloadProgress,
-    startDownload,
-    canDownload
-  } = useDownload(songData || { id, title, artist, artwork }, false);
-
-  // Use songData.isDownloaded flag first (for songs from Downloads screen)
-  // This fixes the ID mismatch issue between FastOrbitScanner and StorageManager
-  const isDownloaded = songData?.isDownloaded || songData?.isLocal || hookIsDownloaded;
+  // Download state is now passed as props from parent (QueueRenderSongs)
+  // This prevents 87+ hook instances causing "Excessive pending callbacks" warning
+  const isDownloaded = songData?.isDownloaded || songData?.isLocal || propIsDownloaded;
+  const isDownloading = propIsDownloading;
+  const downloadProgress = propDownloadProgress;
+  const canDownload = !isDownloaded && !isDownloading && !!onDownloadPress;
 
   // Liked songs state
   const [isLiked, setIsLiked] = useState(false);
@@ -440,7 +439,7 @@ export const EachSongQueue = memo(function EachSongQueue({
           isDownloaded={isDownloaded}
           isDownloading={isDownloading}
           downloadProgress={downloadProgress}
-          onDownloadPress={startDownload}
+          onDownloadPress={onDownloadPress}
           isOffline={false}
           disabled={!canDownload}
           size={20}
@@ -534,7 +533,7 @@ export const EachSongQueue = memo(function EachSongQueue({
             isDownloaded={isDownloaded}
             isDownloading={isDownloading}
             downloadProgress={downloadProgress}
-            onDownloadPress={startDownload}
+            onDownloadPress={onDownloadPress}
             isOffline={false}
             disabled={!canDownload}
             size={20}

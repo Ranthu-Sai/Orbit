@@ -91,10 +91,19 @@ export const standardShuffle = (array) => {
  * 3. Distribute artists evenly across the queue
  * 4. Avoid consecutive songs from same album
  * 5. Add controlled randomness (20%)
+ * 
+ * PERFORMANCE: For large queues (100+), uses simpler O(n) album-aware shuffle
  */
 export const smartShuffleQueue = (songs) => {
     if (!Array.isArray(songs) || songs.length <= 2) {
         return songs; // Not enough songs to shuffle intelligently
+    }
+
+    // PERFORMANCE: For large queues, use simpler O(n) album-aware shuffle
+    // The complex artist-interleaving algorithm is O(n*m) and blocks UI
+    if (songs.length > 100) {
+        console.log(`⚡ Large queue (${songs.length} songs): Using optimized shuffle`);
+        return albumAwareShuffle(songs);
     }
 
     // Group songs by artist

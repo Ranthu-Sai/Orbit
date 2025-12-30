@@ -12,6 +12,9 @@ import NetInfo from "@react-native-community/netinfo";
 import { StorageManager } from '../../Utils/StorageManager';
 import { useThemeContext } from "../../Context/ThemeContext";
 import { debounce, deduplicateEventHandler } from '../../Utils/EventDebouncer';
+import EventRegister from '../../Utils/EventRegister';
+import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
+import { InteractionManager } from 'react-native';
 
 // Function to get high quality artwork URL
 const getHighQualityArtwork = (artworkUrl) => {
@@ -67,6 +70,73 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
   const skipNextQueueInitRef = useRef(false); // Skip queue re-init after reorder
   const downloadedTracksCache = useRef(null); // PERFORMANCE: Cache downloaded tracks to avoid file I/O
   const lastCacheTime = useRef(0); // Track when cache was last updated
+
+  // PERFORMANCE FIX: Cache TrackPlayer queue to avoid repeated expensive bridge calls
+  // TrackPlayer.getQueue() with 89 tracks serializes entire queue over bridge (slow!)
+  const trackPlayerQueueCache = useRef(null);
+  const trackPlayerQueueCacheTime = useRef(0);
+  const QUEUE_CACHE_TTL = 2000; // 2 second cache - queue doesn't change that often
+
+  // PERFORMANCE FIX: Centralized download state management
+  // Instead of 87 individual useDownload hooks (causing callback leak), we track all in ONE state
+  const [downloadStates, setDownloadStates] = useState({}); // { songId: { isDownloading, progress, isDownloaded } }
+
+  // Listen to global download events ONCE (not per-item) to prevent callback leak
+  useEffect(() => {
+    const handleDownloadStarted = (songId) => {
+      setDownloadStates(prev => ({
+        ...prev,
+        [songId]: { isDownloading: true, progress: 0, isDownloaded: false }
+      }));
+    };
+
+    const handleDownloadComplete = (songId) => {
+      setDownloadStates(prev => ({
+        ...prev,
+        [songId]: { isDownloading: false, progress: 100, isDownloaded: true }
+      }));
+    };
+
+    const handleDownloadProgress = ({ songId, progress }) => {
+      setDownloadStates(prev => ({
+        ...prev,
+        [songId]: { ...prev[songId], progress }
+      }));
+    };
+
+    // Register global event listeners (only 3 listeners total, not 87*3)
+    EventRegister.addEventListener('download-started', handleDownloadStarted);
+    EventRegister.addEventListener('download-complete', handleDownloadComplete);
+    EventRegister.addEventListener('download-progress', handleDownloadProgress);
+
+    return () => {
+      EventRegister.removeEventListener('download-started', handleDownloadStarted);
+      EventRegister.removeEventListener('download-complete', handleDownloadComplete);
+      EventRegister.removeEventListener('download-progress', handleDownloadProgress);
+    };
+  }, []);
+
+  // Handler to start download for a song (passed to EachSongQueue as prop)
+  const handleDownloadPress = useCallback((songData) => {
+    if (!songData || !songData.id) return;
+
+    // Defer heavy download operation to prevent UI blocking
+    InteractionManager.runAfterInteractions(async () => {
+      try {
+        console.log('📥 QueueRenderSongs: Starting download for:', songData.title);
+        await UnifiedDownloadService.downloadSong(songData, (progress) => {
+          // Emit progress event for state update
+          EventRegister.emit('download-progress', { songId: songData.id, progress });
+        });
+      } catch (error) {
+        console.error('Download error from QueueRenderSongs:', error.message);
+        setDownloadStates(prev => ({
+          ...prev,
+          [songData.id]: { isDownloading: false, progress: 0, isDownloaded: false }
+        }));
+      }
+    });
+  }, []);
 
   // Check network status on component mount
   useEffect(() => {
@@ -167,7 +237,8 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
 
       // Check if the current track has a sourceType (mymusic or download)
       const sourceType = (currentTrack.sourceType || (isLocalTrack(currentTrack) ? 'download' : 'online'))?.toString?.().toLowerCase();
-      console.log('Current track source type:', sourceType);
+      // Verbose logging commented for performance
+      // console.log('Current track source type:', sourceType);
 
       // If playing a track from MyMusic, only show MyMusic tracks in the queue
       if (sourceType === 'mymusic') {
@@ -243,17 +314,28 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       if (!isOffline) {
         // PERFORMANCE: Use provided queue if available, otherwise fallback to Context
         let fullQueue = providedQueue || Queue || [];
-        console.log(`filterQueueBySource: Queue source has ${fullQueue.length} tracks (Manual: ${!!providedQueue})`);
+        // Reduced logging for performance
+        // console.log(`filterQueueBySource: Queue source has ${fullQueue.length} tracks (Manual: ${!!providedQueue})`);
 
         // FALLBACK: If Context.Queue is empty (due to React state batching delay),
-        // fetch directly from TrackPlayer to ensure we have the latest queue
+        // fetch directly from TrackPlayer - BUT USE CACHE to avoid expensive bridge calls
         if (fullQueue.length === 0) {
-          console.log('Context Queue is empty - fetching from TrackPlayer as fallback');
-          try {
-            fullQueue = await TrackPlayer.getQueue();
-            console.log(`filterQueueBySource: TrackPlayer fallback has ${fullQueue.length} tracks`);
-          } catch (e) {
-            console.log('TrackPlayer fallback failed, using current track only');
+          const now = Date.now();
+          // Use cached queue if fresh enough
+          if (trackPlayerQueueCache.current && (now - trackPlayerQueueCacheTime.current) < QUEUE_CACHE_TTL) {
+            fullQueue = trackPlayerQueueCache.current;
+            // console.log(`filterQueueBySource: Using cached queue (${fullQueue.length} tracks)`);
+          } else {
+            console.log('Context Queue is empty - fetching from TrackPlayer as fallback');
+            try {
+              fullQueue = await TrackPlayer.getQueue();
+              // Cache the result
+              trackPlayerQueueCache.current = fullQueue;
+              trackPlayerQueueCacheTime.current = now;
+              console.log(`filterQueueBySource: TrackPlayer fallback has ${fullQueue.length} tracks (cached)`);
+            } catch (e) {
+              console.log('TrackPlayer fallback failed, using current track only');
+            }
           }
         }
 
@@ -310,12 +392,14 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
 
   // Debounce reference to prevent excessive updates
   const lastTrackUpdateRef = useRef(0);
+  const lastProcessedTrackIdRef = useRef(null); // Skip if same track
   const TRACK_UPDATE_DEBOUNCE = 300; // 300ms debounce
 
   // Track change listener to update the queue - DEBOUNCED and DEFERRED
   useTrackPlayerEvents([Event.PlaybackTrackChanged], (event) => {
-    // PERFORMANCE: Defer to next frame to prevent blocking UI during track change
-    requestAnimationFrame(() => {
+    // PERFORMANCE: Use InteractionManager instead of requestAnimationFrame
+    // This ensures UI animations complete before heavy queue processing starts
+    InteractionManager.runAfterInteractions(() => {
       handleTrackChangeEvent(event);
     });
   });
@@ -342,20 +426,17 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         const index = await TrackPlayer.getCurrentTrack();
 
         if (track) {
+          // PERFORMANCE: Skip if we already processed this exact track
+          // This prevents redundant queue processing during rapid track changes
+          if (lastProcessedTrackIdRef.current === track.id) {
+            return; // Already processed this track
+          }
+          lastProcessedTrackIdRef.current = track.id;
+
           setCurrentIndex(index || 0);
 
           // Get the source type for the current track
           const sourceType = track.sourceType || (isLocalTrack(track) ? 'download' : 'online');
-          // Track changed - silently update
-
-          // Log track details for debugging
-          console.log('New track details:', {
-            id: track.id,
-            title: track.title,
-            sourceType: sourceType,
-            isLocal: isLocalTrack(track),
-            url: track.url ? (typeof track.url === 'string' ? track.url.substring(0, 30) + '...' : 'non-string-url') : 'no-url'
-          });
 
           // Update local source flag based on source type
           setIsLocalSource(sourceType === 'mymusic' || sourceType === 'download' || isLocalTrack(track));
@@ -363,17 +444,8 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
           // Filter the queue based on source type
           const filtered = await filterQueueBySource(track);
 
-          // Log filtered queue size
-          console.log(`Track changed - filtered queue contains ${filtered.length} tracks`);
-          if (filtered.length > 0) {
-            // Log source types in filtered queue for debugging
-            const sourceTypes = {};
-            filtered.forEach(track => {
-              const trackSourceType = track.sourceType || (isLocalTrack(track) ? 'download' : 'online');
-              sourceTypes[trackSourceType] = (sourceTypes[trackSourceType] || 0) + 1;
-            });
-            console.log('Track changed - queue source types:', sourceTypes);
-          }
+          // Reduced logging for performance - uncomment for debugging
+          // console.log(`Track changed - filtered queue contains ${filtered.length} tracks`);
 
           // Filter out duplicate songs based on ID
           const uniqueIds = new Set();
@@ -424,6 +496,12 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
 
       try {
         if (currentPlaying) {
+          // PERFORMANCE: Skip if track change event already processed this track
+          // This prevents duplicate filterQueueBySource calls
+          if (lastProcessedTrackIdRef.current === currentPlaying.id) {
+            return; // Already processed by track change event
+          }
+
           // Get the source type for the current track
           const sourceType = currentPlaying.sourceType || (isLocalTrack(currentPlaying) ? 'download' : 'online');
 
@@ -431,13 +509,7 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
           setIsLocalSource(sourceType === 'mymusic' || sourceType === 'download' || isLocalTrack(currentPlaying));
 
           // Filter queue based on current track's source type
-          // filterQueueBySource already calls getDownloadedTracks internally (now cached)
           const filtered = await filterQueueBySource(currentPlaying);
-
-          if (filtered.length > 0) {
-            // Log only count, not full distribution/structure
-            // console.log(`Filtered queue contains ${filtered.length} tracks`);
-          }
 
           // Filter out duplicate songs based on ID
           const uniqueIds = new Set();
@@ -1050,7 +1122,10 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
           // CRITICAL FIX: Fetch fresh queue directly from TrackPlayer
           // Context.Queue might be stale due to React state batching when this event fires
           const freshQueue = await TrackPlayer.getQueue();
-          console.log(`📋 Fresh queue from TrackPlayer: ${freshQueue.length} tracks`);
+          // Update cache since we just fetched fresh data
+          trackPlayerQueueCache.current = freshQueue;
+          trackPlayerQueueCacheTime.current = Date.now();
+          console.log(`📋 Fresh queue from TrackPlayer: ${freshQueue.length} tracks (cache updated)`);
 
           const filtered = await filterQueueBySource(currentTrack, freshQueue);
 
@@ -1203,6 +1278,11 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         reorderMode={reorderMode}
         playerState={playerState}
         currentPlaying={currentPlaying}
+        // Download props - lifted from parent to avoid hook leak
+        isDownloaded={downloadStates[enhancedItem.id]?.isDownloaded || false}
+        isDownloading={downloadStates[enhancedItem.id]?.isDownloading || false}
+        downloadProgress={downloadStates[enhancedItem.id]?.progress || 0}
+        onDownloadPress={() => handleDownloadPress(enhancedItem)}
       />
     );
   };
@@ -1248,6 +1328,12 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       }}
       dragItemOverflow={true} // Enable overflow for better visibility
       scrollEnabled={!isDragging} // Disable scrolling during drag
+      // PERFORMANCE: Virtualization optimizations for 120+ song queues
+      windowSize={7} // Render 7 screens worth of items (3.5 above/below)
+      maxToRenderPerBatch={10} // Render 10 items per batch
+      updateCellsBatchingPeriod={50} // Batch updates every 50ms
+      initialNumToRender={15} // Render first 15 immediately
+      removeClippedSubviews={true} // Remove off-screen items from memory
       renderItem={({ item, index, drag, isActive }) => {
         // Enhance the item with high-quality artwork
         const enhancedItem = enhanceTrackWithHighQualityArtwork(item);
@@ -1268,6 +1354,11 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
               reorderMode={reorderMode}
               playerState={playerState}
               currentPlaying={currentPlaying}
+              // Download props - lifted from parent to avoid hook leak
+              isDownloaded={downloadStates[enhancedItem.id]?.isDownloaded || false}
+              isDownloading={downloadStates[enhancedItem.id]?.isDownloading || false}
+              downloadProgress={downloadStates[enhancedItem.id]?.progress || 0}
+              onDownloadPress={() => handleDownloadPress(enhancedItem)}
             />
           </ScaleDecorator>
         );

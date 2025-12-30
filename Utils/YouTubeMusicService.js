@@ -17,17 +17,30 @@ class YouTubeMusicService {
 
     // Stream URL extraction via native bridge
     static async getStreamUrl(videoId) {
-        const stream = await NativeStreaming.getStreamUrl(videoId, '');
-        // Map native result to expected format, including bitrate and mimeType
-        return {
-            ...stream,
-            url: stream.url,
-            // Add formats structure if needed (Native returns one best stream)
-            all_formats: [],
-            format: stream.format || 'opus',
-            mimeType: stream.mimeType || 'audio/webm',
-            bitrate: stream.bitrate || 0
-        };
+        try {
+            const stream = await NativeStreaming.getStreamUrl(videoId, '');
+
+            // CRITICAL: Validate that we got a valid stream URL
+            if (!stream || !stream.url) {
+                console.error(`❌ YouTubeMusicService: Empty stream URL for videoId: ${videoId}`);
+                return null;
+            }
+
+            // Map native result to expected format, including bitrate and mimeType
+            return {
+                ...stream,
+                url: stream.url,
+                videoId: videoId,
+                // Add formats structure if needed (Native returns one best stream)
+                all_formats: [],
+                format: stream.format || 'opus',
+                mimeType: stream.mimeType || 'audio/webm',
+                bitrate: stream.bitrate || 0
+            };
+        } catch (error) {
+            console.error(`❌ YouTubeMusicService.getStreamUrl error for ${videoId}:`, error.message);
+            return null;
+        }
     }
 
     static async search(query, filter = 'songs', limit = 20) {
@@ -83,17 +96,30 @@ class YouTubeMusicService {
     }
 
     static async searchAndStream(songName, artistName = '') {
-        const results = await this.search(`${songName} ${artistName}`, 'songs');
-        if (results && results.length > 0) {
-            const videoId = results[0].videoId;
-            const stream = await this.getStreamUrl(videoId);
-            return {
-                ...stream,
-                ...results[0], // Merge metadata
-                stream_url: stream.url // legacy key
-            };
+        try {
+            const results = await this.search(`${songName} ${artistName}`, 'songs');
+            if (results && results.length > 0) {
+                const videoId = results[0].videoId;
+                const stream = await this.getStreamUrl(videoId);
+
+                // CRITICAL: Validate stream before returning
+                if (!stream || !stream.url) {
+                    console.error(`❌ searchAndStream: Failed to get stream for ${songName}`);
+                    return { error: "Failed to get stream URL" };
+                }
+
+                return {
+                    ...stream,
+                    ...results[0], // Merge metadata
+                    videoId: videoId,
+                    stream_url: stream.url // legacy key
+                };
+            }
+            return { error: "No results found" };
+        } catch (error) {
+            console.error(`❌ searchAndStream error for ${songName}:`, error.message);
+            return { error: error.message };
         }
-        return { error: "No results found" };
     }
 
     // Legacy stubs for backward compatibility

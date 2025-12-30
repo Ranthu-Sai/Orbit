@@ -3,7 +3,7 @@ import BottomSheet from "@gorhom/bottom-sheet";
 import QueueRenderSongs from "./QueueRenderSongs";
 import { PlainText } from "../Global/PlainText";
 import { SmallText } from "../Global/SmallText";
-import { View, StyleSheet, Dimensions, Text, ActivityIndicator, ToastAndroid } from "react-native";
+import { View, StyleSheet, Dimensions, Text, ActivityIndicator, ToastAndroid, InteractionManager, DeviceEventEmitter } from "react-native";
 import { TouchableOpacity as Pressable } from "react-native";
 import { Minus, ListPlus, ListX, Shuffle, Sparkles } from 'lucide-react-native';
 import Svg, { Circle } from "react-native-svg";
@@ -38,7 +38,8 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
     return themeMode === 'light' ? "#000" : "#000";
   };
 
-  // Handle smart shuffle
+  // Handle smart shuffle - PERFORMANCE OPTIMIZED
+  // Uses batched background operations to prevent UI freeze with 120+ songs
   const handleSmartShuffle = useCallback(async () => {
     if (isShuffling) return;
 
@@ -66,22 +67,55 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
         newMode // Use smart shuffle if activating, standard if deactivating
       );
 
-      // Remove all tracks
-      const indicesToRemove = queue.map((_, index) => index);
-      await TrackPlayer.remove(indicesToRemove);
-
-      // Add shuffled tracks
-      await TrackPlayer.add(shuffledQueue);
-
-      // Skip to the preserved current track (should be at same index)
-      if (currentTrackIndex !== null && currentTrackIndex < shuffledQueue.length) {
-        await TrackPlayer.skip(currentTrackIndex);
-      }
-
+      // Show toast immediately for responsiveness
       ToastAndroid.show(
-        newMode ? '✨ Smart Shuffle Active' : 'Standard Shuffle',
+        newMode ? '✨ Smart Shuffle Active' : 'Shuffling...',
         ToastAndroid.SHORT
       );
+
+      // PERFORMANCE: Update TrackPlayer in background with batched operations
+      // This prevents UI freeze with large queues (120+ songs)
+      InteractionManager.runAfterInteractions(async () => {
+        try {
+          const BATCH_SIZE = 20;
+          const currentTrack = queue[currentTrackIndex];
+
+          // Remove all tracks except current (in reverse batch order to maintain indices)
+          const indicesToRemove = [];
+          for (let i = queue.length - 1; i >= 0; i--) {
+            if (i !== currentTrackIndex) {
+              indicesToRemove.push(i);
+            }
+          }
+
+          // Remove in batches
+          for (let i = 0; i < indicesToRemove.length; i += BATCH_SIZE) {
+            const batch = indicesToRemove.slice(i, i + BATCH_SIZE);
+            await TrackPlayer.remove(batch);
+            // Yield to UI thread
+            await new Promise(r => setTimeout(r, 16));
+          }
+
+          // Filter out current track from shuffled queue (it's already at index 0)
+          const tracksToAdd = shuffledQueue.filter(t => t.id !== currentTrack?.id);
+
+          // Add shuffled tracks in batches
+          for (let i = 0; i < tracksToAdd.length; i += BATCH_SIZE) {
+            const batch = tracksToAdd.slice(i, i + BATCH_SIZE);
+            await TrackPlayer.add(batch);
+            // Yield to UI thread
+            await new Promise(r => setTimeout(r, 16));
+          }
+
+          // Emit queue update event for UI refresh
+          DeviceEventEmitter.emit('queue-updated', { count: shuffledQueue.length });
+
+          console.log(`✅ Queue shuffled: ${shuffledQueue.length} tracks`);
+        } catch (bgError) {
+          console.error('Background shuffle error:', bgError);
+        }
+      });
+
     } catch (error) {
       console.error('Error shuffling queue:', error);
       ToastAndroid.show('Failed to shuffle queue', ToastAndroid.SHORT);

@@ -85,21 +85,21 @@ class SmartPrefetchManager {
             console.log('🔄 SmartPrefetch: Queue updated - checking if prefetch retry needed');
             try {
                 const currentIndex = await TrackPlayer.getActiveTrackIndex();
-                const queue = await TrackPlayer.getQueue();
+                if (currentIndex === undefined) return;
 
-                // If queue has grown and we haven't prefetched N+1 yet, do it now
-                if (queue.length > 1 && currentIndex !== undefined) {
-                    const nextIndex = currentIndex + 1;
-                    if (nextIndex < queue.length && !this.prefetchedTracks.has(queue[nextIndex]?.id)) {
-                        console.log(`🔄 SmartPrefetch: Retrying N+1 prefetch at index ${nextIndex}`);
-                        await this._prefetchTrackAtIndex(nextIndex);
+                // PERFORMANCE: Use getTrack() instead of getQueue() - avoids serializing 120+ tracks
+                const nextTrack = await TrackPlayer.getTrack(currentIndex + 1);
 
-                        // Also try N+2
-                        const next2Index = currentIndex + 2;
-                        if (next2Index < queue.length && !this.prefetchedTracks.has(queue[next2Index]?.id)) {
-                            console.log(`🔄 SmartPrefetch: Retrying N+2 prefetch at index ${next2Index}`);
-                            await this._prefetchTrackAtIndex(next2Index);
-                        }
+                // If we have a next track and haven't prefetched it yet, do it now
+                if (nextTrack && !this.prefetchedTracks.has(nextTrack.id)) {
+                    console.log(`🔄 SmartPrefetch: Retrying N+1 prefetch at index ${currentIndex + 1}`);
+                    await this._prefetchTrackAtIndex(currentIndex + 1);
+
+                    // Also try N+2
+                    const next2Track = await TrackPlayer.getTrack(currentIndex + 2);
+                    if (next2Track && !this.prefetchedTracks.has(next2Track.id)) {
+                        console.log(`🔄 SmartPrefetch: Retrying N+2 prefetch at index ${currentIndex + 2}`);
+                        await this._prefetchTrackAtIndex(currentIndex + 2);
                     }
                 }
             } catch (e) {
@@ -233,6 +233,8 @@ class SmartPrefetchManager {
      * Async handler for track changed - contains the heavy lifting
      * Runs in background via InteractionManager
      * @private
+     * 
+     * PERFORMANCE: Uses parallel prefetch for Spotify playlists (search+stream = 2 calls/track)
      */
     async _handleTrackChangedAsync(event) {
         let effectiveIndex = event.index;
@@ -247,36 +249,64 @@ class SmartPrefetchManager {
 
         this.currentTrackIndex = effectiveIndex;
 
-        // 🎵 SEQUENTIAL PREFETCH: N+1 first, then N+2 after N+1 completes
-        // IMPORTANT: Use dynamic index lookup to handle queue rearrangement
-        console.log(`🎵 Track Changed: Starting prefetch sequence from current position`);
+        // Get current index and check if next track is Spotify
+        // PERFORMANCE: Use getTrack() instead of getQueue() - avoids serializing 120+ tracks
+        const currentIdx = await TrackPlayer.getActiveTrackIndex();
+        const nextTrack = await TrackPlayer.getTrack(currentIdx + 1);
 
-        // Prefetch N+1 first (uses fresh index lookup internally)
-        try {
-            await this._prefetchNextFromCurrent();
+        // Detect Spotify playlist (each track needs search + stream fetch)
+        const isSpotifyPlaylist = nextTrack && (
+            nextTrack.source === 'spotify' ||
+            nextTrack.spotifyId ||
+            nextTrack._needsSpotifyMapping ||
+            nextTrack.url?.startsWith('spotify://')
+        );
 
-            // Only after N+1 completes, start N+2 (non-blocking)
-            // Use setImmediate to ensure UI thread is not blocked
-            setImmediate(async () => {
-                try {
-                    // Get FRESH current index - queue may have been rearranged
-                    const currentIdx = await TrackPlayer.getActiveTrackIndex();
-                    if (currentIdx !== null && currentIdx !== undefined) {
-                        console.log(`🎵 N+1 done, starting N+2 at index ${currentIdx + 2}`);
-                        await this._prefetchTrackAtIndex(currentIdx + 2);
-                        console.log(`✅ N+2 prefetch complete`);
-                    }
-                } catch (err) {
-                    // Silence expected errors
-                    if (!err.message?.includes("doesn't exist")) {
-                        console.log('N+2 prefetch skipped:', err.message);
-                    }
-                }
+        console.log(`🎵 Track Changed: Starting prefetch (${isSpotifyPlaylist ? 'Spotify parallel' : 'sequential'})`);
+
+        if (isSpotifyPlaylist) {
+            // 🚀 PARALLEL PREFETCH for Spotify: N+1 and N+2 simultaneously
+            // This reduces total prefetch time from ~4s to ~2s (2 network calls per track)
+            console.log('🎵 Spotify playlist: Starting parallel N+1/N+2 prefetch');
+            Promise.all([
+                this._prefetchTrackAtIndex(currentIdx + 1).catch(e =>
+                    e.message?.includes("doesn't exist") ? null : console.log('N+1:', e.message)
+                ),
+                this._prefetchTrackAtIndex(currentIdx + 2).catch(e =>
+                    e.message?.includes("doesn't exist") ? null : console.log('N+2:', e.message)
+                )
+            ]).then(() => {
+                console.log('✅ Spotify parallel prefetch complete');
             });
-        } catch (err) {
-            // Silence expected errors
-            if (!err.message?.includes("doesn't exist")) {
-                console.log('N+1 prefetch error:', err.message);
+        } else {
+            // 🎵 SEQUENTIAL PREFETCH: N+1 first, then N+2 after N+1 completes
+            // IMPORTANT: Use dynamic index lookup to handle queue rearrangement
+            try {
+                await this._prefetchNextFromCurrent();
+
+                // Only after N+1 completes, start N+2 (non-blocking)
+                // Use setImmediate to ensure UI thread is not blocked
+                setImmediate(async () => {
+                    try {
+                        // Get FRESH current index - queue may have been rearranged
+                        const freshIdx = await TrackPlayer.getActiveTrackIndex();
+                        if (freshIdx !== null && freshIdx !== undefined) {
+                            console.log(`🎵 N+1 done, starting N+2 at index ${freshIdx + 2}`);
+                            await this._prefetchTrackAtIndex(freshIdx + 2);
+                            console.log(`✅ N+2 prefetch complete`);
+                        }
+                    } catch (err) {
+                        // Silence expected errors
+                        if (!err.message?.includes("doesn't exist")) {
+                            console.log('N+2 prefetch skipped:', err.message);
+                        }
+                    }
+                });
+            } catch (err) {
+                // Silence expected errors
+                if (!err.message?.includes("doesn't exist")) {
+                    console.log('N+1 prefetch error:', err.message);
+                }
             }
         }
     }

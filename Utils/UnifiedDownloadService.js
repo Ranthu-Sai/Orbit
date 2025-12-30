@@ -291,6 +291,40 @@ export class UnifiedDownloadService {
       }
 
       // ============================================================
+      // SPOTIFY SOURCE - Map to YTMusic first, then get stream URL
+      // Detection: source='spotify' OR spotifyId OR _needsSpotifyMapping flag
+      // Uses same logic as SmartPrefetchManager for playback
+      // ============================================================
+      if (song.source === 'spotify' || song.spotifyId || song._needsSpotifyMapping || song.url?.startsWith('spotify://')) {
+        console.log('🎵 Spotify track detected, mapping to YTMusic for download:', song.title || song.name);
+        try {
+          const YouTubeMusicService = require('./YouTubeMusicService').default;
+          const ytMusicResult = await YouTubeMusicService.searchAndStream(
+            song.title || song.name,
+            song.artist || song.primaryArtists || song.artists || ''
+          );
+
+          if (ytMusicResult && ytMusicResult.url && !ytMusicResult.error) {
+            console.log('✅ Spotify → YTMusic mapped for download:', song.title, '→', ytMusicResult.videoId);
+            return {
+              url: ytMusicResult.url,
+              headers: ytMusicResult.headers || {
+                'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 12; en_IN)',
+                'Range': 'bytes=0-'
+              },
+              format: ytMusicResult.format || null,
+              source: 'ytmusic' // Mark as ytmusic since we're downloading from YTMusic
+            };
+          }
+          console.error('❌ Failed to map Spotify track to YTMusic for download:', song.title);
+          return null;
+        } catch (spotifyError) {
+          console.error('❌ Spotify mapping error for download:', spotifyError.message);
+          return null;
+        }
+      }
+
+      // ============================================================
       // DAB MUSIC SOURCE - Fetch stream URL from API
       // Detection: source='dab' OR isDabTrack flag
       // ============================================================
