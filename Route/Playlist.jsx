@@ -717,7 +717,6 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
               backgroundColor: theme.dark ? theme.colors.background : "#FFFFFF",
             }}
             style={{
-              paddingHorizontal: 15,
               backgroundColor: "transparent",
             }}
             initialNumToRender={10}
@@ -774,6 +773,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     borderRadius: 8,
     elevation: 2,
+    marginHorizontal: 15,
   },
   bottomSpacer: {
     height: 65,

@@ -429,7 +429,7 @@ export const PlaylistHeader = ({
                         {/* Like Button */}
                         <IconButton
                             icon={isLiked ? 'heart' : 'heart-outline'}
-                            iconColor={isLiked ? '#E91E63' : '#FFFFFF'}
+                            iconColor={isLiked ? '#E91E63' : (theme.dark ? '#FFFFFF' : theme.colors.text)}
                             size={22}
                             onPress={handleLikePress}
                             style={styles.actionIcon}
@@ -451,7 +451,7 @@ export const PlaylistHeader = ({
                         ) : (
                             <IconButton
                                 icon="download-outline"
-                                iconColor={'#FFFFFF'}
+                                iconColor={theme.dark ? '#FFFFFF' : theme.colors.text}
                                 size={22}
                                 onPress={handleDownloadAllPress}
                                 style={styles.actionIcon}
@@ -483,8 +483,8 @@ export const PlaylistHeader = ({
                     icon="shuffle"
                     onPress={handleShufflePress}
                     disabled={isLoading}
-                    style={[styles.shuffleButton, { borderColor: '#FFFFFF' }]}
-                    labelStyle={[styles.buttonLabel, { color: '#FFFFFF' }]}
+                    style={[styles.shuffleButton, { borderColor: theme.dark ? '#FFFFFF' : theme.colors.primary }]}
+                    labelStyle={[styles.buttonLabel, { color: theme.dark ? '#FFFFFF' : theme.colors.primary }]}
                     contentStyle={styles.buttonContent}
                 >
                     Shuffle

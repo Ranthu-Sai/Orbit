@@ -371,7 +371,8 @@ const styles = StyleSheet.create({
   songCard: {
     marginBottom: 0,
     borderRadius: 0,
-    marginRight: 0
+    marginRight: 0,
+    marginHorizontal: 15,
   },
   bottomSpacer: {
     height: 65,
