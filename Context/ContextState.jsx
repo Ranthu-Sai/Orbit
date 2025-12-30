@@ -58,26 +58,29 @@ const ContextState = (props) => {
 
     async function updateTrack() {
         if (!isPlayerReady.current) return;
-        try {
-            const tracks = await TrackPlayer.getQueue();
-            // PERFORMANCE: Use O(1) comparison instead of O(n) JSON.stringify
-            // Compare length and first/last IDs - if these match, queue is likely unchanged
-            // FIX: Always update if new tracks were added (length increased)
-            const hasChanged = tracks.length !== Queue.length ||
-                (tracks.length > 0 && Queue.length > 0 && (
-                    tracks[0]?.id !== Queue[0]?.id ||
-                    tracks[tracks.length - 1]?.id !== Queue[Queue.length - 1]?.id
-                ));
 
-            console.log(`updateTrack: TrackPlayer has ${tracks.length} tracks, Context.Queue has ${Queue.length}, hasChanged: ${hasChanged}`);
+        // PERFORMANCE: Defer getQueue to next animation frame
+        // This prevents blocking the progress slider during track change
+        requestAnimationFrame(async () => {
+            try {
+                const tracks = await TrackPlayer.getQueue();
+                // PERFORMANCE: Use O(1) comparison instead of O(n) JSON.stringify
+                // Compare length and first/last IDs - if these match, queue is likely unchanged
+                // FIX: Always update if new tracks were added (length increased)
+                const hasChanged = tracks.length !== QueueRef.current.length ||
+                    (tracks.length > 0 && QueueRef.current.length > 0 && (
+                        tracks[0]?.id !== QueueRef.current[0]?.id ||
+                        tracks[tracks.length - 1]?.id !== QueueRef.current[QueueRef.current.length - 1]?.id
+                    ));
 
-            if (hasChanged || tracks.length > Queue.length) {
-                console.log(`updateTrack: Updating Context.Queue with ${tracks.length} tracks`);
-                setQueue(tracks);
+                if (hasChanged || tracks.length > QueueRef.current.length) {
+                    console.log(`updateTrack: Updating Context.Queue with ${tracks.length} tracks`);
+                    setQueue(tracks);
+                }
+            } catch (error) {
+                console.log('updateTrack: TrackPlayer not ready yet');
             }
-        } catch (error) {
-            console.log('updateTrack: TrackPlayer not ready yet');
-        }
+        });
     }
 
     // Function to update liked playlists state and trigger UI updates

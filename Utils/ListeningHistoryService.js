@@ -85,6 +85,7 @@ class ListeningHistoryService {
 
     /**
      * Handle track change event
+     * PERFORMANCE: Non-blocking - no awaits that could block progress slider
      */
     async handleTrackChange(event) {
         const track = event?.track;
@@ -106,16 +107,18 @@ class ListeningHistoryService {
 
         console.log(`📊 ListeningHistory: Played song #${this.sessionPlayCount}: "${track.title}"`);
 
+        // PERFORMANCE: Fire-and-forget - don't block UI
         // Report playback to YouTube to update visitorData/history
-        // This makes personalization work (like OuterTune)
         YouTubeMusicService.registerPlayback(songId);
 
-        await this.saveSession();
+        // PERFORMANCE: Non-blocking save to AsyncStorage
+        this.saveSession().catch(e => console.log('Session save error:', e.message));
 
         // Check if we should refresh the home feed
         if (this.sessionPlayCount >= SONGS_UNTIL_REFRESH && this.sessionPlayCount % SONGS_UNTIL_REFRESH === 0) {
-            console.log(`📊 ListeningHistory: Threshold reached (${this.sessionPlayCount} songs). Marking home feed for refresh.`);
-            await this.markHomeFeedForRefresh();
+            console.log(`📊 ListeningHistory: Threshold reached. Marking home feed for refresh.`);
+            // PERFORMANCE: Non-blocking - run in background
+            this.markHomeFeedForRefresh().catch(e => console.log('Mark refresh error:', e.message));
         }
     }
 
