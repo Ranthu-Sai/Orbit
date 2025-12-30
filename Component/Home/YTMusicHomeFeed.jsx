@@ -181,14 +181,16 @@ const ContentSection = ({ title, items, type }) => {
                     const thumbnail = getBestThumbnail(item.thumbnails || item.thumbnail);
                     const itemTitle = item.title || item.name || '';
                     const subtitle = item.subtitle || item.artists?.[0]?.name || item.author || item.year || '';
+                    const browseId = item.browseId || item.id;
+                    const isAlbum = browseId && (browseId.startsWith('MPRE') || browseId.startsWith('OLAK'));
 
-                    if (type === 'album') {
+                    if (type === 'album' || isAlbum) {
                         return (
                             <EachAlbumCard
                                 image={thumbnail}
                                 name={itemTitle}
                                 artists={subtitle}
-                                id={item.browseId || item.id}
+                                id={browseId}
                                 source="YTMusic"
                             />
                         );
@@ -199,7 +201,7 @@ const ContentSection = ({ title, items, type }) => {
                             image={thumbnail}
                             name={itemTitle}
                             follower={subtitle}
-                            id={item.playlistId || item.browseId || item.id}
+                            id={item.playlistId || browseId}
                             source="YTMusic"
                             MainContainerStyle={{ marginHorizontal: 4 }}
                         />
@@ -329,22 +331,27 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
                             item.browseId && item.browseId.startsWith('UC')
                         );
 
-                        // Determine primary content type
+                        // Determine primary content type (for choosing the right renderer)
+                        // OuterTune approach: Sections can be mixed, but we pick a type 
+                        // that represents the majority to decide if it's a song list or card row.
+
                         let type = 'mixed';
                         let items = contents;
 
-                        if (songs.length > playlists.length && songs.length > albums.length) {
+                        if (songs.length > (playlists.length + albums.length + artists.length)) {
                             type = 'songs';
                             items = songs;
-                        } else if (albums.length > playlists.length) {
-                            type = 'album';
-                            items = albums;
-                        } else if (playlists.length > 0) {
-                            type = 'playlist';
-                            items = playlists;
-                        } else if (artists.length > 0) {
+                        } else if (artists.length > (songs.length + playlists.length + albums.length)) {
                             type = 'artist';
                             items = artists;
+                        } else {
+                            // If it's mostly cards (playlists/albums), we show everything 
+                            // and let the Row handle individual item types
+                            type = 'mixed';
+                            items = contents.filter(item =>
+                                item.playlistId || item.browseId ||
+                                (item.videoId && (item.playlistId || item.browseId))
+                            );
                         }
 
                         return {
@@ -507,7 +514,7 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
                     );
                 }
 
-                // Playlist/Album sections using existing Orbit cards
+                // Mixed / Playlist / Album sections using existing Orbit cards
                 return (
                     <ContentSection
                         key={`section-${index}`}

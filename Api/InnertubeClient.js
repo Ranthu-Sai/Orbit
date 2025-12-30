@@ -179,11 +179,11 @@ class InnerTubeClient {
         }
     }
     /**
- * Get Home Feed with continuation support
- * Fetches ALL sections by following continuation tokens (like OuterTune)
- * Uses auth cookies if user is logged in for personalized content
- */
-    static async getHome() {
+     * Get Home Feed with continuation support
+     * Fetches sections by following continuation tokens and chips (like OuterTune)
+     * @param {number} sectionLimit - Maximum number of sections to fetch
+     */
+    static async getHome(sectionLimit = 20) {
         let authCookies = null;
 
         // Try to get auth cookies for personalized content
@@ -217,54 +217,84 @@ class InnerTubeClient {
         const data = await this.request('browse', { browseId: 'FEmusic_home' }, userCountry, authCookies, userLanguage);
 
         // Parse initial sections, chips, and continuation token
-        const { sections, chips, continuation } = this.parseHomeWithContinuation(data);
+        let { sections, chips, continuation } = this.parseHomeWithContinuation(data);
         console.log(`📊 InnerTube getHome: Initial sections: ${sections.length}, chips: ${chips?.length || 0}`);
 
         let allSections = [...sections];
         const seenTitles = new Set(sections.map(s => s.title));
 
-        // If we have chips, use them to load more content (more reliable than continuation)
-        if (chips && chips.length > 0) {
-            console.log(`🎨 InnerTube getHome: Found ${chips.length} chips, loading content from each...`);
+        // 1. Follow continuations iteratively (Main Home Feed)
+        let continuationCount = 0;
+        const MAX_CONTINUATIONS = 5;
 
-            // Load content from up to 5 chips
-            const chipPromises = chips.slice(0, 5).map(async (chip, idx) => {
-                if (!chip.params) return [];
+        while (continuation && allSections.length < sectionLimit && continuationCount < MAX_CONTINUATIONS) {
+            console.log(`🔄 InnerTube getHome: Following continuation ${continuationCount + 1}...`);
+            const contData = await this.request('browse', { continuation }, userCountry, authCookies, userLanguage);
+            const contResult = this.parseHomeContinuation(contData);
 
-                console.log(`🏷️ Loading chip ${idx + 1}: "${chip.title}" with params`);
-                const chipData = await this.request('browse', {
-                    browseId: 'FEmusic_home',
-                    params: chip.params
-                }, userCountry, authCookies, userLanguage);
-
-                const chipResult = this.parseHomeWithContinuation(chipData);
-                return chipResult.sections;
+            let addedInThisCont = 0;
+            contResult.sections.forEach(section => {
+                if (section.title && !seenTitles.has(section.title)) {
+                    seenTitles.add(section.title);
+                    allSections.push(section);
+                    addedInThisCont++;
+                }
             });
 
-            const chipResults = await Promise.all(chipPromises);
+            console.log(`✅ Added ${addedInThisCont} sections from continuation ${continuationCount + 1}`);
+            continuation = contResult.continuation;
+            continuationCount++;
 
-            chipResults.forEach(chipSections => {
+            if (addedInThisCont === 0) break; // Stop if no new sections found
+        }
+
+        // 2. Fetch from chips (additional variety like OuterTune)
+        if (chips && chips.length > 0 && allSections.length < sectionLimit) {
+            console.log(`🎨 InnerTube getHome: Found ${chips.length} chips, loading content from top chips...`);
+
+            const chipsToFetch = [];
+
+            // Prioritize the "Music" chip if found (contains personalized "Albums for you")
+            const musicChip = chips.find(c => c.title.toLowerCase().includes('music'));
+            if (musicChip) {
+                chipsToFetch.push(musicChip);
+                console.log('🎯 InnerTube getHome: Prioritizing "Music" chip for personalized content');
+            }
+
+            // Add other chips up to limit
+            chips.forEach(c => {
+                if (c !== musicChip && chipsToFetch.length < 8) {
+                    chipsToFetch.push(c);
+                }
+            });
+
+            const chipPromises = chipsToFetch.map(async (chip, idx) => {
+                if (!chip.params) return [];
+
+                try {
+                    const chipData = await this.request('browse', {
+                        browseId: 'FEmusic_home',
+                        params: chip.params
+                    }, userCountry, authCookies, userLanguage);
+
+                    const chipResult = this.parseHomeWithContinuation(chipData);
+                    return chipResult.sections;
+                } catch (e) {
+                    console.log(`❌ Failed to fetch chip "${chip.title}":`, e.message);
+                    return [];
+                }
+            });
+
+            const chipResultsArr = await Promise.all(chipPromises);
+
+            chipResultsArr.forEach(chipSections => {
                 chipSections.forEach(section => {
-                    if (!seenTitles.has(section.title)) {
+                    if (section.title && !seenTitles.has(section.title)) {
                         seenTitles.add(section.title);
                         allSections.push(section);
                         console.log(`✅ Added from chip: "${section.title}"`);
                     }
                 });
-            });
-        }
-
-        // Also try continuation if available (may or may not work)
-        if (continuation && allSections.length < 10) {
-            console.log('🔄 InnerTube getHome: Trying continuation...');
-            const contData = await this.request('browse', { continuation }, userCountry, authCookies, userLanguage);
-            const contResult = this.parseHomeContinuation(contData);
-
-            contResult.sections.forEach(section => {
-                if (!seenTitles.has(section.title)) {
-                    seenTitles.add(section.title);
-                    allSections.push(section);
-                }
             });
         }
 

@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useMemo } from 'react';
 import { View, StyleSheet, Animated, Dimensions, ScrollView } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
+import { PlaylistRowSkeleton } from './PlaylistRowSkeleton';
+import { QuickPicksSkeleton } from './YTMusic/QuickPicksSkeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -9,7 +11,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
  * HomeSkeletonLoader - A smooth, animated skeleton UI for the homepage
  * Mimics the homepage structure with shimmer animations for a premium loading experience
  */
-export const HomeSkeletonLoader = () => {
+export const HomeSkeletonLoader = ({ source = 'Hybrid' }) => {
     const { colors, dark } = useTheme();
     const shimmerAnim = useRef(new Animated.Value(0)).current;
 
@@ -173,6 +175,22 @@ export const HomeSkeletonLoader = () => {
             />
         </View>
     );
+
+    if (source === 'YTMusic') {
+        return (
+            <ScrollView
+                style={styles.container}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.contentContainer}
+            >
+                <View style={styles.routeHeadingPlaceholder} />
+                <QuickPicksSkeleton />
+                <PlaylistRowSkeleton count={4} showHeading={true} />
+                <PlaylistRowSkeleton count={4} showHeading={true} />
+                <PlaylistRowSkeleton count={4} showHeading={true} />
+            </ScrollView>
+        );
+    }
 
     return (
         <ScrollView

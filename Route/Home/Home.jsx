@@ -10,6 +10,7 @@ import { HomeSkeletonLoader } from "../../Component/Home/HomeSkeletonLoader";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { getHomePageData } from "../../Api/HomePage";
 import { getYTMusicHomeFeed } from "../../Api/YTMusic";
+import { useFocusEffect } from "@react-navigation/native";
 import { clearCache as clearApiCache, CACHE_GROUPS as API_CACHE_GROUPS } from "../../Api/CacheManager";
 import { EachPlaylistCard } from "../../Component/Global/EachPlaylistCard";
 import { GetLanguageValue } from "../../LocalStorage/Languages";
@@ -82,7 +83,7 @@ export const Home = () => {
   const { width, height } = Dimensions.get('window');
   const [Data, setData] = useState({ data: { charts: [], playlists: [], trending: { albums: [] } } });
   const [chartIndices, setChartIndices] = useState([0, 1, 2, 3]);
-  const [homeFeedSource, setHomeFeedSource] = useState('Hybrid');
+  const [homeFeedSource, setHomeFeedSource] = useState(null); // Initialize as null to avoid flicker
 
   // Lazy loading state for Hybrid mode
   const INITIAL_HYBRID_SECTIONS = 4;
@@ -281,16 +282,45 @@ export const Home = () => {
     };
   }, []);
 
-  // Initial load - only on mount, not on focus
+  // Initial load effect (runs once on mount)
   useEffect(() => {
-    fetchHomePageData(false);
-    // Load home feed source preference
-    GetHomeFeedSource().then(source => {
-      if (source && isMounted.current) {
-        setHomeFeedSource(source);
-      }
-    });
+    // Only fetch if we haven't determined the source yet
+    if (homeFeedSource === null) {
+      GetHomeFeedSource().then(source => {
+        if (isMounted.current) {
+          setHomeFeedSource(source || 'Hybrid');
+          fetchHomePageData(false);
+        }
+      });
+    }
   }, []);
+
+  // Reactive source update when screen is focused (returns from settings)
+  useFocusEffect(
+    useCallback(() => {
+      let isEffectMounted = true;
+
+      GetHomeFeedSource().then(source => {
+        if (!isEffectMounted) return;
+
+        const activeSource = source || 'Hybrid';
+
+        // If source changed, update and reload
+        if (activeSource !== homeFeedSource && homeFeedSource !== null) {
+          console.log(`[Home] Home source changed: ${homeFeedSource} -> ${activeSource}`);
+          setLoading(true);
+          // Invalidate cache prefix to ensure fresh feed
+          CacheManager.invalidateByPrefix(CACHE_KEYS.HOME);
+          setHomeFeedSource(activeSource);
+          fetchHomePageData(false);
+        }
+      });
+
+      return () => {
+        isEffectMounted = false;
+      };
+    }, [homeFeedSource])
+  );
 
   // Combine playlists from both sources - NO SHUFFLE (preserve consistent order)
   const allPlaylists = useMemo(() => {
@@ -403,7 +433,7 @@ export const Home = () => {
 
   // Determine if we should show skeleton (loading or no data yet)
   const hasData = allPlaylists.length > 0 || allAlbums.length > 0;
-  const showSkeleton = Loading || (!hasData && isInitialLoad.current);
+  const showSkeleton = Loading || homeFeedSource === null || (!hasData && isInitialLoad.current);
 
   // Render feed content based on homeFeedSource setting
   const renderFeedContent = () => {
@@ -442,7 +472,7 @@ export const Home = () => {
     <MainWrapper>
       {
         showSkeleton ? (
-          <HomeSkeletonLoader />
+          <HomeSkeletonLoader source={homeFeedSource} />
         ) : (
           <View>
             <ScrollView

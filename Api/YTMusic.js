@@ -4,6 +4,60 @@ import InnerTubeClient from './InnertubeClient';
 import { upgradeArtworkQuality } from '../Utils/YTMusicArtworkUtils';
 
 
+// Sections to filter out - these are YouTube video categories, not music
+// OuterTune approach: hide video-like content and show only music-focused sections
+const VIDEO_SECTION_TITLES = [
+  'true crime',
+  'religion',
+  'motivation',
+  'comedy',
+  'gaming',
+  'sports',
+  'news',
+  'education',
+  'science & technology',
+  'travel & events',
+  'autos & vehicles',
+  'pets & animals',
+  'howto & style',
+  'people & blogs',
+  'entertainment',
+  'film & animation',
+  'nonprofits & activism',
+];
+
+// Check if a section is video-like (non-music content)
+const isVideoSection = (section) => {
+  const title = (section.title || '').toLowerCase().trim();
+
+  // Check against known video category titles
+  if (VIDEO_SECTION_TITLES.some(videoTitle => title.includes(videoTitle))) {
+    return true;
+  }
+
+  // Check if items have video-like thumbnails (16:9 aspect ratio)
+  const contents = section.contents || section.items || [];
+  if (contents.length > 0) {
+    const firstItem = contents[0];
+    const thumbnails = firstItem?.thumbnails || [];
+
+    if (thumbnails.length > 0) {
+      const thumb = thumbnails[0];
+      // Video thumbnails are typically 16:9 (width/height > 1.5)
+      // Music thumbnails are typically 1:1 or close to square
+      if (thumb.width && thumb.height) {
+        const aspectRatio = thumb.width / thumb.height;
+        // If aspect ratio is > 1.4, it's likely a video thumbnail
+        if (aspectRatio > 1.4) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+};
+
 // Helper function to transform YTMusic song data to Saavn format
 function transformYTToSaavnSong(song) {
   // Transform thumbnails array to Saavn format with .url property
@@ -467,6 +521,12 @@ async function getYTMusicHomeFeed(limit = 10, forceRefresh = false) {
           console.log('Processing YTMusic homefeed sections:', feedSections.length);
 
           feedSections.forEach((section, sectionIndex) => {
+            // Filter out non-music video sections
+            if (isVideoSection(section)) {
+              console.log(`[YTMusic API] Skipping video section: "${section.title}"`);
+              return;
+            }
+
             console.log(`Section ${sectionIndex}: ${section.title}, items: ${section.contents?.length || 0}`);
 
             if (section.contents && Array.isArray(section.contents)) {
@@ -478,7 +538,15 @@ async function getYTMusicHomeFeed(limit = 10, forceRefresh = false) {
                 if (item.playlistId) {
                   itemType = 'playlist';
                 } else if (item.browseId) {
-                  itemType = 'album';
+                  const bId = item.browseId;
+                  // Sync with InnerTubeClient type detection
+                  if (bId.startsWith('MPRE') || bId.startsWith('OLAK')) {
+                    itemType = 'album';
+                  } else if (bId.startsWith('VL') || bId.startsWith('PL')) {
+                    itemType = 'playlist';
+                  }
+                  // Artists (UC prefix) remain 'unknown' or could be 'artist'
+                  // but for the purpose of the albums array, we only want actual albums
                 }
 
                 if (itemType === 'playlist') {

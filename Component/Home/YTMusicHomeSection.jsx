@@ -7,8 +7,75 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Spacer } from "../Global/Spacer";
 import YouTubeMusicService from "../../Utils/YouTubeMusicService";
 import { PlaylistRowSkeleton } from "./PlaylistRowSkeleton";
+import { PaddingConatiner } from "../../Layout/PaddingConatiner";
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Sections to filter out - these are YouTube video categories, not music
+// OuterTune approach: hide video-like content and show only music-focused sections
+const VIDEO_SECTION_TITLES = [
+  'true crime',
+  'religion',
+  'motivation',
+  'comedy',
+  'gaming',
+  'sports',
+  'news',
+  'education',
+  'science & technology',
+  'travel & events',
+  'autos & vehicles',
+  'pets & animals',
+  'howto & style',
+  'people & blogs',
+  'entertainment',
+  'film & animation',
+  'nonprofits & activism',
+];
+
+// Check if a section is video-like (non-music content)
+const isVideoSection = (section) => {
+  const title = (section.title || '').toLowerCase().trim();
+
+  // Check against known video category titles
+  if (VIDEO_SECTION_TITLES.some(videoTitle => title.includes(videoTitle))) {
+    return true;
+  }
+
+  // Check if items have video-like thumbnails (16:9 aspect ratio)
+  const contents = section.contents || section.items || [];
+  if (contents.length > 0) {
+    const firstItem = contents[0];
+    const thumbnails = firstItem?.thumbnails || [];
+
+    if (thumbnails.length > 0) {
+      const thumb = thumbnails[0];
+      // Video thumbnails are typically 16:9 (width/height > 1.5)
+      // Music thumbnails are typically 1:1 or close to square
+      if (thumb.width && thumb.height) {
+        const aspectRatio = thumb.width / thumb.height;
+        // If aspect ratio is > 1.4, it's likely a video thumbnail
+        if (aspectRatio > 1.4) {
+          console.log(`[YTMusicHomeSection] Filtering video section: "${section.title}" (aspect ratio: ${aspectRatio.toFixed(2)})`);
+          return true;
+        }
+      }
+    }
+
+    // Check if items don't have typical music identifiers
+    const hasNoMusicContent = contents.every(item =>
+      !item.videoId && !item.playlistId && !item.browseId?.startsWith('MPRE') &&
+      !item.browseId?.startsWith('UC') && !item.browseId?.startsWith('VL')
+    );
+
+    if (hasNoMusicContent && contents.length > 2) {
+      console.log(`[YTMusicHomeSection] Filtering non-music section: "${section.title}"`);
+      return true;
+    }
+  }
+
+  return false;
+};
 
 // Add a utility function to truncate text
 const truncateText = (text, limit = 30) => {
@@ -120,8 +187,8 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
           const sectionTitle = section.title || 'Unknown Section';
 
           // Skip "Quick picks" section as requested
-          if (sectionTitle.toLowerCase().includes('quick pick')) {
-            console.log(`⏭️  Skipping section: "${sectionTitle}"`);
+          if (sectionTitle.toLowerCase().includes('quick pick') || isVideoSection(section)) {
+            console.log(`⏭️  Skipping section: "${sectionTitle}" (Quick Pick or Video)`);
             continue;
           }
 
@@ -144,8 +211,9 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
                 const hasBrowseId = item.browseId && typeof item.browseId === 'string';
                 const hasVideoId = item.videoId && typeof item.videoId === 'string';
 
-                // Include if it has playlistId or browseId (exclude pure video items)
-                const include = hasPlaylistId || (hasBrowseId && !hasVideoId);
+                // Include if it has playlistId or browseId
+                // Note: Some albums have videoId for "Quick Play" - we should still include them
+                const include = hasPlaylistId || hasBrowseId;
 
                 if (!include) {
                   console.log(`  ⏭️  Skipping item: "${item.title || 'unknown'}" (videoId only, likely a song)`);
@@ -155,8 +223,9 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
               })
               .map(item => {
                 // Determine type based on ID patterns
-                const isPlaylist = item.playlistId && typeof item.playlistId === 'string';
-                const isAlbum = item.browseId && typeof item.browseId === 'string' && !isPlaylist;
+                const isPlaylist = (item.playlistId && typeof item.playlistId === 'string') || item.type === 'playlist';
+                // browseId starting with MPRE or OLAK is strictly an album
+                const isAlbum = (item.browseId && (item.browseId.startsWith('MPRE') || item.browseId.startsWith('OLAK'))) || item.type === 'album';
 
                 // Normalize the item structure
                 const normalizedItem = {
@@ -380,7 +449,11 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
                 {/* Section Header */}
                 <Spacer />
                 <Spacer />
-                {!loading && <Heading text={sectionTitle} nospace={true} />}
+                {!loading && (
+                  <PaddingConatiner>
+                    <Heading text={sectionTitle} nospace={true} />
+                  </PaddingConatiner>
+                )}
                 <Spacer />
 
                 {/* Playlists in this section */}
@@ -407,19 +480,41 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
                             <Text style={{ color: 'white', fontSize: 16 }}>No playlists available</Text>
                           </View>
                         )}
-                        renderItem={({ item, index }) => (
-                          <EachPlaylistCard
-                            name={truncateText(item.name, 30)}
-                            follower={truncateText(item.subtitle, 30)}
-                            key={index}
-                            image={item.image?.[2]?.link || item.image?.[1]?.link || item.image?.[0]?.link || item.thumbnailUrl}
-                            id={item.id}
-                            source="YTMusic"
-                            MainContainerStyle={{
-                              marginHorizontal: 4,
-                            }}
-                          />
-                        )}
+                        renderItem={({ item, index }) => {
+                          const thumbnail = item.image?.[2]?.link || item.image?.[1]?.link || item.image?.[0]?.link || item.thumbnailUrl;
+                          const itemTitle = item.title || item.name;
+                          const subtitle = item.subtitle || item.artists?.[0]?.name;
+                          const isPlaylist = !!item.playlistId || item.type === 'playlist';
+                          const browseId = item.browseId || item.id;
+                          const isAlbum = browseId && (browseId.startsWith('MPRE') || browseId.startsWith('OLAK')) || item.type === 'album';
+
+                          if (isAlbum) {
+                            return (
+                              <EachAlbumCard
+                                image={thumbnail}
+                                name={truncateText(itemTitle, 30)}
+                                artists={truncateText(subtitle, 30)}
+                                id={browseId}
+                                source="YTMusic"
+                                key={`yt-album-${sectionTitle}-${item.id}-${index}`}
+                              />
+                            );
+                          }
+
+                          return (
+                            <EachPlaylistCard
+                              name={truncateText(itemTitle, 30)}
+                              follower={truncateText(subtitle, 30)}
+                              key={`yt-playlist-${sectionTitle}-${item.id}-${index}`}
+                              image={thumbnail}
+                              id={item.id}
+                              source="YTMusic"
+                              MainContainerStyle={{
+                                marginHorizontal: 4,
+                              }}
+                            />
+                          );
+                        }}
                       />
                     )}
                   </>
@@ -474,20 +569,21 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
 
           {/* Show empty state if no content and not loading */}
           {(!loading && sectionTitles.length === 0) && (
-            <View style={{
-              paddingHorizontal: 13,
-              marginTop: 8,
-              marginBottom: 16
-            }}>
-              <Text style={{
-                color: '#666',
-                fontSize: 14,
-                textAlign: 'center',
-                marginVertical: 10
+            <PaddingConatiner>
+              <View style={{
+                marginTop: 8,
+                marginBottom: 16
               }}>
-                No content available from YouTube Music
-              </Text>
-            </View>
+                <Text style={{
+                  color: '#666',
+                  fontSize: 14,
+                  textAlign: 'center',
+                  marginVertical: 10
+                }}>
+                  No content available from YouTube Music
+                </Text>
+              </View>
+            </PaddingConatiner>
           )}
         </>
       )}
