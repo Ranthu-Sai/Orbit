@@ -39,6 +39,7 @@ export const Album = ({ route }) => {
   const theme = useTheme();
   const [Loading, setLoading] = useState(true);
   const [Data, setData] = useState({});
+  const [dataFetchAttempted, setDataFetchAttempted] = useState(false);
   const navigation = useNavigation();
   const activeTrack = useActiveTrack();
   const playbackState = usePlaybackState();
@@ -235,6 +236,7 @@ export const Album = ({ route }) => {
       console.error("Error fetching album data:", error);
     } finally {
       setLoading(false);
+      setDataFetchAttempted(true);
     }
   };
 
@@ -327,7 +329,7 @@ export const Album = ({ route }) => {
     <MainWrapper>
       {Loading &&
         <DetailSkeletonLoader type="album" />}
-      {!Loading && !(Data?.data?.songs?.length || Data?.data?.tracks?.length) && (
+      {!Loading && dataFetchAttempted && !(Data?.data?.songs?.length || Data?.data?.tracks?.length) && (
         <View style={{
           flex: 1,
           justifyContent: 'center',

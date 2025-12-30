@@ -137,6 +137,7 @@ const formatArtistData = (artistData) => {
 export const Playlist = ({ route, id: propId, name: propName, image: propImage, follower: propFollower, source: propSource, onBackPress: propOnBackPress, isEmbedded = false }) => {
   const [Loading, setLoading] = useState(true);
   const [Data, setData] = useState({});
+  const [dataFetchAttempted, setDataFetchAttempted] = useState(false);
   const navigation = useNavigation();
   const { width, height } = Dimensions.get('window');
   const theme = useTheme();
@@ -286,6 +287,7 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
     } finally {
       if (isMounted.current) {
         setLoading(false);
+        setDataFetchAttempted(true);
         isInitialLoad.current = false;
       }
     }
@@ -657,9 +659,19 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
   // key extractor
   const keyExtractor = useCallback((item, index) => `song-${item?.id || index}-${index}`, []);
 
-  // If no ID is provided, show an error message
+  // If no ID is provided and we've already attempted to recover, show an error message
+  // Show skeleton while still trying to recover ID from AsyncStorage
   // NOTE: This early return is placed AFTER all hooks to comply with React rules
   if (!id) {
+    // If still loading or haven't attempted fetch yet, show skeleton instead of error
+    if (Loading || !dataFetchAttempted) {
+      return (
+        <MainWrapper>
+          <DetailSkeletonLoader type="playlist" />
+        </MainWrapper>
+      );
+    }
+    // Only show error if we've truly failed to recover/load
     return (
       <MainWrapper>
         <View style={styles.errorContainer}>
@@ -687,7 +699,7 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
   return (
     <MainWrapper>
       {Loading && <DetailSkeletonLoader type="playlist" />}
-      {!Loading && (!Data?.data?.songs || Data?.data?.songs?.length === 0) && (
+      {!Loading && dataFetchAttempted && (!Data?.data?.songs || Data?.data?.songs?.length === 0) && (
         <View style={styles.emptyContainer}>
           <PlainText text="Playlist is empty or not available" style={styles.centeredText} />
           <SmallText text="Please try another playlist or check your connection" style={styles.centeredText} />
