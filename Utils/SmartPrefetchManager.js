@@ -91,13 +91,13 @@ class SmartPrefetchManager {
                 const nextTrack = await TrackPlayer.getTrack(currentIndex + 1);
 
                 // If we have a next track and haven't prefetched it yet, do it now
-                if (nextTrack && !this.prefetchedTracks.has(nextTrack.id)) {
+                if (nextTrack && this.needsStream(nextTrack) && !this.prefetchedTracks.has(nextTrack.id)) {
                     console.log(`🔄 SmartPrefetch: Retrying N+1 prefetch at index ${currentIndex + 1}`);
                     await this._prefetchTrackAtIndex(currentIndex + 1);
 
                     // Also try N+2
                     const next2Track = await TrackPlayer.getTrack(currentIndex + 2);
-                    if (next2Track && !this.prefetchedTracks.has(next2Track.id)) {
+                    if (next2Track && this.needsStream(next2Track) && !this.prefetchedTracks.has(next2Track.id)) {
                         console.log(`🔄 SmartPrefetch: Retrying N+2 prefetch at index ${currentIndex + 2}`);
                         await this._prefetchTrackAtIndex(currentIndex + 2);
                     }
@@ -131,13 +131,22 @@ class SmartPrefetchManager {
             const currentTrack = await TrackPlayer.getActiveTrack();
             if (!currentTrack) return;
 
+            // FIXED: Identify Saavn songs explicitly
+            const isSaavn = currentTrack.source === 'saavn' ||
+                (currentTrack.id && currentTrack.id.length !== 11 && !currentTrack.isLocalMusic && !currentTrack.source);
+
+            if (isSaavn) {
+                // console.log('⏭️ SmartPrefetch: Skipping Saavn track (direct URL)');
+                return;
+            }
+
             // Check if it's YouTube Music source - always prefetch for YT tracks
             const isYTMusic = currentTrack.source === 'ytmusic' ||
                 currentTrack.isYTMusic === true ||
                 (currentTrack.id && currentTrack.id.length === 11 && !currentTrack.isLocalMusic);
 
             if (!isYTMusic) {
-                // Silently skip - not a YouTube Music track (e.g., Saavn)
+                // Silently skip - not a YouTube Music track
                 return;
             }
 
@@ -199,8 +208,12 @@ class SmartPrefetchManager {
             // DAB tracks
             const isDab = track.source === 'dab' || track.isDabTrack;
 
-            shouldPrefetch = isYTMusic || isSpotify || isDab;
-            detectedSource = isYTMusic ? 'ytmusic' : (isSpotify ? 'spotify' : (isDab ? 'dab' : 'other'));
+            // Saavn tracks
+            const isSaavn = track.source === 'saavn' ||
+                (track.id && typeof track.id === 'string' && track.id.length !== 11 && !track.isLocalMusic && !track.source);
+
+            shouldPrefetch = (isYTMusic || isSpotify || isDab) && !isSaavn;
+            detectedSource = isYTMusic ? 'ytmusic' : (isSpotify ? 'spotify' : (isDab ? 'dab' : (isSaavn ? 'saavn' : 'other')));
         } else {
             // No track in event - try to check queue directly
             // This can happen in some edge cases
@@ -783,7 +796,10 @@ class SmartPrefetchManager {
         // DAB SUPPORT: Check if it's a DAB track needing stream
         const isDab = track.source === 'dab' || track.isDabTrack || track._needsDabStream;
 
-        if (!isYTMusic && !isSpotify && !isDab) return false;
+        // SAAVN EXCLUSION: Explicitly check for Saavn source to avoid misidentification by ID length
+        const isSaavn = track.source === 'saavn' || (!track.source && track.id && track.id.length !== 11 && !track.isLocalMusic);
+
+        if (isSaavn || (!isYTMusic && !isSpotify && !isDab)) return false;
 
         // Check if URL is placeholder or missing
         const url = track.url || '';

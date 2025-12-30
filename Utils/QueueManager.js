@@ -443,31 +443,34 @@ class QueueManager {
 
                             // 🎵 PREMIUM UX: Trigger sequential prefetch for N+1 → N+2
                             // IMPORTANT: Use fresh index lookup to handle queue rearrangement
-                            setImmediate(async () => {
-                                try {
-                                    const smartPrefetchManager = require('./SmartPrefetchManager').default;
-                                    // Get FRESH current index for N+1
-                                    let currentIndex = await TrackPlayer.getActiveTrackIndex();
-                                    if (currentIndex !== null && currentIndex !== undefined) {
-                                        console.log(`🎵 Queue populated! Prefetching N+1 at index ${currentIndex + 1}`);
-                                        await smartPrefetchManager._prefetchTrackAtIndex(currentIndex + 1);
+                            // SKIP for Saavn as it doesn't need prefetching
+                            if (recommendationSource !== 'saavn') {
+                                setImmediate(async () => {
+                                    try {
+                                        const smartPrefetchManager = require('./SmartPrefetchManager').default;
+                                        // Get FRESH current index for N+1
+                                        let currentIndex = await TrackPlayer.getActiveTrackIndex();
+                                        if (currentIndex !== null && currentIndex !== undefined) {
+                                            console.log(`🎵 Queue populated! Prefetching N+1 at index ${currentIndex + 1}`);
+                                            await smartPrefetchManager._prefetchTrackAtIndex(currentIndex + 1);
 
-                                        // N+2 after N+1 completes - get FRESH index again
-                                        setImmediate(async () => {
-                                            try {
-                                                const freshIdx = await TrackPlayer.getActiveTrackIndex();
-                                                if (freshIdx !== null && freshIdx !== undefined) {
-                                                    await smartPrefetchManager._prefetchTrackAtIndex(freshIdx + 2);
+                                            // N+2 after N+1 completes - get FRESH index again
+                                            setImmediate(async () => {
+                                                try {
+                                                    const freshIdx = await TrackPlayer.getActiveTrackIndex();
+                                                    if (freshIdx !== null && freshIdx !== undefined) {
+                                                        await smartPrefetchManager._prefetchTrackAtIndex(freshIdx + 2);
+                                                    }
+                                                } catch (e) {
+                                                    console.log('N+2 prefetch skipped:', e.message);
                                                 }
-                                            } catch (e) {
-                                                console.log('N+2 prefetch skipped:', e.message);
-                                            }
-                                        });
+                                            });
+                                        }
+                                    } catch (prefetchError) {
+                                        console.log('Prefetch trigger error:', prefetchError.message);
                                     }
-                                } catch (prefetchError) {
-                                    console.log('Prefetch trigger error:', prefetchError.message);
-                                }
-                            });
+                                });
+                            }
 
                             // Update currentVideoId to the last added song for diverse next refill
                             const lastAdded = newSongs[newSongs.length - 1];
