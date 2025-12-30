@@ -48,6 +48,17 @@ const VIDEO_SECTION_TITLES = [
     // Add more as needed
 ];
 
+// Helper function to shuffle array
+const shuffleArray = (array) => {
+    if (!array || !Array.isArray(array)) return [];
+    const newArray = [...array];
+    for (let i = newArray.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+    }
+    return newArray;
+};
+
 // Check if a section is video-like (non-music content)
 const isVideoSection = (section) => {
     const title = (section.title || '').toLowerCase().trim();
@@ -352,6 +363,20 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
                         !s.title.toLowerCase().includes('quick picks') &&
                         !s.title.toLowerCase().includes('start radio')
                     );
+
+                    // Shuffle sections and items on hard refresh for variety
+                    if (forceRefresh) {
+                        console.log('[YTMusicHomeFeed] Shuffling sections and items for variety...');
+                        processedSections = shuffleArray(processedSections);
+                        processedSections = processedSections.map(section => ({
+                            ...section,
+                            items: shuffleArray(section.items),
+                            songs: section.songs ? shuffleArray(section.songs) : [],
+                            playlists: section.playlists ? shuffleArray(section.playlists) : [],
+                            albums: section.albums ? shuffleArray(section.albums) : [],
+                            artists: section.artists ? shuffleArray(section.artists) : []
+                        }));
+                    }
 
                     // Cache sections (without Quick Picks) to disk for 24 hours
                     CacheManager.set(cacheKey, processedSections, CACHE_TTL.HOME_DATA);

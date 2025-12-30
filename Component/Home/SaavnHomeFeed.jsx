@@ -5,7 +5,7 @@
  * Shows only Saavn charts, playlists, albums without YTMusic sections.
  */
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, forwardRef, useImperativeHandle } from "react";
 import { View, FlatList, RefreshControl } from "react-native";
 import { Heading } from "../Global/Heading";
 import { HorizontalScrollSongs } from "../Global/HorizontalScrollSongs";
@@ -61,11 +61,16 @@ const getImageUrl = (imageData) => {
     return null;
 };
 
-export const SaavnHomeFeed = ({ refreshing, onRefreshComplete }) => {
+export const SaavnHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, ref) => {
     const [Data, setData] = useState({ data: { charts: [], playlists: [], trending: { albums: [] } } });
     const [chartIndices, setChartIndices] = useState([0, 1, 2, 3]);
     const [loading, setLoading] = useState(true);
     const isMounted = useRef(true);
+
+    // Lazy loading state
+    const INITIAL_SECTIONS = 3;
+    const SECTIONS_PER_LOAD = 2;
+    const [visibleCount, setVisibleCount] = useState(INITIAL_SECTIONS);
 
     // Get random chart indices
     const randomizeCharts = useCallback((charts) => {
@@ -165,94 +170,101 @@ export const SaavnHomeFeed = ({ refreshing, onRefreshComplete }) => {
         return Data?.data?.charts[chartIndices[index]]?.id;
     };
 
+    // Load more sections callback
+    const loadMoreSections = () => {
+        const totalSections = 8; // Number of sections in our map below
+        if (visibleCount < totalSections) {
+            console.log(`[SaavnHomeFeed] Loading more sections: ${visibleCount} -> ${visibleCount + SECTIONS_PER_LOAD}`);
+            setVisibleCount(prev => Math.min(prev + SECTIONS_PER_LOAD, totalSections));
+        }
+    };
+
+    // Expose methods to parent
+    useImperativeHandle(ref, () => ({
+        refresh: async () => {
+            setVisibleCount(INITIAL_SECTIONS);
+            await fetchSaavnData(true);
+        },
+        loadMore: loadMoreSections,
+    }), [visibleCount]);
+
+    const sections = [
+        { id: 'genres', component: <DisplayTopGenres key="genres" /> },
+        { id: 'songs-0', component: <View key="songs-0" style={{ paddingHorizontal: 13 }}><HorizontalScrollSongs id={getChartId(0)} /></View> },
+        {
+            id: 'playlists', component: (
+                <View key="playlists">
+                    <View style={{ paddingHorizontal: 13 }}><Heading text={"Recommended Playlists"} /></View>
+                    <FlatList
+                        horizontal={true}
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ paddingLeft: 10, paddingRight: 5, gap: 2 }}
+                        data={playlists.slice(0, 20)}
+                        keyExtractor={(item, index) => `saavn-playlist-${item.id}-${index}`}
+                        renderItem={({ item, index }) => (
+                            <EachPlaylistCard
+                                name={truncateText(item.title || item.name, 30)}
+                                follower={truncateText(item.subtitle || item.artists, 30)}
+                                image={getImageUrl(item.image)}
+                                id={item.id}
+                                source="Home"
+                                MainContainerStyle={{ marginHorizontal: 4 }}
+                            />
+                        )}
+                    />
+                </View>
+            )
+        },
+        {
+            id: 'albums', component: (
+                <View key="albums">
+                    <View style={{ paddingHorizontal: 13 }}><Heading text={"Trending Albums"} /></View>
+                    <FlatList
+                        horizontal={true}
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ paddingLeft: 10, paddingRight: 5, gap: 2 }}
+                        data={albums.slice(0, 20)}
+                        keyExtractor={(item, index) => `saavn-album-${item.id}-${index}`}
+                        renderItem={({ item, index }) => (
+                            <EachAlbumCard
+                                image={getImageUrl(item.image)}
+                                artists={truncateText(item.artists || item.artist, 30)}
+                                name={truncateText(item.name || item.title, 30)}
+                                id={item.id}
+                                source="Home"
+                            />
+                        )}
+                    />
+                </View>
+            )
+        },
+        { id: 'songs-1', component: <View key="songs-1" style={{ paddingHorizontal: 13, marginTop: 8 }}><HorizontalScrollSongs id={getChartId(1)} /></View> },
+        {
+            id: 'top-charts', component: (
+                <View key="top-charts">
+                    <PaddingConatiner><Heading text={"Top Charts"} /></PaddingConatiner>
+                    <FlatList
+                        horizontal={true}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ paddingLeft: 13 }}
+                        data={[1]}
+                        renderItem={() => <RenderTopCharts playlist={Data?.data?.charts || []} />}
+                        keyExtractor={() => 'top-charts'}
+                    />
+                </View>
+            )
+        },
+        { id: 'songs-2', component: <PaddingConatiner key="songs-2"><HorizontalScrollSongs id={getChartId(2)} /></PaddingConatiner> },
+        { id: 'songs-3', component: <PaddingConatiner key="songs-3"><HorizontalScrollSongs id={getChartId(3)} /></PaddingConatiner> },
+    ];
+
     if (loading) {
         return null; // Parent will show skeleton
     }
 
     return (
         <View>
-            <DisplayTopGenres />
-            <View style={{ paddingHorizontal: 13 }}>
-                <HorizontalScrollSongs id={getChartId(0)} />
-            </View>
-
-            <View style={{ paddingHorizontal: 13 }}>
-                <Heading text={"Recommended Playlists"} />
-            </View>
-            <FlatList
-                horizontal={true}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{
-                    paddingLeft: 10,
-                    paddingRight: 5,
-                    gap: 2,
-                }}
-                data={playlists.slice(0, 20)}
-                keyExtractor={(item, index) => `saavn-playlist-${item.id}-${index}`}
-                renderItem={({ item, index }) => (
-                    <EachPlaylistCard
-                        name={truncateText(item.title || item.name, 30)}
-                        follower={truncateText(item.subtitle || item.artists, 30)}
-                        key={index}
-                        image={getImageUrl(item.image)}
-                        id={item.id}
-                        source="Home"
-                        MainContainerStyle={{
-                            marginHorizontal: 4,
-                        }}
-                    />
-                )}
-            />
-
-            <View style={{ paddingHorizontal: 13 }}>
-                <Heading text={"Trending Albums"} />
-            </View>
-            <FlatList
-                horizontal={true}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{
-                    paddingLeft: 10,
-                    paddingRight: 5,
-                    gap: 2,
-                }}
-                data={albums.slice(0, 20)}
-                keyExtractor={(item, index) => `saavn-album-${item.id}-${index}`}
-                renderItem={({ item, index }) => (
-                    <EachAlbumCard
-                        image={getImageUrl(item.image)}
-                        artists={truncateText(item.artists || item.artist, 30)}
-                        key={index}
-                        name={truncateText(item.name || item.title, 30)}
-                        id={item.id}
-                        source="Home"
-                    />
-                )}
-            />
-
-            <View style={{ paddingHorizontal: 13, marginTop: 8 }}>
-                <HorizontalScrollSongs id={getChartId(1)} />
-            </View>
-
-            <PaddingConatiner>
-                <Heading text={"Top Charts"} />
-            </PaddingConatiner>
-            <FlatList
-                horizontal={true}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{
-                    paddingLeft: 13,
-                }}
-                data={[1]}
-                renderItem={() => <RenderTopCharts playlist={Data?.data?.charts || []} />}
-                keyExtractor={() => 'top-charts'}
-            />
-
-            <PaddingConatiner>
-                <HorizontalScrollSongs id={getChartId(2)} />
-            </PaddingConatiner>
-            <PaddingConatiner>
-                <HorizontalScrollSongs id={getChartId(3)} />
-            </PaddingConatiner>
+            {sections.slice(0, visibleCount).map(s => s.component)}
         </View>
     );
-};
+});

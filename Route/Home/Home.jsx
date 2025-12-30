@@ -84,6 +84,11 @@ export const Home = () => {
   const [chartIndices, setChartIndices] = useState([0, 1, 2, 3]);
   const [homeFeedSource, setHomeFeedSource] = useState('Hybrid');
 
+  // Lazy loading state for Hybrid mode
+  const INITIAL_HYBRID_SECTIONS = 4;
+  const HYBRID_SECTIONS_PER_LOAD = 2;
+  const [hybridVisibleCount, setHybridVisibleCount] = useState(INITIAL_HYBRID_SECTIONS);
+
   // Calculate 5% of screen height for scroll threshold
   const scrollThreshold = height * 0.05;
 
@@ -246,8 +251,19 @@ export const Home = () => {
 
     // Trigger hard refresh for both sections
     console.log('🔄 Home - Triggering hard refresh for all sections...');
+    setHybridVisibleCount(INITIAL_HYBRID_SECTIONS); // Reset lazy loading for Hybrid mode
+
+    // Refresh the specific feed source
     const homePromise = fetchHomePageData(true);
-    const ytPromise = ytMusicSectionRef.current?.refresh ? ytMusicSectionRef.current.refresh() : Promise.resolve();
+    let ytPromise = Promise.resolve();
+
+    if (homeFeedSource === 'YTMusic' && ytMusicFeedRef.current?.refresh) {
+      ytPromise = ytMusicFeedRef.current.refresh();
+    } else if (homeFeedSource === 'Saavn' && saavnFeedRef.current?.refresh) {
+      ytPromise = saavnFeedRef.current.refresh();
+    } else if (homeFeedSource === 'Hybrid' && ytMusicSectionRef.current?.refresh) {
+      ytPromise = ytMusicSectionRef.current.refresh();
+    }
 
     await Promise.allSettled([homePromise, ytPromise]);
 
@@ -302,6 +318,89 @@ export const Home = () => {
     return Data?.data?.charts[chartIndices[index]]?.id;
   };
 
+  // Define sections for Hybrid mode
+  const hybridSections = [
+    { id: 'genres', component: <DisplayTopGenres key="genres" /> },
+    { id: 'songs-0', component: <View key="songs-0" style={{ paddingHorizontal: 13 }}><HorizontalScrollSongs id={getChartId(0)} /></View> },
+    {
+      id: 'playlists', component: (
+        <View key="playlists">
+          <View style={{ paddingHorizontal: 13 }}><Heading text={"Recommended Playlists"} /></View>
+          <FlatList
+            horizontal={true}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingLeft: 10, paddingRight: 5, gap: 2 }}
+            data={allPlaylists}
+            keyExtractor={(item, index) => `playlist-${item.id}-${index}`}
+            renderItem={({ item, index }) => (
+              <EachPlaylistCard
+                name={truncateText(item.title || item.name, 30)}
+                follower={truncateText(item.subtitle || item.artists, 30)}
+                image={getImageUrl(item.image)}
+                id={item.id}
+                source="Home"
+                MainContainerStyle={{ marginHorizontal: 4 }}
+              />
+            )}
+          />
+        </View>
+      )
+    },
+    {
+      id: 'albums', component: (
+        <View key="albums">
+          <View style={{ paddingHorizontal: 13 }}><Heading text={"Trending Albums"} /></View>
+          <FlatList
+            horizontal={true}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingLeft: 10, paddingRight: 5, gap: 2 }}
+            data={allAlbums}
+            keyExtractor={(item, index) => `album-${item.id}-${index}`}
+            renderItem={({ item, index }) => (
+              <EachAlbumCard
+                image={getImageUrl(item.image)}
+                artists={truncateText(item.artists || item.artist, 30)}
+                name={truncateText(item.name || item.title, 30)}
+                id={item.id}
+                source="Home"
+              />
+            )}
+          />
+        </View>
+      )
+    },
+    { id: 'ytmusic', component: <YTMusicHomeSection key="ytmusic" ref={ytMusicSectionRef} /> },
+    {
+      id: 'songs-1', component: (
+        <View key="songs-1" style={{ paddingHorizontal: 13, marginTop: 8 }}>
+          <HorizontalScrollSongs id={getChartId(1)} />
+          {offline && (
+            <Text style={{ color: '#666', textAlign: 'center', marginTop: 10, marginBottom: 10 }}>
+              You're offline. Some content may not be available.
+            </Text>
+          )}
+        </View>
+      )
+    },
+    {
+      id: 'top-charts', component: (
+        <View key="top-charts">
+          <PaddingConatiner><Heading text={"Top Charts"} /></PaddingConatiner>
+          <FlatList
+            horizontal={true}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingLeft: 13 }}
+            data={[1]}
+            renderItem={() => <RenderTopCharts playlist={Data?.data?.charts || []} />}
+            keyExtractor={() => 'top-charts'}
+          />
+        </View>
+      )
+    },
+    { id: 'songs-2', component: <PaddingConatiner key="songs-2"><HorizontalScrollSongs id={getChartId(2)} /></PaddingConatiner> },
+    { id: 'songs-3', component: <PaddingConatiner key="songs-3"><HorizontalScrollSongs id={getChartId(3)} /></PaddingConatiner> },
+  ];
+
   // Determine if we should show skeleton (loading or no data yet)
   const hasData = allPlaylists.length > 0 || allAlbums.length > 0;
   const showSkeleton = Loading || (!hasData && isInitialLoad.current);
@@ -311,6 +410,7 @@ export const Home = () => {
     if (homeFeedSource === 'Saavn') {
       return (
         <SaavnHomeFeed
+          ref={saavnFeedRef}
           refreshing={refreshing}
           onRefreshComplete={() => setRefreshing(false)}
         />
@@ -333,102 +433,7 @@ export const Home = () => {
     // Hybrid mode - show both Saavn and YTMusic content
     return (
       <>
-        <DisplayTopGenres />
-        <View style={{ paddingHorizontal: 13 }}>
-          <HorizontalScrollSongs id={getChartId(0)} />
-        </View>
-        <View style={{ paddingHorizontal: 13 }}>
-          <Heading text={"Recommended Playlists"} />
-        </View>
-        <FlatList
-          horizontal={true}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingLeft: 10,
-            paddingRight: 5,
-            gap: 2,
-          }}
-          data={allPlaylists}
-          keyExtractor={(item, index) => `playlist-${item.id}-${index}`}
-          renderItem={({ item, index }) => (
-            <EachPlaylistCard
-              name={truncateText(item.title || item.name, 30)}
-              follower={truncateText(item.subtitle || item.artists, 30)}
-              key={index}
-              image={getImageUrl(item.image)}
-              id={item.id}
-              source="Home"
-              MainContainerStyle={{
-                marginHorizontal: 4,
-              }}
-            />
-          )}
-        />
-        <View style={{ paddingHorizontal: 13 }}>
-          <Heading text={"Trending Albums"} />
-        </View>
-        <FlatList
-          horizontal={true}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingLeft: 10,
-            paddingRight: 5,
-            gap: 2,
-          }}
-          data={allAlbums}
-          keyExtractor={(item, index) => `album-${item.id}-${index}`}
-          renderItem={({ item, index }) => (
-            <EachAlbumCard
-              image={getImageUrl(item.image)}
-              artists={truncateText(item.artists || item.artist, 30)}
-              key={index}
-              name={truncateText(item.name || item.title, 30)}
-              id={item.id}
-              source="Home"
-            />
-          )}
-        />
-
-        {/* YouTube Music Home Section */}
-        <YTMusicHomeSection ref={ytMusicSectionRef} />
-
-        <View style={{ paddingHorizontal: 13, marginTop: 8 }}>
-          <HorizontalScrollSongs id={getChartId(1)} />
-          {offline && (
-            <View style={{
-              paddingHorizontal: 13,
-              marginTop: 8
-            }}>
-              <Text style={{
-                color: '#666',
-                textAlign: 'center',
-                marginTop: 10,
-                marginBottom: 10
-              }}>
-                You're offline. Some content may not be available.
-              </Text>
-            </View>
-          )}
-        </View>
-        <PaddingConatiner>
-          <Heading text={"Top Charts"} />
-        </PaddingConatiner>
-        <FlatList
-          horizontal={true}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingLeft: 13,
-          }}
-          data={[1]}
-          renderItem={() => <RenderTopCharts playlist={Data?.data?.charts || []} />}
-          keyExtractor={() => 'top-charts'}
-        />
-        <PaddingConatiner>
-          <HorizontalScrollSongs id={getChartId(2)} />
-        </PaddingConatiner>
-        <PaddingConatiner>
-          <HorizontalScrollSongs id={getChartId(3)} />
-        </PaddingConatiner>
+        {hybridSections.slice(0, hybridVisibleCount).map(s => s.component)}
       </>
     );
   };
@@ -455,9 +460,20 @@ export const Home = () => {
                 // Lazy loading trigger - load more when 80% scrolled
                 const scrollProgress = (contentOffset.y + layoutMeasurement.height) / contentSize.height;
                 if (scrollProgress > 0.8) {
-                  // Trigger lazy loading for YTMusic feed
-                  if (ytMusicFeedRef.current?.loadMore) {
+                  // 1. YTMusic feed ref
+                  if (homeFeedSource === 'YTMusic' && ytMusicFeedRef.current?.loadMore) {
                     ytMusicFeedRef.current.loadMore();
+                  }
+                  // 2. Saavn feed ref
+                  if (homeFeedSource === 'Saavn' && saavnFeedRef.current?.loadMore) {
+                    saavnFeedRef.current.loadMore();
+                  }
+                  // 3. Hybrid mode (local to this component)
+                  if (homeFeedSource === 'Hybrid') {
+                    if (hybridVisibleCount < hybridSections.length) {
+                      console.log(`[Home] Lazy loading Hybrid: ${hybridVisibleCount} -> ${hybridVisibleCount + HYBRID_SECTIONS_PER_LOAD}`);
+                      setHybridVisibleCount(prev => Math.min(prev + HYBRID_SECTIONS_PER_LOAD, hybridSections.length));
+                    }
                   }
                 }
               }}

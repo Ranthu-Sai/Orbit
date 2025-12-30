@@ -270,7 +270,6 @@ async function PlayOneSong(song) {
         );
 
         if (ytMusicResult && ytMusicResult.url && !ytMusicResult.error) {
-          console.log('🌐 [Spotify-Mapped YTMusic Response]:', JSON.stringify(ytMusicResult, null, 2));
           playbackUrl = ytMusicResult.url;
 
           // Update song with YTMusic stream data while strictly PRESERVING Spotify metadata
@@ -293,7 +292,6 @@ async function PlayOneSong(song) {
             currentPlayingQuality: ytQuality,
           };
 
-          console.log('✅ Spotify → YTMusic mapping successful:', ytMusicResult.videoId);
           skipOperationManager.resetErrorCounter();
         } else {
           console.error('❌ Failed to find YTMusic match for Spotify track');

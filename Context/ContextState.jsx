@@ -257,8 +257,54 @@ const ContextState = (props) => {
                         );
                     });
 
-                    // NOTE: Prefetching is handled by SmartPrefetchManager (service.js)
-                    // Do NOT duplicate prefetch logic here to prevent double network calls
+                    // 🎵 CRITICAL FIX: Trigger prefetch from ContextState as backup
+                    // SmartPrefetchManager's event listeners can be lost after Metro hot reload
+                    // This ensures continuous prefetching works reliably for all sources
+                    if (event.track?.id) {
+                        const isStreamingSource =
+                            event.track.source === 'ytmusic' ||
+                            event.track.source === 'spotify' ||
+                            event.track.source === 'dab' ||
+                            event.track.isYTMusic === true ||
+                            event.track.mappedFromSpotify === true ||
+                            (event.track.id?.length === 11 && !event.track.isLocalMusic);
+
+                        if (isStreamingSource) {
+                            // Defer prefetch to avoid blocking UI
+                            setImmediate(async () => {
+                                try {
+                                    const smartPrefetchManager = require('../Utils/SmartPrefetchManager').default;
+
+                                    // Ensure manager is initialized (handles hot reload case)
+                                    if (!smartPrefetchManager.isInitialized) {
+                                        smartPrefetchManager.initialize();
+                                    }
+
+                                    // Trigger sequential prefetch: N+1 then N+2
+                                    console.log('🎵 ContextState: Triggering continuous prefetch...');
+                                    await smartPrefetchManager._prefetchNextFromCurrent();
+
+                                    // N+2 after N+1 completes
+                                    setImmediate(async () => {
+                                        try {
+                                            const TrackPlayer = require('react-native-track-player').default;
+                                            const currentIdx = await TrackPlayer.getActiveTrackIndex();
+                                            if (currentIdx !== null && currentIdx !== undefined) {
+                                                await smartPrefetchManager._prefetchTrackAtIndex(currentIdx + 2);
+                                            }
+                                        } catch (e) {
+                                            // Silence expected errors
+                                            if (!e.message?.includes("doesn't exist")) {
+                                                console.log('ContextState N+2 prefetch skipped:', e.message);
+                                            }
+                                        }
+                                    });
+                                } catch (prefetchError) {
+                                    console.log('ContextState prefetch error:', prefetchError.message);
+                                }
+                            });
+                        }
+                    }
 
                     // ✅ Add recommendations async (non-blocking)
                     // Defer to next tick to keep UI responsive
