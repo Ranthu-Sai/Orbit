@@ -144,27 +144,42 @@ export const SpotifyService = {
 
             console.log(`✅ Loaded ${tracks.length} tracks from Spotify`);
 
+            // Filter and map tracks, excluding unavailable ones
+            const availableTracks = tracks.map(item => {
+                const track = item.track;
+                // Skip local files or null tracks
+                if (!track || track.is_local) return null;
+
+                // Skip tracks with missing/empty names (show as "Unknown")
+                if (!track.name || track.name.trim() === '') return null;
+
+                // Skip tracks with no artists
+                if (!track.artists || track.artists.length === 0) return null;
+
+                const artistName = track.artists.map(a => a.name).join(', ');
+                // Skip tracks where all artists are empty/missing
+                if (!artistName || artistName.trim() === '') return null;
+
+                return {
+                    title: track.name,
+                    artist: artistName,
+                    album: track.album?.name || '',
+                    duration: track.duration_ms / 1000, // convert directly to seconds
+                    artwork: track.album?.images?.[0]?.url,
+                    spotifyId: track.id
+                };
+            }).filter(t => t !== null);
+
+            console.log(`✅ Filtered to ${availableTracks.length} available tracks (${tracks.length - availableTracks.length} unavailable filtered out)`);
+
             return {
                 id: data.id,
                 name: data.name,
                 description: data.description,
                 image: data.images?.[0]?.url,
                 owner: data.owner?.display_name,
-                totalTracks: data.tracks.total,
-                tracks: tracks.map(item => {
-                    const track = item.track;
-                    // Skip local files or null tracks
-                    if (!track || track.is_local) return null;
-
-                    return {
-                        title: track.name,
-                        artist: track.artists.map(a => a.name).join(', '),
-                        album: track.album.name,
-                        duration: track.duration_ms / 1000, // convert directly to seconds
-                        artwork: track.album.images?.[0]?.url,
-                        spotifyId: track.id
-                    };
-                }).filter(t => t !== null)
+                totalTracks: availableTracks.length, // Use filtered count, not API total
+                tracks: availableTracks
             };
 
         } catch (error) {
