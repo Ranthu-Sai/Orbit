@@ -1490,21 +1490,40 @@ class InnerTubeClient {
             // Try longBylineText (used in playlistPanelVideoRenderer for recommendations)
             else if (item.longBylineText?.runs && Array.isArray(item.longBylineText.runs)) {
                 const runs = item.longBylineText.runs;
-                // First run is usually the artist name
-                artistsList = runs.filter((_, index) => index % 2 === 0).map(run => ({
+                // Filter out view counts, likes, and other metadata - only keep actual artist names
+                // Format is often: "Artist • 91M views • 533K likes" or "Artist1, Artist2 • Album"
+                const artistRuns = runs.filter((run, index) => {
+                    // Skip separator runs (odd indices like " • ")
+                    if (index % 2 !== 0) return false;
+                    const text = run.text?.toLowerCase() || '';
+                    // Skip metadata patterns: views, likes, subscribers, plays, etc.
+                    if (/\d+[KMB]?\s*(views?|likes?|subscribers?|plays?|listens?)/i.test(run.text)) return false;
+                    // Skip year-only entries (4 digits)
+                    if (/^\d{4}$/.test(run.text)) return false;
+                    return true;
+                });
+                artistsList = artistRuns.map(run => ({
                     name: run.text,
                     id: run.navigationEndpoint?.browseEndpoint?.browseId
                 }));
-                artist = runs.filter((_, index) => index % 2 === 0).map(run => run.text).join(', ') || 'Unknown';
+                artist = artistRuns.map(run => run.text).join(', ') || 'Unknown';
             }
             // Try shortBylineText as fallback
             else if (item.shortBylineText?.runs && Array.isArray(item.shortBylineText.runs)) {
                 const runs = item.shortBylineText.runs;
-                artistsList = runs.filter((_, index) => index % 2 === 0).map(run => ({
+                // Same filtering for metadata
+                const artistRuns = runs.filter((run, index) => {
+                    if (index % 2 !== 0) return false;
+                    const text = run.text?.toLowerCase() || '';
+                    if (/\d+[KMB]?\s*(views?|likes?|subscribers?|plays?|listens?)/i.test(run.text)) return false;
+                    if (/^\d{4}$/.test(run.text)) return false;
+                    return true;
+                });
+                artistsList = artistRuns.map(run => ({
                     name: run.text,
                     id: run.navigationEndpoint?.browseEndpoint?.browseId
                 }));
-                artist = runs.filter((_, index) => index % 2 === 0).map(run => run.text).join(', ') || 'Unknown';
+                artist = artistRuns.map(run => run.text).join(', ') || 'Unknown';
             }
             // Try subtitle as last resort (used in some UI)
             else if (item.subtitle?.runs && Array.isArray(item.subtitle.runs)) {
