@@ -25,7 +25,14 @@ class FastOrbitScanner {
     // In-memory cache for instant access (no disk I/O on repeated visits)
     static _memoryCache = null;
     static _memoryCacheTimestamp = 0;
-    static MEMORY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+    static MEMORY_CACHE_TTL = 10 * 60 * 1000; // 10 minutes (increased from 5)
+
+    // 🚀 State caching to avoid redundant async lookups
+    static _songsDirectory = null;
+    static _metadataFilePath = null;
+    static _backupFilePath = null;
+    static _migrationDone = false;
+    static _cacheDirectoryReady = false;
 
     /**
      * Quick scan - returns from MEMORY cache if available, else disk cache
@@ -144,12 +151,13 @@ class FastOrbitScanner {
 
     /**
      * Enrich only new songs with metadata (runs in background)
+     * 🚀 Uses parallel processing for faster metadata extraction
      */
     static async enrichNewSongs(newSongs, newFiles, allSongs, onUpdate) {
         try {
             if (newSongs.length === 0) return;
 
-            console.log(`🎨 [FastScanner] Enriching ${newSongs.length} new songs...`);
+            console.log(`🎨 [FastScanner] Enriching ${newSongs.length} new songs (parallel)...`);
 
             const AudioMetadataParser = require('./ID3Parser').default;
             const NativeMetadataReader = require('./NativeMetadataReader').default;
@@ -162,9 +170,8 @@ class FastOrbitScanner {
                 // Native reader not available
             }
 
-            for (let i = 0; i < newSongs.length; i++) {
-                const song = newSongs[i];
-                const file = newFiles[i];
+            // 🚀 Helper function to enrich a single song
+            const enrichSong = async (song, file) => {
                 const isM4A = file.name.toLowerCase().endsWith('.m4a') ||
                     file.name.toLowerCase().endsWith('.aac');
 
@@ -205,11 +212,23 @@ class FastOrbitScanner {
                         }
                     }
                 } catch (error) {
-                    console.warn(`Failed to enrich ${file.name}:`, error.message);
+                    // Silently skip failed enrichment
                 }
+            };
 
-                // Update UI every 2 songs
-                if ((i + 1) % 2 === 0 || i === newSongs.length - 1) {
+            // 🚀 PARALLEL PROCESSING: Process songs in chunks of 5
+            const CHUNK_SIZE = 5;
+            for (let i = 0; i < newSongs.length; i += CHUNK_SIZE) {
+                const chunkSongs = newSongs.slice(i, i + CHUNK_SIZE);
+                const chunkFiles = newFiles.slice(i, i + CHUNK_SIZE);
+
+                // Process chunk in parallel
+                await Promise.all(
+                    chunkSongs.map((song, idx) => enrichSong(song, chunkFiles[idx]))
+                );
+
+                // Update UI after each chunk
+                if (onUpdate) {
                     onUpdate([...allSongs]);
                 }
             }
@@ -273,35 +292,52 @@ class FastOrbitScanner {
     }
 
     /**
-     * Ensure cache directory exists
+     * Ensure cache directory exists (cached after first call)
      */
     static async ensureCacheDirectoryExists() {
+        // 🚀 Return cached result if already verified
+        if (this._cacheDirectoryReady) {
+            return this.getAppCacheDirectory();
+        }
+
         const cacheDir = this.getAppCacheDirectory();
         try {
             const exists = await RNFS.exists(cacheDir);
             if (!exists) {
                 await RNFS.mkdir(cacheDir);
             }
+            this._cacheDirectoryReady = true;
         } catch (e) {
             // Silently handle - directory might already exist
+            this._cacheDirectoryReady = true;
         }
         return cacheDir;
     }
 
     /**
-     * Get metadata file path (now uses app-internal storage)
+     * Get metadata file path (cached after first call)
      */
     static async getMetadataFilePath() {
+        // 🚀 Return cached path if available
+        if (this._metadataFilePath) {
+            return this._metadataFilePath;
+        }
         const cacheDir = await this.ensureCacheDirectoryExists();
-        return `${cacheDir}/${this.METADATA_FILENAME}`;
+        this._metadataFilePath = `${cacheDir}/${this.METADATA_FILENAME}`;
+        return this._metadataFilePath;
     }
 
     /**
-     * Get backup metadata file path (now uses app-internal storage)
+     * Get backup metadata file path (cached after first call)
      */
     static async getBackupFilePath() {
+        // 🚀 Return cached path if available
+        if (this._backupFilePath) {
+            return this._backupFilePath;
+        }
         const cacheDir = await this.ensureCacheDirectoryExists();
-        return `${cacheDir}/${this.METADATA_BACKUP_FILENAME}`;
+        this._backupFilePath = `${cacheDir}/${this.METADATA_BACKUP_FILENAME}`;
+        return this._backupFilePath;
     }
 
     /**
@@ -309,8 +345,11 @@ class FastOrbitScanner {
      */
     static async getCachedSongs() {
         try {
-            // First, try to migrate from AsyncStorage (one-time operation)
-            await this.migrateFromAsyncStorage();
+            // 🚀 Skip migration check if already done
+            if (!this._migrationDone) {
+                await this.migrateFromAsyncStorage();
+                this._migrationDone = true;
+            }
 
             const metadataPath = await this.getMetadataFilePath();
             if (!metadataPath) return [];
