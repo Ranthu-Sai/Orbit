@@ -21,10 +21,16 @@ const getHighQualityArtwork = (artworkUrl) => {
   if (!artworkUrl) return null;
 
   try {
+    // For data: URIs (embedded base64 artwork), return as is - DO NOT modify!
+    if (artworkUrl.startsWith('data:')) {
+      return artworkUrl;
+    }
+
     // For local files, return as is
     if (artworkUrl.startsWith('file://')) {
       return artworkUrl;
     }
+
 
     // Special handling for JioSaavn CDN
     if (artworkUrl.includes('saavncdn.com')) {
@@ -272,7 +278,28 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
 
         // Always use downloaded tracks in offline mode or when explicitly playing downloaded music
         // PERFORMANCE: Use provided queue if available, otherwise fallback to Context
-        const fullQueue = providedQueue || Queue || [];
+        let fullQueue = providedQueue || Queue || [];
+
+        // CRITICAL FIX: If queue is empty, fallback to TrackPlayer.getQueue()
+        // This mirrors the behavior for online tracks and ensures downloaded songs are shown
+        if (fullQueue.length === 0) {
+          const now = Date.now();
+          if (trackPlayerQueueCache.current && (now - trackPlayerQueueCacheTime.current) < QUEUE_CACHE_TTL) {
+            fullQueue = trackPlayerQueueCache.current;
+            console.log(`[Downloads Queue] Using cached queue (${fullQueue.length} tracks)`);
+          } else {
+            console.log('[Downloads Queue] Context Queue is empty - fetching from TrackPlayer');
+            try {
+              fullQueue = await TrackPlayer.getQueue();
+              trackPlayerQueueCache.current = fullQueue;
+              trackPlayerQueueCacheTime.current = now;
+              console.log(`[Downloads Queue] TrackPlayer has ${fullQueue.length} tracks`);
+            } catch (e) {
+              console.log('[Downloads Queue] TrackPlayer fallback failed');
+            }
+          }
+        }
+
 
         // Filter to only include downloaded tracks
         const downloadSourceTracks = fullQueue.filter(track =>

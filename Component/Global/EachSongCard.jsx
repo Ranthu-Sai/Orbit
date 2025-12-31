@@ -5,7 +5,7 @@ import { AddPlaylist, getIndexQuality, PlayOneSong } from "../../MusicPlayerFunc
 import { useTheme } from "@react-navigation/native";
 import { memo, useContext, useState, useEffect } from "react";
 import Context from "../../Context/Context";
-// Removed unused TrackPlayer hooks
+import TrackPlayer from 'react-native-track-player';
 import FormatTitleAndArtist, { truncateText } from "../../Utils/FormatTitleAndArtist";
 import FormatArtist from "../../Utils/FormatArtists";
 import { EachSongMenuButton } from "../MusicPlayer/EachSongMenuButton";
@@ -17,7 +17,7 @@ import { requestStoragePermission } from '../../Utils/PermissionManager';
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
 import queueManager from '../../Utils/QueueManager';
 
-export const EachSongCard = memo(function EachSongCard({ title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', truncateTitle = false, onDeleteComplete, activeTrackId, isPlaying, item, onLongPress, localSongPath, isLocal = false }) {
+export const EachSongCard = memo(function EachSongCard({ title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', truncateTitle = false, onDeleteComplete, activeTrackId, isPlaying, item, onLongPress, localSongPath, isLocal = false, allSongs = [] }) {
   const theme = useTheme();
   const { colors } = theme;
   const width1 = Dimensions.get("window").width;
@@ -136,6 +136,65 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
 
   async function AddSongToPlayer() {
     console.log(`[Playback] Clicked on song: "${title}", Source: ${source}, ID: ${id}`);
+
+    // Handle local/downloaded songs - queue all downloaded songs with proper metadata
+    if (isLocal && allSongs.length > 0) {
+      console.log(`[Downloads] Playing local song, queuing ${allSongs.length} downloaded songs`);
+
+      // Helper to check if artwork is valid (not a placeholder)
+      const isValidArtwork = (art) => {
+        if (!art || typeof art !== 'string') return false;
+        if (art.includes('htmlcolorcodes.com') || art.includes('placeholder')) return false;
+        return art.startsWith('http') || art.startsWith('file://') || art.startsWith('/') || art.startsWith('data:');
+      };
+
+      // Order songs starting from clicked index
+      const orderedSongs = [
+        ...allSongs.slice(index),
+        ...allSongs.slice(0, index)
+      ];
+
+      const formattedTracks = [];
+      for (const s of orderedSongs) {
+        const sPath = s.url || s.localSongPath || s.filePath;
+        if (!sPath) continue;
+
+        const fileUrl = typeof sPath === 'string' && sPath.startsWith('file://')
+          ? sPath
+          : `file://${sPath}`;
+
+        // Use valid artwork, filtering out placeholders
+        const sArtwork = isValidArtwork(s.artwork) ? s.artwork :
+          (isValidArtwork(s.image) ? s.image : null);
+
+        formattedTracks.push({
+          id: s.id,
+          url: fileUrl,
+          title: s.title || s.name || 'Unknown Title',
+          artist: s.artist || s.artists || 'Unknown Artist',
+          artwork: sArtwork,
+          image: sArtwork, // For minimized player compatibility
+          duration: s.duration || 0,
+          isLocal: true,
+          isDownloaded: true,
+          sourceType: 'download'
+        });
+      }
+
+      if (formattedTracks.length > 0) {
+        console.log(`[Downloads] Queuing ${formattedTracks.length} tracks, starting with: ${formattedTracks[0]?.title}`);
+        try {
+          await TrackPlayer.reset();
+          await TrackPlayer.add(formattedTracks);
+          await TrackPlayer.play();
+          updateTrack();
+        } catch (playError) {
+          console.error('[Downloads] Error in TrackPlayer operations:', playError);
+          ToastAndroid.show('Error playing song', ToastAndroid.SHORT);
+        }
+        return;
+      }
+    }
 
     if (isFromPlaylist) {
       const songs = Data?.data?.songs || [];
