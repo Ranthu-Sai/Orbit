@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { useTheme, useNavigation } from '@react-navigation/native';
 import { Search, ArrowUpRight } from 'lucide-react-native';
+import { EachSongCard } from '../Global/EachSongCard';
+import { useActiveTrack, usePlaybackState } from "react-native-track-player";
 
 /**
  * SearchSuggestions with Quick Results
@@ -11,16 +13,19 @@ const SearchSuggestions = ({
     suggestions = [],
     quickResults = [],
     onSuggestionPress,
-    onSongPress
+    source = 'saavn'
 }) => {
     const { colors } = useTheme();
     const navigation = useNavigation();
+    const activeTrack = useActiveTrack();
+    const playbackState = usePlaybackState();
 
-    const handleSongPress = (song) => {
-        if (onSongPress) {
-            onSongPress(song);
-        }
-    };
+    const width = Dimensions.get('window').width;
+
+    function FormatArtist(artists) {
+        if (!artists || !Array.isArray(artists)) return '';
+        return artists.map(e => e.name).join(', ');
+    }
 
     // Fill suggestion arrow press - fills input but doesn't search
     const handleFillPress = (item) => {
@@ -64,33 +69,25 @@ const SearchSuggestions = ({
             {quickResults && quickResults.length > 0 && (
                 <View style={styles.quickResultsSection}>
                     {quickResults.slice(0, 3).map((song, index) => (
-                        <TouchableOpacity
+                        <EachSongCard
                             key={`quick-${song.id || index}`}
-                            style={[styles.songItem, { borderBottomColor: colors.border }]}
-                            onPress={() => handleSongPress(song)}
-                        >
-                            <Image
-                                source={{ uri: song.image?.[0]?.url || song.artwork || song.thumbnail }}
-                                style={styles.songImage}
-                            />
-                            <View style={styles.songInfo}>
-                                <Text
-                                    style={[styles.songTitle, { color: colors.text }]}
-                                    numberOfLines={1}
-                                >
-                                    {song.name || song.title}
-                                </Text>
-                                <Text
-                                    style={[styles.songArtist, { color: colors.text }]}
-                                    numberOfLines={1}
-                                >
-                                    {song.artist || song.primaryArtists || 'Unknown Artist'}
-                                </Text>
-                            </View>
-                            <TouchableOpacity style={styles.moreButton}>
-                                <Text style={{ color: colors.text, opacity: 0.5, fontSize: 18 }}>⋮</Text>
-                            </TouchableOpacity>
-                        </TouchableOpacity>
+                            artistID={song?.primaryArtistsId || song?.primary_artists_id}
+                            language={song?.language}
+                            duration={song?.duration}
+                            image={song?.image?.[2]?.url ?? song?.image?.[0]?.url ?? song?.artwork ?? ''}
+                            id={song?.id}
+                            width={width - 30} // Account for paddingHorizontal: 15
+                            title={song?.name || song?.title}
+                            artist={FormatArtist(song?.artists?.primary) || song?.artist}
+                            url={song?.downloadUrl}
+                            showNumber={false}
+                            source={song?.source || source || 'saavn'}
+                            item={song}
+                            Data={{ data: { results: quickResults } }}
+                            index={index}
+                            activeTrackId={activeTrack?.id}
+                            isPlaying={playbackState.state === "playing" || playbackState.state === 3}
+                        />
                     ))}
                 </View>
             )}
@@ -118,35 +115,6 @@ const styles = StyleSheet.create({
     },
     quickResultsSection: {
         marginTop: 8,
-    },
-    songItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 10,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-    },
-    songImage: {
-        width: 48,
-        height: 48,
-        borderRadius: 4,
-        backgroundColor: '#333',
-    },
-    songInfo: {
-        flex: 1,
-        marginLeft: 12,
-        justifyContent: 'center',
-    },
-    songTitle: {
-        fontSize: 15,
-        fontWeight: '500',
-        marginBottom: 2,
-    },
-    songArtist: {
-        fontSize: 13,
-        opacity: 0.7,
-    },
-    moreButton: {
-        padding: 8,
     },
 });
 

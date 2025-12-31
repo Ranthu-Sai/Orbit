@@ -346,40 +346,6 @@ export const SearchPage = ({ navigation }) => {
     // If fillOnly, just update the input text
   };
 
-  // Handle quick result song press (play the song)
-  const handleQuickSongPress = async (song) => {
-    setShowSuggestions(false);
-    setQuickResults([]);
-
-    // Build Data object similar to what SongDisplay passes
-    const fakeData = {
-      data: {
-        results: quickResults
-      }
-    };
-    const songIndex = quickResults.findIndex(s => s.id === song.id);
-
-    // Call AddSongToPlayer with proper parameters
-    try {
-      await AddSongToPlayer(
-        song.id,
-        song.name || song.title,
-        song.artist || song.primaryArtists || 'Unknown Artist',
-        song.image?.[0]?.url || song.artwork || song.thumbnail,
-        song.duration,
-        song.language,
-        song.artistID || song.primaryArtistsId,
-        fakeData,
-        songIndex >= 0 ? songIndex : 0,
-        selectedSource,
-        null, // updateTrack - not needed here
-        song
-      );
-    } catch (error) {
-      console.error('Error playing song from quick results:', error);
-    }
-  };
-
   // Clear search history
   const clearHistory = async () => {
     try {
@@ -520,7 +486,7 @@ export const SearchPage = ({ navigation }) => {
           suggestions={suggestions}
           quickResults={quickResults}
           onSuggestionPress={handleSuggestionPress}
-          onSongPress={handleQuickSongPress}
+          source={selectedSource}
         />
       ) : !SearchText && searchHistory.length > 0 ? (
         renderSearchHistory()
