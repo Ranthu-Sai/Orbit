@@ -33,12 +33,35 @@ const VIDEO_SECTION_TITLES = [
   'nonprofits & activism',
 ];
 
-// Check if a section is video-like (non-music content)
+// Sections the user explicitly asked to remove via screenshots
+const EXCLUDED_SECTION_TITLES = [
+  'chilled',
+  'unwind and explore',
+  'beast mode',
+  'in the gym',
+  'yoga',
+  'outdoor',
+  'top weekly videos',
+  'new releases',
+  'sweethearts & romance',
+  'easy mornings',
+  'charts',
+  'power boost',
+  'breakups & heartbreak',
+];
+
+// Check if a section is video-like (non-music content) or explicitly excluded
 const isVideoSection = (section) => {
   const title = (section.title || '').toLowerCase().trim();
 
   // Check against known video category titles
   if (VIDEO_SECTION_TITLES.some(videoTitle => title.includes(videoTitle))) {
+    return true;
+  }
+
+  // Check against explicitly excluded titles from user screenshots
+  if (EXCLUDED_SECTION_TITLES.some(exTitle => title.includes(exTitle))) {
+    console.log(`[YTMusicHomeSection] Filtering excluded section: "${section.title}"`);
     return true;
   }
 
@@ -84,6 +107,9 @@ const truncateText = (text, limit = 30) => {
 };
 
 export const YTMusicHomeSection = forwardRef((props, ref) => {
+  // Maximum sections to display in Hybrid mode for performance
+  const MAX_SECTIONS = 6;
+
   const [ytMusicItems, setYtMusicItems] = useState([]); // Changed from ytMusicSongs to ytMusicItems
   const [loading, setLoading] = useState(true);
   const [hasData, setHasData] = useState(false);
@@ -167,9 +193,8 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
       console.log('🌐 YTMusic Home - Fetching data using Innertube Client...');
 
       // Fetch data using YouTube Music Service
-      // Higher limit = more sections from YT Music homefeed
-      // Recommended: 50-100 for comprehensive content, 10-20 for quick loading
-      const HOMEFEED_SECTION_LIMIT = 100; // Fetch up to 100 sections
+      // Limit sections fetched for Hybrid mode performance
+      const HOMEFEED_SECTION_LIMIT = 40; // Increased to ensure 'Albums for you' is found
       const homeData = await YouTubeMusicService.getHomeFeed(HOMEFEED_SECTION_LIMIT, forceRefresh);
 
       console.log('📊 YTMusic Home - Innertube Response Summary:', {
@@ -192,7 +217,7 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
             continue;
           }
 
-          console.log(`Processing section: "${sectionTitle}", contents: ${section.contents?.length || 0}`);
+          // console.log(`Processing section: "${sectionTitle}", contents: ${section.contents?.length || 0}`);
 
           if (section.contents && Array.isArray(section.contents)) {
             // Filter and process playlists and albums
@@ -245,9 +270,9 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
 
             if (sectionItems.length > 0) {
               itemsArray.push(...sectionItems);
-              console.log(`✅ Section "${sectionTitle}" complete: ${sectionItems.length} items (${sectionItems.filter(i => i.type === 'playlist').length} playlists, ${sectionItems.filter(i => i.type === 'album').length} albums)`);
+              // console.log(`✅ Section "${sectionTitle}" complete: ${sectionItems.length} items`);
             } else {
-              console.log(`⚠️  No playlists/albums found in section: "${sectionTitle}"`);
+              // console.log(`⚠️  No playlists/albums found in section: "${sectionTitle}"`);
             }
           }
         }
@@ -259,8 +284,7 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
         });
       }
 
-      console.log(`🎵 YTMusic Home - Total items collected: ${itemsArray.length}`);
-      console.log(`📊 Breakdown: ${itemsArray.filter(i => i.type === 'playlist').length} playlists, ${itemsArray.filter(i => i.type === 'album').length} albums`);
+      // console.log(`🎵 YTMusic Home - Total items collected: ${itemsArray.length}`);
 
       if (itemsArray.length > 0) {
         setYtMusicItems(itemsArray);
@@ -295,12 +319,12 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
     } finally {
       // Always set loading to false when done, regardless of forceRefresh
       setLoading(false);
-      console.log('🏁 YTMusic fetch complete, loading set to false');
+      // console.log('🏁 YTMusic fetch complete');
     }
   };
 
   useEffect(() => {
-    console.log('🚀 YTMusicHomeSection - Component mounted at', new Date().toISOString());
+    // console.log('🚀 YTMusicHomeSection - Component mounted');
 
     const initializeYTMusic = async () => {
       // Step 1: Check for cached data FIRST (don't reset on every mount!)
@@ -340,10 +364,8 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
 
   // Process YTMusic items (playlists/albums) to match app format
   const processedItems = useMemo(() => {
-    console.log('Processing YT Music items:', ytMusicItems.length, 'items');
-
     if (!Array.isArray(ytMusicItems) || ytMusicItems.length === 0) {
-      console.log('No items to process, returning empty array');
+      // console.log('No items to process');
       return [];
     }
 
@@ -394,11 +416,11 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
         sectionTitle: item.sectionTitle // Keep section info for debugging
       };
 
-      console.log(`✅ Processed: "${processedItem.name}" (${processedItem.type})`);
+      // console.log(`✅ Processed: "${processedItem.name}" (${processedItem.type})`);
       return processedItem;
     });
 
-    console.log(`🎵 Total processed items: ${processed.length} (${processed.filter(i => i.type === 'playlist').length} playlists, ${processed.filter(i => i.type === 'album').length} albums)`);
+    // console.log(`🎵 Total processed items: ${processed.length}`);
     return processed;
   }, [ytMusicItems]);
 
@@ -415,176 +437,242 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
     return sections;
   }, [processedItems]);
 
-  // Get section titles in order
+  // Get section titles in order - LIMITED for Hybrid performance
   const sectionTitles = useMemo(() => {
-    return Object.keys(sectionsByTitle);
+    const allTitles = Object.keys(sectionsByTitle);
+
+    // Prioritize "Albums for you" to ensure it's included in the limited sections
+    const albumsForYouIndex = allTitles.findIndex(t => t.toLowerCase().includes('albums for you'));
+
+    if (albumsForYouIndex !== -1 && albumsForYouIndex >= MAX_SECTIONS) {
+      // If it exists but is outside the limit, move it to the last position of the limit
+      const result = allTitles.slice(0, MAX_SECTIONS);
+      result[MAX_SECTIONS - 1] = allTitles[albumsForYouIndex];
+      return result;
+    }
+
+    return allTitles.slice(0, MAX_SECTIONS);
   }, [sectionsByTitle]);
 
   // Always show the section if we have data or are loading for the first time
   const shouldShowSection = hasData || loading;
 
-  console.log('YTMusicHomeSection - Render:', {
-    loading,
-    hasData,
-    shouldShowSection,
-    itemsCount: ytMusicItems.length,
-    processedItemsCount: processedItems.length,
-    sectionsCount: sectionTitles.length,
-    sectionTitles: sectionTitles
-  });
-
   // Show section even if no data yet, but don't render content
+  const renderAllSections = () => {
+    // Only render sections starting from startIndex
+    const visibleSectionTitles = sectionTitles.slice(props.startIndex || 0);
+
+    return (
+      <>
+        {/* Render each section separately */}
+        {visibleSectionTitles.map((sectionTitle, index) => {
+          const actualIndex = index + (props.startIndex || 0);
+          return renderSingleSection(sectionTitle, actualIndex);
+        })}
+
+        {/* Show empty state if no content and not loading */}
+        {(!loading && sectionTitles.length === 0) && (
+          <PaddingConatiner>
+            <View style={{
+              marginTop: 8,
+              marginBottom: 16
+            }}>
+              <Text style={{
+                color: '#666',
+                fontSize: 14,
+                textAlign: 'center',
+                marginVertical: 10
+              }}>
+                No content available from YouTube Music
+              </Text>
+            </View>
+          </PaddingConatiner>
+        )}
+      </>
+    );
+  };
+
+  const renderSingleSection = (sectionTitle, sectionIndex) => {
+    const sectionItems = sectionsByTitle[sectionTitle];
+    if (!sectionItems) return null;
+
+    const playlistsInSection = sectionItems.filter(item => item.type === 'playlist');
+    const albumsInSection = sectionItems.filter(item => item.type === 'album');
+
+    return (
+      <View key={`section-${sectionIndex}`}>
+        {/* Section Header */}
+        <Spacer />
+        <Spacer />
+        {!loading && (
+          <PaddingConatiner>
+            <Heading text={sectionTitle} nospace={true} />
+          </PaddingConatiner>
+        )}
+        <Spacer />
+
+        {/* Playlists in this section */}
+        {playlistsInSection.length > 0 && (
+          <>
+            {!loading && (
+              <FlatList
+                horizontal={true}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  paddingLeft: 10,
+                  paddingRight: 5,
+                  gap: 2,
+                }}
+                data={playlistsInSection}
+                keyExtractor={(item, index) => `yt-playlist-${sectionTitle}-${item.id}-${index}`}
+                ListEmptyComponent={() => (
+                  <View style={{
+                    width: width - 30,
+                    height: 250,
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                  }}>
+                    <Text style={{ color: 'white', fontSize: 16 }}>No playlists available</Text>
+                  </View>
+                )}
+                renderItem={({ item, index }) => {
+                  const thumbnail = item.image?.[2]?.link || item.image?.[1]?.link || item.image?.[0]?.link || item.thumbnailUrl;
+                  const itemTitle = item.title || item.name;
+                  const subtitle = item.subtitle || item.artists?.[0]?.name;
+                  const isPlaylist = !!item.playlistId || item.type === 'playlist';
+                  const browseId = item.browseId || item.id;
+                  const isAlbum = browseId && (browseId.startsWith('MPRE') || browseId.startsWith('OLAK')) || item.type === 'album';
+
+                  if (isAlbum) {
+                    return (
+                      <EachAlbumCard
+                        image={thumbnail}
+                        name={truncateText(itemTitle, 30)}
+                        artists={truncateText(subtitle, 30)}
+                        id={browseId}
+                        source="YTMusic"
+                        key={`yt-album-${sectionTitle}-${item.id}-${index}`}
+                      />
+                    );
+                  }
+
+                  return (
+                    <EachPlaylistCard
+                      name={truncateText(itemTitle, 30)}
+                      follower={truncateText(subtitle, 30)}
+                      key={`yt-playlist-${sectionTitle}-${item.id}-${index}`}
+                      image={thumbnail}
+                      id={item.id}
+                      source="YTMusic"
+                      MainContainerStyle={{
+                        marginHorizontal: 4,
+                      }}
+                    />
+                  );
+                }}
+              />
+            )}
+          </>
+        )}
+
+        {/* Albums in this section */}
+        {albumsInSection.length > 0 && (
+          <>
+            {!loading && (
+              <FlatList
+                horizontal={true}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  paddingLeft: 10,
+                  paddingRight: 5,
+                  gap: 2,
+                }}
+                data={albumsInSection}
+                keyExtractor={(item, index) => `yt-album-${sectionTitle}-${item.id}-${index}`}
+                ListEmptyComponent={() => (
+                  <View style={{
+                    width: width - 30,
+                    height: 220,
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                  }}>
+                    <Text style={{ color: 'white', fontSize: 16 }}>No albums available</Text>
+                  </View>
+                )}
+                renderItem={({ item, index }) => (
+                  <EachAlbumCard
+                    image={item.image?.[2]?.link || item.image?.[1]?.link || item.image?.[0]?.link || item.thumbnailUrl}
+                    artists={item.artists || "YouTube Music"}
+                    key={index}
+                    name={truncateText(item.name, 30)}
+                    id={item.id}
+                    source="YTMusic"
+                  />
+                )}
+              />
+            )}
+          </>
+        )}
+
+        {/* Loading state for this section */}
+        {loading && (
+          <PlaylistRowSkeleton count={3} showHeading={true} />
+        )}
+      </View>
+    );
+  };
+
   return (
     <View>
       {shouldShowSection && (
         <>
-          {/* Render each section separately */}
-          {sectionTitles.map((sectionTitle, sectionIndex) => {
-            const sectionItems = sectionsByTitle[sectionTitle];
-            const playlistsInSection = sectionItems.filter(item => item.type === 'playlist');
-            const albumsInSection = sectionItems.filter(item => item.type === 'album');
+          {(() => {
+            const exclude = props.excludeKeyword?.toLowerCase().trim();
+
+            // If sectionKeyword is provided, render only the matching section
+            if (props.sectionKeyword) {
+              const keyword = props.sectionKeyword.toLowerCase().trim();
+              const matchingTitle = sectionTitles.find(t => t.toLowerCase().includes(keyword));
+
+              if (matchingTitle) {
+                const sectionIndex = sectionTitles.indexOf(matchingTitle);
+                // console.log(`[YT Render] Rendering pinned keyword: "${matchingTitle}" at index ${sectionIndex}`);
+                return renderSingleSection(matchingTitle, sectionIndex);
+              }
+              return null;
+            }
+
+            // If sectionIndex is provided, check if it should be excluded
+            if (props.sectionIndex !== undefined) {
+              const sectionTitle = sectionTitles[props.sectionIndex];
+              if (sectionTitle) {
+                // Check for exclusion
+                if (exclude && sectionTitle.toLowerCase().includes(exclude)) {
+                  // console.log(`[YT Render] Excluding index ${props.sectionIndex} ("${sectionTitle}") due to keyword match: "${exclude}"`);
+                  return null;
+                }
+                return renderSingleSection(sectionTitle, props.sectionIndex);
+              }
+              return null;
+            }
+
+            // Default: render all sections (respecting startIndex and excludeKeyword)
+            const visibleSectionTitles = sectionTitles.slice(props.startIndex || 0).filter(title => {
+              if (exclude && title.toLowerCase().includes(exclude)) {
+                return false;
+              }
+              return true;
+            });
 
             return (
-              <View key={`section-${sectionIndex}`}>
-                {/* Section Header */}
-                <Spacer />
-                <Spacer />
-                {!loading && (
-                  <PaddingConatiner>
-                    <Heading text={sectionTitle} nospace={true} />
-                  </PaddingConatiner>
-                )}
-                <Spacer />
-
-                {/* Playlists in this section */}
-                {playlistsInSection.length > 0 && (
-                  <>
-                    {!loading && (
-                      <FlatList
-                        horizontal={true}
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={{
-                          paddingLeft: 10,
-                          paddingRight: 5,
-                          gap: 2,
-                        }}
-                        data={playlistsInSection}
-                        keyExtractor={(item, index) => `yt-playlist-${sectionTitle}-${item.id}-${index}`}
-                        ListEmptyComponent={() => (
-                          <View style={{
-                            width: width - 30,
-                            height: 250,
-                            justifyContent: 'center',
-                            alignItems: 'center'
-                          }}>
-                            <Text style={{ color: 'white', fontSize: 16 }}>No playlists available</Text>
-                          </View>
-                        )}
-                        renderItem={({ item, index }) => {
-                          const thumbnail = item.image?.[2]?.link || item.image?.[1]?.link || item.image?.[0]?.link || item.thumbnailUrl;
-                          const itemTitle = item.title || item.name;
-                          const subtitle = item.subtitle || item.artists?.[0]?.name;
-                          const isPlaylist = !!item.playlistId || item.type === 'playlist';
-                          const browseId = item.browseId || item.id;
-                          const isAlbum = browseId && (browseId.startsWith('MPRE') || browseId.startsWith('OLAK')) || item.type === 'album';
-
-                          if (isAlbum) {
-                            return (
-                              <EachAlbumCard
-                                image={thumbnail}
-                                name={truncateText(itemTitle, 30)}
-                                artists={truncateText(subtitle, 30)}
-                                id={browseId}
-                                source="YTMusic"
-                                key={`yt-album-${sectionTitle}-${item.id}-${index}`}
-                              />
-                            );
-                          }
-
-                          return (
-                            <EachPlaylistCard
-                              name={truncateText(itemTitle, 30)}
-                              follower={truncateText(subtitle, 30)}
-                              key={`yt-playlist-${sectionTitle}-${item.id}-${index}`}
-                              image={thumbnail}
-                              id={item.id}
-                              source="YTMusic"
-                              MainContainerStyle={{
-                                marginHorizontal: 4,
-                              }}
-                            />
-                          );
-                        }}
-                      />
-                    )}
-                  </>
-                )}
-
-                {/* Albums in this section */}
-                {albumsInSection.length > 0 && (
-                  <>
-                    {!loading && (
-                      <FlatList
-                        horizontal={true}
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={{
-                          paddingLeft: 10,
-                          paddingRight: 5,
-                          gap: 2,
-                        }}
-                        data={albumsInSection}
-                        keyExtractor={(item, index) => `yt-album-${sectionTitle}-${item.id}-${index}`}
-                        ListEmptyComponent={() => (
-                          <View style={{
-                            width: width - 30,
-                            height: 220,
-                            justifyContent: 'center',
-                            alignItems: 'center'
-                          }}>
-                            <Text style={{ color: 'white', fontSize: 16 }}>No albums available</Text>
-                          </View>
-                        )}
-                        renderItem={({ item, index }) => (
-                          <EachAlbumCard
-                            image={item.image?.[2]?.link || item.image?.[1]?.link || item.image?.[0]?.link || item.thumbnailUrl}
-                            artists={item.artists || "YouTube Music"}
-                            key={index}
-                            name={truncateText(item.name, 30)}
-                            id={item.id}
-                            source="YTMusic"
-                          />
-                        )}
-                      />
-                    )}
-                  </>
-                )}
-
-                {/* Loading state for this section */}
-                {loading && (
-                  <PlaylistRowSkeleton count={3} showHeading={true} />
-                )}
-              </View>
+              <>
+                {visibleSectionTitles.map((sectionTitle, index) => {
+                  const actualIndex = index + (props.startIndex || 0);
+                  return renderSingleSection(sectionTitle, actualIndex);
+                })}
+              </>
             );
-          })}
-
-          {/* Show empty state if no content and not loading */}
-          {(!loading && sectionTitles.length === 0) && (
-            <PaddingConatiner>
-              <View style={{
-                marginTop: 8,
-                marginBottom: 16
-              }}>
-                <Text style={{
-                  color: '#666',
-                  fontSize: 14,
-                  textAlign: 'center',
-                  marginVertical: 10
-                }}>
-                  No content available from YouTube Music
-                </Text>
-              </View>
-            </PaddingConatiner>
-          )}
+          })()}
         </>
       )}
     </View>

@@ -86,7 +86,7 @@ export const Home = () => {
   const [homeFeedSource, setHomeFeedSource] = useState(null); // Initialize as null to avoid flicker
 
   // Lazy loading state for Hybrid mode
-  const INITIAL_HYBRID_SECTIONS = 4;
+  const INITIAL_HYBRID_SECTIONS = 6;
   const HYBRID_SECTIONS_PER_LOAD = 2;
   const [hybridVisibleCount, setHybridVisibleCount] = useState(INITIAL_HYBRID_SECTIONS);
 
@@ -352,6 +352,19 @@ export const Home = () => {
   const hybridSections = [
     { id: 'genres', component: <DisplayTopGenres key="genres" /> },
     { id: 'songs-0', component: <View key="songs-0" style={{ paddingHorizontal: 13 }}><HorizontalScrollSongs id={getChartId(0)} /></View> },
+    { id: 'ytmusic-0', component: <YTMusicHomeSection key="ytmusic-0" ref={ytMusicSectionRef} sectionIndex={0} excludeKeyword="Albums for you" /> },
+    { id: 'ytmusic-4', component: <YTMusicHomeSection key="ytmusic-4" sectionIndex={4} excludeKeyword="Albums for you" /> },
+    { id: 'ytmusic-albums', component: <YTMusicHomeSection key="ytmusic-albums" sectionKeyword="Albums for you" /> },
+    { id: 'ytmusic-5', component: <YTMusicHomeSection key="ytmusic-5" sectionIndex={5} excludeKeyword="Albums for you" /> },
+    {
+      id: 'songs-1', component: (
+        <View key="songs-1" style={{ paddingHorizontal: 13, marginTop: 8 }}>
+          <HorizontalScrollSongs id={getChartId(1)} />
+        </View>
+      )
+    },
+    { id: 'ytmusic-1', component: <YTMusicHomeSection key="ytmusic-1" sectionIndex={1} excludeKeyword="Albums for you" /> },
+    { id: 'ytmusic-6', component: <YTMusicHomeSection key="ytmusic-6" sectionIndex={6} excludeKeyword="Albums for you" /> },
     {
       id: 'playlists', component: (
         <View key="playlists">
@@ -377,6 +390,15 @@ export const Home = () => {
       )
     },
     {
+      id: 'songs-2', component: (
+        <View key="songs-2" style={{ paddingHorizontal: 13, marginTop: 8 }}>
+          <HorizontalScrollSongs id={getChartId(2)} />
+        </View>
+      )
+    },
+    { id: 'ytmusic-2', component: <YTMusicHomeSection key="ytmusic-2" sectionIndex={2} excludeKeyword="Albums for you" /> },
+    { id: 'ytmusic-7', component: <YTMusicHomeSection key="ytmusic-7" sectionIndex={7} excludeKeyword="Albums for you" /> },
+    {
       id: 'albums', component: (
         <View key="albums">
           <View style={{ paddingHorizontal: 13 }}><Heading text={"Trending Albums"} /></View>
@@ -399,19 +421,8 @@ export const Home = () => {
         </View>
       )
     },
-    { id: 'ytmusic', component: <YTMusicHomeSection key="ytmusic" ref={ytMusicSectionRef} /> },
-    {
-      id: 'songs-1', component: (
-        <View key="songs-1" style={{ paddingHorizontal: 13, marginTop: 8 }}>
-          <HorizontalScrollSongs id={getChartId(1)} />
-          {offline && (
-            <Text style={{ color: '#666', textAlign: 'center', marginTop: 10, marginBottom: 10 }}>
-              You're offline. Some content may not be available.
-            </Text>
-          )}
-        </View>
-      )
-    },
+    { id: 'songs-3', component: <PaddingConatiner key="songs-3"><HorizontalScrollSongs id={getChartId(3)} /></PaddingConatiner> },
+    { id: 'ytmusic-extra', component: <YTMusicHomeSection key="ytmusic-extra" startIndex={8} excludeKeyword="Albums for you" /> },
     {
       id: 'top-charts', component: (
         <View key="top-charts">
@@ -424,11 +435,14 @@ export const Home = () => {
             renderItem={() => <RenderTopCharts playlist={Data?.data?.charts || []} />}
             keyExtractor={() => 'top-charts'}
           />
+          {offline && (
+            <Text style={{ color: '#666', textAlign: 'center', marginTop: 10, marginBottom: 10 }}>
+              You're offline. Some content may not be available.
+            </Text>
+          )}
         </View>
       )
     },
-    { id: 'songs-2', component: <PaddingConatiner key="songs-2"><HorizontalScrollSongs id={getChartId(2)} /></PaddingConatiner> },
-    { id: 'songs-3', component: <PaddingConatiner key="songs-3"><HorizontalScrollSongs id={getChartId(3)} /></PaddingConatiner> },
   ];
 
   // Determine if we should show skeleton (loading or no data yet)

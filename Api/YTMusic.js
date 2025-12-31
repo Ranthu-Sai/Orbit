@@ -26,12 +26,34 @@ const VIDEO_SECTION_TITLES = [
   'nonprofits & activism',
 ];
 
+// Sections the user explicitly asked to remove via screenshots
+const EXCLUDED_SECTION_TITLES = [
+  'chilled',
+  'unwind and explore',
+  'beast mode',
+  'in the gym',
+  'yoga',
+  'outdoor',
+  'top weekly videos',
+  'new releases',
+  'sweethearts & romance',
+  'easy mornings',
+  'charts',
+  'power boost',
+  'breakups & heartbreak',
+];
+
 // Check if a section is video-like (non-music content)
 const isVideoSection = (section) => {
   const title = (section.title || '').toLowerCase().trim();
 
   // Check against known video category titles
   if (VIDEO_SECTION_TITLES.some(videoTitle => title.includes(videoTitle))) {
+    return true;
+  }
+
+  // Check against explicitly excluded titles from user screenshots
+  if (EXCLUDED_SECTION_TITLES.some(exTitle => title.includes(exTitle))) {
     return true;
   }
 
