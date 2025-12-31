@@ -79,7 +79,7 @@ export class UnifiedDownloadService {
       const songPath = await StorageManager.getSongPath(song.id, song.title, effectiveSource);
       const artworkPath = await StorageManager.getArtworkPath(song.id);
 
-      // Download song file (with headers for YTMusic)
+      // Download song file (with headers for YTMusic and progress tracking)
       const songDownloadSuccess = await downloadFileWithAnalytics(
         downloadUrl,
         songPath,
@@ -88,7 +88,16 @@ export class UnifiedDownloadService {
           name: song.title || 'Unknown',
           type: 'song'
         },
-        downloadHeaders // Pass headers (null for non-YTMusic sources)
+        downloadHeaders, // Pass headers (null for non-YTMusic sources)
+        // Progress callback - emit global events AND call provided callback
+        (progress) => {
+          // Emit global event so all components can update
+          EventRegister.emit('download-progress', { songId: song.id, progress });
+          // Also call the direct callback if provided
+          if (typeof onProgress === 'function') {
+            onProgress(progress);
+          }
+        }
       );
 
       if (!songDownloadSuccess) {

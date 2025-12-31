@@ -200,9 +200,10 @@ export const ensureDirectoryExists = async (path) => {
  * @param {string} url - URL to download from
  * @param {any} path - Path to save to
  * @param {Object} customHeaders - Optional custom headers for the download request
+ * @param {Function} onProgress - Optional progress callback (percentage: number) => void
  * @returns {Promise<boolean>} True if successfully downloaded
  */
-export const safeDownloadFile = async (url, path, customHeaders = null) => {
+export const safeDownloadFile = async (url, path, customHeaders = null, onProgress = null) => {
   const stringPath = safePath(path);
   try {
     if (!url || typeof url !== 'string') {
@@ -220,6 +221,28 @@ export const safeDownloadFile = async (url, path, customHeaders = null) => {
       fromUrl: url,
       toFile: stringPath,
     };
+
+    // Add progress callback if provided
+    if (typeof onProgress === 'function') {
+      downloadOptions.begin = (res) => {
+        // Report 0% when download begins
+        onProgress(0);
+      };
+      downloadOptions.progress = (res) => {
+        // Calculate percentage (handle cases where contentLength is -1 or 0)
+        if (res.contentLength > 0) {
+          const percentage = Math.round((res.bytesWritten / res.contentLength) * 100);
+          onProgress(percentage);
+        } else {
+          // If content length unknown, show indeterminate progress (pulse between 10-90%)
+          const fakeProgress = Math.min(90, Math.max(10, (res.bytesWritten / 1000000) * 10));
+          onProgress(Math.round(fakeProgress));
+        }
+      };
+      // Throttle progress updates to avoid excessive callbacks
+      downloadOptions.progressInterval = 100; // Update every 100ms
+      downloadOptions.progressDivider = 1; // Report all progress
+    }
 
     // Priority 1: Use custom headers if provided (e.g., YTMusic requires specific User-Agent)
     if (customHeaders && typeof customHeaders === 'object') {
@@ -239,6 +262,10 @@ export const safeDownloadFile = async (url, path, customHeaders = null) => {
     // Accept both 200 (OK) and 206 (Partial Content) as success
     // YouTube/Google streams return 206 for range requests
     if (result.statusCode === 200 || result.statusCode === 206) {
+      // Report 100% on successful completion
+      if (typeof onProgress === 'function') {
+        onProgress(100);
+      }
       if (Platform.OS === 'android') {
         try {
           await RNFS.scanFile(stringPath);
@@ -260,15 +287,17 @@ export const safeDownloadFile = async (url, path, customHeaders = null) => {
 };
 
 
+
 /**
  * Downloads a file with analytics tracking
  * @param {string} url - URL to download from
  * @param {any} path - Path to save to
  * @param {Object} metadata - Metadata about the content being downloaded
  * @param {Object} headers - Optional custom headers for the download request
+ * @param {Function} onProgress - Optional progress callback (percentage: number) => void
  * @returns {Promise<boolean>} True if successfully downloaded
  */
-export const downloadFileWithAnalytics = async (url, path, metadata = {}, headers = null) => {
+export const downloadFileWithAnalytics = async (url, path, metadata = {}, headers = null, onProgress = null) => {
   const { id, name, type = 'song' } = metadata;
 
   try {
@@ -277,8 +306,8 @@ export const downloadFileWithAnalytics = async (url, path, metadata = {}, header
       analyticsService.logDownloadStart(id, type, name);
     }
 
-    // Perform the download with optional headers
-    const success = await safeDownloadFile(url, path, headers);
+    // Perform the download with optional headers and progress callback
+    const success = await safeDownloadFile(url, path, headers, onProgress);
 
     // Track download completion
     if (id && name) {

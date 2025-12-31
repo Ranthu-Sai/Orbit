@@ -14,6 +14,7 @@ import RNFS from 'react-native-fs';
 import YouTubeMusicService from '../../Utils/YouTubeMusicService';
 import dabMusicService from '../../Utils/DabMusicService';
 import youtubeStreamingService from '../../Utils/YouTubeStreamingService';
+import { enhanceYTMusicArtwork, getPrimaryArtworkUrl } from '../../Utils/ArtworkEnhancer';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -157,36 +158,42 @@ export const EachSongMenuButton = ({
 
   // Helper function to get highest quality artwork
   const getHighestQualityArtwork = (imageData) => {
+    let artworkUrl = '';
+
     if (!imageData) return '';
-    if (typeof imageData === 'string') return imageData;
 
-    if (Array.isArray(imageData)) {
-      if (imageData.length === 0) return '';
-
+    if (typeof imageData === 'string') {
+      artworkUrl = imageData;
+    } else if (Array.isArray(imageData) && imageData.length > 0) {
       // If array of objects, try to find highest quality or take last
       if (typeof imageData[0] === 'object') {
-        // Sort by quality if possible or just take the last one which is usually highest for Saavn/JioSaavn
-        // Start from end
-        for (let i = imageData.length - 1; i >= 0; i--) {
-          const img = imageData[i];
-          if (img && (img.url || img.link)) {
-            return img.url || img.link;
+        const maxRes = imageData.find(img => img.quality === 'max' || img.quality === 'hd');
+        if (maxRes && maxRes.url) {
+          artworkUrl = maxRes.url;
+        } else {
+          for (let i = imageData.length - 1; i >= 0; i--) {
+            const img = imageData[i];
+            if (img && (img.url || img.link)) {
+              artworkUrl = img.url || img.link;
+              break;
+            }
           }
         }
-      }
-
-      // If array of strings, take the last one
-      if (typeof imageData[0] === 'string') {
+      } else if (typeof imageData[0] === 'string') {
         const lastValid = imageData.filter(i => i && typeof i === 'string' && i.trim() !== '').pop();
-        return lastValid || '';
+        artworkUrl = lastValid || '';
       }
+    } else if (typeof imageData === 'object') {
+      artworkUrl = imageData.url || imageData.link || imageData.uri || '';
     }
 
-    if (typeof imageData === 'object') {
-      return imageData.url || imageData.link || '';
+    // Final enhancement pass
+    if (artworkUrl && typeof artworkUrl === 'string') {
+      const enhanced = enhanceYTMusicArtwork(artworkUrl, 'card');
+      return getPrimaryArtworkUrl(enhanced) || artworkUrl;
     }
 
-    return '';
+    return artworkUrl || '';
   };
 
   const addToQueue = async () => {
@@ -218,7 +225,7 @@ export const EachSongMenuButton = ({
               url: streamData.url,
               headers: streamData.headers,  // Add headers for TrackPlayer
               userAgent: streamData.headers?.['User-Agent'],
-              artwork: streamData.thumbnail || songMetadata.artwork,
+              artwork: getPrimaryArtworkUrl(enhanceYTMusicArtwork(streamData.thumbnail, 'playing')) || streamData.thumbnail || songMetadata.artwork,
               duration: streamData.duration || songMetadata.duration,
               title: streamData.title || songMetadata.title,
             };
@@ -320,7 +327,7 @@ export const EachSongMenuButton = ({
               url: streamData.url,
               headers: streamData.headers,  // Add headers for TrackPlayer
               userAgent: streamData.headers?.['User-Agent'],
-              artwork: streamData.thumbnail || songMetadata.artwork,
+              artwork: getPrimaryArtworkUrl(enhanceYTMusicArtwork(streamData.thumbnail, 'playing')) || streamData.thumbnail || songMetadata.artwork,
               duration: streamData.duration || songMetadata.duration,
               title: streamData.title || songMetadata.title,
             };

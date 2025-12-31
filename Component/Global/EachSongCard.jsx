@@ -16,6 +16,7 @@ import Octicons from 'react-native-vector-icons/Octicons';
 import { requestStoragePermission } from '../../Utils/PermissionManager';
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
 import queueManager from '../../Utils/QueueManager';
+import { DownloadProgressIndicator } from '../Download/DownloadProgressIndicator';
 
 export const EachSongCard = memo(function EachSongCard({ title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', truncateTitle = false, onDeleteComplete, activeTrackId, isPlaying, item, onLongPress, localSongPath, isLocal = false, allSongs = [] }) {
   const theme = useTheme();
@@ -26,6 +27,7 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
   // If isLocal is true (from Downloads page), songs are definitely downloaded
   const [isDownloaded, setIsDownloaded] = useState(isLocal);
   const [downloadInProgress, setDownloadInProgress] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
 
   // Simple string image URI handling
   let imageSource = null;
@@ -39,18 +41,30 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
     } else {
       if (typeof image === 'string') {
         safeImageUri = image;
-      } else if (image && typeof image === 'object') {
-        try {
-          if (typeof image.uri === 'string') {
-            safeImageUri = image.uri;
-          } else if (typeof image.url === 'string') {
-            safeImageUri = image.url;
-          } else if (Array.isArray(image) && image.length > 0 && typeof image[0] === 'string') {
-            safeImageUri = image[0];
+      } else if (Array.isArray(image) && image.length > 0) {
+        // Try to find highest quality or take last
+        if (typeof image[0] === 'object') {
+          // YT Music style with quality property
+          const maxRes = image.find(img => img.quality === 'max' || img.quality === 'hd');
+          if (maxRes && maxRes.url) {
+            safeImageUri = maxRes.url;
+          } else {
+            // Fallback to last valid object property
+            for (let i = image.length - 1; i >= 0; i--) {
+              const img = image[i];
+              if (img && (img.url || img.uri || img.link)) {
+                safeImageUri = img.url || img.uri || img.link;
+                break;
+              }
+            }
           }
-        } catch (e) {
-          safeImageUri = '';
+        } else if (typeof image[0] === 'string') {
+          // Array of strings (Saavn style - ascending)
+          const lastValid = image.filter(i => i && typeof i === 'string' && i.trim() !== '').pop();
+          safeImageUri = lastValid || '';
         }
+      } else if (image && typeof image === 'object') {
+        safeImageUri = image.uri || image.url || image.link || '';
       }
       imageSource = safeImageUri ? { uri: safeImageUri } : null;
     }
@@ -82,18 +96,28 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
   useEffect(() => {
     let downloadListener = null;
     let downloadStartedListener = null;
+    let downloadProgressListener = null;
 
     try {
       downloadListener = EventRegister.addEventListener('download-complete', (songId) => {
         if (songId === id) {
           setIsDownloaded(true);
           setDownloadInProgress(false);
+          setDownloadProgress(100);
         }
       });
 
       downloadStartedListener = EventRegister.addEventListener('download-started', (songId) => {
         if (songId === id) {
           setDownloadInProgress(true);
+          setDownloadProgress(0);
+        }
+      });
+
+      // Listen for progress updates
+      downloadProgressListener = EventRegister.addEventListener('download-progress', ({ songId, progress }) => {
+        if (songId === id) {
+          setDownloadProgress(progress);
         }
       });
     } catch (error) {
@@ -107,6 +131,9 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
         }
         if (downloadStartedListener !== null) {
           EventRegister.removeEventListener(downloadStartedListener);
+        }
+        if (downloadProgressListener !== null) {
+          EventRegister.removeEventListener(downloadProgressListener);
         }
       } catch (error) {
         console.error('Error cleaning up download listeners:', error);
@@ -769,7 +796,12 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
             {isDownloaded ? (
               <Octicons name="check-circle" size={20} color="#1DB954" />
             ) : downloadInProgress ? (
-              <MaterialCommunityIcons name="loading" size={22} color="#FFA500" />
+              <DownloadProgressIndicator
+                progress={downloadProgress}
+                size={20}
+                thickness={2}
+                showPercentage={false}
+              />
             ) : (
               <Octicons name="download" size={20} color={theme.dark ? '#ffffff' : '#333333'} />
             )}

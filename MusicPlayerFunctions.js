@@ -24,50 +24,43 @@ const QUALITY_CACHE_TTL = 60000; // 1 minute cache TTL
 
 // Helper to extract artwork URL from various formats
 const extractArtwork = (song) => {
+  let artworkUrl = '';
+
   // Direct artwork/image string
   if (song.artwork && typeof song.artwork === 'string' && song.artwork.length > 0) {
-    return song.artwork;
+    artworkUrl = song.artwork;
+  } else if (song.image && typeof song.image === 'string' && song.image.length > 0) {
+    artworkUrl = song.image;
   }
-  if (song.image && typeof song.image === 'string' && song.image.length > 0) {
-    return song.image;
-  }
-
   // Object format with url/uri
-  if (song.artwork && typeof song.artwork === 'object') {
-    if (song.artwork.url) return song.artwork.url;
-    if (song.artwork.uri) return song.artwork.uri;
+  else if (song.artwork && typeof song.artwork === 'object') {
+    artworkUrl = song.artwork.url || song.artwork.uri || '';
   }
-
   // Array format (Saavn/OuterTune)
-  if (song.image && Array.isArray(song.image)) {
-    const bestImage = song.image[2] || song.image[song.image.length - 1] || song.image[0];
-    if (bestImage?.url) return bestImage.url;
-    if (bestImage?.link) return bestImage.link;
-    if (typeof bestImage === 'string') return bestImage;
+  else if (song.image && Array.isArray(song.image)) {
+    const bestImage = song.image[song.image.length - 1] || song.image[0];
+    artworkUrl = bestImage?.url || bestImage?.link || (typeof bestImage === 'string' ? bestImage : '');
   }
-
   // Single Image Object format
-  if (song.image && typeof song.image === 'object') {
-    if (song.image.url) return song.image.url;
-    if (song.image.uri) return song.image.uri;
+  else if (song.image && typeof song.image === 'object') {
+    artworkUrl = song.image.url || song.image.uri || '';
   }
-
   // Thumbnail format (YTMusic)
-  if (song.thumbnail) {
-    if (typeof song.thumbnail === 'string') return song.thumbnail;
-    if (typeof song.thumbnail === 'object' && song.thumbnail.url) return song.thumbnail.url;
+  else if (song.thumbnail) {
+    artworkUrl = typeof song.thumbnail === 'string' ? song.thumbnail : (song.thumbnail.url || '');
   }
-
-  if (song.thumbnails && Array.isArray(song.thumbnails)) {
+  else if (song.thumbnails && Array.isArray(song.thumbnails)) {
     const bestThumb = song.thumbnails[song.thumbnails.length - 1] || song.thumbnails[0];
-    if (bestThumb?.url) return bestThumb.url;
+    artworkUrl = bestThumb?.url || '';
   }
 
-  // Try to find any property that looks like a URL
-  if (song.artwork?.uri) return song.artwork.uri;
-  if (song.image?.uri) return song.image.uri;
+  // Final enhancement pass
+  if (artworkUrl && typeof artworkUrl === 'string') {
+    const enhanced = enhanceYTMusicArtwork(artworkUrl, 'card');
+    return getPrimaryArtworkUrl(enhanced) || artworkUrl;
+  }
 
-  return '';
+  return artworkUrl || (song.artwork?.uri || song.image?.uri || '');
 };
 
 export const setupPlayer = async () => {

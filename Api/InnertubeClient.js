@@ -1437,9 +1437,9 @@ class InnerTubeClient {
                 item.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails ||
                 item.thumbnails || [];
 
-            // Sort thumbnails by width (descending) to get highest quality
-            const sortedThumbnails = [...thumbnails].sort((a, b) => (b.width || 0) - (a.width || 0));
-            let thumbnail = sortedThumbnails[0]?.url;
+            // Sort thumbnails by width (ascending) to match Saavn format (highest quality last)
+            const sortedThumbnails = [...thumbnails].sort((a, b) => (a.width || 0) - (b.width || 0));
+            let thumbnail = sortedThumbnails[sortedThumbnails.length - 1]?.url;
 
             // If we have a videoId, construct the highest quality YouTube thumbnail URL
             // YouTube provides these quality levels:
@@ -1541,10 +1541,10 @@ class InnerTubeClient {
                 name: title,
                 subtitle: item.subtitle?.runs?.map(r => r.text).join('') || item.longBylineText?.runs?.map(r => r.text).join('') || item.shortBylineText?.runs?.map(r => r.text).join('') || '',
                 image: videoId ? [
-                    { url: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`, quality: 'max' },
+                    { url: thumbnail, quality: 'default' },
                     { url: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, quality: 'hq' },
-                    { url: thumbnail, quality: 'default' }
-                ] : thumbnails.map(t => ({ url: t.url, quality: 'hd' })),
+                    { url: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`, quality: 'max' }
+                ] : sortedThumbnails.map(t => ({ url: t.url, quality: 'hd' })),
                 artwork: highResThumbnail || thumbnail,  // Use original quality for cards/lists (performance optimized)
                 year: item.subtitle?.runs?.[item.subtitle.runs.length - 1]?.text || ''
             };
