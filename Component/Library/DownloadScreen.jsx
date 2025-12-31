@@ -162,19 +162,68 @@ export default function DownloadScreen(props) {
   };
 
   // Handle song deletion without confirmation
-  const handleDeleteSong = async (songId, songTitle) => {
-    try {
-      // Delete the song using StorageManager
-      await StorageManager.removeDownloadedSongMetadata(songId);
+  const handleDeleteSong = async (songId, songTitle, localSongPath) => {
+    // 🚀 OPTIMISTIC UI UPDATE: Remove from state immediately for instant feedback
+    const originalSongs = [...downloadedSongs];
+    const originalFiltered = [...filteredSongs];
 
-      // Remove from local state
-      setDownloadedSongs(prev => prev.filter(song => song.id !== songId));
-      setFilteredSongs(prev => prev.filter(song => song.id !== songId));
+    setDownloadedSongs(prev => prev.filter(song => song.id !== songId));
+    setFilteredSongs(prev => prev.filter(song => song.id !== songId));
+
+    try {
+      console.log(`🗑️ [DownloadScreen] Deleting song in background: ${songTitle}`);
+
+      // Perform disk operations in background
+      // 1. Delete file and metadata from StorageManager
+      await StorageManager.removeDownloadedSongMetadata(songId, localSongPath);
+
+      // 2. Remove from FastOrbitScanner cache
+      const FastOrbitScanner = require('../../Utils/FastOrbitScanner').default;
+      if (localSongPath) {
+        await FastOrbitScanner.removeSongFromCache(localSongPath);
+      }
 
       // Show short toast notification
       ToastAndroid.show('Song deleted', ToastAndroid.SHORT);
     } catch (error) {
-      ToastAndroid.show('Error deleting song', ToastAndroid.SHORT);
+      console.error('Error deleting song:', error);
+
+      // ROLLBACK if critical error (though usually we don't for deletion)
+      // setDownloadedSongs(originalSongs);
+      // setFilteredSongs(originalFiltered);
+
+      // Check if it's a permission issue
+      if (error.message && error.message.includes('Unable to delete file')) {
+        const { Alert, NativeModules } = require('react-native');
+        const { StoragePermissionModule } = NativeModules;
+
+        Alert.alert(
+          'Permission Required',
+          'Orbit needs "All Files Access" permission to delete downloaded songs. Would you like to grant this permission?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Grant Permission',
+              onPress: async () => {
+                try {
+                  // Use native module to open the specific permission page
+                  if (StoragePermissionModule && StoragePermissionModule.openAllFilesAccessSettings) {
+                    await StoragePermissionModule.openAllFilesAccessSettings();
+                  } else {
+                    // Fallback to general settings
+                    const { Linking } = require('react-native');
+                    await Linking.openSettings();
+                  }
+                } catch (e) {
+                  ToastAndroid.show('Could not open settings', ToastAndroid.SHORT);
+                }
+              }
+            }
+          ]
+        );
+      } else {
+        ToastAndroid.show('Error deleting song', ToastAndroid.SHORT);
+      }
     }
   };
 

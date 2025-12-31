@@ -212,7 +212,8 @@ export const DownloadedSongCard = ({ song, index = 0, allSongs = [], refetch, on
   const handleDelete = () => {
     closeMenu();
     if (onDeleteRequest) {
-      onDeleteRequest(id, title);
+      // Pass localSongPath so the actual file can be deleted from storage
+      onDeleteRequest(id, title, song.localSongPath);
     }
   };
 

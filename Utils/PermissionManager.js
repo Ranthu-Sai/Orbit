@@ -1,5 +1,7 @@
-import { PermissionsAndroid, Platform } from 'react-native';
+import { PermissionsAndroid, Platform, Linking, NativeModules } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
+
+const { StoragePermissionModule } = NativeModules;
 
 /**
  * Requests storage permission on Android when necessary.
@@ -32,6 +34,74 @@ export const requestStoragePermission = async () => {
 
     return granted === PermissionsAndroid.RESULTS.GRANTED;
   } catch (error) {
+    return false;
+  }
+};
+
+/**
+ * Check if the app has All Files Access permission (MANAGE_EXTERNAL_STORAGE)
+ * Required for Android 11+ to delete files in external storage
+ * @returns {Promise<boolean>} True if permission is granted
+ */
+export const checkAllFilesAccessPermission = async () => {
+  if (Platform.OS !== 'android') {
+    return true;
+  }
+
+  try {
+    const apiLevel = await DeviceInfo.getApiLevel();
+
+    // Only needed for Android 11+ (API 30+)
+    if (apiLevel < 30) {
+      return true;
+    }
+
+    // Use native module to check permission
+    if (StoragePermissionModule && StoragePermissionModule.isAllFilesAccessGranted) {
+      const isGranted = await StoragePermissionModule.isAllFilesAccessGranted();
+      console.log('[PermissionManager] All Files Access granted:', isGranted);
+      return isGranted;
+    }
+
+    // Fallback: assume not granted
+    return false;
+  } catch (error) {
+    console.error('Error checking all files access:', error);
+    return false;
+  }
+};
+
+/**
+ * Request All Files Access permission (MANAGE_EXTERNAL_STORAGE)
+ * Opens the specific system settings page for All Files Access on Android 11+
+ * @returns {Promise<boolean>} True if intent was sent
+ */
+export const requestAllFilesAccessPermission = async () => {
+  if (Platform.OS !== 'android') {
+    return true;
+  }
+
+  try {
+    const apiLevel = await DeviceInfo.getApiLevel();
+
+    // Only needed for Android 11+ (API 30+)
+    if (apiLevel < 30) {
+      return true;
+    }
+
+    // Use native module to open the specific permission page
+    if (StoragePermissionModule && StoragePermissionModule.openAllFilesAccessSettings) {
+      await StoragePermissionModule.openAllFilesAccessSettings();
+      console.log('[PermissionManager] Opened All Files Access settings via native module');
+      return true;
+    }
+
+    // Fallback: Use Linking to open general app settings
+    await Linking.openSettings();
+    console.log('[PermissionManager] Opened general app settings (fallback)');
+    return true;
+  } catch (error) {
+    console.error('Error requesting all files access:', error);
     return false;
   }
 };

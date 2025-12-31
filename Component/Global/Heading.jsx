@@ -4,14 +4,14 @@ import { Spacer } from "./Spacer";
 import { useEffect, useState } from "react";
 import { GetFontSizeValue } from "../../LocalStorage/AppSettings";
 
-export const Heading = ({text, style, nospace}) => {
+export const Heading = ({ text, description, style, nospace }) => {
   const width = Dimensions.get('window').width
   const [Size, setSize] = useState(width * 0.055);
-  async function getFont(){
+  async function getFont() {
     const data = await GetFontSizeValue()
-    if (data === "Medium"){
+    if (data === "Medium") {
       setSize(width * 0.055)
-    } else if (data === "Small"){
+    } else if (data === "Small") {
       setSize(width * 0.045)
     } else {
       setSize(width * 0.065)
@@ -22,21 +22,35 @@ export const Heading = ({text, style, nospace}) => {
     getFont()
   }, []);
   return (
-   <>
-     {!nospace && <Spacer/>}
-     <Text
-       variant="headlineMedium"
-       numberOfLines={2}
-       style={{
-         fontWeight: 900,
-         fontSize: Size,
-         fontFamily: 'roboto',
-         ...StyleSheet.flatten(style),
-       }}
-     >
-       {text || ''}
-     </Text>
-     {!nospace && <Spacer/>}
-   </>
+    <>
+      {!nospace && <Spacer />}
+      {description && (
+        <Text
+          style={{
+            fontSize: Size * 0.6,
+            fontWeight: '700',
+            color: '#aaaaaa',
+            textTransform: 'uppercase',
+            marginBottom: -4,
+            letterSpacing: 0.5,
+          }}
+        >
+          {description}
+        </Text>
+      )}
+      <Text
+        variant="headlineMedium"
+        numberOfLines={2}
+        style={{
+          fontWeight: 900,
+          fontSize: Size,
+          fontFamily: 'roboto',
+          ...StyleSheet.flatten(style),
+        }}
+      >
+        {text || ''}
+      </Text>
+      {!nospace && <Spacer />}
+    </>
   );
 };

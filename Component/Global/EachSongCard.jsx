@@ -17,13 +17,14 @@ import { requestStoragePermission } from '../../Utils/PermissionManager';
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
 import queueManager from '../../Utils/QueueManager';
 
-export const EachSongCard = memo(function EachSongCard({ title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', truncateTitle = false, onDeleteComplete, activeTrackId, isPlaying, item, onLongPress }) {
+export const EachSongCard = memo(function EachSongCard({ title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', truncateTitle = false, onDeleteComplete, activeTrackId, isPlaying, item, onLongPress, localSongPath, isLocal = false }) {
   const theme = useTheme();
   const { colors } = theme;
   const width1 = Dimensions.get("window").width;
   const { updateTrack } = useContext(Context)
   // Removed hooks to prevent excessive listeners
-  const [isDownloaded, setIsDownloaded] = useState(false);
+  // If isLocal is true (from Downloads page), songs are definitely downloaded
+  const [isDownloaded, setIsDownloaded] = useState(isLocal);
   const [downloadInProgress, setDownloadInProgress] = useState(false);
 
   // Simple string image URI handling
@@ -60,6 +61,9 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
   }
 
   useEffect(() => {
+    // If already marked as local (from Downloads page), skip the async check
+    if (isLocal) return;
+
     const checkDownloadStatus = async () => {
       if (id) {
         try {
@@ -73,7 +77,7 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
     };
 
     checkDownloadStatus();
-  }, [id]);
+  }, [id, isLocal]);
 
   useEffect(() => {
     let downloadListener = null;
@@ -607,8 +611,8 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
 
   const handleDelete = async (songId, songTitle) => {
     try {
-      // Delete using StorageManager
-      await StorageManager.removeDownloadedSongMetadata(songId);
+      // Delete using StorageManager - pass localSongPath if available for direct file deletion
+      await StorageManager.removeDownloadedSongMetadata(songId, localSongPath);
 
       // Update local state
       setIsDownloaded(false);
@@ -723,6 +727,7 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
               duration,
               language,
               artistID,
+              localSongPath,
             }}
             isFromPlaylist={isFromPlaylist}
             isFromAlbum={isFromAlbum}

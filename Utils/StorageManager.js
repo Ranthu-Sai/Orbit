@@ -276,27 +276,52 @@ const getAllDownloadedSongsMetadata = async () => {
 };
 
 // Removes a song's metadata and its associated files
-const removeDownloadedSongMetadata = async (songId) => {
+// @param {string} songId - The song ID
+// @param {string} localFilePath - Optional: Direct file path to delete (used when path is known, e.g., from scanner)
+const removeDownloadedSongMetadata = async (songId, localFilePath = null) => {
   try {
     // Get metadata BEFORE deletion to access song info
     const allMetadata = await getAllDownloadedSongsMetadata();
     const metadata = allMetadata[songId];
 
-    // Delete song and artwork files from external storage
-    if (metadata) {
-      // Pass source for correct file extension
-      const songPath = await getSongPath(songId, metadata.title, metadata.source);
-      const artworkPath = await getArtworkPath(songId);
+    // Determine the file path to delete
+    let songPath = localFilePath;
 
-      if (await safeExists(songPath)) {
-        await RNFS.unlink(songPath);
-        console.log(`Deleted song file: ${songPath}`);
+    // If localFilePath is provided (from scanner), use it directly
+    if (localFilePath) {
+      // Handle file:// prefix if present
+      if (localFilePath.startsWith('file://')) {
+        songPath = localFilePath.replace('file://', '');
       }
-      if (await safeExists(artworkPath)) {
-        await RNFS.unlink(artworkPath);
-        console.log(`Deleted artwork file: ${artworkPath}`);
-      }
+      console.log(`[StorageManager] Using provided local path: ${songPath}`);
+    } else if (metadata) {
+      // Calculate path from metadata
+      songPath = await getSongPath(songId, metadata.title, metadata.source);
+      console.log(`[StorageManager] Calculated path from metadata: ${songPath}`);
     }
+
+    // Delete song file from external storage
+    if (songPath) {
+      try {
+        // Just try to unlink directly - no need for multiple exist checks
+        await RNFS.unlink(songPath);
+        console.log(`✅ [StorageManager] File successfully deleted: ${songPath}`);
+      } catch (unlinkError) {
+        // If file doesn't exist, ignore the error
+        if (unlinkError.message.includes('no such file or directory') ||
+          unlinkError.message.includes('File does not exist')) {
+          console.log(`⚠️ [StorageManager] Song file not found (already gone): ${songPath}`);
+        } else {
+          console.error(`❌ [StorageManager] RNFS.unlink error:`, unlinkError.message);
+          // Don't throw for artwork or non-critical file issues, but here it's the main song
+          throw unlinkError;
+        }
+      }
+    } else {
+      console.log(`⚠️ No file path provided or found for song: ${songId}`);
+    }
+
+    // Skip artwork deletion - artwork is embedded in the audio file
 
     // Remove from AsyncStorage after files are deleted
     if (allMetadata[songId]) {
@@ -305,9 +330,11 @@ const removeDownloadedSongMetadata = async (songId) => {
         STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
         JSON.stringify(allMetadata),
       );
+      console.log(`🗑️ Removed metadata for song: ${songId}`);
     }
   } catch (error) {
-    console.error(`Error removing downloaded song ${songId}:`, error);
+    console.error(`❌ Error removing downloaded song ${songId}:`, error);
+    throw error; // Re-throw to allow caller to handle
   }
 };
 

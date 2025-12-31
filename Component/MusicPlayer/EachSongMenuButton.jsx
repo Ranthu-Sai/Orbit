@@ -568,8 +568,8 @@ export const EachSongMenuButton = ({
       if (onDelete) {
         await onDelete(song.id, song.title);
       } else {
-        // Fallback: directly delete using StorageManager
-        await StorageManager.removeDownloadedSongMetadata(song.id);
+        // Fallback: directly delete using StorageManager with localSongPath if available
+        await StorageManager.removeDownloadedSongMetadata(song.id, song.localSongPath);
         setIsDownloaded(false);
         ToastAndroid.show('Song deleted', ToastAndroid.SHORT);
       }

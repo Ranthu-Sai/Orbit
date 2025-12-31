@@ -261,6 +261,7 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
                   artists: item.artists || [],
                   year: item.year,
                   sectionTitle: sectionTitle,
+                  sectionStrapline: section.strapline,
                   downloadUrl: item.playlistId || item.browseId
                 };
 
@@ -413,7 +414,8 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
         views: "0",
         type: item.type, // playlist or album
         thumbnailUrl: bestThumbnail?.url || item.thumbnails?.[0]?.url || 'https://via.placeholder.com/150',
-        sectionTitle: item.sectionTitle // Keep section info for debugging
+        sectionTitle: item.sectionTitle, // Keep section info for debugging
+        sectionStrapline: item.sectionStrapline
       };
 
       // console.log(`✅ Processed: "${processedItem.name}" (${processedItem.type})`);
@@ -506,7 +508,11 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
         <Spacer />
         {!loading && (
           <PaddingConatiner>
-            <Heading text={sectionTitle} nospace={true} />
+            <Heading
+              text={sectionTitle}
+              description={sectionItems[0]?.sectionStrapline}
+              nospace={true}
+            />
           </PaddingConatiner>
         )}
         <Spacer />

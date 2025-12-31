@@ -264,21 +264,44 @@ class FastOrbitScanner {
     }
 
     /**
-     * Get metadata file path
+     * Get app-internal cache directory for metadata (avoids scoped storage issues)
+     * Uses DocumentDirectoryPath which is always writable by the app
      */
-    static async getMetadataFilePath() {
-        const songsDir = await this.getSongsDirectory();
-        if (!songsDir) return null;
-        return `${songsDir}/${this.METADATA_FILENAME}`;
+    static getAppCacheDirectory() {
+        // Use app's internal document directory - always has write permission
+        return `${RNFS.DocumentDirectoryPath}/orbit_cache`;
     }
 
     /**
-     * Get backup metadata file path
+     * Ensure cache directory exists
+     */
+    static async ensureCacheDirectoryExists() {
+        const cacheDir = this.getAppCacheDirectory();
+        try {
+            const exists = await RNFS.exists(cacheDir);
+            if (!exists) {
+                await RNFS.mkdir(cacheDir);
+            }
+        } catch (e) {
+            // Silently handle - directory might already exist
+        }
+        return cacheDir;
+    }
+
+    /**
+     * Get metadata file path (now uses app-internal storage)
+     */
+    static async getMetadataFilePath() {
+        const cacheDir = await this.ensureCacheDirectoryExists();
+        return `${cacheDir}/${this.METADATA_FILENAME}`;
+    }
+
+    /**
+     * Get backup metadata file path (now uses app-internal storage)
      */
     static async getBackupFilePath() {
-        const songsDir = await this.getSongsDirectory();
-        if (!songsDir) return null;
-        return `${songsDir}/${this.METADATA_BACKUP_FILENAME}`;
+        const cacheDir = await this.ensureCacheDirectoryExists();
+        return `${cacheDir}/${this.METADATA_BACKUP_FILENAME}`;
     }
 
     /**
@@ -303,27 +326,26 @@ class FastOrbitScanner {
             console.log(`📂 [FastScanner] Loaded ${songs.length} songs from disk cache`);
             return songs;
         } catch (error) {
-            console.error('❌ [FastScanner] Failed to load metadata from disk:', error.message);
+            // Silently handle load errors - will scan fresh
 
-            // Try to restore from backup
+            // Try to restore from backup silently
             try {
                 const backupPath = await this.getBackupFilePath();
                 if (backupPath && await RNFS.exists(backupPath)) {
-                    console.log('🔄 [FastScanner] Restoring from backup...');
                     const backupContent = await RNFS.readFile(backupPath, 'utf8');
                     const songs = JSON.parse(backupContent);
 
                     // Restore main file from backup
                     const metadataPath = await this.getMetadataFilePath();
                     if (metadataPath) {
-                        await RNFS.writeFile(metadataPath, backupContent, 'utf8');
+                        await RNFS.writeFile(metadataPath, backupContent, 'utf8').catch(() => { });
                     }
 
                     console.log(`✅ [FastScanner] Restored ${songs.length} songs from backup`);
                     return songs;
                 }
             } catch (backupError) {
-                console.error('❌ [FastScanner] Backup restore failed:', backupError.message);
+                // Silently handle backup restore failure - will scan fresh
             }
 
             return [];
@@ -340,8 +362,7 @@ class FastOrbitScanner {
             const backupPath = await this.getBackupFilePath();
 
             if (!metadataPath) {
-                console.error('❌ [FastScanner] No metadata path available');
-                return;
+                return; // Silently skip if no path
             }
 
             const jsonContent = JSON.stringify(songs, null, 2);
@@ -349,12 +370,8 @@ class FastOrbitScanner {
             // Create backup of existing file first (if exists)
             const exists = await RNFS.exists(metadataPath);
             if (exists && backupPath) {
-                try {
-                    await RNFS.copyFile(metadataPath, backupPath);
-                } catch (backupErr) {
-                    // Backup failed but continue with save
-                    console.warn('⚠️ [FastScanner] Backup creation failed:', backupErr.message);
-                }
+                // Create backup silently - failure is not critical
+                await RNFS.copyFile(metadataPath, backupPath).catch(() => { });
             }
 
             // Write new metadata file
@@ -362,8 +379,8 @@ class FastOrbitScanner {
             console.log(`💾 [FastScanner] Saved ${songs.length} songs to disk (${(jsonContent.length / 1024).toFixed(1)}KB)`);
 
         } catch (error) {
-            console.error('❌ [FastScanner] Failed to save metadata to disk:', error.message);
-            // Don't throw - graceful degradation
+            // Silently handle save errors - graceful degradation
+            // Cache will be rebuilt on next scan
         }
     }
 
@@ -402,10 +419,17 @@ class FastOrbitScanner {
      */
     static async removeSongFromCache(songPath) {
         try {
+            // Update disk cache
             const songs = await this.getCachedSongs();
             const filtered = songs.filter(s => s.localSongPath !== songPath);
             await this.saveCachedSongs(filtered);
-            console.log(`🗑️ [FastScanner] Removed ${songPath} from cache`);
+
+            // 🚀 Also update memory cache for instant consistency
+            if (this._memoryCache) {
+                this._memoryCache = this._memoryCache.filter(s => s.localSongPath !== songPath);
+            }
+
+            console.log(`🗑️ [FastScanner] Removed ${songPath} from cache (disk + memory)`);
         } catch (error) {
             console.error('Failed to remove from cache:', error);
         }

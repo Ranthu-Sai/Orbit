@@ -536,24 +536,30 @@ class InnerTubeClient {
             content?.forEach((section, idx) => {
                 if (section.musicCarouselShelfRenderer) {
                     const shelf = section.musicCarouselShelfRenderer;
-                    const title = shelf.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.[0]?.text || '';
+                    const headerRenderer = shelf.header?.musicCarouselShelfBasicHeaderRenderer;
+                    const title = headerRenderer?.title?.runs?.[0]?.text || '';
+                    const strapline = headerRenderer?.strapline?.runs?.[0]?.text;
                     const items = shelf.contents?.map(item => this.parseItem(item)).filter(i => i) || [];
-                    console.log(`🎯 Section ${idx}: "${title}" - ${items.length} items`);
+                    console.log(`🎯 Section ${idx}: "${title}" (strapline: ${strapline}) - ${items.length} items`);
                     if (items.length > 0) {
                         sections.push({
                             title,
+                            strapline,
                             contents: items
                         });
                     }
                 } else if (section.musicImmersiveCarouselShelfRenderer) {
                     // Handle immersive carousel (sometimes used for featured content)
                     const shelf = section.musicImmersiveCarouselShelfRenderer;
-                    const title = shelf.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.[0]?.text || 'Featured';
+                    const headerRenderer = shelf.header?.musicCarouselShelfBasicHeaderRenderer;
+                    const title = headerRenderer?.title?.runs?.[0]?.text || 'Featured';
+                    const strapline = headerRenderer?.strapline?.runs?.[0]?.text;
                     const items = shelf.contents?.map(item => this.parseItem(item)).filter(i => i) || [];
-                    console.log(`🎯 Immersive Section ${idx}: "${title}" - ${items.length} items`);
+                    console.log(`🎯 Immersive Section ${idx}: "${title}" (strapline: ${strapline}) - ${items.length} items`);
                     if (items.length > 0) {
                         sections.push({
                             title,
+                            strapline,
                             contents: items
                         });
                     }
@@ -596,12 +602,15 @@ class InnerTubeClient {
                 sectionListContinuation.contents?.forEach((section, idx) => {
                     if (section.musicCarouselShelfRenderer) {
                         const shelf = section.musicCarouselShelfRenderer;
-                        const title = shelf.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.[0]?.text || '';
+                        const headerRenderer = shelf.header?.musicCarouselShelfBasicHeaderRenderer;
+                        const title = headerRenderer?.title?.runs?.[0]?.text || '';
+                        const strapline = headerRenderer?.strapline?.runs?.[0]?.text;
                         const items = shelf.contents?.map(item => this.parseItem(item)).filter(i => i) || [];
-                        console.log(`🎯 Continuation Section ${idx}: "${title}" - ${items.length} items`);
+                        console.log(`🎯 Continuation Section ${idx}: "${title}" (strapline: ${strapline}) - ${items.length} items`);
                         if (items.length > 0) {
                             sections.push({
                                 title,
+                                strapline,
                                 contents: items
                             });
                         }

@@ -30,6 +30,7 @@ class MainApplication : Application(), ReactApplication {
               add(MetadataWriterPackage())
               add(MetadataReaderPackage())
               add(InnerTubePackage())
+              add(StoragePermissionPackage())
             }
         override fun getJSBundleFile(): String {
                           return CodePush.getJSBundleFile()

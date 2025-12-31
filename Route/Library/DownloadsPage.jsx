@@ -110,6 +110,7 @@ export const DownloadsPage = () => {
               showNumber={false}
               allSongs={downloads}
               downloadUrl={item.downloadUrl}
+              localSongPath={item.localSongPath}
               onDeleteComplete={() => loadDownloadedSongs()}
               activeTrackId={activeTrack?.id}
               isPlaying={playbackState.state === "playing" || playbackState.state === 3}
