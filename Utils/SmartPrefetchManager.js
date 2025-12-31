@@ -131,12 +131,16 @@ class SmartPrefetchManager {
             const currentTrack = await TrackPlayer.getActiveTrack();
             if (!currentTrack) return;
 
-            // FIXED: Identify Saavn songs explicitly
+            // FIXED: Identify Saavn and Local songs explicitly
             const isSaavn = currentTrack.source === 'saavn' ||
                 (currentTrack.id && currentTrack.id.length !== 11 && !currentTrack.isLocalMusic && !currentTrack.source);
 
-            if (isSaavn) {
-                // console.log('⏭️ SmartPrefetch: Skipping Saavn track (direct URL)');
+            const isLocal = currentTrack.isLocalMusic || currentTrack.isDownloaded ||
+                currentTrack.sourceType === 'download' || currentTrack.sourceType === 'mymusic' ||
+                (currentTrack.url && (currentTrack.url.startsWith('file://') || currentTrack.url.includes('/storage/')));
+
+            if (isSaavn || isLocal) {
+                // console.log('⏭️ SmartPrefetch: Skipping Saavn or Local track (direct URL)');
                 return;
             }
 
@@ -212,8 +216,13 @@ class SmartPrefetchManager {
             const isSaavn = track.source === 'saavn' ||
                 (track.id && typeof track.id === 'string' && track.id.length !== 11 && !track.isLocalMusic && !track.source);
 
-            shouldPrefetch = (isYTMusic || isSpotify || isDab) && !isSaavn;
-            detectedSource = isYTMusic ? 'ytmusic' : (isSpotify ? 'spotify' : (isDab ? 'dab' : (isSaavn ? 'saavn' : 'other')));
+            // Local tracks
+            const isLocal = track.isLocalMusic || track.isDownloaded ||
+                track.sourceType === 'download' || track.sourceType === 'mymusic' ||
+                (track.url && (track.url.startsWith('file://') || track.url.includes('/storage/')));
+
+            shouldPrefetch = (isYTMusic || isSpotify || isDab) && !isSaavn && !isLocal;
+            detectedSource = isLocal ? 'local' : (isYTMusic ? 'ytmusic' : (isSpotify ? 'spotify' : (isDab ? 'dab' : (isSaavn ? 'saavn' : 'other'))));
         } else {
             // No track in event - try to check queue directly
             // This can happen in some edge cases
@@ -796,10 +805,13 @@ class SmartPrefetchManager {
         // DAB SUPPORT: Check if it's a DAB track needing stream
         const isDab = track.source === 'dab' || track.isDabTrack || track._needsDabStream;
 
-        // SAAVN EXCLUSION: Explicitly check for Saavn source to avoid misidentification by ID length
+        // SAAVN AND LOCAL EXCLUSION: Explicitly check for Saavn and local sources
         const isSaavn = track.source === 'saavn' || (!track.source && track.id && track.id.length !== 11 && !track.isLocalMusic);
+        const isLocal = track.isLocalMusic || track.isDownloaded ||
+            track.sourceType === 'download' || track.sourceType === 'mymusic' ||
+            (track.url && (track.url.startsWith('file://') || track.url.includes('/storage/')));
 
-        if (isSaavn || (!isYTMusic && !isSpotify && !isDab)) return false;
+        if (isSaavn || isLocal || (!isYTMusic && !isSpotify && !isDab)) return false;
 
         // Check if URL is placeholder or missing
         const url = track.url || '';

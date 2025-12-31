@@ -1096,8 +1096,13 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
 
       // Trigger prefetch for the new next tracks after reorder
       // IMPORTANT: Use delay to ensure TrackPlayer queue is fully settled
-      // Prefetch both N+1 and N+2 for smooth playback
+      // SKIP for local sources as they don't need prefetching
       setTimeout(async () => {
+        if (isLocalSource) {
+          console.log('⏭️ Skipping prefetch after reorder: Local source detected');
+          return;
+        }
+
         try {
           const smartPrefetchManager = require('../../Utils/SmartPrefetchManager').default;
           // Prefetch N+1 first
