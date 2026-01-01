@@ -375,7 +375,59 @@ class InnerTubeClient {
     }
 
     static async getAlbum(browseId) {
-        const data = await this.request('browse', { browseId });
+        console.log('🎵 getAlbum called with browseId:', browseId);
+
+        // For OLAK IDs (which are playlist IDs), try with VL prefix FIRST
+        // This avoids the unnecessary 400 error from direct browse
+        if (browseId.startsWith('OLAK')) {
+            console.log('🔄 OLAK ID detected, fetching as playlist with VL prefix...');
+            const playlistBrowseId = `VL${browseId}`;
+            const data = await this.request('browse', { browseId: playlistBrowseId });
+
+            if (!data?.error) {
+                console.log('✅ Successfully fetched OLAK as playlist, parsing...');
+                const playlist = this.parsePlaylist(data);
+                if (playlist && playlist.songs?.length > 0) {
+                    // Convert playlist format to album format
+                    return {
+                        title: playlist.title,
+                        name: playlist.title,  // Also add 'name' for compatibility
+                        artist: playlist.author || 'Various Artists',
+                        artists: [{ name: playlist.author || 'Various Artists', id: null }],
+                        year: playlist.year,
+                        thumbnails: playlist.thumbnails || [],
+                        thumbnail: playlist.thumbnail,
+                        tracks: playlist.songs,
+                        songs: playlist.songs,
+                        browseId: browseId
+                    };
+                }
+            } else {
+                console.warn('getAlbum: VL prefix browse failed for OLAK, trying direct...');
+            }
+        }
+
+        // Try direct browse as album (for MPRE IDs and other album types)
+        let data = await this.request('browse', { browseId });
+
+        // Check if we got an error response
+        if (data?.error) {
+            console.error('getAlbum: API returned error:', JSON.stringify(data.error));
+
+            // Try converting OLAK to MPRE format and browse
+            if (browseId.startsWith('OLAK')) {
+                const mpreId = browseId.replace('OLAK', 'MPREb_');
+                console.log('🔄 Trying MPRE format:', mpreId);
+                data = await this.request('browse', { browseId: mpreId });
+
+                if (!data?.error) {
+                    return this.parseAlbum(data);
+                }
+            }
+
+            return null;
+        }
+
         return this.parseAlbum(data);
     }
 
@@ -1126,12 +1178,33 @@ class InnerTubeClient {
 
     static parseAlbum(data) {
         try {
+            // Debug: Log top-level keys to understand structure
+            console.log('parseAlbum: Top-level keys:', Object.keys(data || {}));
+
+            // Check for error response first
+            if (data?.error) {
+                console.error('parseAlbum: API error response:', JSON.stringify(data.error));
+                return null;
+            }
+
+            if (data?.contents) {
+                console.log('parseAlbum: contents keys:', Object.keys(data.contents));
+            }
+            if (data?.header) {
+                console.log('parseAlbum: header keys:', Object.keys(data.header));
+            }
+
             // Try multiple possible structures for album header
             let header = data?.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicResponsiveHeaderRenderer;
 
-            // Alternative structure: some albums use musicDetailHeaderRenderer
+            // Alternative structure: some albums use musicDetailHeaderRenderer in header
             if (!header) {
                 header = data?.header?.musicDetailHeaderRenderer;
+            }
+
+            // Alternative: musicImmersiveHeaderRenderer (used for some albums)
+            if (!header) {
+                header = data?.header?.musicImmersiveHeaderRenderer;
             }
 
             // Another alternative: singleColumnBrowseResultsRenderer for some album types
@@ -1139,12 +1212,51 @@ class InnerTubeClient {
                 header = data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicResponsiveHeaderRenderer;
             }
 
+            // Fallback: Check in twoColumnBrowseResultsRenderer directly
+            if (!header) {
+                const tabs = data?.contents?.twoColumnBrowseResultsRenderer?.tabs;
+                if (tabs && tabs.length > 0) {
+                    const tabContent = tabs[0]?.tabRenderer?.content;
+                    if (tabContent?.sectionListRenderer?.contents) {
+                        for (const section of tabContent.sectionListRenderer.contents) {
+                            if (section.musicResponsiveHeaderRenderer) {
+                                header = section.musicResponsiveHeaderRenderer;
+                                break;
+                            }
+                            if (section.musicDetailHeaderRenderer) {
+                                header = section.musicDetailHeaderRenderer;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            console.log('parseAlbum: Header found:', !!header, header ? Object.keys(header) : 'none');
+
             // Try multiple possible structures for tracks
             let tracksContent = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer?.contents;
 
-            // Alternative: musicShelfRenderer
+            // Alternative: musicShelfRenderer in secondaryContents
             if (!tracksContent) {
                 tracksContent = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.[0]?.musicShelfRenderer?.contents;
+            }
+
+            // Alternative: Check all sections in secondaryContents
+            if (!tracksContent) {
+                const secondaryContents = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents;
+                if (secondaryContents) {
+                    for (const section of secondaryContents) {
+                        if (section.musicPlaylistShelfRenderer?.contents) {
+                            tracksContent = section.musicPlaylistShelfRenderer.contents;
+                            break;
+                        }
+                        if (section.musicShelfRenderer?.contents) {
+                            tracksContent = section.musicShelfRenderer.contents;
+                            break;
+                        }
+                    }
+                }
             }
 
             // Another alternative for single column layout
@@ -1162,12 +1274,33 @@ class InnerTubeClient {
                 }
             }
 
-            const title = header?.title?.runs?.[0]?.text || header?.title?.simpleText;
+            // Extract title from multiple possible paths
+            let title = header?.title?.runs?.[0]?.text || header?.title?.simpleText;
 
-            // Artist can be in different places
-            const artist = header?.straplineTextOne?.runs?.[0]?.text ||
+            // Fallback: Try to get title from menu or other header properties
+            if (!title && header?.menu?.menuRenderer?.title?.runs) {
+                title = header.menu.menuRenderer.title.runs[0]?.text;
+            }
+
+            // Artist can be in different places - try more paths
+            let artist = header?.straplineTextOne?.runs?.[0]?.text ||
                 header?.subtitle?.runs?.[0]?.text ||
                 header?.secondTitle?.runs?.[0]?.text;
+
+            // Fallback: Try to find artist in subtitle runs with navigation to artist page
+            if (!artist && header?.subtitle?.runs) {
+                for (const run of header.subtitle.runs) {
+                    const browseEndpoint = run.navigationEndpoint?.browseEndpoint;
+                    if (browseEndpoint?.browseId?.startsWith('UC')) {
+                        artist = run.text;
+                        break;
+                    }
+                }
+                // If still no artist, just take first run
+                if (!artist && header.subtitle.runs.length > 0) {
+                    artist = header.subtitle.runs[0].text;
+                }
+            }
 
             // Year extraction - try multiple positions
             let year = null;
@@ -1181,10 +1314,15 @@ class InnerTubeClient {
                 }
             }
 
-            // Get thumbnails array (not just single thumbnail)
-            const thumbnailsData = header?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails ||
+            // Get thumbnails array (not just single thumbnail) - try more paths
+            let thumbnailsData = header?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails ||
                 header?.thumbnail?.croppedSquareThumbnailRenderer?.thumbnail?.thumbnails ||
                 [];
+
+            // Fallback: Try foregroundThumbnail (used in musicImmersiveHeaderRenderer)
+            if (thumbnailsData.length === 0) {
+                thumbnailsData = header?.foregroundThumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
+            }
 
             // Create thumbnails array in expected format
             const thumbnails = thumbnailsData.map(thumb => ({
@@ -1276,8 +1414,34 @@ class InnerTubeClient {
 
     static parsePlaylist(data) {
         try {
+            // Debug: Log structure
+            console.log('parsePlaylist: Top-level keys:', Object.keys(data || {}));
+            if (data?.header) {
+                console.log('parsePlaylist: header keys:', Object.keys(data.header));
+            }
+            if (data?.contents) {
+                console.log('parsePlaylist: contents keys:', Object.keys(data.contents));
+            }
+
             // Try multiple header locations
             let header = data?.header?.musicDetailHeaderRenderer;
+
+            // Alternative: musicEditablePlaylistDetailHeaderRenderer (for editable playlists)
+            if (!header && data?.header?.musicEditablePlaylistDetailHeaderRenderer) {
+                header = data.header.musicEditablePlaylistDetailHeaderRenderer.header?.musicDetailHeaderRenderer ||
+                    data.header.musicEditablePlaylistDetailHeaderRenderer.header?.musicResponsiveHeaderRenderer ||
+                    data.header.musicEditablePlaylistDetailHeaderRenderer;
+            }
+
+            // Alternative: musicVisualHeaderRenderer (for some album playlists)
+            if (!header) {
+                header = data?.header?.musicVisualHeaderRenderer;
+            }
+
+            // Alternative: musicImmersiveHeaderRenderer
+            if (!header) {
+                header = data?.header?.musicImmersiveHeaderRenderer;
+            }
 
             if (!header) {
                 // Try finding responsive header in contents
@@ -1285,19 +1449,87 @@ class InnerTubeClient {
                 header = sectionList?.[0]?.musicResponsiveHeaderRenderer;
             }
 
-            // Try multiple tracks locations
-            const tracks = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer?.contents ||
-                data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer?.contents;
+            // Try single column layout
+            if (!header) {
+                const singleColumnSections = data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents;
+                if (singleColumnSections) {
+                    for (const section of singleColumnSections) {
+                        if (section.musicResponsiveHeaderRenderer) {
+                            header = section.musicResponsiveHeaderRenderer;
+                            break;
+                        }
+                        if (section.musicDetailHeaderRenderer) {
+                            header = section.musicDetailHeaderRenderer;
+                            break;
+                        }
+                    }
+                }
+            }
 
-            // Extract title
-            const title = header?.title?.runs?.[0]?.text || header?.title?.simpleText;
+            console.log('parsePlaylist: Header found:', !!header, header ? Object.keys(header) : 'none');
+
+            // Try multiple tracks locations
+            let tracks = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer?.contents;
+
+            // Alternative: primary contents area
+            if (!tracks) {
+                tracks = data?.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer?.contents;
+            }
+
+            // Single column layout
+            if (!tracks) {
+                tracks = data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer?.contents;
+            }
+
+            // Try looking in all sections
+            if (!tracks) {
+                const allSections = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents ||
+                    data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents ||
+                    [];
+                for (const section of allSections) {
+                    if (section.musicPlaylistShelfRenderer?.contents) {
+                        tracks = section.musicPlaylistShelfRenderer.contents;
+                        break;
+                    }
+                    if (section.musicShelfRenderer?.contents) {
+                        tracks = section.musicShelfRenderer.contents;
+                        break;
+                    }
+                }
+            }
+
+            // Extract title from multiple possible paths
+            let title = header?.title?.runs?.[0]?.text || header?.title?.simpleText;
+
+            // Fallback: Try strapline (used in some headers)
+            if (!title) {
+                title = header?.strapline?.runs?.[0]?.text;
+            }
 
             // Extract songs
             const songs = tracks?.map(t => this.parseItem(t)).filter(i => i) || [];
 
-            // Extract additional metadata
-            const thumbnails = header?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails ||
-                header?.thumbnail?.musicResponsiveHeaderRenderer?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+            // If we still don't have a title but have songs, try to get album name from first song
+            if (!title && songs.length > 0) {
+                const firstSong = songs[0];
+                if (firstSong.album?.name) {
+                    title = firstSong.album.name;
+                    console.log('parsePlaylist: Inferred title from first song album:', title);
+                }
+            }
+
+            // Extract additional metadata - try more paths
+            let thumbnails = header?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails ||
+                header?.thumbnail?.croppedSquareThumbnailRenderer?.thumbnail?.thumbnails ||
+                header?.foregroundThumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+
+            // Fallback: Get thumbnail from first song
+            if ((!thumbnails || thumbnails.length === 0) && songs.length > 0) {
+                const firstSongThumb = songs[0].thumbnail || songs[0].artwork;
+                if (firstSongThumb) {
+                    thumbnails = [{ url: firstSongThumb }];
+                }
+            }
 
             const description = header?.description?.runs?.[0]?.text || header?.description?.simpleText;
 
@@ -1306,21 +1538,25 @@ class InnerTubeClient {
             let year = null;
 
             // Subtitle runs logic depends on header type
-            // musicDetailHeaderRenderer uses 'subtitle'
-            // musicResponsiveHeaderRenderer uses 'straplineTextOne' or 'subtitle'
-            const subtitleRuns = header?.subtitle?.runs || header?.straplineTextOne?.runs;
+            const subtitleRuns = header?.subtitle?.runs || header?.straplineTextOne?.runs || header?.secondSubtitle?.runs;
 
             if (subtitleRuns) {
                 author = subtitleRuns?.find(r => r.navigationEndpoint?.browseEndpoint?.browseId?.startsWith('UC'))?.text
                     || subtitleRuns?.[0]?.text
                     || "YouTube Music";
-                year = subtitleRuns?.find(r => r.text.match(/\d{4}/))?.text;
+                const yearMatch = subtitleRuns?.find(r => r.text?.match(/^\d{4}$/));
+                year = yearMatch?.text || null;
+            }
+
+            // If no author found but songs have artist info, use first song's artist
+            if (author === "YouTube Music" && songs.length > 0 && songs[0].artist) {
+                author = songs[0].artist;
             }
 
             // Extract playlist thumbnail
-            const playlistThumbnail = thumbnails?.[thumbnails.length - 1]?.url;
+            const playlistThumbnail = thumbnails?.[thumbnails?.length - 1]?.url;
 
-            // Extract ID safely safely
+            // Extract ID safely
             const headerId = header?.menu?.menuRenderer?.topLevelButtons?.[0]?.buttonRenderer?.navigationEndpoint?.watchEndpoint?.playlistId;
             const dataBrowseId = data?.responseContext?.serviceTrackingParams?.[0]?.params?.find(p => p.key === 'browse_id')?.value;
             // Clean VL prefix if present in the data browseId
@@ -1328,13 +1564,13 @@ class InnerTubeClient {
 
             const id = headerId || cleanBrowseId;
 
-            console.log(`InnerTube parsePlaylist: title="${title}", songs=${songs.length}, id=${id}`);
+            console.log(`InnerTube parsePlaylist: title="${title}", songs=${songs.length}, id=${id}, author="${author}"`);
 
             return {
-                id, // Use safe ID
+                id,
                 title,
                 songs,
-                thumbnails,
+                thumbnails: thumbnails || [],
                 thumbnail: playlistThumbnail,
                 description,
                 author,
@@ -1542,6 +1778,38 @@ class InnerTubeClient {
             }
             const duration = durationText ? this.parseTime(durationText) : null;
 
+            // Album extraction - look for runs with MUSIC_PAGE_TYPE_ALBUM navigation
+            let album = null;
+            // Try flexColumns (typically column 2 or 3 contains album info)
+            for (let col = 1; col < (item.flexColumns?.length || 0); col++) {
+                const colRuns = item.flexColumns[col]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+                for (const run of colRuns) {
+                    const browseEndpoint = run.navigationEndpoint?.browseEndpoint;
+                    const pageType = browseEndpoint?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType;
+                    if (pageType === 'MUSIC_PAGE_TYPE_ALBUM' || browseEndpoint?.browseId?.startsWith('MPRE')) {
+                        album = {
+                            name: run.text,
+                            id: browseEndpoint?.browseId
+                        };
+                        break;
+                    }
+                }
+                if (album) break;
+            }
+            // Fallback: Check longBylineText for album info
+            if (!album && item.longBylineText?.runs) {
+                for (const run of item.longBylineText.runs) {
+                    const browseEndpoint = run.navigationEndpoint?.browseEndpoint;
+                    const pageType = browseEndpoint?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType;
+                    if (pageType === 'MUSIC_PAGE_TYPE_ALBUM' || browseEndpoint?.browseId?.startsWith('MPRE')) {
+                        album = {
+                            name: run.text,
+                            id: browseEndpoint?.browseId
+                        };
+                        break;
+                    }
+                }
+            }
 
             return {
                 videoId,
@@ -1550,6 +1818,7 @@ class InnerTubeClient {
                 title,
                 artist,
                 artists: artistsList,  // Array of artist objects
+                album,  // Album object with name and id
                 duration,  // Duration in seconds
                 thumbnail,
                 highResThumbnail,  // High resolution for full-screen player

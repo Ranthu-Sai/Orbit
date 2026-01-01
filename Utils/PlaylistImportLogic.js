@@ -71,28 +71,86 @@ export const importToLibrary = async (url, onProgress) => {
             }
 
             if (albumInfo) {
-                // Try to import as a whole ALBUM first
-                onProgress(0, 0, `Searching for album: ${albumInfo.name}...`);
-                const query = `${albumInfo.name} ${albumInfo.owner || albumInfo.artist || ''}`;
+                // Get album name with multiple fallbacks
+                let albumName = albumInfo.name || albumInfo.title;
 
-                try {
-                    // Search specifically for ALBUMS
-                    const searchResults = await YouTubeMusicService.search(query, 'albums');
-                    const albumMatch = searchResults?.find(item => item.title.toLowerCase() === albumInfo.name.toLowerCase()) || searchResults?.[0];
+                // Fallback: Get album name from first track's album info
+                const tracks = albumInfo.tracks || albumInfo.songs || [];
+                if (!albumName && tracks.length > 0) {
+                    const firstTrack = tracks[0];
+                    if (firstTrack.album?.name) {
+                        albumName = firstTrack.album.name;
+                        console.log('Using album name from first track:', albumName);
+                    }
+                }
 
-                    if (albumMatch) {
-                        onProgress(50, 100, 'Adding Album to Library...');
+                // Fallback: Get first track's title and try to extract album from it
+                if (!albumName && tracks.length > 0) {
+                    // As a last resort, use "Album" + first track artist
+                    albumName = `Album by ${tracks[0].artist || 'Unknown Artist'}`;
+                    console.log('Generated fallback album name:', albumName);
+                }
+
+                // Get artist with fallbacks
+                let albumArtist = albumInfo.artist || albumInfo.owner || albumInfo.author;
+                if (!albumArtist && tracks.length > 0) {
+                    albumArtist = tracks[0].artist || 'Various Artists';
+                }
+
+                // Get thumbnail with fallbacks
+                let albumThumbnail = albumInfo.thumbnails?.[0]?.url || albumInfo.thumbnail || albumInfo.image;
+                if (!albumThumbnail && tracks.length > 0) {
+                    albumThumbnail = tracks[0].thumbnail || tracks[0].artwork;
+                }
+
+                // Get year 
+                let albumYear = albumInfo.year || new Date().getFullYear().toString();
+
+                if (albumName) {
+                    // We have enough info - add the album directly!
+                    console.log('✅ Adding album to library:', { albumName, albumArtist, id });
+                    onProgress(50, 100, `Adding Album: ${albumName}...`);
+
+                    try {
                         await SetLikedAlbum(
-                            albumMatch.thumbnails?.[0]?.url || albumInfo.image,
-                            albumMatch.title,
-                            albumMatch.year || albumInfo.year || new Date().getFullYear().toString(),
-                            albumMatch.browseId || albumMatch.id
+                            albumThumbnail,
+                            albumName,
+                            albumYear,
+                            id  // Use the original OLAK ID
                         );
                         onProgress(100, 100, 'Album Imported Successfully!');
                         return true;
+                    } catch (e) {
+                        console.warn('Failed to add album to library:', e);
+                        // Continue to try search method as fallback
                     }
-                } catch (e) {
-                    console.warn('Album search failed, falling back to songs', e);
+
+                    // Fallback: Try searching for the album
+                    try {
+                        onProgress(0, 0, `Searching for album: ${albumName}...`);
+                        const query = `${albumName} ${albumArtist}`;
+                        const searchResults = await YouTubeMusicService.search(query, 'albums');
+                        const albumMatch = searchResults?.find(item =>
+                            item.title?.toLowerCase() === albumName.toLowerCase()
+                        ) || searchResults?.[0];
+
+                        if (albumMatch) {
+                            onProgress(50, 100, 'Adding Album to Library...');
+                            await SetLikedAlbum(
+                                albumMatch.thumbnails?.[0]?.url || albumThumbnail,
+                                albumMatch.title,
+                                albumMatch.year || albumYear,
+                                albumMatch.browseId || albumMatch.id
+                            );
+                            onProgress(100, 100, 'Album Imported Successfully!');
+                            return true;
+                        }
+                    } catch (e) {
+                        console.warn('Album search failed, falling back to songs', e);
+                    }
+                } else {
+                    console.warn('Album info returned without name/title, falling back to songs');
+                    onProgress(0, 0, 'Album name not found, importing songs...');
                 }
             }
             onProgress(0, 0, 'Album not found directly, importing songs...');
@@ -390,6 +448,15 @@ const mapYouTubeTrack = (ytTrack) => {
         artistName = ytTrack.artists.map(a => a.name).join(', ');
     } else if (ytTrack.artist) {
         artistName = ytTrack.artist;
+    }
+
+    // Clean artist name if it contains YouTube metadata (views, subscribers, etc.)
+    // This typically happens with video search results where metadata is concatenated in the string
+    if (typeof artistName === 'string' && artistName.includes(',')) {
+        const lowerName = artistName.toLowerCase();
+        if (lowerName.includes('view') || lowerName.includes('sub') || lowerName.includes('play')) {
+            artistName = artistName.split(',')[0].trim();
+        }
     }
 
     return {
