@@ -155,6 +155,7 @@ const SectionListPage = () => {
                     index={index}
                     activeTrackId={activeTrack?.id}
                     isPlaying={playbackState.state === "playing"}
+                    source="ytmusic"
                     width="100%"
                     showNumber={true}
                     onClick={() => handlePress(item)}

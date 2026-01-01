@@ -18,7 +18,9 @@ import AntDesign from "react-native-vector-icons/AntDesign";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import FontAwesome from "react-native-vector-icons/FontAwesome";
+import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
 import Entypo from "react-native-vector-icons/Entypo";
+import Ionicons from "react-native-vector-icons/Ionicons";
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -34,10 +36,10 @@ export const AboutProject = () => {
       Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
     }
   };
-  
+
   return (
     <MainWrapper>
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContainer}
       >
@@ -47,44 +49,30 @@ export const AboutProject = () => {
             <Avatar.Image
               size={100}
               source={require("../../Images/me.jpg")}
-              style={[styles.profileImage, {borderColor: paperTheme.colors.outline}]}
+              style={[styles.profileImage, { borderColor: paperTheme.colors.outline }]}
             />
             <View style={styles.profileInfo}>
-              <Text variant="labelSmall" style={[styles.roleText, {color: paperTheme.colors.onSurface, opacity: 0.8}]}>
+              <Text variant="labelSmall" style={[styles.roleText, { color: paperTheme.colors.onSurface, opacity: 0.8 }]}>
                 DEVELOPED BY
               </Text>
-              <Text variant="headlineSmall" style={[styles.nameText, {color: paperTheme.colors.onSurface}]}>
+              <Text variant="headlineSmall" style={[styles.nameText, { color: paperTheme.colors.onSurface }]}>
                 Gaurav Sharma
               </Text>
 
               <View style={styles.socialButtonsContainer}>
                 <TouchableOpacity
-                  style={[styles.socialButtonTouchable, {backgroundColor: '#9c6efa'}]}
+                  style={[styles.socialButtonTouchable, { backgroundColor: '#6366f1' }]}
                   onPress={() => openLink("https://github.com/gauravxdev")}
                   activeOpacity={0.7}
                 >
                   <AntDesign name="github" size={18} color="#FFFFFF" />
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.socialButtonTouchable, {backgroundColor: '#0a9fef'}]}
-                  onPress={() => openLink("https://www.linkedin.com/in/gauravxdev/")}
-                  activeOpacity={0.7}
-                >
-                  <AntDesign name="linkedin-square" size={18} color="#FFFFFF" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.socialButtonTouchable, {backgroundColor: '#fa7e1e'}]}
-                  onPress={() => openLink("https://www.instagram.com/ohh.its_gaurav")}
+                  style={[styles.socialButtonTouchable, { backgroundColor: '#E1306C' }]}
+                  onPress={() => openLink("https://www.instagram.com/orbitmusicapp")}
                   activeOpacity={0.7}
                 >
                   <AntDesign name="instagram" size={18} color="#FFFFFF" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.socialButtonTouchable, {backgroundColor: '#576574'}]}
-                  onPress={() => openLink("https://gauravxdev.vercel.app/")}
-                  activeOpacity={0.7}
-                >
-                  <AntDesign name="user" size={18} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -93,15 +81,15 @@ export const AboutProject = () => {
 
         {/* Community Section */}
         <View style={styles.sectionHeader}>
-          <Surface style={[styles.sectionHeaderIcon, {backgroundColor: paperTheme.colors.surfaceVariant}]} elevation={2}>
+          <Surface style={[styles.sectionHeaderIcon, { backgroundColor: paperTheme.colors.surfaceVariant }]} elevation={2}>
             <FontAwesome name="users" size={16} color={paperTheme.colors.onSurface} />
           </Surface>
           <View>
-            <Text variant="titleMedium" style={[styles.sectionTitle, {color: paperTheme.colors.onSurface}]}>
-              Want to stay updated?
+            <Text variant="titleMedium" style={[styles.sectionTitle, { color: paperTheme.colors.onSurface }]}>
+              Join the Community
             </Text>
-            <Text variant="bodyMedium" style={[styles.sectionSubtitle, {color: paperTheme.colors.onSurfaceVariant}]}>
-              Join the community.
+            <Text variant="bodyMedium" style={[styles.sectionSubtitle, { color: paperTheme.colors.onSurfaceVariant }]}>
+              Updates, feature requests & bug reports.
             </Text>
           </View>
         </View>
@@ -112,48 +100,103 @@ export const AboutProject = () => {
             elevation={3}
             onPress={() => openLink("https://telegram.me/OrbitMusicOfficial")}
           >
-            <Card.Content style={[styles.communityCardContent, {backgroundColor: '#0088cc'}]}>
+            <Card.Content style={[styles.communityCardContent, { backgroundColor: '#0088cc' }]}>
               <View>
-                <Text variant="titleSmall" style={[styles.communityCardTitle, {color: '#FFFFFF'}]}>
+                <Text variant="titleSmall" style={[styles.communityCardTitle, { color: '#FFFFFF' }]}>
                   Telegram
                 </Text>
-                <Text variant="bodySmall" style={[styles.communityCardSubtitle, {color: '#FFFFFF'}]}>
+                <Text variant="bodySmall" style={[styles.communityCardSubtitle, { color: '#FFFFFF' }]}>
                   Orbit Music
                 </Text>
               </View>
-              <MaterialIcons name="send" size={24} color="#FFFFFF" />
+              <View style={{ transform: [{ rotate: '-30deg' }] }}>
+                <MaterialIcons name="send" size={24} color="#FFFFFF" />
+              </View>
             </Card.Content>
           </Card>
 
           <Card
             style={styles.communityCard}
             elevation={3}
-            onPress={() => openLink("https://chat.whatsapp.com/DFnfHsdeqbcHwKudA0e0WC")}
+            onPress={() => openLink("https://discord.gg/JrMzKes3")}
           >
-            <Card.Content style={[styles.communityCardContent, {backgroundColor: '#25D366'}]}>
+            <Card.Content style={[styles.communityCardContent, { backgroundColor: '#5865F2' }]}>
               <View>
-                <Text variant="titleSmall" style={[styles.communityCardTitle, {color: '#FFFFFF'}]}>
-                  WhatsApp
+                <Text variant="titleSmall" style={[styles.communityCardTitle, { color: '#FFFFFF' }]}>
+                  Discord
                 </Text>
-                <Text variant="bodySmall" style={[styles.communityCardSubtitle, {color: '#FFFFFF'}]}>
-                  Orbit
+                <Text variant="bodySmall" style={[styles.communityCardSubtitle, { color: '#FFFFFF' }]}>
+                  Orbit Community
                 </Text>
               </View>
-              <FontAwesome name="whatsapp" size={24} color="#FFFFFF" />
+              <Ionicons name="logo-discord" size={24} color="#FFFFFF" />
+            </Card.Content>
+          </Card>
+        </View>
+
+        {/* Support Section */}
+        <View style={styles.sectionHeader}>
+          <Surface style={[styles.sectionHeaderIcon, { backgroundColor: paperTheme.colors.surfaceVariant }]} elevation={2}>
+            <MaterialCommunityIcons name="heart" size={16} color={paperTheme.colors.onSurface} />
+          </Surface>
+          <View>
+            <Text variant="titleMedium" style={[styles.sectionTitle, { color: paperTheme.colors.onSurface }]}>
+              Support the Project
+            </Text>
+            <Text variant="bodyMedium" style={[styles.sectionSubtitle, { color: paperTheme.colors.onSurfaceVariant }]}>
+              Help keep Orbit free and open source.
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.supportContainer}>
+          <Card
+            style={styles.supportCard}
+            elevation={3}
+            onPress={() => openLink("https://ko-fi.com/itsgauravsharma")}
+          >
+            <Card.Content style={[styles.supportCardContent, { backgroundColor: '#FF5E5B' }]}>
+              <View>
+                <Text variant="titleSmall" style={[styles.supportCardTitle, { color: '#FFFFFF' }]}>
+                  Ko-fi
+                </Text>
+                <Text variant="bodySmall" style={[styles.supportCardSubtitle, { color: '#FFFFFF' }]}>
+                  Buy me a coffee
+                </Text>
+              </View>
+              <FontAwesome5 name="coffee" size={22} color="#FFFFFF" />
+            </Card.Content>
+          </Card>
+
+          <Card
+            style={styles.supportCard}
+            elevation={3}
+            onPress={() => openLink("https://orbit-donation.vercel.app/")}
+          >
+            <Card.Content style={[styles.supportCardContent, { backgroundColor: '#8B5CF6' }]}>
+              <View>
+                <Text variant="titleSmall" style={[styles.supportCardTitle, { color: '#FFFFFF' }]}>
+                  Donate
+                </Text>
+                <Text variant="bodySmall" style={[styles.supportCardSubtitle, { color: '#FFFFFF' }]}>
+                  Support development
+                </Text>
+              </View>
+              <MaterialCommunityIcons name="gift-outline" size={24} color="#FFFFFF" />
             </Card.Content>
           </Card>
         </View>
 
         {/* Contribute Section */}
         <View style={styles.sectionHeader}>
-          <Surface style={[styles.sectionHeaderIcon, {backgroundColor: paperTheme.colors.surfaceVariant}]} elevation={2}>
+          <Surface style={[styles.sectionHeaderIcon, { backgroundColor: paperTheme.colors.surfaceVariant }]} elevation={2}>
             <MaterialIcons name="code" size={16} color={paperTheme.colors.onSurface} />
           </Surface>
           <View>
-            <Text variant="titleMedium" style={[styles.sectionTitle, {color: paperTheme.colors.onSurface}]}>
+            <Text variant="titleMedium" style={[styles.sectionTitle, { color: paperTheme.colors.onSurface }]}>
               Are you a developer?
             </Text>
-            <Text variant="bodyMedium" style={[styles.sectionSubtitle, {color: paperTheme.colors.onSurfaceVariant}]}>
+            <Text variant="bodyMedium" style={[styles.sectionSubtitle, { color: paperTheme.colors.onSurfaceVariant }]}>
               Contribute to the project.
             </Text>
           </View>
@@ -164,65 +207,27 @@ export const AboutProject = () => {
           elevation={3}
           onPress={() => openLink("https://github.com/gauravxdev/orbit")}
         >
-          <Card.Content style={[styles.githubContent, {backgroundColor: paperTheme.colors.surfaceVariant}]}>
+          <Card.Content style={[styles.githubContent, { backgroundColor: paperTheme.colors.surfaceVariant }]}>
             <View style={styles.githubTextContainer}>
-              <Text variant="titleMedium" style={[styles.githubTitle, {color: paperTheme.colors.onSurface}]}>
+              <Text variant="titleMedium" style={[styles.githubTitle, { color: paperTheme.colors.onSurface }]}>
                 Orbit
               </Text>
-              <Text variant="bodySmall" style={[styles.githubDescription, {color: paperTheme.colors.onSurfaceVariant}]}>
+              <Text variant="bodySmall" style={[styles.githubDescription, { color: paperTheme.colors.onSurfaceVariant }]}>
                 An open source music player to listen music for free.
               </Text>
             </View>
-            <Surface style={[styles.githubIconContainer, {backgroundColor: paperTheme.colors.surface}]} elevation={2}>
+            <Surface style={[styles.githubIconContainer, { backgroundColor: paperTheme.colors.surface }]} elevation={2}>
               <AntDesign name="github" size={32} color={paperTheme.colors.onSurface} />
             </Surface>
           </Card.Content>
         </Card>
 
-        {/* Bug Report Section */}
-        <View style={styles.sectionHeader}>
-          <Surface style={[styles.sectionHeaderIcon, {backgroundColor: paperTheme.colors.surfaceVariant}]} elevation={2}>
-            <Entypo name="bug" size={16} color={paperTheme.colors.onSurface} />
-          </Surface>
-          <View>
-            <Text variant="titleMedium" style={[styles.sectionTitle, {color: paperTheme.colors.onSurface}]}>
-              Request a new feature?
-            </Text>
-            <Text variant="bodyMedium" style={[styles.sectionSubtitle, {color: paperTheme.colors.onSurfaceVariant}]}>
-              Or report a bug?
-            </Text>
-          </View>
-        </View>
 
-        <Card style={[styles.bugReportCard, {backgroundColor: '#2a1a1a'}]} elevation={3}>
-          <Card.Content style={styles.bugReportContent}>
-            <Surface style={[styles.bugIconContainer, {backgroundColor: '#ff6b6b'}]} elevation={3}>
-              <Entypo name="bug" size={36} color="#FFFFFF" />
-            </Surface>
-            <Text variant="bodySmall" style={[styles.bugReportText, {color: '#f0f0f0'}]}>
-              You can always request me new features or report a bug in any of my social media handles or you can mail me at:
-            </Text>
-            <Button
-              mode="contained"
-              onPress={() => Linking.openURL('mailto:gauravsharma0770@gmail.com')}
-              style={[styles.emailContainer, {backgroundColor: '#ff6b6b'}]}
-              contentStyle={{flexDirection: 'row', alignItems: 'center'}}
-              icon="email"
-              labelStyle={{color: '#FFFFFF'}}
-            >
-              gauravsharma0770@gmail.com
-            </Button>
-            <Text variant="bodySmall" style={[styles.bugReportText, {color: '#f0f0f0'}]}>
-              Even you can raise an issue in GitHub
-            </Text>
-          </Card.Content>
-        </Card>
-        
         <View style={styles.versionContainer}>
-          <Text variant="labelSmall" style={[styles.versionText, {color: paperTheme.colors.onSurfaceVariant}]}>
-            Version 2.0.0
+          <Text variant="labelSmall" style={[styles.versionText, { color: paperTheme.colors.onSurfaceVariant }]}>
+            Version 3.0.0
           </Text>
-          <Text variant="labelSmall" style={[styles.versionText, {color: paperTheme.colors.onSurfaceVariant}]}>
+          <Text variant="labelSmall" style={[styles.versionText, { color: paperTheme.colors.onSurfaceVariant }]}>
             Made with ❤️ in India
           </Text>
         </View>
@@ -291,7 +296,7 @@ const styles = StyleSheet.create({
   },
   communityCard: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   communityCardContent: {
@@ -302,9 +307,35 @@ const styles = StyleSheet.create({
   },
   communityCardTitle: {
     fontSize: 16,
+    fontWeight: '600',
     marginBottom: 4,
   },
   communityCardSubtitle: {
+    fontSize: 12,
+    opacity: 0.9,
+  },
+  supportContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  supportCard: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  supportCardContent: {
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  supportCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  supportCardSubtitle: {
     fontSize: 12,
     opacity: 0.9,
   },

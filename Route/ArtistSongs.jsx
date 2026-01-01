@@ -68,6 +68,7 @@ const ArtistSongs = () => {
         artistID={song.artists?.primary?.[0]?.id}
         width="100%"
         isFromPlaylist={true}
+        source={source}
         Data={{ data: { songs: visibleSongs } }}
         index={index}
         showNumber={true}

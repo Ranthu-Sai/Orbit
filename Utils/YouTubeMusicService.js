@@ -1,6 +1,12 @@
 import InnerTubeClient from '../Api/InnertubeClient';
 import NativeStreaming from './NativeStreaming';
 import InnertubeNative from '../Api/InnertubeNative';
+import { GetYtMusicQuality } from '../LocalStorage/AppSettings';
+
+// Cache quality preference to avoid repeated AsyncStorage calls
+let cachedQualityPref = null;
+let qualityCacheTTL = 0;
+const QUALITY_CACHE_TTL = 60000; // 1 minute
 
 /**
  * YouTubeMusicService
@@ -18,7 +24,16 @@ class YouTubeMusicService {
     // Stream URL extraction via native bridge
     static async getStreamUrl(videoId) {
         try {
-            const stream = await NativeStreaming.getStreamUrl(videoId, '');
+            // Get quality preference (cached for performance)
+            let autoQuality = true; // Default to Auto (faster)
+            if (Date.now() - qualityCacheTTL > QUALITY_CACHE_TTL || cachedQualityPref === null) {
+                cachedQualityPref = await GetYtMusicQuality();
+                qualityCacheTTL = Date.now();
+            }
+            // Auto = true (use first stream), High = false (select best quality)
+            autoQuality = cachedQualityPref !== 'High';
+
+            const stream = await NativeStreaming.getStreamUrl(videoId, '', autoQuality);
 
             // CRITICAL: Validate that we got a valid stream URL
             if (!stream || !stream.url) {
