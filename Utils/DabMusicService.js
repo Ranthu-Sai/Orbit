@@ -113,6 +113,101 @@ class DabMusicService {
     }
 
     /**
+     * Search for albums with caching - AUTH REQUIRED
+     * @param {string} query - Search query
+     * @param {number} limit - Results limit (1-50)
+     * @returns {Promise<Array>} Transformed albums array
+     */
+    async searchAlbums(query, limit = 20) {
+        if (!query || query.length < 2) {
+            return [];
+        }
+
+        if (!this.isAuthenticated()) {
+            throw new Error('AUTH_REQUIRED');
+        }
+
+        const cacheKey = `album_search_${query}_${limit}`;
+        const cached = this._getFromCache(this.searchCache, cacheKey);
+        if (cached) {
+            console.log('🎯 Using cached DAB album search results');
+            return cached;
+        }
+
+        try {
+            console.log(`🔍 Searching DAB albums for: "${query}"`);
+
+            const response = await axios.get(`${DAB_API_BASE}/search`, {
+                params: {
+                    q: query,
+                    type: 'album',
+                    offset: 0,
+                    limit: Math.min(limit, 50)
+                },
+                timeout: REQUEST_TIMEOUT,
+                withCredentials: true,
+            });
+
+            const albums = response.data?.albums || [];
+            const transformed = albums.map(this._transformAlbum.bind(this));
+
+            this._setInCache(this.searchCache, cacheKey, transformed);
+
+            console.log(`✅ Found ${transformed.length} DAB albums`);
+            return transformed;
+        } catch (error) {
+            console.error('❌ DAB album search error:', error.message);
+            this._handleError(error, 'Album search failed');
+            return [];
+        }
+    }
+
+    /**
+     * Get album details with tracks - AUTH REQUIRED
+     * @param {string} albumId - Album ID
+     * @returns {Promise<Object>} Album details with tracks
+     */
+    async getAlbumDetails(albumId) {
+        if (!albumId) {
+            throw new Error('Album ID is required');
+        }
+
+        if (!this.isAuthenticated()) {
+            throw new Error('AUTH_REQUIRED');
+        }
+
+        const cacheKey = `album_details_${albumId}`;
+        const cached = this._getFromCache(this.searchCache, cacheKey);
+        if (cached) {
+            console.log('🎯 Using cached DAB album details');
+            return cached;
+        }
+
+        try {
+            console.log(`📀 Getting DAB album details: ${albumId}`);
+
+            const response = await axios.get(`${DAB_API_BASE}/album`, {
+                params: { albumId },
+                timeout: REQUEST_TIMEOUT,
+                withCredentials: true,
+            });
+
+            const albumData = response.data;
+            const transformed = this._transformAlbumDetails(albumData);
+
+            // Cache for 30 minutes
+            this._setInCache(this.searchCache, cacheKey, transformed, 30 * 60 * 1000);
+
+            console.log(`✅ Got DAB album: "${transformed.name}" with ${transformed.songs?.length || 0} tracks`);
+            return transformed;
+        } catch (error) {
+            console.error('❌ DAB album details error:', error.message);
+            this._handleError(error, 'Failed to get album details');
+            throw error;
+        }
+    }
+
+    /**
      * Get highest quality streaming URL for a track
      * @param {string} trackId - Track ID
      * @returns {Promise<string>} Stream URL
@@ -253,6 +348,112 @@ class DabMusicService {
         }
 
         return 'FLAC';
+    }
+
+    /**
+     * Transform DAB album for search results
+     * @private
+     */
+    _transformAlbum(album) {
+        const imageUrl = album.cover || album.albumCover || '';
+        const imageArray = imageUrl ? [
+            { url: imageUrl, quality: '50x50' },
+            { url: imageUrl, quality: '150x150' },
+            { url: imageUrl, quality: '500x500' }
+        ] : [{ url: 'https://via.placeholder.com/150', quality: '150x150' }];
+
+        return {
+            id: String(album.id),
+            name: album.title || album.name || 'Unknown Album',
+            title: album.title || album.name || 'Unknown Album',
+            type: 'album',
+            source: 'dab',
+            isDabAlbum: true,
+            image: imageArray,
+            artist: album.artist || 'Unknown Artist',
+            artistName: album.artist || 'Unknown Artist',
+            year: album.releaseDate ? album.releaseDate.split('-')[0] : '',
+            songCount: album.trackCount || album.numberOfTracks || 0,
+            // DAB-specific metadata
+            isHiRes: album.audioQuality?.isHiRes || false,
+            qualityLabel: this._getQualityLabel(album.audioQuality),
+            totalDuration: album.duration || 0, // Total duration in seconds
+        };
+    }
+
+    /**
+     * Transform DAB album details (full album with tracks)
+     * @private
+     */
+    _transformAlbumDetails(albumData) {
+        console.log('📀 [DAB] Raw album API response:', JSON.stringify(albumData, null, 2).substring(0, 500));
+
+        // DAB API wraps album data in an "album" property
+        const album = albumData.album || albumData;
+        console.log(`📀 [DAB] Extracted album: ${album.title}, tracks: ${album.tracks?.length || 0}`);
+        // DAB API may use different field names: cover/albumCover, title/name, tracks/items
+        const imageUrl = album.cover || album.albumCover || album.image || '';
+        const imageArray = imageUrl ? [
+            { url: imageUrl, quality: '50x50' },
+            { url: imageUrl, quality: '150x150' },
+            { url: imageUrl, quality: '500x500' }
+        ] : [{ url: 'https://via.placeholder.com/150', quality: '150x150' }];
+
+        // DAB API may return 'items' or 'tracks' for the song list
+        const rawTracks = album.tracks || album.items || album.songs || [];
+        console.log(`📀 [DAB] Found ${rawTracks.length} tracks in album`);
+
+        // Transform tracks
+        const tracks = rawTracks.map((track) => this._transformTrack({
+            ...track,
+            albumCover: imageUrl, // Ensure album cover is passed to tracks
+            albumTitle: album.title || album.name,
+            albumId: album.id,
+        }));
+
+        // Calculate total duration from tracks if not provided
+        let totalDuration = album.duration || 0;
+        if (!totalDuration && tracks.length > 0) {
+            totalDuration = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+        }
+
+        // DAB may use 'name' instead of 'title' for album name
+        const albumTitle = album.title || album.name || 'Unknown Album';
+        // DAB may use 'artists' array or 'artist' string
+        let artistName = album.artist || 'Unknown Artist';
+        if (!artistName && album.artists && Array.isArray(album.artists)) {
+            artistName = album.artists.map(a => a.name || a).join(', ');
+        }
+
+        // Extract quality info - from album level or first track
+        let audioQuality = album.audioQuality || album.quality;
+        if (!audioQuality && rawTracks.length > 0 && rawTracks[0].audioQuality) {
+            audioQuality = rawTracks[0].audioQuality;
+        }
+        const isHiRes = audioQuality?.isHiRes || audioQuality?.hi_res || album.hires || false;
+        const qualityLabel = this._getQualityLabel(audioQuality);
+
+        return {
+            id: String(album.id),
+            name: albumTitle,
+            title: albumTitle,
+            type: 'album',
+            source: 'dab',
+            isDabAlbum: true,
+            image: imageArray,
+            artist: artistName,
+            artistName: artistName,
+            year: album.releaseDate ? album.releaseDate.split('-')[0] : '',
+            releaseDate: album.releaseDate || '',
+            songCount: tracks.length,
+            // Enhanced DAB metadata for header
+            isHiRes: isHiRes,
+            qualityLabel: qualityLabel,
+            totalDuration: totalDuration, // Total duration in seconds
+            // Songs array for album page
+            songs: tracks,
+            data: { songs: tracks }, // For compatibility with existing code
+        };
     }
 
     /**

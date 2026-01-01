@@ -10,6 +10,7 @@ import { SmallText } from "../Component/Global/SmallText";
 import { getAlbumData } from "../Api/Album";
 import { getYTMusicAlbumData } from "../Api/YTMusic";
 import { SpotifyService } from "../Utils/SpotifyService";
+import dabMusicService from "../Utils/DabMusicService";
 
 import FormatArtist from "../Utils/FormatArtists";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -182,8 +183,18 @@ export const Album = ({ route }) => {
 
     try {
       setLoading(true);
+      console.log(`📀 [Album] Fetching album: ${albumId}, source: ${source}`);
       let response;
-      if (source === 'ytmusic') {
+      if (source === 'dab') {
+        // Fetch DAB album details
+        console.log(`📀 [Album] Using DAB API for album: ${albumId}`);
+        const dabAlbum = await dabMusicService.getAlbumDetails(albumId);
+        console.log(`📀 [Album] DAB response:`, dabAlbum?.name, dabAlbum?.songs?.length, 'tracks');
+        response = {
+          success: true,
+          data: dabAlbum,
+        };
+      } else if (source === 'ytmusic') {
         response = await getYTMusicAlbumData(albumId);
       } else if (source === 'spotify') {
         // Fetch from Spotify API
@@ -317,6 +328,11 @@ export const Album = ({ route }) => {
       year={Data?.data?.year || ""}
       songsData={songsArray}
       albumData={Data}
+      // DAB-specific props
+      artistName={Data?.data?.artistName || Data?.data?.artist || null}
+      qualityLabel={Data?.data?.qualityLabel || null}
+      totalDuration={Data?.data?.totalDuration || null}
+      isHiRes={Data?.data?.isHiRes || false}
     />
   ), [Data, songsArray, route?.params?.id]);
 

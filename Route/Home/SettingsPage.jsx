@@ -610,7 +610,7 @@ export const SettingsPage = ({ navigation }) => {
         {/* DAB Music Authentication */}
         <View style={{ marginTop: 8, marginBottom: 8 }}>
           <Text variant="titleMedium" style={{ paddingHorizontal: 16, paddingBottom: 8, color: colors.text, opacity: 0.7 }}>
-            DAB Music (FLAC)
+            Qobuz
           </Text>
         </View>
 

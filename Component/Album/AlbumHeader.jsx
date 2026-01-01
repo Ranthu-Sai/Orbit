@@ -75,6 +75,11 @@ export const AlbumHeader = ({
     year,
     songsData = [],
     albumData = null, // Full album data object
+    // DAB-specific props
+    artistName = null,
+    qualityLabel = null,
+    totalDuration = null,
+    isHiRes = false,
 }) => {
     const theme = useTheme();
     const { updateTrack } = useContext(Context);
@@ -410,13 +415,44 @@ export const AlbumHeader = ({
                         {title || 'Album'}
                     </Text>
 
-                    {/* Year + Song Count */}
-                    <Text
-                        variant="bodyMedium"
-                        style={[styles.songCount, { color: theme.colors.text, opacity: 0.7 }]}
-                    >
-                        {year && `${year} • `}{songCount} {songCount === 1 ? 'song' : 'songs'}
-                    </Text>
+                    {/* Artist Name (DAB) */}
+                    {artistName && (
+                        <Text
+                            variant="bodyMedium"
+                            style={[styles.artistName, { color: theme.colors.text, opacity: 0.85 }]}
+                            numberOfLines={1}
+                        >
+                            {artistName}
+                        </Text>
+                    )}
+
+                    {/* Info Row: Qobuz-style chips for Track Count, Duration, Quality */}
+                    <View style={styles.infoRow}>
+                        {/* Track Count Chip */}
+                        <View style={[styles.infoChip, { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
+                            <Text style={[styles.infoChipText, { color: theme.colors.text }]}>
+                                {songCount} {songCount === 1 ? 'track' : 'tracks'}
+                            </Text>
+                        </View>
+
+                        {/* Duration Chip */}
+                        {totalDuration > 0 && (
+                            <View style={[styles.infoChip, { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
+                                <Text style={[styles.infoChipText, { color: theme.colors.text }]}>
+                                    {Math.floor(totalDuration / 60)} min
+                                </Text>
+                            </View>
+                        )}
+
+                        {/* Hi-Res Quality Badge */}
+                        {(isHiRes || qualityLabel) && (
+                            <View style={[styles.qualityBadge, { backgroundColor: '#1DB954' }]}>
+                                <Text style={styles.qualityBadgeText}>
+                                    {isHiRes ? 'Hi-Res' : qualityLabel || 'FLAC'}
+                                </Text>
+                            </View>
+                        )}
+                    </View>
 
                     {/* Action Icons Row: Like, Download, More */}
                     <View style={styles.actionIconsRow}>
@@ -547,6 +583,42 @@ const styles = StyleSheet.create({
     },
     buttonContent: {
         height: 44,
+    },
+    // DAB-specific styles
+    artistName: {
+        marginBottom: 4,
+        fontWeight: '500',
+    },
+    infoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 6,
+        marginBottom: 8,
+    },
+    infoText: {
+        fontSize: 13,
+    },
+    qualityBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 4,
+        marginLeft: 4,
+    },
+    qualityBadgeText: {
+        color: '#FFFFFF',
+        fontSize: 11,
+        fontWeight: '700',
+    },
+    // Qobuz-style chip styles
+    infoChip: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    infoChipText: {
+        fontSize: 12,
+        fontWeight: '500',
     },
 });
 

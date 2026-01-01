@@ -5,7 +5,7 @@ async function getRecommendedSongs(id) {
   try {
     // Skip recommendation requests for YouTube Music songs (11-character IDs)
     // ONLY if it's not explicitly a Saavn song OR doesn't have Saavn download URLs
-    const isYouTubeId = id && typeof id === 'string' && id.length === 11 && !/[\/.]/.test(id);
+    const isYouTubeId = id && typeof id === 'string' && id.length === 11 && !/[\\/.]/.test(id);
     if (isYouTubeId) {
       // If we have access to the song object, we could be more precise.
       // For now, let's assume if it's 11 chars AND doesn't look like a Saavn ID (optional)
@@ -16,6 +16,14 @@ async function getRecommendedSongs(id) {
     if (isYouTubeId && !id.startsWith('_')) { // Many Saavn IDs start with underscores
       console.log(`Skipping recommendations for likely YouTube song: ${id}`);
       return { data: [], success: true, message: "Recommendations not available for YouTube songs" };
+    }
+
+    // Skip recommendation requests for DAB songs (purely numeric, typically 9-12 digits)
+    // DAB uses Last.fm recommendations via DABRecommendationService, not Saavn
+    const isDabId = id && typeof id === 'string' && /^\d{6,15}$/.test(id);
+    if (isDabId) {
+      console.log(`Skipping Saavn recommendations for DAB song: ${id}`);
+      return { data: [], success: true, message: "DAB uses Last.fm recommendations" };
     }
 
     // Skip recommendation requests for local files

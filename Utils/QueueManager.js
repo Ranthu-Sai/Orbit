@@ -28,6 +28,13 @@ class QueueManager {
         try {
             console.log(`🎵 Building queue from recommendations for song: ${songId}, source: ${source}`);
 
+            // DAB songs use Last.fm recommendations via DABRecommendationService, not this method
+            // Skip Saavn API calls for DAB songs to prevent 500 errors
+            if (source === 'dab') {
+                console.log('⏭️ DAB songs use DABRecommendationService, skipping Saavn API');
+                return [];
+            }
+
             // For YouTube Music songs, use YouTube's own recommendations API
             const isYTId = typeof songId === 'string' && songId.length === 11;
             if (source === 'ytmusic' || (isYTId && source !== 'saavn')) {
@@ -402,23 +409,33 @@ class QueueManager {
                     const { AddSongsToQueue } = require('../MusicPlayerFunctions');
 
                     // ========== DETECT SOURCE FROM LAST SONG ==========
-                    // Determine if we should fetch YTMusic or Saavn recommendations
-                    // Robust detection: check for 11-char ID (YT), or source tag/downloadUrl (Saavn)
+                    // Determine if we should fetch YTMusic, Saavn, or DAB recommendations
+                    // Robust detection: check for 11-char ID (YT), source tag (DAB), or downloadUrl (Saavn)
+                    const isDabSong = lastSong && (lastSong.source === 'dab' || lastSong.isDabTrack);
+
                     const isYTMusicSong = lastSong &&
                         lastSong.id &&
                         typeof lastSong.id === 'string' &&
                         lastSong.id.length === 11 &&
-                        !lastSong.isLocalMusic;
+                        !lastSong.isLocalMusic &&
+                        !isDabSong;
 
                     const isSaavnSong = lastSong &&
+                        !isDabSong &&
                         (lastSong.source === 'saavn' ||
                             (lastSong.downloadUrl && Array.isArray(lastSong.downloadUrl)) ||
                             (lastSong.download_url && Array.isArray(lastSong.download_url)));
 
                     // Choose the correct source for recommendations
-                    // If we can't be sure, default to Saavn if it doesn't look like YTMusic, 
-                    // as YTMusic IDs are very specific.
-                    const recommendationSource = isYTMusicSong ? 'ytmusic' : (isSaavnSong ? 'saavn' : 'saavn');
+                    // DAB songs skip this method (handled by DABRecommendationService)
+                    let recommendationSource = 'saavn';
+                    if (isDabSong) {
+                        recommendationSource = 'dab';
+                    } else if (isYTMusicSong) {
+                        recommendationSource = 'ytmusic';
+                    } else if (isSaavnSong) {
+                        recommendationSource = 'saavn';
+                    }
                     console.log(`🔍 Detected source for queue refill: ${recommendationSource} (Last song ID: ${lastSong?.id || 'none'})`);
 
                     const recommendations = await this.buildQueueFromRecommendations(

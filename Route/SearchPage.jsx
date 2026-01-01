@@ -170,15 +170,22 @@ export const SearchPage = ({ navigation }) => {
       setShowSuggestions(false); // Hide suggestions when searching
       let data = null;
 
-      // DAB Music - only supports songs, requires authentication
+      // DAB Music - supports Songs and Albums, requires authentication
       if (selectedSource === 'dab') {
         try {
-          const tracks = await dabMusicService.searchTracks(text, limit);
+          let results = [];
+          if (ActiveTab === 0) {
+            // Songs
+            results = await dabMusicService.searchTracks(text, limit);
+          } else if (ActiveTab === 1) {
+            // Albums
+            results = await dabMusicService.searchAlbums(text, limit);
+          }
           data = {
-            success: tracks.length > 0,
+            success: results.length > 0,
             data: {
-              results: tracks,
-              total: tracks.length
+              results: results,
+              total: results.length
             }
           };
         } catch (error) {
@@ -186,7 +193,7 @@ export const SearchPage = ({ navigation }) => {
             // User not logged in
             Alert.alert(
               'Login Required',
-              'You must login to use DAB Music (FLAC). Would you like to login now?',
+              'You must login to use Qobuz. Would you like to login now?',
               [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -466,7 +473,9 @@ export const SearchPage = ({ navigation }) => {
       </View>
 
       <View style={{ zIndex: 10 }}>
-        {(selectedSource === 'saavn' || selectedSource === 'ytmusic' || selectedSource === 'spotify') && (
+        {selectedSource === 'dab' ? (
+          <Tabs tabs={["Songs", "Albums"]} setState={setActiveTab} state={ActiveTab} />
+        ) : (selectedSource === 'saavn' || selectedSource === 'ytmusic' || selectedSource === 'spotify') && (
           <Tabs tabs={["Songs", "Playlists", "Albums", "Artists"]} setState={setActiveTab} state={ActiveTab} />
         )}
       </View>
@@ -488,8 +497,11 @@ export const SearchPage = ({ navigation }) => {
       ) : (
         <View style={{ flex: 1, paddingHorizontal: 10 }}>
           {selectedSource === 'dab' ? (
-            // DAB only supports Songs (no tabs shown)
-            <SongDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />
+            // DAB supports Songs and Albums
+            <>
+              {ActiveTab === 0 && <SongDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />}
+              {ActiveTab === 1 && <AlbumsDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />}
+            </>
           ) : (
             // Saavn, YTMusic, and Spotify support all categories
             <>
