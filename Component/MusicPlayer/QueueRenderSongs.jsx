@@ -626,7 +626,9 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
 
   // Function to handle removing track from queue (used by swipe gesture)
   const handleRemoveFromQueue = useCallback(async (displayIndex, trackId) => {
+    if (operationInProgressRef.current) return;
     operationInProgressRef.current = true;
+
     try {
       // Get the full TrackPlayer queue
       const queue = await TrackPlayer.getQueue();
@@ -635,53 +637,48 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       const actualIndex = queue.findIndex(track => track.id === trackId);
 
       if (actualIndex === -1) {
+        console.log(`Track with ID ${trackId} not found in player queue`);
+        // If not found in player but in our state, remove it from state anyway
+        setUpcomingQueue(prev => prev.filter(t => t.id !== trackId));
         operationInProgressRef.current = false;
         return;
       }
 
       // Check if we're removing the currently playing track
-      const currentIndex = await TrackPlayer.getCurrentTrack();
+      const currentIndex = await TrackPlayer.getActiveTrackIndex();
       const isCurrentTrack = actualIndex === currentIndex;
 
-      if (isCurrentTrack && queue.length > 1) {
-        // If removing current track and there are other tracks, skip to next
-        if (actualIndex < queue.length - 1) {
-          await TrackPlayer.skipToNext();
+      if (isCurrentTrack) {
+        if (queue.length > 1) {
+          // If removing current track and there are other tracks, skip to next
+          if (actualIndex < queue.length - 1) {
+            await TrackPlayer.skipToNext();
+          } else {
+            await TrackPlayer.skipToPrevious();
+          }
         } else {
-          await TrackPlayer.skipToPrevious();
+          // If this was the only track, stop playback
+          await TrackPlayer.stop();
         }
       }
 
-      // Remove the track from the queue
+      // Remove the track from the actual player queue
       await TrackPlayer.remove(actualIndex);
+      console.log(`Removed track at index ${actualIndex} (${trackId}) from TrackPlayer`);
 
-      // If this was the only track, stop playback
-      if (queue.length === 1) {
-        await TrackPlayer.stop();
-      }
+      // CRITICAL: Update the visual queue state immediately
+      // This ensures the UI reflects the removal even before any events trigger
+      setUpcomingQueue(prev => prev.filter(t => t.id !== trackId));
 
-      // Update the queue display
-      const currentTrack = await TrackPlayer.getActiveTrack();
-      if (currentTrack) {
-        // Re-filter using the updated queue state context if possible, or just standard filter
-        const filtered = await filterQueueBySource(currentTrack);
-        const uniqueIds = new Set();
-        const uniqueFiltered = filtered.filter(track => {
-          if (!track || !track.id || uniqueIds.has(track.id)) return false;
-          uniqueIds.add(track.id);
-          return true;
-        });
-        setUpcomingQueue(uniqueFiltered);
-      } else {
-        setUpcomingQueue([]);
-      }
+      // Optional: Update Context.Queue if needed
+      // updateTrack(); 
 
     } catch (error) {
       console.error('Error removing track from queue:', error);
     } finally {
       operationInProgressRef.current = false;
     }
-  }, [filterQueueBySource]);
+  }, []);
 
   // Function to handle track selection from the queue
   const handleTrackSelect = useCallback(async (item, displayIndex) => {
