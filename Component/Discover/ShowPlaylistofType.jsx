@@ -14,6 +14,7 @@ import { PlaylistItemWrapper } from "./PlaylistItemWrapper";
 import { CommonActions } from "@react-navigation/native";
 import { CacheManager } from '../../Utils/NavigationCacheManager';
 import { CACHE_TTL, CACHE_KEYS, generateCacheKey } from '../../Utils/CacheConfig';
+import { GridSkeleton } from "../Global/GridSkeleton";
 
 // Add a utility function to truncate text
 const truncateText = (text, limit = 22) => {
@@ -30,7 +31,7 @@ export default function ShowPlaylistofType({ route }) {
   const currentRoute = useRoute();
   const limit = 30;
   const [Data, setData] = useState({});
-  const [Loading, setLoading] = useState(false);
+  const [Loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState(null);
   const [source, setSource] = useState(null);
@@ -214,17 +215,9 @@ export default function ShowPlaylistofType({ route }) {
         <Heading text={(Searchtext || 'Popular Playlists').toUpperCase()} />
       </PaddingConatiner>
 
-      {/* Improved loading state */}
+      {/* Improved loading state - Skeleton UI */}
       {Loading && (
-        <View style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: 300
-        }}>
-          <ActivityIndicator size="large" color="#1DB954" />
-          <PlainText text={`Loading ${Searchtext || 'playlist'} data...`} style={{ marginTop: 10 }} />
-        </View>
+        <GridSkeleton count={8} showHeader={false} noScroll={true} />
       )}
 
       {/* Error state */}

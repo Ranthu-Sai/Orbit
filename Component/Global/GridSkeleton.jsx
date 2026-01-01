@@ -7,8 +7,11 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 /**
  * GridSkeleton - Skeleton UI for grid layouts (Albums, Playlists, etc.)
  * Renders a 2-column grid of square cards
+ * @param {number} count - Number of skeleton cards to show
+ * @param {boolean} showHeader - Whether to show header skeleton
+ * @param {boolean} noScroll - If true, renders without ScrollView wrapper (for use inside other scroll containers)
  */
-export const GridSkeleton = ({ count = 6, showHeader = false }) => {
+export const GridSkeleton = ({ count = 6, showHeader = false, noScroll = false }) => {
     const { dark } = useTheme();
     const shimmerAnim = useRef(new Animated.Value(0)).current;
 
@@ -70,12 +73,8 @@ export const GridSkeleton = ({ count = 6, showHeader = false }) => {
         </View>
     );
 
-    return (
-        <ScrollView
-            style={styles.container}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.contentContainer}
-        >
+    const content = (
+        <>
             {showHeader && (
                 <View style={styles.headerInfo}>
                     <Animated.View
@@ -94,6 +93,24 @@ export const GridSkeleton = ({ count = 6, showHeader = false }) => {
                     <GridCardSkeleton key={index} />
                 ))}
             </View>
+        </>
+    );
+
+    if (noScroll) {
+        return (
+            <View style={styles.noScrollContainer}>
+                {content}
+            </View>
+        );
+    }
+
+    return (
+        <ScrollView
+            style={styles.container}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.contentContainer}
+        >
+            {content}
         </ScrollView>
     );
 };
@@ -101,6 +118,10 @@ export const GridSkeleton = ({ count = 6, showHeader = false }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    noScrollContainer: {
+        flex: 1,
+        paddingHorizontal: 8,
     },
     contentContainer: {
         paddingBottom: 100,
