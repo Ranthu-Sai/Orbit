@@ -251,7 +251,27 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         console.log('Playing from MyMusic - showing only MyMusic tracks in queue');
 
         // PERFORMANCE: Use provided queue if available, otherwise fallback to Context
-        const fullQueue = providedQueue || Queue || [];
+        let fullQueue = providedQueue || Queue || [];
+
+        // CRITICAL FIX: If queue is empty, fallback to TrackPlayer.getQueue()
+        // This ensures progressive-loaded local music tracks are visible in queue panel
+        if (fullQueue.length === 0) {
+          const now = Date.now();
+          if (trackPlayerQueueCache.current && (now - trackPlayerQueueCacheTime.current) < QUEUE_CACHE_TTL) {
+            fullQueue = trackPlayerQueueCache.current;
+            console.log(`[MyMusic Queue] Using cached queue (${fullQueue.length} tracks)`);
+          } else {
+            console.log('[MyMusic Queue] Context Queue is empty - fetching from TrackPlayer');
+            try {
+              fullQueue = await TrackPlayer.getQueue();
+              trackPlayerQueueCache.current = fullQueue;
+              trackPlayerQueueCacheTime.current = now;
+              console.log(`[MyMusic Queue] TrackPlayer has ${fullQueue.length} tracks`);
+            } catch (e) {
+              console.log('[MyMusic Queue] TrackPlayer fallback failed');
+            }
+          }
+        }
 
         // Filter to only include tracks from MyMusic source, regardless of online/offline status
         const myMusicTracks = fullQueue.filter(track => track.sourceType === 'mymusic');
@@ -270,6 +290,7 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         setIsLocalSource(true);
         return rearrangedTracks;
       }
+
 
       // If playing a downloaded track
       // Treat both 'download' and legacy 'downloaded' as downloaded source

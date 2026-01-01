@@ -142,29 +142,32 @@ export const LocalMusicCard = ({ song, index, allSongs, artist, activeTrackId, i
         return;
       }
 
-      const formattedTracks = allSongs.map(track => {
-        return {
-          id: track.id,
-          url: track.url || `file://${track.path}`,
-          title: formatTitle(track.title),
-          artist: formatArtist(track.artist),
-          artwork: getArtworkForTrack(track),
-          isLocal: true,
-          sourceType: isFromMyMusic ? 'mymusic' : 'download'
-        };
-      }).filter(track => track && track.url);
+      // Use LocalMusicQueueManager for progressive loading (prevents UI lag with 200+ songs)
+      const localMusicQueueManager = require('../../Utils/LocalMusicQueueManager').default;
 
       await TrackPlayer.reset();
-      await TrackPlayer.add([
-        ...formattedTracks.slice(songIndex),
-        ...formattedTracks.slice(0, songIndex)
-      ]);
-      await TrackPlayer.play();
-      setIndex(1);
+
+      const { initialBatch, success } = await localMusicQueueManager.initialize(allSongs, songIndex);
+
+      if (success && initialBatch.length > 0) {
+        // Override sourceType based on navigation path
+        const tracksWithSource = initialBatch.map(track => ({
+          ...track,
+          sourceType: isFromMyMusic ? 'mymusic' : 'download'
+        }));
+
+        await TrackPlayer.add(tracksWithSource);
+        await TrackPlayer.play();
+        setIndex(1);
+        console.log(`✅ LocalMusicCard: Started playback with ${initialBatch.length} tracks (progressive loading enabled)`);
+      } else {
+        console.error('Failed to initialize progressive queue');
+      }
     } catch (error) {
       console.error('Error in prepareAndPlayTracks:', error);
     }
   };
+
 
   const getArtworkForTrack = (track) => {
     // Check for cached artwork first (from metadata manager)

@@ -111,29 +111,26 @@ export const MyMusicPage = () => {
         return;
       }
 
-      const formattedTracks = localMusic
-        .filter(track => track.path)
-        .map(track => ({
-          id: track.id,
-          url: `file://${track.path}`,
-          title: track.title,
-          artist: track.artist,
-          artwork: track.artwork || Cover,
-          isLocal: true,
-          sourceType: 'mymusic'
-        }));
+      // Use LocalMusicQueueManager for progressive loading (prevents UI lag with 200+ songs)
+      const localMusicQueueManager = require('../../Utils/LocalMusicQueueManager').default;
 
       await TrackPlayer.reset();
-      await TrackPlayer.add([
-        ...formattedTracks.slice(index),
-        ...formattedTracks.slice(0, index)
-      ]);
-      await TrackPlayer.play();
-      setIndex(1);
+
+      const { initialBatch, success } = await localMusicQueueManager.initialize(localMusic, index);
+
+      if (success && initialBatch.length > 0) {
+        await TrackPlayer.add(initialBatch);
+        await TrackPlayer.play();
+        setIndex(1);
+        console.log(`✅ MyMusicPage: Started playback with ${initialBatch.length} tracks (progressive loading enabled)`);
+      } else {
+        ToastAndroid.show('Failed to start playback', ToastAndroid.SHORT);
+      }
     } catch (error) {
       console.warn("Play error", error);
     }
   };
+
 
   const playPreviousSong = useCallback(async () => {
     try {
