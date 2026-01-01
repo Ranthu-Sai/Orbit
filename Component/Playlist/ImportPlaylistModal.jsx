@@ -12,7 +12,7 @@ import { SmallText } from '../Global/SmallText';
  * @param {function} onClose - Callback when modal is closed
  * @param {function} onImport - **Deprecated** - Handling import internally now, but can be used for cleanup
  */
-export const ImportPlaylistModal = ({ visible, onClose, onImportSuccess, customImportHandler }) => {
+export const ImportPlaylistModal = ({ visible, onClose, onImportSuccess, customImportHandler, title = "Import Playlist", label = "Paste a link from Spotify, YouTube, or YouTube Music" }) => {
     const theme = useTheme();
     const [playlistLink, setPlaylistLink] = useState('');
     const [isImporting, setIsImporting] = useState(false);
@@ -78,12 +78,12 @@ export const ImportPlaylistModal = ({ visible, onClose, onImportSuccess, customI
         >
             <View style={[styles.modalContainer, { backgroundColor: theme.colors.backdrop || 'rgba(0,0,0,0.7)' }]}>
                 <View style={[styles.modalContent, { backgroundColor: theme.colors.card }]}>
-                    <Heading text="Import Playlist" />
+                    <Heading text={title} />
 
                     {!isImporting ? (
                         <>
                             <SmallText
-                                text="Paste a link from Spotify, YouTube, or YouTube Music"
+                                text={label}
                                 style={[styles.modalLabel, { color: theme.colors.textSecondary || theme.colors.text, opacity: 0.7 }]}
                             />
                             <TextInput

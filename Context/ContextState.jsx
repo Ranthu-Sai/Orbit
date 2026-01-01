@@ -464,15 +464,36 @@ const ContextState = (props) => {
         };
 
         // Listen for queue updates from MusicPlayerFunctions (e.g. AddSongsToQueue)
-        const queueUpdateListener = DeviceEventEmitter.addListener('queue-updated', async () => {
-            console.log('Context: Received queue update event - syncing state');
-            await updateTrack();
+        // DEBOUNCED: Prevents rapid re-renders during progressive batch loading
+        let queueUpdateTimeout = null;
+        const queueUpdateListener = DeviceEventEmitter.addListener('queue-updated', async (event) => {
+            // Clear any pending update
+            if (queueUpdateTimeout) {
+                clearTimeout(queueUpdateTimeout);
+            }
+
+            // For progressive batches, skip immediate sync - they just add songs at the end
+            // The threshold-based loader adds small batches frequently
+            if (event?.isProgressiveBatch) {
+                // Debounce progressive batch updates by 500ms to reduce re-renders
+                queueUpdateTimeout = setTimeout(async () => {
+                    console.log('Context: Progressive batch update - deferred queue sync');
+                    await updateTrack();
+                }, 500);
+            } else {
+                // For non-progressive updates (e.g., play next, queue clear), sync immediately
+                console.log('Context: Received queue update event - syncing state');
+                await updateTrack();
+            }
         });
 
         const subscription = AppState.addEventListener('change', handleAppStateChange);
 
         return () => {
-
+            // Cleanup timeout for debounced queue updates
+            if (queueUpdateTimeout) {
+                clearTimeout(queueUpdateTimeout);
+            }
             subscription?.remove();
             playbackModeListener?.remove();
             historyManager.cleanup();

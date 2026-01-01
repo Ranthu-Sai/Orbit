@@ -16,6 +16,7 @@ import smartPrefetchManager from "./Utils/SmartPrefetchManager";
 import FormatArtist from "./Utils/FormatArtists";
 import dabRecommendationService from "./Utils/DABRecommendationService";
 import lastFMService from "./Utils/LastFMService";
+import progressiveQueueLoader from "./Utils/ProgressiveQueueLoader";
 
 let isPlayerInitialized = false;
 
@@ -800,6 +801,9 @@ async function AddPlaylist(songs, startSongId = null) {
     );
     const validInitialSongs = initialProcessed.filter(song => song !== null);
 
+    // Cleanup any previous progressive loading session
+    progressiveQueueLoader.cleanup();
+
     // Start playback IMMEDIATELY with initial batch
     await TrackPlayer.reset();
     await TrackPlayer.add(validInitialSongs);
@@ -809,37 +813,56 @@ async function AddPlaylist(songs, startSongId = null) {
     console.log(`✅ Playlist: Added initial ${validInitialSongs.length} songs and started playback`);
 
     // ============================================================
-    // PHASE 2: Process remaining songs IN BACKGROUND after playback starts
-    // Uses InteractionManager to ensure UI animations complete first
+    // PROGRESSIVE LOADING: Use ProgressiveQueueLoader for remaining songs
+    // This uses threshold-based loading - adds batches when user approaches
+    // end of loaded songs, keeping UI responsive throughout playback
     // ============================================================
     if (remainingTracks.length > 0) {
-      InteractionManager.runAfterInteractions(async () => {
-        try {
-          // PERFORMANCE: Smaller batches (25) with longer yields (32ms) for smoother UI
-          const BATCH_SIZE = 25;
+      // Initialize progressive loader with remaining tracks
+      // The loader will monitor track position and add batches as needed
+      progressiveQueueLoader.initialize(
+        remainingTracks,
+        processSingleSong,
+        0 // Start from beginning of remainingTracks
+      ).then(result => {
+        if (result.success && result.initialBatch.length > 0) {
+          // Add the first batch from progressive loader immediately in background
+          InteractionManager.runAfterInteractions(async () => {
+            try {
+              await TrackPlayer.add(result.initialBatch);
+              console.log(`✅ Playlist: Added progressive batch (${result.initialBatch.length} songs), ${result.hasMore ? 'more available' : 'all loaded'}`);
 
-          for (let i = 0; i < remainingTracks.length; i += BATCH_SIZE) {
-            const batch = remainingTracks.slice(i, i + BATCH_SIZE);
-
-            // Yield to UI thread between batches (~2 frames)
-            await new Promise(resolve => setTimeout(resolve, 32));
-
-            // Process batch - none need stream fetch (lazy load)
-            const processedBatch = await Promise.all(
-              batch.map((song, batchIndex) => processSingleSong(song, INITIAL_BATCH_SIZE + i + batchIndex, false))
-            );
-            const validBatch = processedBatch.filter(song => song !== null);
-
-            if (validBatch.length > 0) {
-              await TrackPlayer.add(validBatch);
-              console.log(`✅ Playlist: Added background batch ${Math.floor(i / BATCH_SIZE) + 1}`);
+              DeviceEventEmitter.emit('queue-updated', {
+                count: validInitialSongs.length + result.initialBatch.length,
+                isProgressiveBatch: true
+              });
+            } catch (err) {
+              console.error('❌ Error adding progressive batch:', err.message);
             }
-          }
-
-          DeviceEventEmitter.emit('queue-updated', { count: tracksToAdd.length });
-        } catch (batchError) {
-          console.error('❌ Error adding background playlist batch:', batchError.message);
+          });
         }
+      }).catch(err => {
+        console.error('❌ ProgressiveQueueLoader init error:', err.message);
+        // Fallback: Load all remaining in old way if progressive loader fails
+        InteractionManager.runAfterInteractions(async () => {
+          try {
+            const BATCH_SIZE = 25;
+            for (let i = 0; i < remainingTracks.length; i += BATCH_SIZE) {
+              const batch = remainingTracks.slice(i, i + BATCH_SIZE);
+              await new Promise(resolve => setTimeout(resolve, 32));
+              const processedBatch = await Promise.all(
+                batch.map((song, batchIndex) => processSingleSong(song, INITIAL_BATCH_SIZE + i + batchIndex, false))
+              );
+              const validBatch = processedBatch.filter(song => song !== null);
+              if (validBatch.length > 0) {
+                await TrackPlayer.add(validBatch);
+              }
+            }
+            DeviceEventEmitter.emit('queue-updated', { count: tracksToAdd.length });
+          } catch (batchError) {
+            console.error('❌ Error in fallback batch loading:', batchError.message);
+          }
+        });
       });
     }
 

@@ -677,6 +677,8 @@ export const LikedSongPage = () => {
           CacheManager.invalidate("favorites_data");
           loadFavoritesData(true);
         }}
+        title="Import Track / Album"
+        label="Paste a link from Spotify, YouTube, or YouTube Music"
         customImportHandler={async (url, onProgress) => {
           const { importFromLink } = require("../../Utils/PlaylistImportLogic");
           await importFromLink(url, onProgress);

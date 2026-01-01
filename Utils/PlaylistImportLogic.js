@@ -24,16 +24,17 @@ export const importFromLink = async (url, onProgress) => {
         console.log('🔗 Link Detected:', linkInfo);
         const { source, type, id } = linkInfo;
 
-        // 2. Route based on Source
-        // SPECIAL ROUTE For Albums to ensure they are saved as Albums not Playlists
-        if (type === 'album') {
+        // Route based on type
+        // Playlists always go to Custom (User) Playlists
+        // Albums and Tracks/Videos always go to Library (Favorites)
+        if (type === 'playlist') {
+            if (source === 'spotify') {
+                return await handleSpotifyImport(type, id, onProgress);
+            } else if (source === 'youtube' || source === 'ytmusic') {
+                return await handleYouTubeImport(type, id, onProgress);
+            }
+        } else if (type === 'album' || type === 'track' || type === 'video') {
             return await importToLibrary(url, onProgress);
-        }
-
-        if (source === 'spotify') {
-            return await handleSpotifyImport(type, id, onProgress);
-        } else if (source === 'youtube' || source === 'ytmusic') {
-            return await handleYouTubeImport(type, id, onProgress);
         }
 
         return false;
