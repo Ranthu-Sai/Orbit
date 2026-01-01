@@ -76,7 +76,7 @@ class LastFMService {
     }
 
     /**
-     * Get current user info
+     * Get current user info (from local state)
      */
     getUser() {
         if (!this.isAuthenticated()) return null;
@@ -84,6 +84,35 @@ class LastFMService {
             username: this.username,
             sessionKey: this.sessionKey
         };
+    }
+
+    /**
+     * Fetch user profile info from Last.fm
+     */
+    async getUserInfo() {
+        if (!this.isAuthenticated()) return null;
+
+        try {
+            const data = await this._apiRequest('user.getInfo', {
+                user: this.username
+            });
+
+            if (data && data.user) {
+                return {
+                    username: data.user.name,
+                    realname: data.user.realname,
+                    image: data.user.image, // Array of images
+                    avatarUrl: data.user.image?.[2]?.['#text'] || data.user.image?.[1]?.['#text'] || null,
+                    country: data.user.country,
+                    playcount: data.user.playcount,
+                    registered: data.user.registered?.unixtime
+                };
+            }
+            return null;
+        } catch (error) {
+            console.error('LastFMService: Failed to fetch user info', error);
+            return null;
+        }
     }
 
     /**

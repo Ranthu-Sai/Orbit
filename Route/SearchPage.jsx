@@ -557,7 +557,7 @@ export const SearchPage = ({ navigation }) => {
                 setModalVisible(false);
               }}
             >
-              <Text style={[styles.sourceText, { color: colors.text }]}>DAB (FLAC)</Text>
+              <Text style={[styles.sourceText, { color: colors.text }]}>Qobuz</Text>
               {selectedSource === 'dab' && <Text style={[styles.checkmark, { color: colors.primary }]}>✓</Text>}
             </TouchableOpacity>
 

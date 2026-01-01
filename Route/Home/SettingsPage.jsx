@@ -353,8 +353,12 @@ export const SettingsPage = ({ navigation }) => {
     });
 
     // Initialize Last.fm auth service
-    lastFMService.loadSession().then(() => {
-      setLastFmUser(lastFMService.getUser());
+    lastFMService.loadSession().then(async () => {
+      const user = lastFMService.getUser();
+      if (user) {
+        const fullInfo = await lastFMService.getUserInfo();
+        setLastFmUser(fullInfo || user);
+      }
       setIsLastFmAuth(lastFMService.isAuthenticated());
     });
 
@@ -376,8 +380,18 @@ export const SettingsPage = ({ navigation }) => {
     };
 
     // Listen for Last.fm Auth changes
-    const lastFmAuthListener = (state) => {
-      setLastFmUser(state.user);
+    const lastFmAuthListener = async (state) => {
+      if (state.isAuthenticated && state.user) {
+        // Fetch full info if not already present
+        if (!state.user.avatarUrl) {
+          const fullInfo = await lastFMService.getUserInfo();
+          setLastFmUser(fullInfo || state.user);
+        } else {
+          setLastFmUser(state.user);
+        }
+      } else {
+        setLastFmUser(state.user);
+      }
       setIsLastFmAuth(state.isAuthenticated);
     };
 
@@ -666,11 +680,20 @@ export const SettingsPage = ({ navigation }) => {
               style={{ paddingHorizontal: 16, paddingVertical: 4 }}
             >
               <List.Item
-                title={isLastFmAuth ? lastFmUser?.username : "Last.fm Login"}
-                description={isLastFmAuth ? "Powers smart recommendations" : "Login for personalized DAB recommendations"}
+                title={isLastFmAuth ? (lastFmUser?.realname || lastFmUser?.username) : "Last.fm Login"}
+                description={isLastFmAuth ? `Scrobbling as ${lastFmUser?.username}` : "Login for personalized Qobuz recommendations"}
                 titleStyle={{ color: colors.text, fontWeight: 'bold' }}
                 descriptionStyle={{ color: colors.text, opacity: 0.7, fontSize: 12 }}
-                left={() => <List.Icon icon={isLastFmAuth ? "lastfm" : "login"} color={colors.primary} />}
+                left={() => {
+                  if (isLastFmAuth) {
+                    return lastFmUser?.avatarUrl ? (
+                      <Avatar.Image size={40} source={{ uri: lastFmUser.avatarUrl }} style={{ backgroundColor: 'transparent', marginLeft: -4 }} />
+                    ) : (
+                      <List.Icon icon="account" color={colors.primary} />
+                    );
+                  }
+                  return <List.Icon icon="login" color={colors.primary} />;
+                }}
                 right={() => <List.Icon icon="chevron-right" color={colors.text} />}
                 style={{ paddingHorizontal: 0, paddingVertical: 0 }}
               />
@@ -803,31 +826,12 @@ export const SettingsPage = ({ navigation }) => {
           onSelect={handleFontSizeChange}
         />
         <DropDownMenu
-          title="Playback Quality"
+          title="Saavn Quality"
           icon="volume-high"
           data={settingsConfig.playbackQualities}
           selectedValue={playback}
           onSelect={handlePlaybackQualityChange}
         />
-        <DropDownMenu
-          title="Download Path"
-          icon="folder-download"
-          data={settingsConfig.downloadPaths}
-          selectedValue={download}
-          onSelect={handleDownloadPathChange}
-        />
-        {downloadPathInfo && (
-          <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
-            <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.7, fontSize: 12 }}>
-              Files saved to: {downloadPathInfo.songsPath}
-            </Text>
-            {downloadPathInfo.requestedPath !== download && (
-              <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.5, fontSize: 11 }}>
-                Note: Using fallback path due to device restrictions
-              </Text>
-            )}
-          </View>
-        )}
         <DropDownMenu
           title="Color Scheme"
           icon="palette"
@@ -934,6 +938,19 @@ export const SettingsPage = ({ navigation }) => {
           />
         </TouchableRipple>
 
+        {downloadPathInfo && (
+          <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+            <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.7, fontSize: 12 }}>
+              Files saved to: {downloadPathInfo.songsPath}
+            </Text>
+            {downloadPathInfo.requestedPath !== download && (
+              <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.5, fontSize: 11 }}>
+                Note: Using fallback path due to device restrictions
+              </Text>
+            )}
+          </View>
+        )}
+
         <View style={{ marginTop: 16, paddingHorizontal: 16, marginBottom: 16 }}>
           <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.7 }}>
             *Note: If you change name or select languages, please restart the app to see all changes. All other settings take effect immediately.
@@ -1000,9 +1017,10 @@ function DropDownMenu({ title, icon, data, selectedValue, onSelect }) {
             padding: 20,
             borderRadius: 8,
             elevation: 4,
+            maxHeight: '80%', // Ensure it fits on screen
           }}
         >
-          <View>
+          <ScrollView showsVerticalScrollIndicator={true}>
             {data.map((item) => (
               <View
                 key={item.value}
@@ -1035,7 +1053,7 @@ function DropDownMenu({ title, icon, data, selectedValue, onSelect }) {
                 </TouchableRipple>
               </View>
             ))}
-          </View>
+          </ScrollView>
         </Modal>
       </Portal>
     </View>

@@ -9,8 +9,6 @@ export const settingsConfig = {
 
   // Playback quality options (in kbps)
   playbackQualities: [
-    { label: '(48 kbps)', value: '48kbps' },
-    { label: '(96 kbps)', value: '96kbps' },
     { label: '(160 kbps)', value: '160kbps' },
     { label: '(320 kbps)', value: '320kbps' }
   ],

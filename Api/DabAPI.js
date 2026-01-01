@@ -184,6 +184,11 @@ export async function dabLogin(email, password) {
             // Store session info
             await DabAuthService.setUser(response.data.user);
 
+            // Store session token if available
+            if (response.data.token) {
+                await DabAuthService.setSessionToken(response.data.token);
+            }
+
             return {
                 success: true,
                 message: response.data.message || 'Login successful',
@@ -299,6 +304,11 @@ export async function dabGetCurrentUser() {
         if (response.data && response.data.user) {
             // Update local session
             await DabAuthService.setUser(response.data.user);
+
+            // Update session token if available
+            if (response.data.token) {
+                await DabAuthService.setSessionToken(response.data.token);
+            }
 
             return {
                 success: true,

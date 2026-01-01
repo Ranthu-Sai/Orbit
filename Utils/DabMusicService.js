@@ -236,11 +236,14 @@ class DabMusicService {
 
             // Build headers with auth token if available
             const headers = { 'Content-Type': 'application/json' };
-            if (user && user.token) {
-                headers['Authorization'] = `Bearer ${user.token}`;
+            const sessionToken = await DabAuthService.getSessionToken();
+            const token = user?.token || sessionToken;
+
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
                 console.log('✅ Added auth token to stream request');
             } else {
-                console.warn('⚠️ No auth token found for stream request');
+                console.log('ℹ️ No auth token found for stream request (using cookies)');
             }
 
             const response = await axios.get(`${DAB_API_BASE}/stream`, {
