@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NativeStreaming from './NativeStreaming';
 import { CacheManager } from './NavigationCacheManager';
+import { GetYtMusicQuality } from '../LocalStorage/AppSettings';
 
 /**
  * YouTube Streaming Service
@@ -9,6 +10,10 @@ import { CacheManager } from './NavigationCacheManager';
  * Uses Direct Native NewPipe Extraction (via StreamModule).
  * 
  * CACHING: Stream URLs are cached for 3 hours to avoid repeated API calls.
+ * 
+ * QUALITY MODES:
+ * - Auto: Uses first available stream for faster playback start
+ * - High: Selects highest bitrate stream for best audio quality
  */
 
 // Android client configuration for InnerTube API
@@ -19,6 +24,11 @@ const ANDROID_CLIENT = {
         'X-YouTube-Client-Version': '19.09.37',
     }
 };
+
+// Cache quality preference to avoid repeated AsyncStorage calls
+let cachedQualityPref = null;
+let qualityCacheTTL = 0;
+const QUALITY_CACHE_TTL = 60000; // 1 minute
 
 class YouTubeStreamingService {
     constructor() {
@@ -65,7 +75,16 @@ class YouTubeStreamingService {
             }
 
             // Step 2: Fetch from Native NewPipe
-            const mode = preferM4A ? 'Download (M4A)' : 'Streaming (Best Quality)';
+            // Get quality preference (cached for performance)
+            let autoQuality = true; // Default to Auto (faster)
+            if (Date.now() - qualityCacheTTL > QUALITY_CACHE_TTL || cachedQualityPref === null) {
+                cachedQualityPref = await GetYtMusicQuality();
+                qualityCacheTTL = Date.now();
+            }
+            // Auto = true (use first stream), High = false (select best quality)
+            autoQuality = cachedQualityPref !== 'High';
+
+            const mode = preferM4A ? 'Download (M4A)' : (autoQuality ? 'Auto (Fast)' : 'High Quality');
             console.log(`🎯 [${preferM4A ? 'Download' : 'Stream'}] Getting stream for video: ${videoId} - ${mode}`);
 
             // Orbit VIP Mode: Inject Cookies if available (CACHED)
@@ -80,11 +99,11 @@ class YouTubeStreamingService {
             }
 
             // Call appropriate native method based on use case
-            // - getStreamUrlForDownload: Prioritizes M4A for metadata embedding
-            // - getStreamUrl: Selects highest bitrate for best quality
+            // - getStreamUrlForDownload: Prioritizes M4A for metadata embedding (always best quality)
+            // - getStreamUrl: Respects autoQuality preference (Auto = fast, High = best quality)
             const result = preferM4A
                 ? await NativeStreaming.getStreamUrlForDownload(videoId, cookies || '')
-                : await NativeStreaming.getStreamUrl(videoId, cookies || '');
+                : await NativeStreaming.getStreamUrl(videoId, cookies || '', autoQuality);
 
             // Verbose logging removed for cleaner console
 

@@ -32,13 +32,16 @@ class StreamModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
     }
 
     /**
-     * Get stream URL for STREAMING - selects highest bitrate (best quality)
-     * Backward compatible - keeps original signature
+     * Get stream URL for STREAMING - selects based on quality preference
+     * 
+     * @param videoId YouTube video ID
+     * @param cookies Optional authentication cookies
+     * @param autoQuality If true, use first available stream (faster). If false, select highest bitrate.
      */
     @ReactMethod
-    fun getStreamUrl(videoId: String, cookies: String?, promise: Promise) {
+    fun getStreamUrl(videoId: String, cookies: String?, autoQuality: Boolean, promise: Promise) {
         // Delegate to internal method with preferM4A = false (streaming mode)
-        getStreamUrlInternal(videoId, cookies, false, promise)
+        getStreamUrlInternal(videoId, cookies, false, autoQuality, promise)
     }
 
     /**
@@ -46,21 +49,35 @@ class StreamModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
      */
     @ReactMethod
     fun getStreamUrlForDownload(videoId: String, cookies: String?, promise: Promise) {
-        // Delegate to internal method with preferM4A = true (download mode)
-        getStreamUrlInternal(videoId, cookies, true, promise)
+        // Delegate to internal method with preferM4A = true (download mode), autoQuality = false (always best quality for downloads)
+        getStreamUrlInternal(videoId, cookies, true, false, promise)
     }
 
     /**
      * Internal method that handles both streaming and download cases
+     * Implements "Lazy Fallback" - tries multiple extraction strategies if the primary fails
+     * 
+     * @param preferM4A If true, prefer M4A format for metadata embedding
+     * @param autoQuality If true, use first available stream (faster startup)
      */
-    private fun getStreamUrlInternal(videoId: String, cookies: String?, preferM4A: Boolean, promise: Promise) {
+    private fun getStreamUrlInternal(videoId: String, cookies: String?, preferM4A: Boolean, autoQuality: Boolean, promise: Promise) {
         // Run on background thread to prevent UI freeze
         Thread {
-            var retryCount = 0
-            val maxRetries = 2
-            var lastError: Exception? = null
+            // Fallback URL formats to try (in order of preference)
+            val urlFormats = listOf(
+                "https://www.youtube.com/watch?v=$videoId",           // Standard YouTube
+                "https://music.youtube.com/watch?v=$videoId",         // YouTube Music
+                "https://www.youtube.com/embed/$videoId"              // Embed format
+            )
             
-            while (retryCount <= maxRetries) {
+            var lastError: Exception? = null
+            var attemptCount = 0
+            val maxAttempts = urlFormats.size + 1 // +1 for reinit attempt
+            
+            for (urlIndex in urlFormats.indices) {
+                attemptCount++
+                val url = urlFormats[urlIndex]
+                
                 try {
                     // Set cookies if provided
                     if (cookies != null && cookies.isNotEmpty()) {
@@ -68,7 +85,10 @@ class StreamModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
                     }
 
                     val service = ServiceList.YouTube
-                    val url = "https://www.youtube.com/watch?v=$videoId"
+                    
+                    if (urlIndex > 0) {
+                        android.util.Log.d("StreamModule", "🔄 [Fallback $urlIndex] Trying alternative URL format: $url")
+                    }
                     
                     // Get stream info (Synchronous Network Call)
                     val streamInfo = StreamInfo.getInfo(service, url)
@@ -76,13 +96,18 @@ class StreamModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
                     // Get audio streams
                     val audioStreams = streamInfo.audioStreams
                     
+                    if (audioStreams.isEmpty()) {
+                        android.util.Log.w("StreamModule", "⚠️ No audio streams found with URL format $urlIndex, trying next...")
+                        continue
+                    }
+                    
                     // Stream selection depends on use case:
-                    // - For STREAMING (preferM4A = false): Select highest bitrate for best quality
                     // - For DOWNLOAD (preferM4A = true): Prefer M4A for metadata embedding support
+                    // - For STREAMING with autoQuality = true: Use first available stream (faster)
+                    // - For STREAMING with autoQuality = false: Smart selection (prefer Opus)
                     
                     val bestStream = if (preferM4A) {
                         // DOWNLOAD MODE: Prioritize M4A format for metadata embedding
-                        // M4A/AAC works with JAudioTagger, Opus in WebM doesn't
                         val m4aStreams = audioStreams.filter { stream ->
                             val mimeType = stream.format?.mimeType ?: ""
                             val formatId = stream.formatId?.toString() ?: ""
@@ -97,10 +122,18 @@ class StreamModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
                             android.util.Log.w("StreamModule", "⚠️ No M4A streams found, falling back to highest bitrate")
                             audioStreams.maxByOrNull { it.bitrate }
                         }
+                    } else if (autoQuality) {
+                        // AUTO MODE: Use first available stream for faster playback start
+                        android.util.Log.d("StreamModule", "🚀 [Auto] Using first available audio stream (fast mode)")
+                        audioStreams.firstOrNull()
                     } else {
-                        // STREAMING MODE: Just pick the highest bitrate for best quality
-                        android.util.Log.d("StreamModule", "🎵 [Stream] Selecting highest quality audio stream")
-                        audioStreams.maxByOrNull { it.bitrate }
+                        // SMART HIGH QUALITY MODE: Prefer Opus (WebM) codec, fallback to highest bitrate
+                        android.util.Log.d("StreamModule", "🎵 [High] Smart selection: preferring Opus, fallback to highest bitrate")
+                        audioStreams.maxByOrNull { stream ->
+                            val mimeType = stream.format?.mimeType ?: ""
+                            val isOpus = mimeType.contains("webm") || mimeType.contains("opus")
+                            stream.bitrate + (if (isOpus) 50000 else 0)
+                        }
                     }
                     
                     if (bestStream != null) {
@@ -112,13 +145,12 @@ class StreamModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
                         result.putDouble("duration", streamInfo.duration.toDouble())
                         result.putString("thumbnail", streamInfo.thumbnails.get(0).url)
                         
-                        // Get format info - NewPipe uses formatId (e.g., "251", "140")
-                        // 251 = Opus, 140 = M4A, etc.
+                        // Get format info
                         val formatId = bestStream.formatId?.toString() ?: ""
                         val formatSuffix = when {
-                            formatId.contains("251") || formatId.contains("250") -> "opus" // Opus WebM
-                            formatId.contains("140") || formatId.contains("139") -> "m4a"  // M4A AAC
-                            else -> "m4a" // Default to M4A
+                            formatId.contains("251") || formatId.contains("250") -> "opus"
+                            formatId.contains("140") || formatId.contains("139") -> "m4a"
+                            else -> "m4a"
                         }
                         
                         result.putString("mimeType", bestStream.format?.mimeType ?: "audio/mp4")
@@ -126,48 +158,94 @@ class StreamModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
                         result.putString("formatId", formatId)
                         result.putInt("bitrate", bestStream.bitrate)
                         
+                        if (urlIndex > 0) {
+                            android.util.Log.d("StreamModule", "✅ [Fallback $urlIndex] Successfully recovered using alternative URL")
+                        }
+                        
                         promise.resolve(result)
-                        return@Thread
-                    } else {
-                        promise.reject("NO_STREAM", "No audio stream found for $videoId")
                         return@Thread
                     }
                 } catch (e: Exception) {
                     lastError = e
-                    
-                    // Check if this is a "page needs to be reloaded" error or similar session issue
                     val errorMessage = e.message?.lowercase() ?: ""
+                    android.util.Log.w("StreamModule", "⚠️ [Attempt $attemptCount] Failed: ${e.message}")
+                    
+                    // If this is a session/reload error and we haven't tried reinit yet
                     val needsReinit = errorMessage.contains("reload") ||
                                      errorMessage.contains("refresh") ||
                                      errorMessage.contains("expired") ||
                                      errorMessage.contains("session") ||
-                                     errorMessage.contains("timeout") // Also retry on timeout
+                                     errorMessage.contains("timeout")
                     
-                    if (needsReinit && retryCount < maxRetries) {
-                        // Reinitialize NewPipe and retry with proper timeout
+                    // On last URL format, try reinitializing NewPipe completely
+                    if (urlIndex == urlFormats.size - 1 && needsReinit) {
                         try {
+                            android.util.Log.d("StreamModule", "🔧 [Recovery] Reinitializing NewPipe extractor...")
                             val client = OkHttpClient.Builder()
-                                .connectTimeout(30, TimeUnit.SECONDS)
-                                .readTimeout(30, TimeUnit.SECONDS)
-                                .writeTimeout(30, TimeUnit.SECONDS)
+                                .connectTimeout(45, TimeUnit.SECONDS)  // Extended timeout for recovery
+                                .readTimeout(45, TimeUnit.SECONDS)
+                                .writeTimeout(45, TimeUnit.SECONDS)
                                 .build()
                             val downloader = NewPipeDownloader(client)
                             NewPipe.init(downloader)
                             NewPipeDownloaderInstance.downloader = downloader
-                            retryCount++
-                            Thread.sleep(1000) // 1 second delay before retry
-                            continue
-                        } catch (initError: Exception) {
-                            // If reinit fails, fall through to error
+                            
+                            Thread.sleep(500) // Brief pause before final attempt
+                            
+                            // One final attempt with the primary URL after reinit
+                            val streamInfo = StreamInfo.getInfo(ServiceList.YouTube, urlFormats[0])
+                            val audioStreams = streamInfo.audioStreams
+                            
+                            if (audioStreams.isNotEmpty()) {
+                                val bestStream = if (autoQuality) {
+                                    audioStreams.firstOrNull()
+                                } else {
+                                    audioStreams.maxByOrNull { stream ->
+                                        val mimeType = stream.format?.mimeType ?: ""
+                                        val isOpus = mimeType.contains("webm") || mimeType.contains("opus")
+                                        stream.bitrate + (if (isOpus) 50000 else 0)
+                                    }
+                                }
+                                
+                                if (bestStream != null) {
+                                    val result = com.facebook.react.bridge.Arguments.createMap()
+                                    result.putString("url", bestStream.content)
+                                    result.putString("title", streamInfo.name)
+                                    result.putString("author", streamInfo.uploaderName)
+                                    result.putDouble("duration", streamInfo.duration.toDouble())
+                                    result.putString("thumbnail", streamInfo.thumbnails.get(0).url)
+                                    
+                                    val formatId = bestStream.formatId?.toString() ?: ""
+                                    val formatSuffix = when {
+                                        formatId.contains("251") || formatId.contains("250") -> "opus"
+                                        formatId.contains("140") || formatId.contains("139") -> "m4a"
+                                        else -> "m4a"
+                                    }
+                                    
+                                    result.putString("mimeType", bestStream.format?.mimeType ?: "audio/mp4")
+                                    result.putString("format", formatSuffix)
+                                    result.putString("formatId", formatId)
+                                    result.putInt("bitrate", bestStream.bitrate)
+                                    
+                                    android.util.Log.d("StreamModule", "✅ [Recovery] Successfully recovered after NewPipe reinit")
+                                    promise.resolve(result)
+                                    return@Thread
+                                }
+                            }
+                        } catch (reinitError: Exception) {
+                            android.util.Log.e("StreamModule", "❌ [Recovery] Reinit failed: ${reinitError.message}")
+                            lastError = reinitError
                         }
                     }
                     
-                    // Not a reloadable error or max retries reached
-                    break
+                    // Continue to next URL format
+                    continue
                 }
             }
             
-            promise.reject("STREAM_ERROR", lastError?.message ?: "Unknown error", lastError)
+            // All attempts failed
+            android.util.Log.e("StreamModule", "❌ All ${attemptCount} extraction attempts failed for $videoId")
+            promise.reject("STREAM_ERROR", lastError?.message ?: "All extraction strategies failed", lastError)
         }.start()
     }
 }

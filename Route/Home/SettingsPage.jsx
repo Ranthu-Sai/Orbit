@@ -24,6 +24,8 @@ import {
   SetLyricsAnimationStyle,
   GetHomeFeedSource,
   SetHomeFeedSource,
+  GetYtMusicQuality,
+  SetYtMusicQuality,
 } from "../../LocalStorage/AppSettings";
 import { useEffect, useState } from "react";
 import { useTheme } from "@react-navigation/native";
@@ -51,6 +53,7 @@ export const SettingsPage = ({ navigation }) => {
   const [homeFeedSource, setHomeFeedSource] = useState(settingsConfig.defaults.homeFeedSource);
   const [lyricsProvider, setLyricsProvider] = useState(settingsConfig.defaults.lyricsProvider);
   const [lyricsAnimationStyle, setLyricsAnimationStyle] = useState(settingsConfig.defaults.lyricsAnimationStyle);
+  const [ytmQuality, setYtmQuality] = useState(settingsConfig.defaults.ytmQuality);
   const [ytMusicLanguage, setYtMusicLanguage] = useState('en');
   const [ytMusicCountry, setYtMusicCountry] = useState('IN');
   const [downloadPathInfo, setDownloadPathInfo] = useState(null);
@@ -101,6 +104,9 @@ export const SettingsPage = ({ navigation }) => {
 
       const loadedLyricsAnimationStyle = await GetLyricsAnimationStyle();
       setLyricsAnimationStyle(loadedLyricsAnimationStyle || settingsConfig.defaults.lyricsAnimationStyle);
+
+      const loadedYtmQuality = await GetYtMusicQuality();
+      setYtmQuality(loadedYtmQuality || settingsConfig.defaults.ytmQuality);
 
       if (fontSize && fontSize !== undefined) setFont(fontSize);
       if (playbackQuality && playbackQuality !== undefined) setPlayback(playbackQuality);
@@ -172,6 +178,25 @@ export const SettingsPage = ({ navigation }) => {
       console.error('Error updating playback quality:', error);
       ToastAndroid.showWithGravity(
         'Failed to update playback quality',
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+    }
+  }
+
+  async function handleYtMusicQualityChange(value) {
+    try {
+      await SetYtMusicQuality(value);
+      setYtmQuality(value);
+      ToastAndroid.showWithGravity(
+        `YTMusic quality changed to ${value}`,
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+    } catch (error) {
+      console.error('Error updating YTMusic quality:', error);
+      ToastAndroid.showWithGravity(
+        'Failed to update YTMusic quality',
         ToastAndroid.SHORT,
         ToastAndroid.CENTER,
       );
@@ -831,6 +856,13 @@ export const SettingsPage = ({ navigation }) => {
           data={settingsConfig.playbackQualities}
           selectedValue={playback}
           onSelect={handlePlaybackQualityChange}
+        />
+        <DropDownMenu
+          title="YTM Quality"
+          icon="music-circle"
+          data={settingsConfig.ytMusicQualities}
+          selectedValue={ytmQuality}
+          onSelect={handleYtMusicQualityChange}
         />
         <DropDownMenu
           title="Color Scheme"

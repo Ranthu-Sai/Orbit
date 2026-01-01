@@ -13,6 +13,12 @@ export const settingsConfig = {
     { label: '(320 kbps)', value: '320kbps' }
   ],
 
+  // YTMusic Quality options
+  ytMusicQualities: [
+    { label: 'Auto', value: 'Auto' },
+    { label: 'High Quality', value: 'High' }
+  ],
+
   // Download path options
   downloadPaths: [
     { label: 'Music', value: 'Music' },
@@ -49,6 +55,7 @@ export const settingsConfig = {
     colorScheme: 'default',
     musicSource: 'Ytmusic',
     homeFeedSource: 'Hybrid',
+    ytmQuality: 'Auto',
     lyricsProvider: 'LrcLib',
     lyricsAnimationStyle: 'Smooth'
   }

@@ -378,6 +378,28 @@ async function SetLyricsTextColor(color) {
   }
 }
 
+async function GetYtMusicQuality() {
+  try {
+    const value = await AsyncStorage.getItem('YtMusicQuality');
+    if (value !== null) {
+      return value
+    } else {
+      return 'Auto'
+    }
+  } catch (e) {
+    console.log("YtMusicQuality read error");
+    return 'Auto'
+  }
+}
+
+async function SetYtMusicQuality(quality) {
+  try {
+    await AsyncStorage.setItem('YtMusicQuality', quality);
+  } catch (e) {
+    console.log("YtMusicQuality save error");
+  }
+}
+
 export {
   GetFontSizeValue,
   SetFontSizeValue,
@@ -410,5 +432,7 @@ export {
   GetLyricsTheme,
   SetLyricsTheme,
   GetLyricsTextColor,
-  SetLyricsTextColor
+  SetLyricsTextColor,
+  GetYtMusicQuality,
+  SetYtMusicQuality,
 }

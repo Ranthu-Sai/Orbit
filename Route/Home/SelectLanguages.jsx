@@ -5,6 +5,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { Heading } from "../../Component/Global/Heading";
 import { SetLanguageValue, GetLanguageValue } from "../../LocalStorage/Languages";
 import LinearGradient from "react-native-linear-gradient";
+import { useTheme } from "@react-navigation/native";
 
 const { width, height } = Dimensions.get("window");
 
@@ -61,6 +62,8 @@ const LANGUAGES = [
 ];
 
 export const SelectLanguages = ({ navigation }) => {
+  const theme = useTheme();
+  const { colors } = theme;
   const [selectedLanguages, setSelectedLanguages] = useState([]);
 
   useEffect(() => {
@@ -110,8 +113,11 @@ export const SelectLanguages = ({ navigation }) => {
     const activeColor = item.color || "#32CD32";
     const currentConfig = getResponsiveConfig();
 
-    const backgroundColor = isSelected ? hexToRgba(activeColor, 0.25) : "rgba(30, 30, 40, 0.5)";
-    const borderColor = isSelected ? activeColor : "#444466";
+    const backgroundColor = isSelected
+      ? hexToRgba(activeColor, theme.dark ? 0.25 : 0.15)
+      : (theme.dark ? "rgba(30, 30, 40, 0.5)" : "rgba(100, 100, 110, 0.05)");
+
+    const borderColor = isSelected ? activeColor : (theme.dark ? "#444466" : "#CCCCCC");
 
     return (
       <Animated.View exiting={FadeInDown} entering={FadeInDown.delay(index * 50)} style={{ margin: currentConfig.cardMargin }}>
@@ -132,14 +138,14 @@ export const SelectLanguages = ({ navigation }) => {
         >
           <View style={styles.cardContent}>
             <Text style={[styles.languageName, {
-              color: isSelected ? "#FFFFFF" : "#DDD",
+              color: isSelected ? (theme.dark ? "#FFFFFF" : colors.primary) : colors.text,
               fontSize: currentConfig.languageNameSize
             }]}>
               {item.name}
             </Text>
             <Text style={[styles.nativeText, {
-              color: isSelected ? "#FFFFFF" : activeColor,
-              textShadowColor: isSelected ? "transparent" : activeColor,
+              color: isSelected ? (theme.dark ? "#FFFFFF" : activeColor) : activeColor,
+              textShadowColor: isSelected ? "transparent" : (theme.dark ? activeColor : "transparent"),
               textShadowRadius: isSelected ? 0 : 2,
               fontSize: currentConfig.nativeTextSize
             }]}>
@@ -160,9 +166,9 @@ export const SelectLanguages = ({ navigation }) => {
         }]}>
           <Heading
             text="Update music languages"
-            style={[styles.heading, { fontSize: config.headingSize }]}
+            style={[styles.heading, { fontSize: config.headingSize, color: colors.text }]}
           />
-          <Text style={[styles.subHeading, { fontSize: config.subHeadingSize }]}>
+          <Text style={[styles.subHeading, { fontSize: config.subHeadingSize, color: colors.text, opacity: 0.6 }]}>
             Select music languages in the order of preference
           </Text>
         </View>
@@ -184,12 +190,17 @@ export const SelectLanguages = ({ navigation }) => {
         }]}>
           <TouchableOpacity style={styles.confirmButton} onPress={onConfirmPress}>
             <LinearGradient
-              colors={['#FFFFFF', '#F0F0F0']}
+              colors={theme.dark ? ['#FFFFFF', '#F0F0F0'] : ['#000000', '#1A1A1A']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={[styles.gradientButton, { paddingVertical: config.buttonPadding }]}
             >
-              <Text style={[styles.confirmButtonText, { fontSize: config.buttonTextSize }]}>Confirm Changes</Text>
+              <Text style={[styles.confirmButtonText, {
+                fontSize: config.buttonTextSize,
+                color: theme.dark ? "#000000" : "#FFFFFF"
+              }]}>
+                Confirm Changes
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
