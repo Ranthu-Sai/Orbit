@@ -83,12 +83,12 @@ export const useThemeManager = () => {
   const getBlurOverlayGradient = () => {
     return themeMode === 'light'
       ? [
-        'rgba(255,255,255,0.05)',  // 0% - Top: minimal white
-        'rgba(255,255,255,0.02)',  // 25% - Upper area: almost clear
-        'rgba(0,0,0,0.0)',         // 50% - Start of bottom 50%: transparent
-        'rgba(0,0,0,0.50)',        // 70% - Mid-bottom: darker start
-        'rgba(0,0,0,0.80)',        // 85% - Lower: rich dark blend
-        'rgba(0,0,0,0.98)',        // 100% - Bottom: deep black finish
+        'rgba(255,255,255,0.06)',  // 0% - Top: subtle white tint
+        'rgba(255,255,255,0.03)',  // 20% - Upper-mid: clearer white
+        'rgba(0,0,0,0.0)',         // 42% - Mid: perfectly transparent for artwork
+        'rgba(0,0,0,0.38)',        // 68% - Lower-mid: smooth dark entry
+        'rgba(0,0,0,0.78)',        // 86% - Bottom-mid: deep dark blend
+        'rgba(0,0,0,0.98)',        // 100% - Bottom: solid dark finish
       ]
       : [
         'rgba(255,255,255,0.08)',  // Top: white tint for visibility

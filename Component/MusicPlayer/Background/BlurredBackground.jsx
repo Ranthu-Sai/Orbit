@@ -47,7 +47,7 @@ const BlurredBackground = memo(({
 
   // Gradient locations - 6 stops for light theme, 4 for dark
   const gradientLocations = gradientColors.length === 6
-    ? [0, 0.25, 0.5, 0.7, 0.85, 1]  // Light: dark starts at 50% (bottom 50%)
+    ? [0, 0.2, 0.42, 0.68, 0.86, 1]  // Light: smoother transition stops
     : [0, 0.33, 0.66, 1];            // Dark: even distribution
 
   return (

@@ -457,7 +457,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
             <View style={styles.backgroundImage}>
               <BlurredBackground
                 source={currentArtworkSource}
-                blurRadius={18}
+                blurRadius={35}
                 overlayGradient={getBlurOverlayGradient()}
               />
               {renderPlayerContent()}
