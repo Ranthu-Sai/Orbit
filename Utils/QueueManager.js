@@ -2,6 +2,7 @@ import TrackPlayer from 'react-native-track-player';
 import { getRecommendedSongs } from '../Api/Recommended';
 import youtubeStreamingService from './YouTubeStreamingService';
 import dabMusicService from './DabMusicService';
+import dabRecommendationService from './DABRecommendationService';
 import { getIndexQuality } from '../MusicPlayerFunctions';
 import InnerTubeClient from '../Api/InnertubeClient';
 import { CacheManager } from './NavigationCacheManager';
@@ -438,11 +439,17 @@ class QueueManager {
                     }
                     console.log(`🔍 Detected source for queue refill: ${recommendationSource} (Last song ID: ${lastSong?.id || 'none'})`);
 
-                    const recommendations = await this.buildQueueFromRecommendations(
-                        videoIdForRecs,
-                        recommendationSource,
-                        20
-                    );
+                    let recommendations = [];
+                    if (recommendationSource === 'dab') {
+                        console.log('🧠 QueueManager: Fetching Last.fm recommendations for DAB queue refill');
+                        recommendations = await dabRecommendationService.getRecommendations(20);
+                    } else {
+                        recommendations = await this.buildQueueFromRecommendations(
+                            videoIdForRecs,
+                            recommendationSource,
+                            20
+                        );
+                    }
 
                     if (recommendations && recommendations.length > 0) {
                         // Filter out songs already in queue

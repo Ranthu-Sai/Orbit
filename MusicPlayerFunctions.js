@@ -526,7 +526,8 @@ async function PlayOneSong(song) {
             // Fall back to YTMusic recommendations using song title/artist search
           }
 
-          // Don't start the continuous monitor for DAB (we'll add more logic later if needed)
+          // Start the continuous monitor for DAB to enable infinite playback
+          queueManager.startContinuousQueueMonitor(song.id);
           return;
         }
 

@@ -279,6 +279,8 @@ class LastFMService {
             .replace(/[\(\[]ost[^\)\]]*[\)\]]/gi, '')
             // Remove remaster/remix indicators
             .replace(/[\(\[](remaster|remix|version|edit|radio)[^\)\]]*[\)\]]/gi, '')
+            // Remove truncated or complete "From" clauses at end of string
+            .replace(/\s*[\(\[]from\s.*$/i, '')
             // Remove extra whitespace
             .replace(/\s+/g, ' ')
             .trim();
@@ -343,8 +345,16 @@ class LastFMService {
                 return results;
             }
 
-            // FALLBACK: Get artist's top tracks + some variation
-            console.log(`🧠 LastFM Brain: No similar tracks found, falling back to artist top tracks`);
+            // FALLBACK: Use mood-based discovery (tags + similar artists) for better diversity
+            console.log(`🧠 LastFM Brain: No similar tracks found, falling back to mood-based discovery`);
+            const moodRecs = await this.getMoodBasedRecommendations(artist, track, limit);
+
+            if (moodRecs && moodRecs.length > 0) {
+                return moodRecs;
+            }
+
+            // FINAL FALLBACK: Artist top tracks if mood fails
+            console.log(`🧠 LastFM Brain: Mood discovery failed, falling back to artist top tracks`);
             return await this.getArtistTopTracks(artist, limit);
 
         } catch (error) {
@@ -554,6 +564,31 @@ class LastFMService {
 
             return tags.slice(0, 5).map(t => t.name.toLowerCase());
         } catch (error) {
+            // Retry with cleaned title if track not found
+            if (error.code === 6) {
+                const cleanedTitle = this._cleanTrackTitle(track);
+                if (cleanedTitle !== track && cleanedTitle.length > 0) {
+                    try {
+                        console.log(`🧠 LastFM Brain: Retrying tags with cleaned title: "${cleanedTitle}"`);
+                        const data = await this._apiRequest('track.getTopTags', {
+                            artist,
+                            track: cleanedTitle,
+                            autocorrect: '1'
+                        });
+
+                        if (!data.toptags || !data.toptags.tag) return [];
+
+                        const tags = Array.isArray(data.toptags.tag)
+                            ? data.toptags.tag
+                            : [data.toptags.tag];
+
+                        return tags.slice(0, 5).map(t => t.name.toLowerCase());
+                    } catch (retryError) {
+                        // Ignore retry error
+                    }
+                }
+            }
+
             console.error('LastFMService: getTrackTags failed', error);
             return [];
         }
