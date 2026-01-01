@@ -35,6 +35,8 @@ import dabAuthService from "../../Utils/DabAuthService";
 import { dabLogout, dabGetCurrentUser } from "../../Api/DabAPI";
 import ytAuthService from "../../Utils/YouTubeAuthService";
 import YouTubeAccountModal from "../../Component/Modals/YouTubeAccountModal";
+import lastFMService from "../../Utils/LastFMService";
+import metadataResolver from "../../Utils/MetadataResolver";
 
 export const SettingsPage = ({ navigation }) => {
   const theme = useTheme();
@@ -61,6 +63,18 @@ export const SettingsPage = ({ navigation }) => {
   const [showYtAccountModal, setShowYtAccountModal] = useState(false);
   const [showNameEditDialog, setShowNameEditDialog] = useState(false);
   const [editingName, setEditingName] = useState('');
+
+  // Last.fm auth state
+  const [lastFmUser, setLastFmUser] = useState(null);
+  const [isLastFmAuth, setIsLastFmAuth] = useState(false);
+  const [showLastFmLoginDialog, setShowLastFmLoginDialog] = useState(false);
+  const [lastFmUsername, setLastFmUsername] = useState('');
+  const [lastFmPassword, setLastFmPassword] = useState('');
+  const [lastFmLoggingIn, setLastFmLoggingIn] = useState(false);
+  const [lastFmError, setLastFmError] = useState('');
+
+  // DAB Recommendation settings
+  const [strictFlacMode, setStrictFlacMode] = useState(false);
 
   async function loadSettings() {
     try {
@@ -338,6 +352,17 @@ export const SettingsPage = ({ navigation }) => {
       setIsYtAuth(ytAuthService.isAuth());
     });
 
+    // Initialize Last.fm auth service
+    lastFMService.loadSession().then(() => {
+      setLastFmUser(lastFMService.getUser());
+      setIsLastFmAuth(lastFMService.isAuthenticated());
+    });
+
+    // Load MetadataResolver settings (strict FLAC mode)
+    metadataResolver.loadSettings().then(() => {
+      setStrictFlacMode(metadataResolver.isStrictFlacMode());
+    });
+
     // Listen for DAB Auth changes
     const authListener = (state) => {
       setDabUser(state.user);
@@ -350,12 +375,20 @@ export const SettingsPage = ({ navigation }) => {
       setIsYtAuth(state.isAuthenticated);
     };
 
+    // Listen for Last.fm Auth changes
+    const lastFmAuthListener = (state) => {
+      setLastFmUser(state.user);
+      setIsLastFmAuth(state.isAuthenticated);
+    };
+
     dabAuthService.addListener(authListener);
     ytAuthService.addListener(ytAuthListener);
+    lastFMService.addListener(lastFmAuthListener);
 
     return () => {
       dabAuthService.removeListener(authListener);
       ytAuthService.removeListener(ytAuthListener);
+      lastFMService.removeListener(lastFmAuthListener);
     };
   }, []);
 
@@ -379,6 +412,53 @@ export const SettingsPage = ({ navigation }) => {
     } catch (error) {
       console.error("YouTube Logout error:", error);
     }
+  }
+
+  // Last.fm handlers
+  async function handleLastFmLogin() {
+    if (!lastFmUsername.trim() || !lastFmPassword.trim()) {
+      setLastFmError("Please enter username and password");
+      return;
+    }
+
+    setLastFmLoggingIn(true);
+    setLastFmError('');
+
+    try {
+      const result = await lastFMService.login(lastFmUsername, lastFmPassword);
+      if (result.success) {
+        setShowLastFmLoginDialog(false);
+        setLastFmUsername('');
+        setLastFmPassword('');
+        ToastAndroid.show(`Logged in as ${result.username}`, ToastAndroid.SHORT);
+      } else {
+        setLastFmError(result.error || "Login failed");
+      }
+    } catch (error) {
+      setLastFmError(error.message || "Login failed");
+    } finally {
+      setLastFmLoggingIn(false);
+    }
+  }
+
+  async function handleLastFmLogout() {
+    try {
+      const result = await lastFMService.logout();
+      if (result.success) {
+        ToastAndroid.show("Logged out from Last.fm", ToastAndroid.SHORT);
+      }
+    } catch (error) {
+      console.error("Last.fm Logout error:", error);
+    }
+  }
+
+  async function handleStrictFlacModeChange(enabled) {
+    setStrictFlacMode(enabled);
+    await metadataResolver.setStrictFlacMode(enabled);
+    ToastAndroid.show(
+      enabled ? "Strict FLAC mode enabled" : "Quality fallback enabled",
+      ToastAndroid.SHORT
+    );
   }
 
   function handleYtEditName() {
@@ -562,6 +642,151 @@ export const SettingsPage = ({ navigation }) => {
             style={{ paddingHorizontal: 0, paddingVertical: 0 }}
           />
         </TouchableRipple>
+
+        {/* DAB Recommendation Settings (only visible when DAB is authenticated) */}
+        {isDabAuth && (
+          <>
+            {/* Last.fm Integration */}
+            <TouchableRipple
+              onPress={() => {
+                if (isLastFmAuth) {
+                  Alert.alert(
+                    "Last.fm Account",
+                    `Logged in as ${lastFmUser?.username}\n\nLast.fm powers smart recommendations for DAB songs.`,
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Logout", onPress: handleLastFmLogout, style: "destructive" }
+                    ]
+                  );
+                } else {
+                  setShowLastFmLoginDialog(true);
+                }
+              }}
+              rippleColor={theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'}
+              style={{ paddingHorizontal: 16, paddingVertical: 4 }}
+            >
+              <List.Item
+                title={isLastFmAuth ? lastFmUser?.username : "Last.fm Login"}
+                description={isLastFmAuth ? "Powers smart recommendations" : "Login for personalized DAB recommendations"}
+                titleStyle={{ color: colors.text, fontWeight: 'bold' }}
+                descriptionStyle={{ color: colors.text, opacity: 0.7, fontSize: 12 }}
+                left={() => <List.Icon icon={isLastFmAuth ? "lastfm" : "login"} color={colors.primary} />}
+                right={() => <List.Icon icon="chevron-right" color={colors.text} />}
+                style={{ paddingHorizontal: 0, paddingVertical: 0 }}
+              />
+            </TouchableRipple>
+
+            {/* Strict FLAC Mode Toggle */}
+            <TouchableRipple
+              onPress={() => handleStrictFlacModeChange(!strictFlacMode)}
+              rippleColor={theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'}
+              style={{ paddingHorizontal: 16, paddingVertical: 4 }}
+            >
+              <List.Item
+                title="Skip non-FLAC Recommendations"
+                description={strictFlacMode ? "Only plays songs available on DAB (FLAC)" : "Falls back to Saavn/YTMusic if DAB unavailable"}
+                titleStyle={{ color: colors.text, fontWeight: 'bold' }}
+                descriptionStyle={{ color: colors.text, opacity: 0.7, fontSize: 12 }}
+                left={() => <List.Icon icon="quality-high" color={colors.primary} />}
+                right={() => <Switch value={strictFlacMode} onValueChange={handleStrictFlacModeChange} />}
+                style={{ paddingHorizontal: 0, paddingVertical: 0 }}
+              />
+            </TouchableRipple>
+          </>
+        )}
+
+        {/* Last.fm Login Dialog */}
+        <Portal>
+          <Modal
+            visible={showLastFmLoginDialog}
+            onDismiss={() => {
+              if (!lastFmLoggingIn) {
+                setShowLastFmLoginDialog(false);
+                setLastFmError('');
+                setLastFmPassword('');
+              }
+            }}
+            contentContainerStyle={{
+              backgroundColor: colors.card,
+              padding: 20,
+              margin: 20,
+              borderRadius: 12
+            }}
+          >
+            <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold', marginBottom: 8 }}>
+              Last.fm Login
+            </Text>
+            <Text style={{ color: colors.text, opacity: 0.7, fontSize: 13, marginBottom: 16 }}>
+              Connect Last.fm to enable personalized recommendations for your DAB songs.
+            </Text>
+            <TextInput
+              value={lastFmUsername}
+              onChangeText={(text) => {
+                setLastFmUsername(text);
+                setLastFmError('');
+              }}
+              placeholder="Username"
+              placeholderTextColor={colors.text + '80'}
+              editable={!lastFmLoggingIn}
+              style={{
+                backgroundColor: colors.background,
+                color: colors.text,
+                padding: 12,
+                borderRadius: 8,
+                fontSize: 16,
+                marginBottom: 12
+              }}
+              autoCapitalize="none"
+            />
+            <TextInput
+              value={lastFmPassword}
+              onChangeText={(text) => {
+                setLastFmPassword(text);
+                setLastFmError('');
+              }}
+              placeholder="Password"
+              placeholderTextColor={colors.text + '80'}
+              secureTextEntry
+              editable={!lastFmLoggingIn}
+              style={{
+                backgroundColor: colors.background,
+                color: colors.text,
+                padding: 12,
+                borderRadius: 8,
+                fontSize: 16,
+                marginBottom: 12
+              }}
+            />
+            {lastFmError ? (
+              <Text style={{ color: '#ff6b6b', fontSize: 13, marginBottom: 12 }}>
+                {lastFmError}
+              </Text>
+            ) : null}
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+              <Button
+                mode="text"
+                onPress={() => {
+                  setShowLastFmLoginDialog(false);
+                  setLastFmError('');
+                  setLastFmPassword('');
+                }}
+                textColor={colors.text}
+                disabled={lastFmLoggingIn}
+              >
+                Cancel
+              </Button>
+              <Button
+                mode="contained"
+                onPress={handleLastFmLogin}
+                buttonColor={colors.primary}
+                loading={lastFmLoggingIn}
+                disabled={lastFmLoggingIn || !lastFmUsername.trim() || !lastFmPassword.trim()}
+              >
+                Login
+              </Button>
+            </View>
+          </Modal>
+        </Portal>
 
         {/* App Settings */}
         <View style={{ marginTop: 8, marginBottom: 8 }}>

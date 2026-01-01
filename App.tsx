@@ -30,6 +30,9 @@ import { darkTheme } from './Theme/darkTheme';
 import { PaperProvider } from 'react-native-paper';
 import { PlayOneSong, setupPlayer } from './MusicPlayerFunctions';
 import NativeMetadataReader from './Utils/NativeMetadataReader';
+import lastFMService from './Utils/LastFMService';
+import dabRecommendationService from './Utils/DABRecommendationService';
+import { LASTFM_API_KEY, LASTFM_API_SECRET } from './Utils/secrets';
 
 type ThemeContextType = {
   theme: typeof darkTheme;
@@ -71,6 +74,16 @@ function App() {
 
     // Log app open event
     analyticsService.logEvent(AnalyticsEvents.APP_OPEN);
+
+    // Initialize Last.fm service with credentials from secrets
+    // Users will authenticate via Settings > DAB > Last.fm Login
+    lastFMService.initialize(LASTFM_API_KEY, LASTFM_API_SECRET);
+
+    // Load any saved Last.fm session
+    lastFMService.loadSession();
+
+    // Initialize DAB Recommendation Service
+    dabRecommendationService.initialize();
   }, []);
 
   useEffect(() => {

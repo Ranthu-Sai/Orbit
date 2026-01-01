@@ -14,6 +14,8 @@ import skipOperationManager from "./Utils/SkipOperationManager";
 import streamFetchManager from "./Utils/StreamFetchManager";
 import smartPrefetchManager from "./Utils/SmartPrefetchManager";
 import FormatArtist from "./Utils/FormatArtists";
+import dabRecommendationService from "./Utils/DABRecommendationService";
+import lastFMService from "./Utils/LastFMService";
 
 let isPlayerInitialized = false;
 
@@ -483,6 +485,49 @@ async function PlayOneSong(song) {
         // SPOTIFY SUPPORT: If this is a Spotify song mapped to YTMusic, use the YTMusic videoId
         const isSpotifyMapped = updatedSong.mappedFromSpotify && updatedSong.ytMusicVideoId;
         const isYTId = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
+        const isDABSong = updatedSong.isDabTrack || updatedSong.source === 'dab';
+
+        // For DAB songs, use Last.fm-powered recommendations
+        if (isDABSong && lastFMService.isAuthenticated()) {
+          console.log(`🧠 DAB Song: Using Last.fm brain for recommendations`);
+
+          // Register the song as a seed for vibe tracking
+          dabRecommendationService.registerSongPlayed({
+            title: song.title || song.name,
+            artist: song.artist,
+            id: song.id
+          });
+
+          // Fetch recommendations from Last.fm via DABRecommendationService
+          const dabRecommendations = await dabRecommendationService.getRecommendations(20);
+
+          if (dabRecommendations && dabRecommendations.length > 0) {
+            // Filter out the currently playing song
+            const filteredRecs = dabRecommendations.filter(rec => rec.id !== song.id);
+
+            if (filteredRecs.length > 0) {
+              await AddSongsToQueue(filteredRecs);
+              console.log(`✅ DAB Queue loaded: ${filteredRecs.length} Last.fm recommendations`);
+
+              // Trigger prefetch for N+1
+              setImmediate(() => {
+                const smartPrefetchManager = require('./Utils/SmartPrefetchManager').default;
+                smartPrefetchManager._prefetchTrackAtIndex(1)
+                  .catch(err => {
+                    if (!err.message?.includes("doesn't exist")) {
+                      console.log('Initial N+1 prefetch skipped:', err.message);
+                    }
+                  });
+              });
+            }
+          } else {
+            console.log(`⚠️ No Last.fm recommendations found, falling back to YTMusic`);
+            // Fall back to YTMusic recommendations using song title/artist search
+          }
+
+          // Don't start the continuous monitor for DAB (we'll add more logic later if needed)
+          return;
+        }
 
         // For Spotify-mapped songs, use YTMusic recommendations via the mapped videoId
         const source = (isSpotifyMapped || isYTId) ? 'ytmusic' : 'saavn';
@@ -849,13 +894,33 @@ async function AddSongsToQueue(songs) {
       };
 
     } else if (isDabSong) {
-      // DAB songs logic - ideally lazy load too, but keeping minimal changes for now
-      processedSong = { ...processedSong, isDab: true };
+      // DAB songs logic - fetch stream URL with rate limiting protection
+      processedSong = { ...processedSong, isDab: true, sourceType: 'online' };
       try {
         await dabMusicService.initialize();
         const streamUrl = await dabMusicService.getStreamUrl(song.id);
-        if (streamUrl) processedSong.url = streamUrl;
-      } catch (e) { }
+        if (streamUrl) {
+          processedSong.url = streamUrl;
+          // Add delay between DAB API calls to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } else {
+          // If no stream URL, mark for Saavn fallback
+          console.log(`⚠️ DAB stream unavailable for ${song.title}, skipping`);
+          processedSong.url = null;
+        }
+      } catch (e) {
+        // Handle rate limiting (429) gracefully
+        if (e.message?.includes('429') || e.response?.status === 429) {
+          console.log(`⚠️ DAB rate limited, waiting 2s before retry...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          try {
+            const retryUrl = await dabMusicService.getStreamUrl(song.id);
+            if (retryUrl) processedSong.url = retryUrl;
+          } catch (retryErr) {
+            console.log(`❌ DAB retry failed for ${song.title}`);
+          }
+        }
+      }
 
     } else {
       // Standard logic for downloads/local
@@ -904,12 +969,21 @@ async function AddSongsToQueue(songs) {
     processedSongs.push(processedSong);
   }
 
-  if (processedSongs.length > 0) {
+  // Filter out songs that failed to get URLs (avoid "URL cannot be empty" errors)
+  const validSongs = processedSongs.filter(song =>
+    song.url && song.url.length > 0 && !song.url.includes('undefined')
+  );
+
+  if (validSongs.length !== processedSongs.length) {
+    console.log(`⚠️ AddSongsToQueue: Filtered out ${processedSongs.length - validSongs.length} songs without valid URLs`);
+  }
+
+  if (validSongs.length > 0) {
     try {
       // BATCHED ADDITION STRATEGY
       // 1. Add first small batch immediately for instant UI response
       const INITIAL_BATCH_SIZE = 20;
-      const initialBatch = processedSongs.slice(0, INITIAL_BATCH_SIZE);
+      const initialBatch = validSongs.slice(0, INITIAL_BATCH_SIZE);
 
       await TrackPlayer.add(initialBatch);
       console.log(`✅ Queue: Added initial ${initialBatch.length} songs instantly`);
@@ -918,7 +992,7 @@ async function AddSongsToQueue(songs) {
       DeviceEventEmitter.emit('queue-updated', { count: initialBatch.length });
 
       // 2. Add remaining songs in background batches
-      const remainingSongs = processedSongs.slice(INITIAL_BATCH_SIZE);
+      const remainingSongs = validSongs.slice(INITIAL_BATCH_SIZE);
 
       if (remainingSongs.length > 0) {
         InteractionManager.runAfterInteractions(async () => {
@@ -935,7 +1009,7 @@ async function AddSongsToQueue(songs) {
             }
 
             // Final event to ensuring everything is synced
-            DeviceEventEmitter.emit('queue-updated', { count: processedSongs.length });
+            DeviceEventEmitter.emit('queue-updated', { count: validSongs.length });
           } catch (batchError) {
             console.error('❌ Error adding background batch:', batchError);
           }

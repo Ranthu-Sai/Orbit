@@ -470,14 +470,6 @@ export const SearchPage = ({ navigation }) => {
         )}
       </View>
 
-      {selectedSource === 'dab' && (
-        <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
-          <Text style={{ color: colors.text, opacity: 0.7, fontSize: 12, textAlign: 'center' }}>
-            🎵 DAB Music (High-Quality FLAC)
-          </Text>
-        </View>
-      )}
-
       <Spacer height={15} />
 
       {/* Logic to show Suggestions OR History OR Results */}
