@@ -82,7 +82,6 @@ export const SearchPage = ({ navigation }) => {
         selectedSource,
         data: Data,
       });
-      console.log('[SearchPage] Search state cached for back navigation');
     }
   }, [SearchText, Data, ActiveTab, selectedSource, query]);
 
@@ -131,8 +130,10 @@ export const SearchPage = ({ navigation }) => {
         } else if (selectedSource === 'saavn') {
           quickData = await getSearchSongData(query, 1, 3);
         } else if (selectedSource === 'dab') {
-          const tracks = await dabMusicService.searchTracks(query, 3);
-          quickData = { data: { results: tracks } };
+          // RATE LIMIT OPTIMIZATION: Disabled auto-fetching for DAB to save RPM.
+          // Results will now only appear when the user hits 'Enter'.
+          // Suggestions (YTMusic) still provide the 'instant' feel.
+          quickData = null;
         } else if (selectedSource === 'spotify') {
           // RATE LIMIT OPTIMIZATION: Disabled auto-fetching for Spotify to save RPM.
           // Results will now only appear when the user hits 'Enter'.

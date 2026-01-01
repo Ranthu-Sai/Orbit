@@ -24,6 +24,7 @@ class DABRecommendationService {
     constructor() {
         this.sessionSeeds = []; // Current session's song seeds
         this.sessionTags = [];  // Tags from current session
+        this.sessionLanguage = null; // Current session's target language
         this.recentHistory = new Set(); // Recently played IDs
         this.isEnabled = false;
         this.topPlayedSongs = []; // Shadow seeds from history
@@ -86,17 +87,25 @@ class DABRecommendationService {
     }
 
     /**
-     * Register a song as "played" to update seeds
+     * Register a song as "played" to update seeds and capture language
      * @param {Object} song - The song that just started playing
      */
     registerSongPlayed(song) {
         if (!song || !song.title || !song.artist) return;
 
+        // Detect language from song metadata
+        const detectedLanguage = this._detectLanguage(song);
+        if (detectedLanguage) {
+            this.sessionLanguage = detectedLanguage;
+            console.log(`🧠 DABRecs: Detected language: ${detectedLanguage}`);
+        }
+
         // Add to session seeds (max 3 in rolling window)
         this.sessionSeeds.push({
             artist: song.artist,
             track: song.title,
-            id: song.id
+            id: song.id,
+            language: detectedLanguage
         });
 
         // Keep only last 3 seeds
@@ -110,6 +119,61 @@ class DABRecommendationService {
         }
 
         console.log(`🧠 DABRecs: Registered seed "${song.title}" (${this.sessionSeeds.length} seeds)`);
+    }
+
+    /**
+     * Detect language from song metadata
+     * @private
+     */
+    _detectLanguage(song) {
+        // Check explicit language field
+        if (song.language) {
+            return song.language.toLowerCase();
+        }
+
+        // Check album name for language hints
+        const albumLower = (song.album || '').toLowerCase();
+        const titleLower = (song.title || '').toLowerCase();
+
+        // Common language indicators
+        const languageHints = {
+            'hindi': ['bollywood', 'hindi', 'bhojpuri'],
+            'tamil': ['tamil', 'kollywood', 'தமிழ்'],
+            'telugu': ['telugu', 'tollywood', 'తెలుగు'],
+            'kannada': ['kannada', 'sandalwood', 'ಕನ್ನಡ'],
+            'malayalam': ['malayalam', 'mollywood', 'മലയാളം'],
+            'punjabi': ['punjabi', 'ਪੰਜਾਬੀ'],
+            'bengali': ['bengali', 'bangla', 'বাংলা'],
+            'marathi': ['marathi', 'मराठी'],
+            'gujarati': ['gujarati', 'ગુજરાતી'],
+        };
+
+        for (const [lang, hints] of Object.entries(languageHints)) {
+            if (hints.some(h => albumLower.includes(h) || titleLower.includes(h))) {
+                return lang;
+            }
+        }
+
+        // Default to hindi for Indian Bollywood songs (common case)
+        return null;
+    }
+
+    /**
+     * Check if a song matches the current session language filter
+     * @private
+     */
+    _matchesLanguageFilter(song, targetLanguage) {
+        if (!targetLanguage) return true; // No filter if language unknown
+
+        const songLanguage = this._detectLanguage(song);
+
+        // Hindi allows Hindi + English
+        if (targetLanguage === 'hindi') {
+            return !songLanguage || songLanguage === 'hindi';
+        }
+
+        // Other Indian languages: strict same-language filter
+        return !songLanguage || songLanguage === targetLanguage;
     }
 
     /**
@@ -176,6 +240,12 @@ class DABRecommendationService {
 
                     // Skip if in recent history
                     if (this.recentHistory.has(songId)) continue;
+
+                    // LANGUAGE filter check - only allow matching language songs
+                    if (!this._matchesLanguageFilter(result.song, this.sessionLanguage)) {
+                        console.log(`🧠 DABRecs: Skipping "${rec.track}" (language filter: ${this.sessionLanguage})`);
+                        continue;
+                    }
 
                     // ARTIST diversity check - max 2 songs per artist
                     const artistKey = (result.song.artist || rec.artist || '').toLowerCase();
