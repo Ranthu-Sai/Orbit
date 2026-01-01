@@ -315,21 +315,26 @@ export const SearchPage = ({ navigation }) => {
   };
 
   // Save search query to history
-  const saveToHistory = useCallback(async (query) => {
-    if (!query || query.length < 2) return; // Don't save very short queries
+  const saveToHistory = useCallback(async (queryText) => {
+    if (!queryText || queryText.trim().length < 2) return; // Don't save very short queries
 
     try {
-      const updatedHistory = [
-        query,
-        ...searchHistory.filter(item => item.toLowerCase() !== query.toLowerCase())
-      ].slice(0, MAX_HISTORY_ITEMS);
+      setSearchHistory(prevHistory => {
+        const updatedHistory = [
+          queryText,
+          ...prevHistory.filter(item => item.toLowerCase() !== queryText.toLowerCase())
+        ].slice(0, MAX_HISTORY_ITEMS);
 
-      await AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(updatedHistory));
-      setSearchHistory(updatedHistory);
+        // Update AsyncStorage (fire and forget)
+        AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(updatedHistory))
+          .catch(error => console.error('Error saving search history to storage:', error));
+
+        return updatedHistory;
+      });
     } catch (error) {
-      console.error('Error saving search history:', error);
+      console.error('Error in saveToHistory:', error);
     }
-  }, [searchHistory]);
+  }, []);
 
   // NOTE: Removed auto-search debounce - only search on Enter press now
   // This allows suggestions + quick results to show while typing
@@ -339,6 +344,7 @@ export const SearchPage = ({ navigation }) => {
     setQuery(item);
     setSearchText(item); // Trigger search immediately
     setShowSuggestions(false);
+    saveToHistory(item); // Ensure clicked item moves to top of history
   };
 
   // Handle suggestion press

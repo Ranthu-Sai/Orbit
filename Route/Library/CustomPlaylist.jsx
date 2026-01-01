@@ -667,18 +667,18 @@ export const CustomPlaylist = () => {
             <Heading text="Playlists" nospace={true} style={{ marginLeft: 0, paddingLeft: 12, fontSize: 28, fontWeight: '900' }} />
             <View style={styles.headerButtons}>
               <Pressable
-                style={styles.addButton}
+                style={[styles.addButton, { backgroundColor: theme.dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}
                 onPress={() => setImportModalVisible(true)}
-                android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: true, radius: 20 }}
+                android_ripple={{ color: theme.dark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)', borderless: true, radius: 20 }}
               >
-                <FileInput size={24} color={'#FFFFFF'} />
+                <FileInput size={24} color={theme.colors.text} />
               </Pressable>
               <Pressable
-                style={styles.addButton}
+                style={[styles.addButton, { backgroundColor: theme.dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}
                 onPress={() => setModalVisible(true)}
-                android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: true, radius: 20 }}
+                android_ripple={{ color: theme.dark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)', borderless: true, radius: 20 }}
               >
-                <MaterialIcons name="playlist-add" size={24} color={'#FFFFFF'} />
+                <MaterialIcons name="playlist-add" size={28} color={theme.colors.text} />
               </Pressable>
             </View>
           </View>
@@ -811,7 +811,6 @@ const styles = StyleSheet.create({
   addButton: {
     padding: 10,
     borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.07)',
     width: 48,
     height: 48,
     justifyContent: 'center',
@@ -880,12 +879,10 @@ const styles = StyleSheet.create({
   playlistName: {
     fontSize: 16,
     fontWeight: '600',
-    color: 'white',
     marginBottom: 6,
   },
   songCount: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
   },
   optionsButton: {
     padding: 10,
@@ -901,7 +898,6 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '85%',
     maxWidth: 400,
-    backgroundColor: '#1E1E1E',
     borderRadius: 12,
     padding: 20,
     elevation: 5,
@@ -909,17 +905,13 @@ const styles = StyleSheet.create({
   modalLabel: {
     marginTop: 20,
     marginBottom: 10,
-    color: 'rgba(255,255,255,0.7)',
     fontSize: 16,
   },
   input: {
     height: 50,
     borderWidth: 1,
-    borderColor: '#333',
     borderRadius: 8,
     paddingHorizontal: 12,
-    color: 'white',
-    backgroundColor: '#333',
     marginTop: 12,
     fontSize: 16,
   },
@@ -938,7 +930,6 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#444',
     padding: 15,
     alignItems: 'center',
     borderRadius: 12,
@@ -950,7 +941,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   cancelButtonText: {
-    color: 'white',
     fontSize: 16,
     fontWeight: '500',
   },
@@ -1000,7 +990,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.7)',
     marginTop: 12,
     textAlign: 'center',
   },

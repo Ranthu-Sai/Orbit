@@ -42,11 +42,11 @@ export const EachLibraryCard = ({ icon, text, navigate }) => {
           paddingHorizontal: 15,
         }}
       >
-        <MaterialCommunityIcons name={icon} size={25} color={colors.primary} />
+        <MaterialCommunityIcons name={icon} size={25} color={colors.text} />
         <View style={{
           marginLeft: 20, // Increased space between icon and text
         }}>
-          <PlainText text={text} style={{fontSize:18, fontWeight: 'bold'}} />
+          <PlainText text={text} style={{ fontSize: 18, fontWeight: 'bold' }} />
         </View>
       </Pressable>
     </Animated.View>

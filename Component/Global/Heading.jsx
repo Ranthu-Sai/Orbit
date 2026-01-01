@@ -29,7 +29,7 @@ export const Heading = ({ text, description, style, nospace }) => {
           style={{
             fontSize: Size * 0.6,
             fontWeight: '700',
-            color: '#aaaaaa',
+            color: style?.color || '#aaaaaa', // Fallback to neutral gray if no style color provided
             textTransform: 'uppercase',
             marginBottom: -4,
             letterSpacing: 0.5,

@@ -77,10 +77,10 @@ const MusicFetcher = () => {
           .map((file) => {
             const lastDotIndex = file.name.lastIndexOf('.');
             const title = lastDotIndex !== -1 ? file.name.substring(0, lastDotIndex) : file.name;
-            return { 
-              id: file.path, 
-              title: title, 
-              url: 'file://' + file.path 
+            return {
+              id: file.path,
+              title: title,
+              url: 'file://' + file.path
             };
           });
         setMusicFiles(musicFilesList);
@@ -94,15 +94,6 @@ const MusicFetcher = () => {
 
     fetchMusic();
   }, []); // Empty dependency array to run once on mount
-
-  // Render loading state
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text>Loading...</Text>
-      </View>
-    );
-  }
 
   // Render error state
   if (error) {

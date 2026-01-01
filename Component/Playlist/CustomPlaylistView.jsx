@@ -30,7 +30,6 @@ const LOCAL_MUSIC_IMAGE = require('../../Images/Music.jpeg');
 const staticStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
   },
   header: {
     flexDirection: 'row',
@@ -921,7 +920,7 @@ export const CustomPlaylistView = (props) => {
   // Main render of the component
   return (
     <View style={[staticStyles.container, { backgroundColor: theme.colors.background }]}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      <StatusBar translucent backgroundColor="transparent" barStyle={theme.dark ? "light-content" : "dark-content"} />
 
       <View style={staticStyles.header}>
         <Pressable onPress={handleGoBack} style={staticStyles.backButton}>
