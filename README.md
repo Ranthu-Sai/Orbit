@@ -1,9 +1,6 @@
 <p align="center">
-  <img src="Images/Logo.jpg" alt="Orbit Logo" width="150" height="150">
+  <img src="Images/orbit_banner.jpg" alt="Orbit Music" width="100%">
 </p>
-
-<h1 align="center">🎵 ORBIT 🎵</h1>
-<h3 align="center">Where Music Flows Without Boundaries</h3>
 
 <p align="center">
   <a href="https://github.com/gauravxdev/Orbit/issues"><strong>Report Bug</strong></a>
@@ -16,7 +13,7 @@
   This application serves as a demonstration of modern mobile development techniques and API integration.
 </p>
 
-<a href="https://ibb.co/PztFkfDX"><img src="https://i.ibb.co/S7J5S9fY/Neon-gradient-mobile-mockup-instagram-post-20250331-234406-0000.png" alt="Orbit Mobile App Mockup" border="0"></a>
+
 
 ## ✨ What is Orbit?
 
@@ -124,4 +121,6 @@ Additional acknowledgments:
 
 
 ---
-<p align="center">🎵 Refined with ❤️ by <a href="https://github.com/gauravxdev">Gaurav Sharma</a> 🎵</p>
+<p align="center">
+  Created with ❤️ by <a href="https://github.com/gauravxdev"><strong>Gaurav Sharma</strong></a>
+</p>
