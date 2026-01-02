@@ -26,7 +26,6 @@ export const LikedPlaylist = ({
     const checkLiked = async () => {
       try {
         if (!id) {
-          console.log("No valid playlist ID to check liked status");
           return;
         }
         
@@ -67,14 +66,12 @@ export const LikedPlaylist = ({
   async function HandleLike() {
     try {
       if (!id) {
-        console.log("No valid playlist ID to like/unlike");
         return;
       }
       
       if (isLiked) {
         // Remove from liked playlists using the proper function
         await DeleteALikedPlaylist(id);
-        console.log(`Removed playlist ${id} from liked playlists`);
         ToastAndroid.show("Removed from Likes", ToastAndroid.SHORT);
         // Update state first to give immediate feedback
         setIsLiked(false);
@@ -97,7 +94,6 @@ export const LikedPlaylist = ({
               follower || Data?.data?.follower || "",
               id
             );
-            console.log(`Added playlist ${id} to liked playlists`);
             ToastAndroid.show("Added to Likes", ToastAndroid.SHORT);
             // Update state first to give immediate feedback
             setIsLiked(true);
@@ -108,7 +104,6 @@ export const LikedPlaylist = ({
               }, 100);
             }
           } else {
-            console.log(`Failed to get playlist data for ${id}`);
             ToastAndroid.show("Failed to add to Likes", ToastAndroid.SHORT);
           }
         } catch (error) {

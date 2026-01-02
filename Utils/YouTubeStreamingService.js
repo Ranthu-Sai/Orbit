@@ -56,7 +56,6 @@ class YouTubeStreamingService {
                 // Step 1: CHECK CACHE FIRST (Hybrid: RAM -> Disk) - only for streaming
                 const cachedData = await CacheManager.getStreamUrlAsync(videoId, 'ytmusic');
                 if (cachedData && cachedData.url) {
-                    console.log(`🚀 [Cache] Stream URL cache HIT for ${videoId} (format: ${cachedData.format})`);
                     // Estimate bitrate based on codec if not cached
                     const estimatedBitrate = cachedData.bitrate ||
                         (cachedData.mimeType?.includes('webm') ? 148000 : 256000);
@@ -85,8 +84,6 @@ class YouTubeStreamingService {
             autoQuality = cachedQualityPref !== 'High';
 
             const mode = preferM4A ? 'Download (M4A)' : (autoQuality ? 'Auto (Fast)' : 'High Quality');
-            console.log(`🎯 [${preferM4A ? 'Download' : 'Stream'}] Getting stream for video: ${videoId} - ${mode}`);
-
             // Orbit VIP Mode: Inject Cookies if available (CACHED)
             // PERFORMANCE: Use cached cookies to avoid AsyncStorage on every call
             if (!this.cachedCookies || (Date.now() - this.cookiesCacheTimestamp > this.COOKIES_CACHE_TTL)) {
@@ -95,7 +92,6 @@ class YouTubeStreamingService {
             }
             const cookies = this.cachedCookies;
             if (cookies) {
-                console.log('🍪 Using VIP Cookies for stream fetch');
             }
 
             // Call appropriate native method based on use case
@@ -108,8 +104,6 @@ class YouTubeStreamingService {
             // Verbose logging removed for cleaner console
 
             if (result && result.url) {
-                console.log(`✅ Native streaming successful (format: ${result.format})`);
-
                 // Determine format from native result
                 const format = result.format || (preferM4A ? 'm4a' : 'opus');
                 const mimeType = result.mimeType || (preferM4A ? 'audio/mp4' : 'audio/webm');

@@ -105,7 +105,6 @@ export const LikedDetails = ({name, Data, dontShowPlayButton, textStyle}) => {
         
         // Skip songs with no URL
         if (!songUrl) {
-          console.log('Skipping song with invalid URL');
           return;
         }
         
@@ -125,7 +124,6 @@ export const LikedDetails = ({name, Data, dontShowPlayButton, textStyle}) => {
       await AddPlaylist(ForPlayer);
       updateTrack();
     } else {
-      console.log('No valid songs to play');
     }
   }
   

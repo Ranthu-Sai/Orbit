@@ -22,7 +22,6 @@ export const PlaybackService = async function () {
         waitForBuffer: true,
       });
       isPlayerInitialized = true;
-      console.log('Player initialized successfully in service.js');
     }
 
     TrackPlayer.addEventListener(Event.RemotePlay, () => TrackPlayer.play());
@@ -36,12 +35,8 @@ export const PlaybackService = async function () {
 
     // Auto-recommendations listeners
     autoRecommendations.initializeListeners();
-    console.log('Auto-recommendations event listeners initialized');
-
     // Download queue service - handles queue end for downloaded songs
     DownloadQueueService.initialize();
-    console.log('Download queue service initialized');
-
     // Initialize SmartPrefetchManager for N+1, N+2 prefetching
     smartPrefetchManager.initialize();
 
@@ -72,8 +67,6 @@ export const PlaybackService = async function () {
 
     // Initialize listening history service for personalized Quick Picks
     await listeningHistoryService.initialize();
-    console.log('Listening history service initialized');
-
   } catch (error) {
     if (error.message && error.message.includes('player has already been initialized')) {
       isPlayerInitialized = true;

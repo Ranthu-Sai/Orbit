@@ -45,7 +45,6 @@ export default function ShowPlaylistofType({ route }) {
       try {
         // First check route params
         if (navigationSource) {
-          console.log(`Setting navigation source from route params: ${navigationSource}`);
           setSource(navigationSource);
           await AsyncStorage.setItem(NAVIGATION_SOURCE_KEY, navigationSource);
           return;
@@ -56,7 +55,6 @@ export default function ShowPlaylistofType({ route }) {
         const parentRoute = navigation.getState()?.routes?.[0]?.name;
 
         if (parentRoute && parentRoute !== 'Discover') {
-          console.log(`Setting navigation source from parent route: ${parentRoute}`);
           setSource(parentRoute);
           await AsyncStorage.setItem(NAVIGATION_SOURCE_KEY, parentRoute);
           return;
@@ -65,11 +63,9 @@ export default function ShowPlaylistofType({ route }) {
         // Fallback to AsyncStorage
         const storedSource = await AsyncStorage.getItem(NAVIGATION_SOURCE_KEY);
         if (storedSource) {
-          console.log(`Retrieved navigation source from storage: ${storedSource}`);
           setSource(storedSource);
         } else {
           // Default to Discover if no source found
-          console.log('No navigation source found, defaulting to Discover');
           setSource('Discover');
           await AsyncStorage.setItem(NAVIGATION_SOURCE_KEY, 'Discover');
         }
@@ -93,7 +89,6 @@ export default function ShowPlaylistofType({ route }) {
       if (!forceRefresh) {
         const cached = await CacheManager.getAsync(cacheKey);
         if (cached) {
-          console.log(`[ShowPlaylist] Cache HIT for ${Searchtext}`);
           setData(cached);
           setLoading(false);
           return;
@@ -103,8 +98,6 @@ export default function ShowPlaylistofType({ route }) {
       if (isInitialLoad.current) {
         setLoading(true);
       }
-
-      console.log(`[ShowPlaylist] Fetching data for ${Searchtext}`);
       const data = await getSearchPlaylistData(Searchtext || 'most searched', 1, limit);
 
       if (!isMounted.current) return;
@@ -113,12 +106,10 @@ export default function ShowPlaylistofType({ route }) {
         setData(data);
         CacheManager.set(cacheKey, data, CACHE_TTL.SEARCH_RESULTS);
         setFetchError(null);
-        console.log(`[ShowPlaylist] Data cached`);
       } else {
         setFetchError('No results found');
       }
     } catch (e) {
-      console.log('Error fetching playlist data:', e);
       setFetchError(e.message);
     } finally {
       if (isMounted.current) {
@@ -147,18 +138,13 @@ export default function ShowPlaylistofType({ route }) {
   // Add back handler for hardware back button
   useEffect(() => {
     const handleBackPress = () => {
-      console.log(`Back pressed in ShowPlaylistofType, source is ${source}`);
-
       // Navigate based on the source instead of always going to Discover
       if (source === 'HomePage') {
-        console.log('Navigating back to Home');
         navigation.navigate('Home', { screen: 'HomePage' });
       } else if (source === 'LibraryPage') {
-        console.log('Navigating back to Library');
         navigation.navigate('Library', { screen: 'LibraryPage' });
       } else {
         // Default to Discover (backward compatibility)
-        console.log('Navigating back to Discover');
         try {
           // Use CommonActions.reset to ensure clean navigation state
           navigation.dispatch(

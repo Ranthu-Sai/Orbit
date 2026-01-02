@@ -27,7 +27,6 @@ class MetadataResolver {
         try {
             const strictFlac = await AsyncStorage.getItem(STRICT_FLAC_KEY);
             this.strictFlacMode = strictFlac === 'true';
-            console.log(`🎯 MetadataResolver: Strict FLAC mode = ${this.strictFlacMode}`);
         } catch (error) {
             console.error('MetadataResolver: Failed to load settings', error);
         }
@@ -40,7 +39,6 @@ class MetadataResolver {
     async setStrictFlacMode(enabled) {
         this.strictFlacMode = enabled;
         await AsyncStorage.setItem(STRICT_FLAC_KEY, enabled ? 'true' : 'false');
-        console.log(`🎯 MetadataResolver: Strict FLAC mode set to ${enabled}`);
     }
 
     /**
@@ -59,36 +57,28 @@ class MetadataResolver {
      * @returns {Promise<{song: Object, source: string}|null>}
      */
     async resolve(artist, track) {
-        console.log(`🎯 MetadataResolver: Resolving "${artist} - ${track}"`);
-
         // 1. Try DAB first (FLAC quality)
         const dabResult = await this.searchDAB(artist, track);
         if (dabResult) {
-            console.log(`✅ MetadataResolver: Found on DAB (FLAC)`);
             return { song: dabResult, source: 'dab' };
         }
 
         // If strict FLAC mode is enabled, skip this song
         if (this.strictFlacMode) {
-            console.log(`⏭️ MetadataResolver: Strict FLAC mode - skipping (not on DAB)`);
             return null;
         }
 
         // 2. Try Saavn (320kbps)
         const saavnResult = await this.searchSaavn(artist, track);
         if (saavnResult) {
-            console.log(`✅ MetadataResolver: Found on Saavn (320kbps)`);
             return { song: saavnResult, source: 'saavn' };
         }
 
         // 3. Fallback to YTMusic (160kbps)
         const ytResult = await this.searchYTMusic(artist, track);
         if (ytResult) {
-            console.log(`✅ MetadataResolver: Found on YTMusic (fallback)`);
             return { song: ytResult, source: 'ytmusic' };
         }
-
-        console.log(`❌ MetadataResolver: Could not resolve "${artist} - ${track}"`);
         return null;
     }
 
@@ -100,7 +90,6 @@ class MetadataResolver {
         try {
             // Check if user is authenticated with DAB
             if (!dabMusicService.isAuthenticated()) {
-                console.log('🎯 MetadataResolver: DAB not authenticated, skipping');
                 return null;
             }
 
@@ -120,7 +109,6 @@ class MetadataResolver {
             }
         } catch (error) {
             if (error.message === 'AUTH_REQUIRED') {
-                console.log('🎯 MetadataResolver: DAB auth required, skipping');
             } else {
                 console.error('MetadataResolver: DAB search failed', error);
             }

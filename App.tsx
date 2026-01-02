@@ -16,8 +16,8 @@ import SectionListPage from './Route/SectionListPage';
 import LoginScreen from './Component/Auth/LoginScreen';
 import { ChangeName } from './Route/Home/ChangeName';
 import { SelectLanguages } from './Route/Home/SelectLanguages';
-import CodePush from "react-native-code-push";
-import { useEffect, useRef } from "react";
+// CodePush removed - using Firebase Remote Config for updates
+import { useEffect, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // Firebase Analytics is initialized within AnalyticsUtils using the modular API
 // Import analytics service
@@ -33,6 +33,8 @@ import NativeMetadataReader from './Utils/NativeMetadataReader';
 import lastFMService from './Utils/LastFMService';
 import dabRecommendationService from './Utils/DABRecommendationService';
 import { LASTFM_API_KEY, LASTFM_API_SECRET } from './Utils/secrets';
+import updateService from './Utils/UpdateService';
+import UpdateModal from './Component/Modals/UpdateModal';
 
 type ThemeContextType = {
   theme: typeof darkTheme;
@@ -46,10 +48,59 @@ type ThemeContextType = {
 };
 
 const Stack = createStackNavigator()
-let codePushOptions = { checkFrequency: CodePush.CheckFrequency.ON_APP_START };
+
+// Update modal state (managed at top level for force updates)
+let globalSetUpdateModalVisible: ((visible: boolean) => void) | null = null;
+let globalSetUpdateInfo: ((info: any) => void) | null = null;
 
 function App() {
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
+
+  // Update modal state
+  const [updateModalVisible, setUpdateModalVisible] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<any>(null);
+
+  // Register global setters for force updates
+  useEffect(() => {
+    globalSetUpdateModalVisible = setUpdateModalVisible;
+    globalSetUpdateInfo = setUpdateInfo;
+    return () => {
+      globalSetUpdateModalVisible = null;
+      globalSetUpdateInfo = null;
+    };
+  }, []);
+
+  // Startup update check
+  useEffect(() => {
+    const checkForUpdates = async () => {
+      try {
+        const result = await updateService.shouldShowUpdate();
+        if (result.show && result.updateInfo) {
+          setUpdateInfo(result.updateInfo);
+          setUpdateModalVisible(true);
+        }
+      } catch (error) {
+      }
+    };
+
+    // Delay update check to not block app startup
+    const timeout = setTimeout(checkForUpdates, 3000);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  // Update modal handlers
+  const handleUpdateDismiss = async () => {
+    setUpdateModalVisible(false);
+    if (updateInfo?.latestVersion) {
+      await updateService.dismissUpdate(updateInfo.latestVersion);
+    }
+  };
+
+  const handleUpdateNow = async () => {
+    if (updateInfo?.url) {
+      await updateService.openUpdateLink(updateInfo.url);
+    }
+  };
 
   useEffect(() => {
     // Initialize playlists structure if needed
@@ -86,22 +137,7 @@ function App() {
     dabRecommendationService.initialize();
   }, []);
 
-  useEffect(() => {
-    // @ts-ignore
-    CodePush.notifyAppReady()
-    CodePush.checkForUpdate().then(update => {
-      if (update) {
-        ToastAndroid.showWithGravity(
-          `App Update Available and will be updated automatically`,
-          ToastAndroid.LONG,
-          ToastAndroid.CENTER,
-        );
-        CodePush.sync(
-          { installMode: CodePush.InstallMode.IMMEDIATE },
-        );
-      }
-    });
-  }, [])
+
 
   useEffect(() => {
     // Ensure storage directories exist early to avoid ENOENT when accessing files
@@ -140,8 +176,6 @@ function App() {
       const isAudioIntent = isContentUri || isFileUri;
 
       if (isAudioIntent) {
-        console.log('📱 Audio file intent received:', url);
-
         try {
           // Ensure player is ready
           await setupPlayer();
@@ -150,7 +184,6 @@ function App() {
 
           if (isContentUri) {
             // For content:// URIs, use native module to resolve and read metadata
-            console.log('🔍 Resolving content:// URI...');
             const metadata = await NativeMetadataReader.readMetadataFromUri(url);
 
             if (metadata && metadata.filePath) {
@@ -165,7 +198,6 @@ function App() {
                 artwork: metadata.artworkDataUri || '',
                 image: metadata.artworkDataUri || '',
               };
-              console.log('✅ Content URI resolved:', song.title, 'by', song.artist);
             } else {
               // Fallback if native module fails
               console.warn('⚠️ Failed to resolve content URI, using fallback');
@@ -194,7 +226,6 @@ function App() {
             try {
               metadata = await NativeMetadataReader.readMetadata(filePath);
             } catch (e) {
-              console.log('Could not read metadata from file, using filename');
             }
 
             song = {
@@ -209,8 +240,6 @@ function App() {
               image: metadata?.artworkDataUri || '',
             };
           }
-
-          console.log('🎵 Playing external audio file:', song.title);
           ToastAndroid.show(`Playing: ${song.title}`, ToastAndroid.SHORT);
 
           await PlayOneSong(song);
@@ -277,6 +306,14 @@ function App() {
                     <Stack.Screen name="SelectLanguages" component={SelectLanguages} />
                   </Stack.Navigator>
                 </NavigationContainer>
+
+                {/* Global Update Modal */}
+                <UpdateModal
+                  visible={updateModalVisible}
+                  onDismiss={handleUpdateDismiss}
+                  updateInfo={updateInfo}
+                  onUpdate={handleUpdateNow}
+                />
               </PaperProvider>
             );
           }}
@@ -285,4 +322,4 @@ function App() {
     </ContextState>
   </GestureHandlerRootView>
 }
-export default CodePush(codePushOptions)(App)
+export default App

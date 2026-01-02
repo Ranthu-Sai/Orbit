@@ -36,7 +36,6 @@ class StreamFetchManager {
 
         // Check if already fetching
         if (this.activeRequests.has(videoId)) {
-            console.log(`⏳ Reusing in-flight request for ${videoId}`);
             const activeRequest = this.activeRequests.get(videoId);
 
             // If parent operation was cancelled, cancel this request too
@@ -103,19 +102,16 @@ class StreamFetchManager {
         // Check if expired
         const age = Date.now() - cached.timestamp;
         if (age > this.cacheTTL) {
-            console.log(`🗑️ Cache expired for ${videoId} (age: ${Math.round(age / 1000)}s)`);
             this.requestCache.delete(videoId);
             return null;
         }
 
         // Validate URL still looks correct (not a placeholder)
         if (!cached.url || cached.url.startsWith('ytmusic://')) {
-            console.log(`❌ Invalid cached URL for ${videoId}`);
             this.requestCache.delete(videoId);
             return null;
         }
 
-        console.log(`✅ Cache hit for ${videoId} (age: ${Math.round(age / 1000)}s)`);
         return {
             url: cached.url,
             headers: cached.headers,
@@ -142,8 +138,6 @@ class StreamFetchManager {
      * Cancel all active requests
      */
     cancelAllRequests() {
-        console.log(`🚫 Cancelling ${this.activeRequests.size} active stream requests`);
-
         for (const [videoId, request] of this.activeRequests.entries()) {
             request.abortController.abort();
         }
@@ -159,7 +153,6 @@ class StreamFetchManager {
         if (request) {
             request.abortController.abort();
             this.activeRequests.delete(videoId);
-            console.log(`🚫 Cancelled stream request for ${videoId}`);
         }
     }
 
@@ -176,7 +169,6 @@ class StreamFetchManager {
             }
         }
         if (cleared > 0) {
-            console.log(`🗑️ Cleaned ${cleared} expired cache entries`);
         }
     }
 
@@ -186,7 +178,6 @@ class StreamFetchManager {
     reset() {
         this.cancelAllRequests();
         this.requestCache.clear();
-        console.log('🔄 StreamFetchManager reset complete');
     }
 }
 

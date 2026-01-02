@@ -110,7 +110,6 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
           // Emit queue update event for UI refresh
           DeviceEventEmitter.emit('queue-updated', { count: shuffledQueue.length });
 
-          console.log(`✅ Queue shuffled: ${shuffledQueue.length} tracks`);
         } catch (bgError) {
           console.error('Background shuffle error:', bgError);
         }

@@ -72,13 +72,7 @@ const ProgressBar = () => {
 
       // Log if there's a significant difference (more than 5 seconds)
       if (difference > 5) {
-        console.log('Duration inconsistency detected:', {
-          track: currentTrack.title,
-          trackMetadataDuration: formatTime(trackDuration),
-          useProgressDuration: formatTime(progressDuration),
-          difference: formatTime(difference)
-        });
-      }
+        }
     }
   }, [currentTrack?.id, duration, currentTrack?.duration]);
 

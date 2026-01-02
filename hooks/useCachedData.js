@@ -74,8 +74,6 @@ export function useCachedData({
             const cachedData = await CacheManager.getAsync(cacheKey);
 
             if (cachedData !== null) {
-                console.log(`[useCachedData] Cache HIT for ${cacheKey}`);
-
                 if (isMounted.current) {
                     setData(cachedData);
                     setIsCached(true);
@@ -84,8 +82,6 @@ export function useCachedData({
                 }
                 return;
             }
-
-            console.log(`[useCachedData] Cache MISS for ${cacheKey}`);
         }
 
         // Fetch fresh data
@@ -107,8 +103,6 @@ export function useCachedData({
 
                 // Cache the data
                 CacheManager.set(cacheKey, freshData, ttl);
-                console.log(`[useCachedData] Data cached for ${cacheKey} (TTL: ${ttl / 1000}s)`);
-
                 // Success callback
                 if (onSuccess) {
                     onSuccess(freshData);

@@ -73,7 +73,7 @@ const ArtistPage = () => {
 
         // Check if we should return to FullScreenMusic
         if (returnToFullScreen || fullScreenNavigationTarget === 'ArtistPage') {
-          console.log('[ArtistPage] Returning to FullScreenMusic');
+
           // Clear the navigation target
           setFullScreenNavigationTarget(null);
 
@@ -460,7 +460,7 @@ const ArtistSection = React.memo(({ section, theme, navigation, activeTrack, pla
       onArtistPress(item);
     } else {
       // Log unmatched items for debugging
-      console.log('[ArtistPage] Unmatched item type:', { type: item.type, browseId: item.browseId, item });
+
     }
   };
 

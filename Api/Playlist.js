@@ -18,7 +18,6 @@ async function getPlaylistData(id) {
 
   // If it's a YouTube Music playlist, use the YTMusic API
   if (isYouTubePlaylist) {
-    console.log(`Detected YouTube Music playlist ID: ${id}, using YTMusic API`);
     try {
       const ytResult = await getYTMusicPlaylistData(id);
       if (ytResult && ytResult.success && ytResult.data) {
@@ -30,19 +29,15 @@ async function getPlaylistData(id) {
           success: true
         };
       } else {
-        console.log(`YTMusic API failed for playlist ${id}, falling back to JioSaavn`);
         // Fall through to JioSaavn API as fallback
       }
     } catch (ytError) {
-      console.log(`YTMusic API error for playlist ${id}:`, ytError.message);
       // Fall through to JioSaavn API as fallback
     }
   }
 
   // Check if we're offline before doing anything
   if (isOfflineMode()) {
-    console.log(`Device is offline - looking for cached playlist ${id}`);
-
     try {
       // Try to get the cached data directly (getCachedData handles this but just to be safe)
       const result = await getCachedData(cacheKey, null, 30, CACHE_GROUPS.PLAYLISTS);
@@ -57,7 +52,6 @@ async function getPlaylistData(id) {
         message: 'Playlist not available offline'
       };
     } catch (cacheError) {
-      console.log(`No cached data found for playlist ${id} in offline mode`);
       return {
         success: false,
         offlineMode: true,
@@ -82,7 +76,6 @@ async function getPlaylistData(id) {
     }
     catch (error) {
       // Don't throw error, return error object
-      console.log(`Error fetching playlist ${id}:`, error.message || 'Unknown error');
       return {
         success: false,
         error: error.message || 'Network error',
@@ -93,11 +86,9 @@ async function getPlaylistData(id) {
 
   // Use cache manager with 30 minute expiration for playlist data
   try {
-    console.log(`Fetching playlist data for ID: ${id} using JioSaavn API`);
     return await getCachedData(cacheKey, fetchFunction, 30, CACHE_GROUPS.PLAYLISTS);
   } catch (error) {
     // Don't throw error, return error object
-    console.log(`Error getting playlist data for ID ${id}:`, error.message || 'Unknown error');
     return {
       success: false,
       error: error.message || 'Unknown error',
@@ -112,8 +103,6 @@ async function getSearchPlaylistData(searchText, page, limit) {
   
   // Check if we're offline before doing anything
   if (isOfflineMode()) {
-    console.log(`Device is offline - looking for cached playlist search ${searchText}`);
-    
     try {
       // Try to get the cached data directly
       const result = await getCachedData(cacheKey, null, 5, CACHE_GROUPS.SEARCH);
@@ -128,7 +117,6 @@ async function getSearchPlaylistData(searchText, page, limit) {
         message: 'Search not available offline'
       };
     } catch (cacheError) {
-      console.log(`No cached data found for playlist search ${searchText} in offline mode`);
       return {
         success: false,
         offlineMode: true,
@@ -153,7 +141,6 @@ async function getSearchPlaylistData(searchText, page, limit) {
     }
     catch (error) {
       // Don't throw error, return error object
-      console.log(`Error searching playlists for "${searchText}":`, error.message || 'Unknown error');
       return {
         success: false,
         error: error.message || 'Network error',
@@ -167,7 +154,6 @@ async function getSearchPlaylistData(searchText, page, limit) {
     return await getCachedData(cacheKey, fetchFunction, 5, CACHE_GROUPS.SEARCH);
   } catch (error) {
     // Don't throw error, return error object
-    console.log(`Error getting playlist search data for "${searchText}":`, error.message || 'Unknown error');
     return {
       success: false,
       error: error.message || 'Unknown error',

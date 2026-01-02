@@ -154,8 +154,6 @@ export const getTrendingPodcasts = async (max = 20, lang = null, cat = null) => 
 
     const fetchFunction = async () => {
         try {
-            console.log('🎙️ Fetching trending podcasts...');
-
             const params = { max };
             if (lang) params.lang = lang;
             if (cat) params.cat = cat;
@@ -166,18 +164,9 @@ export const getTrendingPodcasts = async (max = 20, lang = null, cat = null) => 
                 // Debug: Log first podcast raw data to check artwork fields
                 if (response.feeds.length > 0) {
                     const sample = response.feeds[0];
-                    console.log('🔍 Sample raw podcast data:', {
-                        title: sample.title,
-                        artwork: sample.artwork,
-                        image: sample.image,
-                        imageUrl: sample.imageUrl,
-                        originalUrl: sample.originalUrl,
-                    });
                 }
 
                 const podcasts = response.feeds.map(transformPodcast);
-                console.log(`✅ Found ${podcasts.length} trending podcasts`);
-
                 return {
                     success: true,
                     data: podcasts,
@@ -208,8 +197,6 @@ export const getRecentEpisodes = async (max = 20, lang = null, cat = null) => {
 
     const fetchFunction = async () => {
         try {
-            console.log('🎙️ Fetching recent episodes...');
-
             const params = { max };
             if (lang) params.lang = lang;
             if (cat) params.cat = cat;
@@ -218,8 +205,6 @@ export const getRecentEpisodes = async (max = 20, lang = null, cat = null) => {
 
             if (response.status === 'true' && response.items) {
                 const episodes = response.items.map(ep => transformEpisode(ep));
-                console.log(`✅ Found ${episodes.length} recent episodes`);
-
                 return {
                     success: true,
                     data: episodes,
@@ -248,14 +233,10 @@ export const searchPodcasts = async (query, max = 20) => {
 
     const fetchFunction = async () => {
         try {
-            console.log(`🔍 Searching podcasts for: ${query}`);
-
             const response = await apiRequest('/search/byterm', { q: query, max });
 
             if (response.status === 'true' && response.feeds) {
                 const podcasts = response.feeds.map(transformPodcast);
-                console.log(`✅ Found ${podcasts.length} podcasts for: ${query}`);
-
                 return {
                     success: true,
                     data: podcasts,
@@ -283,14 +264,10 @@ export const getPodcastByFeedId = async (feedId) => {
 
     const fetchFunction = async () => {
         try {
-            console.log(`🎙️ Fetching podcast details for: ${feedId}`);
-
             const response = await apiRequest('/podcasts/byfeedid', { id: feedId });
 
             if (response.status === 'true' && response.feed) {
                 const podcast = transformPodcast(response.feed);
-                console.log(`✅ Got podcast: ${podcast.title}`);
-
                 return {
                     success: true,
                     data: podcast,
@@ -318,14 +295,10 @@ export const getEpisodesByFeedId = async (feedId, max = 50) => {
 
     const fetchFunction = async () => {
         try {
-            console.log(`🎙️ Fetching episodes for podcast: ${feedId}`);
-
             const response = await apiRequest('/episodes/byfeedid', { id: feedId, max });
 
             if (response.status === 'true' && response.items) {
                 const episodes = response.items.map(ep => transformEpisode(ep));
-                console.log(`✅ Found ${episodes.length} episodes`);
-
                 return {
                     success: true,
                     data: episodes,
@@ -352,8 +325,6 @@ export const getCategories = async () => {
 
     const fetchFunction = async () => {
         try {
-            console.log('🎙️ Fetching podcast categories...');
-
             const response = await apiRequest('/categories/list');
 
             if (response.status === 'true' && response.feeds) {
@@ -361,8 +332,6 @@ export const getCategories = async () => {
                     id: cat.id,
                     name: cat.name,
                 }));
-                console.log(`✅ Found ${categories.length} categories`);
-
                 return {
                     success: true,
                     data: categories,
@@ -415,8 +384,6 @@ export const getRandomEpisodes = async (max = 10, cat = null) => {
 
     const fetchFunction = async () => {
         try {
-            console.log('🎙️ Fetching random episodes...');
-
             const params = { max };
             if (cat) params.cat = cat;
 
@@ -424,8 +391,6 @@ export const getRandomEpisodes = async (max = 10, cat = null) => {
 
             if (response.status === 'true' && response.episodes) {
                 const episodes = response.episodes.map(ep => transformEpisode(ep));
-                console.log(`✅ Found ${episodes.length} random episodes`);
-
                 return {
                     success: true,
                     data: episodes,

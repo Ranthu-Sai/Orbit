@@ -57,7 +57,6 @@ export function useScrollRestoration(screenKey, options = {}) {
     const saveScrollPosition = useCallback(() => {
         if (screenKey && scrollPosition.current > 0) {
             CacheManager.setScrollPosition(screenKey, scrollPosition.current);
-            console.log(`[ScrollRestoration] Saved position ${scrollPosition.current} for ${screenKey}`);
         }
     }, [screenKey]);
 
@@ -89,8 +88,6 @@ export function useScrollRestoration(screenKey, options = {}) {
                             animated,
                         });
                     }
-
-                    console.log(`[ScrollRestoration] Restored position ${savedPosition} for ${screenKey}`);
                     hasRestoredScroll.current = true;
                 }
             }, 100);

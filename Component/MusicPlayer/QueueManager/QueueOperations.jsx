@@ -39,7 +39,6 @@ export class QueueOperations {
         currentTrack = await TrackPlayer.getActiveTrack();
         
         if (currentTrack?.id === item.id) {
-          console.log('Selected currently playing track - toggle playback');
           const state = await TrackPlayer.getState();
           
           if (state === State.Playing) {
@@ -63,8 +62,6 @@ export class QueueOperations {
         console.warn(`Track with ID ${item.id} not found in player queue`);
         
         if (item.url) {
-          console.log('Track has URL but not in queue, adding it to queue');
-          
           let sourceType = item.sourceType;
           
           if (!sourceType) {
@@ -151,8 +148,6 @@ export class QueueOperations {
           return;
         }
       }
-      
-      console.log(`Selected track "${item.title}" at queue index ${actualIndex}`);
       await SkipToTrack(actualIndex);
       
       setIsPendingAction(false);
@@ -170,7 +165,6 @@ export class QueueOperations {
     
     try {
       setIsDragging(true);
-      console.log('QueueOperations: Drag started');
     } catch (error) {
       console.error('Error in drag start:', error);
     }
@@ -245,19 +239,9 @@ export class QueueOperations {
       if (actualFromIndex < actualToIndex) {
         actualToIndex--;
       }
-      
-      console.log('QueueOperations: Move operation', {
-        visualFrom: from,
-        visualTo: to,
-        actualFrom: actualFromIndex,
-        actualTo: actualToIndex,
-        trackTitle: movedTrack.title
-      });
-      
       // Use TrackPlayer.move() - no playback interruption!
       if (actualFromIndex !== -1 && actualToIndex !== -1 && actualFromIndex !== actualToIndex) {
         await TrackPlayer.move(actualFromIndex, actualToIndex);
-        console.log('Track moved successfully without playback interruption');
       }
       
       // Refresh queue view

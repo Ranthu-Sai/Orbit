@@ -17,7 +17,6 @@ class SimpleOrbitScanner {
      */
     static async scanOrbitSongs() {
         try {
-            console.log('🔍 [SimpleScanner] Starting scan...');
             ToastAndroid.show('📂 Scanning orbit/songs...', ToastAndroid.SHORT);
 
             // Import ID3Parser for metadata reading
@@ -25,7 +24,6 @@ class SimpleOrbitScanner {
 
             // Get the songs directory path
             const songsDir = await this.getSongsDirectory();
-            console.log(`📂 [SimpleScanner] Songs directory: ${songsDir}`);
             ToastAndroid.show(`Path: ${songsDir}`, ToastAndroid.LONG);
 
             if (!songsDir) {
@@ -36,11 +34,9 @@ class SimpleOrbitScanner {
 
             // Check if directory exists
             const dirExists = await RNFS.exists(songsDir);
-            console.log(`📁 [SimpleScanner] Directory exists: ${dirExists}`);
             ToastAndroid.show(`Dir exists: ${dirExists}`, ToastAndroid.SHORT);
 
             if (!dirExists) {
-                console.log('📭 [SimpleScanner] Directory does not exist, creating...');
                 try {
                     await RNFS.mkdir(songsDir);
                     ToastAndroid.show('Created directory', ToastAndroid.SHORT);
@@ -51,9 +47,7 @@ class SimpleOrbitScanner {
             }
 
             // Read all files
-            console.log('📖 [SimpleScanner] Reading files...');
             const files = await RNFS.readDir(songsDir);
-            console.log(`📄 [SimpleScanner] Found ${files.length} total files`);
             ToastAndroid.show(`Found ${files.length} files`, ToastAndroid.SHORT);
 
             // Filter for audio files
@@ -61,8 +55,6 @@ class SimpleOrbitScanner {
                 const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
                 return this.SUPPORTED_EXTENSIONS.includes(ext) && file.isFile();
             });
-
-            console.log(`🎵 [SimpleScanner] Found ${audioFiles.length} audio files`);
             ToastAndroid.show(`${audioFiles.length} audio files found`, ToastAndroid.SHORT);
 
             if (audioFiles.length === 0) {
@@ -71,7 +63,6 @@ class SimpleOrbitScanner {
             }
 
             // Extract metadata from each file
-            console.log('🔍 [SimpleScanner] Reading metadata...');
             ToastAndroid.show('Reading metadata...', ToastAndroid.SHORT);
 
             const songs = await Promise.all(
@@ -130,8 +121,6 @@ class SimpleOrbitScanner {
                     };
                 })
             );
-
-            console.log(`✅ [SimpleScanner] Scanned ${songs.length} songs successfully`);
             ToastAndroid.show(`✅ Loaded ${songs.length} songs with metadata`, ToastAndroid.LONG);
             return songs;
 

@@ -115,9 +115,6 @@ export const filterQueueBySource = async (currentTrack, isOffline = false) => {
 
     const downloadedTracks = await getDownloadedTracks();
     const sourceType = getTrackSourceType(currentTrack);
-
-    console.log('QueueUtils: Filtering queue for source type:', sourceType);
-
     if (sourceType === TrackSourceTypes.MYMUSIC) {
       const fullQueue = await TrackPlayer.getQueue();
       const myMusicTracks = fullQueue.filter(track => getTrackSourceType(track) === TrackSourceTypes.MYMUSIC);

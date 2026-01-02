@@ -83,8 +83,6 @@ const DownloadedSongsManager = ({
       if (onDownloadedSongsChanged) {
         onDownloadedSongsChanged(songsArray);
       }
-      
-      console.log(`DownloadedSongsManager: Loaded ${songsArray.length} downloaded songs`);
       return songsArray;
       
     } catch (error) {
@@ -149,8 +147,6 @@ const DownloadedSongsManager = ({
       if (onDownloadStatusChanged) {
         onDownloadStatusChanged(songId, false);
       }
-      
-      console.log(`DownloadedSongsManager: Successfully removed song ${songId}`);
       return true;
     } catch (error) {
       console.error(`DownloadedSongsManager: Error removing song ${songId}:`, error);
@@ -227,7 +223,6 @@ const DownloadedSongsManager = ({
     const downloadListener = DeviceEventEmitter.addListener(
       'songDownloaded',
       (data) => {
-        console.log('DownloadedSongsManager: Song download completed, refreshing list');
         loadDownloadedSongs();
       }
     );
@@ -235,7 +230,6 @@ const DownloadedSongsManager = ({
     const deleteListener = DeviceEventEmitter.addListener(
       'songDeleted',
       (data) => {
-        console.log('DownloadedSongsManager: Song deleted, refreshing list');
         loadDownloadedSongs();
       }
     );

@@ -125,24 +125,19 @@ export const useUnifiedDownload = (songData = null, isOffline = false) => {
   // Download function with permission handling
   const startDownload = useCallback(async () => {
     if (!songData || !songId) {
-      console.log("useUnifiedDownload: No valid song to download");
       setDownloadError(new Error("No valid song to download"));
       return false;
     }
 
     if (isDownloading) {
-      console.log("useUnifiedDownload: Already downloading, please wait");
       return false;
     }
 
     if (isDownloaded) {
-      console.log("useUnifiedDownload: Song already downloaded");
       return true;
     }
 
     try {
-      console.log("useUnifiedDownload: Starting download process for song:", songData.title);
-
       // Reset states
       setDownloadError(null);
       setDownloadProgress(0);
@@ -162,7 +157,6 @@ export const useUnifiedDownload = (songData = null, isOffline = false) => {
         songData,
         // Progress callback
         (progress) => {
-          console.log("useUnifiedDownload: Progress update:", progress);
           setDownloadProgress(progress);
         }
       );

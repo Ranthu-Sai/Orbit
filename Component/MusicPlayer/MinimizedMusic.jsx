@@ -127,14 +127,12 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
   const extractPlaylistInfo = useCallback((navState) => {
     try {
       if (!navState || !navState.routes || navState.routes.length === 0) {
-        console.log('Navigation state is invalid or empty');
         return null;
       }
 
       // Check if we're in the Playlist screen
       const currentTabRoute = navState.routes[navState.index];
       if (!currentTabRoute) {
-        console.log('Current tab route is undefined');
         return null;
       }
 
@@ -142,7 +140,6 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
       if (currentTabRoute.name === 'Playlist' && currentTabRoute.params) {
         // Validate that we have the required id parameter
         if (!currentTabRoute.params.id) {
-          console.log('Playlist params found but missing id');
           return null;
         }
 
@@ -158,13 +155,11 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
       const nestedState = currentTabRoute.state;
       if (nestedState && nestedState.routes && nestedState.routes.length > 0) {
         if (nestedState.index >= nestedState.routes.length) {
-          console.log('Nested state index out of bounds');
           return null;
         }
 
         const activeNestedRoute = nestedState.routes[nestedState.index];
         if (!activeNestedRoute) {
-          console.log('Active nested route is undefined');
           return null;
         }
 
@@ -172,7 +167,6 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
         if (activeNestedRoute.name === 'Playlist' && activeNestedRoute.params) {
           // Validate that we have the required id parameter
           if (!activeNestedRoute.params.id) {
-            console.log('Nested playlist params found but missing id');
             return null;
           }
 
@@ -187,20 +181,17 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
         // 3. Check if there's even deeper nesting
         if (activeNestedRoute.state && activeNestedRoute.state.routes && activeNestedRoute.state.routes.length > 0) {
           if (activeNestedRoute.state.index >= activeNestedRoute.state.routes.length) {
-            console.log('Deep nested state index out of bounds');
             return null;
           }
 
           const deepNestedRoute = activeNestedRoute.state.routes[activeNestedRoute.state.index];
           if (!deepNestedRoute) {
-            console.log('Deep nested route is undefined');
             return null;
           }
 
           if (deepNestedRoute.name === 'Playlist' && deepNestedRoute.params) {
             // Validate that we have the required id parameter
             if (!deepNestedRoute.params.id) {
-              console.log('Deep nested playlist params found but missing id');
               return null;
             }
 
@@ -242,8 +233,6 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
 
           if (activeTabIndex !== undefined && tabState.routes && tabState.routes.length > activeTabIndex) {
             const activeTab = tabState.routes[activeTabIndex];
-            console.log(`Active tab: ${activeTab.name}`);
-
             // Start building the path with the tab name
             screenPath = activeTab.name;
 
@@ -254,16 +243,12 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
 
               if (activeNestedIndex !== undefined && nestedState.routes && nestedState.routes.length > activeNestedIndex) {
                 const activeScreen = nestedState.routes[activeNestedIndex];
-                console.log(`Active screen: ${activeScreen.name} in ${activeTab.name}`);
-
                 // Add the active screen to the path
                 screenPath = `${screenPath}/${activeScreen.name}`;
 
                 // If we're in CustomPlaylistView, save its params
                 if (activeScreen.name === 'CustomPlaylistView' && activeScreen.params) {
                   customPlaylistParams = activeScreen.params;
-                  console.log('Captured CustomPlaylistView params:', customPlaylistParams);
-
                   // Also store in AsyncStorage for recovery
                   if (customPlaylistParams.playlistName && customPlaylistParams.songs) {
                     AsyncStorage.setItem('last_viewed_custom_playlist',
@@ -281,8 +266,6 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
       }
 
       // Log the extracted path
-      console.log(`EXTRACTED PATH: ${screenPath}`);
-
       // Store the screen path for later use
       setMusicPreviousScreen(screenPath);
 

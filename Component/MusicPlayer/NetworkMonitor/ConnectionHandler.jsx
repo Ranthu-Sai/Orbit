@@ -65,8 +65,6 @@ export const ConnectionHandler = ({
   // Error suppression for offline mode
   useEffect(() => {
     if (suppressOfflineErrors && isOffline) {
-      console.log('ConnectionHandler: Offline mode - suppressing network errors');
-      
       // Add global error handler for network-related errors
       const originalConsoleError = console.error;
       console.error = (...args) => {
@@ -103,10 +101,7 @@ export const ConnectionHandler = ({
     let retryTimer;
 
     if (enableAutoRetry && isOffline) {
-      console.log(`ConnectionHandler: Starting auto-retry every ${retryInterval}ms`);
-      
       retryTimer = setInterval(() => {
-        console.log('ConnectionHandler: Auto-retrying network connection...');
         refreshNetworkState();
       }, retryInterval);
     }

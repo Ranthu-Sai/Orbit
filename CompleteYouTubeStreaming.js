@@ -35,13 +35,11 @@
  * // B. Function to play a song
  * async function playYouTubeSong(videoId) {
  *   try {
- *     console.log(`Fetching stream for ${videoId}...`);
- *     
+ *     *     
  *     // 1. Get the URL and headers from this module
  *     const { url, headers, details } = await getStreamingUrl(videoId);
  *     
- *     console.log('Got URL:', url);
- *     
+ *     *     
  *     // 2. Add to TrackPlayer with the CRITICAL headers
  *     await TrackPlayer.add({
  *       id: videoId,
@@ -194,15 +192,9 @@ module.exports = { getStreamingUrl };
 if (require.main === module) {
     (async () => {
         const testId = process.argv[2] || 'YmgHdpl4dBs'; // Default to Indian song
-        console.log(`\n🧪 Testing with video ID: ${testId}`);
         try {
             const result = await getStreamingUrl(testId);
-            console.log('\n✅ SUCCESS!');
-            console.log(`   Title: ${result.details.title}`);
-            console.log(`   URL: ${result.url.substring(0, 50)}...`);
-            console.log('\n📌 REQUIRED HEADERS (Pass these to TrackPlayer):');
-            console.log(result.headers);
-        } catch (e) {
+            } catch (e) {
             console.error('\n❌ FAILED:', e.message);
         }
     })();

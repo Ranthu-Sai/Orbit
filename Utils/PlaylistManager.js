@@ -4,9 +4,12 @@ import { ToastAndroid, DeviceEventEmitter, Platform } from 'react-native';
 import { safeExists, ensureDirectoryExists } from './FileUtils';
 
 // File-based storage for playlists to avoid SQLite limits
+// Using app-private external storage (no permission needed on Android 11+)
 const getPlaylistsFilePath = async () => {
+  // Use ExternalDirectoryPath (/storage/emulated/0/Android/data/com.orbit.music/files)
+  // instead of DownloadDirectoryPath to avoid MANAGE_EXTERNAL_STORAGE requirement
   const baseDir = Platform.OS === 'android'
-    ? `${RNFS.DownloadDirectoryPath}/orbit`
+    ? `${RNFS.ExternalDirectoryPath}/orbit`
     : RNFS.DocumentDirectoryPath;
 
   await ensureDirectoryExists(baseDir);
@@ -49,16 +52,12 @@ const migrateFromAsyncStorage = async () => {
     if (storedPlaylists) {
       const playlists = JSON.parse(storedPlaylists);
       if (Array.isArray(playlists) && playlists.length > 0) {
-        console.log(`📦 Migrating ${playlists.length} playlists from AsyncStorage to file storage...`);
-
         // Save to file
         const filePath = await getPlaylistsFilePath();
         await RNFS.writeFile(filePath, JSON.stringify(playlists, null, 2), 'utf8');
 
         // Remove from AsyncStorage to free up space
         await AsyncStorage.removeItem('userPlaylists');
-
-        console.log('✅ Playlist migration complete!');
         return playlists;
       }
     }
@@ -177,8 +176,6 @@ export const createPlaylist = async (name, firstSong = null) => {
 
     // Clear cache to force refresh
     clearPlaylistCache();
-
-    console.log(`Created playlist: ${name} with ID: ${newPlaylist.id}`);
     DeviceEventEmitter.emit('playlist-updated');
     return newPlaylist;
   } catch (error) {
@@ -241,8 +238,6 @@ export const createPlaylistWithSongs = async (name, songs = [], coverImage = nul
 
     // Clear cache to force refresh
     clearPlaylistCache();
-
-    console.log(`Created imported playlist: ${playlistName} with ${songs.length} songs`);
     DeviceEventEmitter.emit('playlist-updated');
     return newPlaylist;
   } catch (error) {
@@ -300,7 +295,6 @@ export const addSongToPlaylist = async (playlistId, song) => {
     clearPlaylistCache();
 
     ToastAndroid.show(`Added "${song.title}" to "${playlists[playlistIndex].name}"`, ToastAndroid.SHORT);
-    console.log(`Added song "${song.title}" to playlist "${playlists[playlistIndex].name}"`);
     DeviceEventEmitter.emit('playlist-updated');
     return true;
   } catch (error) {

@@ -10,11 +10,9 @@ async function getRecommendedSongs(id) {
       // If we have access to the song object, we could be more precise.
       // For now, let's assume if it's 11 chars AND doesn't look like a Saavn ID (optional)
       // But Saavn IDs can be anything. Better to check if we're in a Saavn context.
-      console.log(`Checking if 11-char ID ${id} is YouTube or Saavn...`);
     }
 
     if (isYouTubeId && !id.startsWith('_')) { // Many Saavn IDs start with underscores
-      console.log(`Skipping recommendations for likely YouTube song: ${id}`);
       return { data: [], success: true, message: "Recommendations not available for YouTube songs" };
     }
 
@@ -22,7 +20,6 @@ async function getRecommendedSongs(id) {
     // DAB uses Last.fm recommendations via DABRecommendationService, not Saavn
     const isDabId = id && typeof id === 'string' && /^\d{6,15}$/.test(id);
     if (isDabId) {
-      console.log(`Skipping Saavn recommendations for DAB song: ${id}`);
       return { data: [], success: true, message: "DAB uses Last.fm recommendations" };
     }
 
@@ -39,14 +36,12 @@ async function getRecommendedSongs(id) {
         id.includes('.ogg')
       )
     )) {
-      console.log(`Skipping recommendations for local file: ${id}`);
       return { data: [], success: true, message: "No recommendations for local files" };
     }
 
     // First check if we're offline
     const isOnline = await isNetworkAvailable();
     if (!isOnline) {
-      console.log(`Device offline, skipping recommendations for song ID ${id}`);
       return { data: [], success: true, message: "Offline mode - recommendations not available" };
     }
 
@@ -77,7 +72,6 @@ async function getRecommendedSongs(id) {
     } catch (error) {
       // Handle offline case specially
       if (error.message && error.message.includes('No network connection')) {
-        console.log(`Offline error when getting recommendations for song ID ${id} - returning empty results`);
         return { data: [], success: true, message: "Offline mode - recommendations not available" };
       }
 

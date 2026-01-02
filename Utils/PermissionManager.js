@@ -59,7 +59,6 @@ export const checkAllFilesAccessPermission = async () => {
     // Use native module to check permission
     if (StoragePermissionModule && StoragePermissionModule.isAllFilesAccessGranted) {
       const isGranted = await StoragePermissionModule.isAllFilesAccessGranted();
-      console.log('[PermissionManager] All Files Access granted:', isGranted);
       return isGranted;
     }
 
@@ -92,13 +91,11 @@ export const requestAllFilesAccessPermission = async () => {
     // Use native module to open the specific permission page
     if (StoragePermissionModule && StoragePermissionModule.openAllFilesAccessSettings) {
       await StoragePermissionModule.openAllFilesAccessSettings();
-      console.log('[PermissionManager] Opened All Files Access settings via native module');
       return true;
     }
 
     // Fallback: Use Linking to open general app settings
     await Linking.openSettings();
-    console.log('[PermissionManager] Opened general app settings (fallback)');
     return true;
   } catch (error) {
     console.error('Error requesting all files access:', error);

@@ -35,9 +35,6 @@ class ListeningHistoryService {
         if (this.isInitialized) {
             return;
         }
-
-        console.log('📊 ListeningHistory: Initializing...');
-
         // Load session data
         await this.loadSession();
 
@@ -49,7 +46,6 @@ class ListeningHistoryService {
         TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, debouncedHandler);
 
         this.isInitialized = true;
-        console.log('📊 ListeningHistory: Initialized. Session play count:', this.sessionPlayCount);
     }
 
     /**
@@ -64,7 +60,6 @@ class ListeningHistoryService {
                 this.lastPlayedSongId = data.lastSongId || null;
             }
         } catch (e) {
-            console.log('ListeningHistory: Could not load session');
         }
     }
 
@@ -79,7 +74,6 @@ class ListeningHistoryService {
                 lastUpdated: Date.now()
             }));
         } catch (e) {
-            console.log('ListeningHistory: Could not save session');
         }
     }
 
@@ -104,21 +98,17 @@ class ListeningHistoryService {
 
         this.lastPlayedSongId = songId;
         this.sessionPlayCount++;
-
-        console.log(`📊 ListeningHistory: Played song #${this.sessionPlayCount}: "${track.title}"`);
-
         // PERFORMANCE: Fire-and-forget - don't block UI
         // Report playback to YouTube to update visitorData/history
         YouTubeMusicService.registerPlayback(songId);
 
         // PERFORMANCE: Non-blocking save to AsyncStorage
-        this.saveSession().catch(e => console.log('Session save error:', e.message));
+        this.saveSession().catch(e => console.warn('ListeningHistory: Save session failed:', e));
 
         // Check if we should refresh the home feed
         if (this.sessionPlayCount >= SONGS_UNTIL_REFRESH && this.sessionPlayCount % SONGS_UNTIL_REFRESH === 0) {
-            console.log(`📊 ListeningHistory: Threshold reached. Marking home feed for refresh.`);
             // PERFORMANCE: Non-blocking - run in background
-            this.markHomeFeedForRefresh().catch(e => console.log('Mark refresh error:', e.message));
+            this.markHomeFeedForRefresh().catch(e => console.warn('ListeningHistory: markHomeFeedForRefresh failed:', e));
         }
     }
 
@@ -133,9 +123,6 @@ class ListeningHistoryService {
 
             // Set a flag indicating personalized content is available
             await AsyncStorage.setItem('ytmusic_personalized_ready', 'true');
-
-            console.log('📊 ListeningHistory: Home feed cache cleared. Will refresh on next visit.');
-
             // Notify subscribers (e.g., Home component)
             this.notifySubscribers();
         } catch (e) {
@@ -151,7 +138,6 @@ class ListeningHistoryService {
         await AsyncStorage.removeItem('innertube_visitor_data');
         this.sessionPlayCount = 0;
         await this.saveSession();
-        console.log('📊 ListeningHistory: Forced full refresh');
         this.notifySubscribers();
     }
 
@@ -216,7 +202,6 @@ class ListeningHistoryService {
         this.lastPlayedSongId = null;
         await AsyncStorage.removeItem(LISTENING_SESSION_KEY);
         await AsyncStorage.removeItem('ytmusic_personalized_ready');
-        console.log('📊 ListeningHistory: Session reset');
     }
 }
 

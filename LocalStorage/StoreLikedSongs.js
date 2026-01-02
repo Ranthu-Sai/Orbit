@@ -31,7 +31,6 @@ async function SetLikedSongs(title, artist, image, id, url, duration, language) 
     await AsyncStorage.setItem('LikedSongs', jsonValue);
     DeviceEventEmitter.emit('favorites-updated');
   } catch (e) {
-    console.log("Liked Song Save Error");
   }
 }
 async function DeleteALikedSong(id) {
@@ -45,7 +44,6 @@ async function DeleteALikedSong(id) {
     await AsyncStorage.setItem('LikedSongs', jsonValue);
     DeviceEventEmitter.emit('favorites-updated');
   } catch (e) {
-    console.log("Liked Song Save Error");
   }
 }
 export { GetLikedSongs, SetLikedSongs, DeleteALikedSong }

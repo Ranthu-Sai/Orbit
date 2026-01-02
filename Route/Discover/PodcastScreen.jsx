@@ -358,9 +358,6 @@ export const PodcastScreen = () => {
             type: 'podcast',
             isPodcast: true,
         };
-
-        console.log('🎙️ Playing podcast episode:', track.title);
-
         try {
             await PlayOneSong(track);
             setIndex(1);

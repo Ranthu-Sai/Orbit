@@ -291,6 +291,34 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
       return;
     }
 
+    // Detect the source of the current playing song
+    const detectSource = () => {
+      // Check for YTMusic
+      if (currentPlaying.isYTMusic ||
+        currentPlaying.source === 'ytmusic' ||
+        (currentPlaying.id?.length === 11 && !currentPlaying.isLocalMusic && !currentPlaying.isDabTrack)) {
+        return 'ytmusic';
+      }
+
+      // Check for DAB/Qobuz
+      if (currentPlaying.isDabTrack ||
+        currentPlaying.source === 'dab' ||
+        currentPlaying.sourceType === 'dab' ||
+        (currentPlaying.url && (currentPlaying.url.includes('qobuz') || currentPlaying.url.includes('dab-music')))) {
+        return 'dab';
+      }
+
+      // Check for Spotify
+      if (currentPlaying.source === 'spotify' || currentPlaying.spotifyId) {
+        return 'spotify';
+      }
+
+      // Default to Saavn
+      return 'saavn';
+    };
+
+    const songSource = detectSource();
+
     // Enhanced album ID detection with more comprehensive field checking
     let albumId = currentPlaying.albumId ||
       currentPlaying.album_id ||
@@ -299,13 +327,11 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
       currentPlaying.more_info?.albumid;
 
     let albumName = currentPlaying.album?.name ||
-      currentPlaying.album ||
+      (typeof currentPlaying.album === 'string' ? currentPlaying.album : null) ||
       currentPlaying.more_info?.album ||
       'Unknown Album';
 
-
-
-    // If no album ID, try multiple search strategies
+    // If no album ID, try multiple search strategies based on source
     if (!albumId && currentPlaying.title) {
       ToastAndroid.show('Searching for album...', ToastAndroid.SHORT);
 
@@ -330,21 +356,17 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
     }
 
     if (!albumId) {
-      console.log('❌ No album ID found after all attempts');
       ToastAndroid.show('Album information not available for this song', ToastAndroid.SHORT);
       return;
     }
 
     // Validate album ID format
     if (typeof albumId !== 'string' && typeof albumId !== 'number') {
-      console.log('❌ Invalid album ID format:', typeof albumId, albumId);
       ToastAndroid.show('Invalid album information', ToastAndroid.SHORT);
       return;
     }
 
     try {
-      console.log('🧭 Navigating to album:', { albumId, albumName });
-
       // CRITICAL: Track that we're navigating FROM FullScreenMusic
       setFullScreenNavigationTarget('Album');
 
@@ -356,7 +378,7 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
         navigation.navigate("Album", {
           id: String(albumId),
           name: albumName,
-          source: 'FullScreenMusic',
+          source: songSource,  // Pass the actual song source for correct API fetching
           returnToFullScreen: true
         });
       }, 50);
@@ -404,13 +426,14 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
 
     let finalArtistId = artistId;
 
-    // Always use YTMusic for artist features for consistent experience
-    console.log('📊 Using YTMusic API for artist lookup (unified approach)');
+    // Check if the ID is a valid YouTube Music Channel ID (starts with UC)
+    // If it's a Saavn/Spotify ID (numbers or other formats), we need to find the YTMusic ID
+    const isYTMusicId = finalArtistId && typeof finalArtistId === 'string' && finalArtistId.startsWith('UC');
 
-    // If no artist ID, try to find it by searching YTMusic
-    if (!finalArtistId) {
-      console.log('🔍 Artist ID missing for more songs, searching for:', artistName);
-      ToastAndroid.show('Searching for artist...', ToastAndroid.SHORT);
+    // Always use YTMusic for artist features for consistent experience
+    // If no artist ID or not a YTMusic ID, try to find it by searching YTMusic
+    if (!finalArtistId || !isYTMusicId) {
+      ToastAndroid.show('Finding artist on YouTube Music...', ToastAndroid.SHORT);
 
       // Always use YTMusic search for consistent artist data
       try {
@@ -421,14 +444,13 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
             artist.name.toLowerCase() === artistName.toLowerCase()
           ) || ytSearchResponse.data.results[0];
           finalArtistId = bestMatch.id;
-          console.log(`✅ Found YTMusic artist ID: ${finalArtistId}`);
         }
       } catch (error) {
-        console.log('❌ YTMusic artist search failed:', error.message);
+        console.warn('Error searching artist on YTMusic:', error);
       }
 
       if (!finalArtistId) {
-        ToastAndroid.show('Could not find artist information', ToastAndroid.SHORT);
+        ToastAndroid.show('Could not find artist information on YouTube Music', ToastAndroid.SHORT);
         return;
       }
     }
@@ -440,40 +462,16 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
       let songs = [];
 
       // Always use YouTube Music API for artist songs (unified approach)
-      console.log('🎵 Using YouTube Music API for artist songs...');
-
       try {
         response = await getYTMusicArtistSongsPaginated(String(finalArtistId), 1, 20);
         if (response?.success && response?.data?.songs && response.data.songs.length > 0) {
           songs = response.data.songs;
-          console.log(`✅ Found ${songs.length} songs via YTMusic API`);
         }
       } catch (error) {
-        console.log('❌ YTMusic getArtistSongs failed:', error.message);
-      }
-
-      // Fallback to Saavn search if YouTube Music returns no songs
-      if (songs.length === 0) {
-        try {
-          console.log('🔄 YTMusic returned no songs, falling back to Saavn search...');
-          const searchResponse = await getSearchSongData(artistName, 1, 20);
-          if (searchResponse?.success && searchResponse?.data?.results && searchResponse.data.results.length > 0) {
-            // Filter songs that actually match the artist
-            songs = searchResponse.data.results.filter(song => {
-              const songArtist = song.artist || song.artists?.primary?.[0]?.name || '';
-              return songArtist.toLowerCase().includes(artistName.toLowerCase()) ||
-                artistName.toLowerCase().includes(songArtist.toLowerCase());
-            });
-            console.log(`✅ Found ${songs.length} songs via Saavn search fallback`);
-          }
-        } catch (error) {
-          console.log('❌ Saavn search fallback failed:', error.message);
-        }
+        console.error('Error fetching artist songs:', error);
       }
 
       if (songs.length > 0) {
-        console.log(`✅ Total songs found: ${songs.length} from artist:`, songs.slice(0, 5).map(s => s.name || s.title));
-
         // CRITICAL: Track that we're navigating FROM FullScreenMusic
         setFullScreenNavigationTarget('ArtistPage');
 
@@ -494,7 +492,6 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
 
         ToastAndroid.show(`Found ${songs.length} songs from ${artistName}`, ToastAndroid.SHORT);
       } else {
-        console.log('❌ No songs found after all strategies');
         ToastAndroid.show(`No additional songs found from ${artistName}`, ToastAndroid.SHORT);
       }
     } catch (error) {
@@ -528,41 +525,43 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
   const getMenuOptions = useCallback(() => {
     const baseOptions = [];
 
-    // Always add album option first
-    baseOptions.push({
-      id: 'album',
-      icon: <MaterialCommunityIcons name="album" size={22} color={colors.text} />,
-      text: 'Go to Album',
-      onPress: navigateToAlbum,
-    });
+    // Check if the song has album metadata available
+    // Only show "Go to Album" option if album info exists
+    const hasAlbumMetadata = currentPlaying && (
+      currentPlaying.albumId ||
+      currentPlaying.album_id ||
+      currentPlaying.album?.id ||
+      currentPlaying.more_info?.album_id ||
+      currentPlaying.more_info?.albumid ||
+      // Check if album name exists and is not a placeholder
+      (currentPlaying.album?.name && currentPlaying.album.name !== 'Unknown Album' && currentPlaying.album.name !== 'N/A') ||
+      (typeof currentPlaying.album === 'string' && currentPlaying.album && currentPlaying.album !== 'Unknown Album' && currentPlaying.album !== 'N/A') ||
+      (currentPlaying.more_info?.album && currentPlaying.more_info.album !== 'Unknown Album' && currentPlaying.more_info.album !== 'N/A')
+    );
+
+    // Only add album option if album metadata is available
+    if (hasAlbumMetadata) {
+      baseOptions.push({
+        id: 'album',
+        icon: <MaterialCommunityIcons name="album" size={22} color={colors.text} />,
+        text: 'Go to Album',
+        onPress: navigateToAlbum,
+      });
+    }
 
     // Get multiple artists from current song
     const artists = currentPlaying ? extractMultipleArtists(currentPlaying) : [];
 
-    if (artists.length === 0) {
-      // No artists found, add generic options
-      baseOptions.push({
-        id: 'artist',
-        icon: <MaterialCommunityIcons name="account-music" size={22} color={colors.text} />,
-        text: 'Go to Artist',
-        onPress: navigateToArtist,
-      });
-    } else if (artists.length === 1) {
-      // Single artist, add normal options
+    if (artists.length === 1) {
+      // Single artist, add "More from Artist" option
       const artist = artists[0];
-      baseOptions.push({
-        id: 'artist',
-        icon: <MaterialCommunityIcons name="account-music" size={22} color={colors.text} />,
-        text: 'Go to Artist',
-        onPress: navigateToArtist,
-      });
       baseOptions.push({
         id: 'more-artist',
         icon: <MaterialCommunityIcons name="music-note-plus" size={22} color={colors.text} />,
         text: `More from ${artist.name}`,
         onPress: addMoreFromArtist,
       });
-    } else {
+    } else if (artists.length > 1) {
       // Multiple artists, add individual options for each
       artists.forEach((artist, index) => {
         // Add "More from [Artist Name]" for each artist
@@ -590,7 +589,6 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
     colors.text,
     currentPlaying,
     extractMultipleArtists,
-    navigateToArtist,
     navigateToAlbum,
     addToPlaylist,
     addMoreFromArtist,

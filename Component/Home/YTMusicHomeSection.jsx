@@ -61,7 +61,6 @@ const isVideoSection = (section) => {
 
   // Check against explicitly excluded titles from user screenshots
   if (EXCLUDED_SECTION_TITLES.some(exTitle => title.includes(exTitle))) {
-    console.log(`[YTMusicHomeSection] Filtering excluded section: "${section.title}"`);
     return true;
   }
 
@@ -79,7 +78,6 @@ const isVideoSection = (section) => {
         const aspectRatio = thumb.width / thumb.height;
         // If aspect ratio is > 1.4, it's likely a video thumbnail
         if (aspectRatio > 1.4) {
-          console.log(`[YTMusicHomeSection] Filtering video section: "${section.title}" (aspect ratio: ${aspectRatio.toFixed(2)})`);
           return true;
         }
       }
@@ -92,7 +90,6 @@ const isVideoSection = (section) => {
     );
 
     if (hasNoMusicContent && contents.length > 2) {
-      console.log(`[YTMusicHomeSection] Filtering non-music section: "${section.title}"`);
       return true;
     }
   }
@@ -117,7 +114,6 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
   // Expose refresh method to parent
   useImperativeHandle(ref, () => ({
     refresh: async () => {
-      console.log('🔄 YTMusic Home - Hard refresh triggered via ref');
       await fetchYTMusicHomeData(true);
     }
   }));
@@ -125,12 +121,8 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
   // Complete cache reset function
   const resetAllCaches = async () => {
     try {
-      console.log('� Ressetting ALL caches...');
-
       // Clear AsyncStorage completely
       const allKeys = await AsyncStorage.getAllKeys();
-      console.log('📋 Found AsyncStorage keys:', allKeys.length);
-
       // Remove all YTMusic related keys
       const ytMusicKeys = allKeys.filter(key =>
         key.toLowerCase().includes('ytmusic') ||
@@ -140,14 +132,11 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
 
       if (ytMusicKeys.length > 0) {
         await AsyncStorage.multiRemove(ytMusicKeys);
-        console.log('🗑️  Removed YTMusic cache keys:', ytMusicKeys);
       }
 
       // Reset component state
       setYtMusicItems([]);
       setHasData(false);
-
-      console.log('✅ Cache reset complete');
     } catch (error) {
       console.error('❌ Cache reset failed:', error);
     }
@@ -158,7 +147,6 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
     try {
       const success = await YouTubeMusicService.initialize();
       if (success) {
-        console.log('✅ Innertube Client initialized successfully');
         return true;
       } else {
         console.error('❌ Innertube Client initialization failed');
@@ -187,94 +175,75 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
         for (const key of possibleCacheKeys) {
           await AsyncStorage.removeItem(key);
         }
-        console.log('🧹 YTMusic Home - Cleared local cache keys');
       }
-
-      console.log('🌐 YTMusic Home - Fetching data using Innertube Client...');
-
       // Fetch data using YouTube Music Service
       // Limit sections fetched for Hybrid mode performance
       const HOMEFEED_SECTION_LIMIT = 40; // Increased to ensure 'Albums for you' is found
       const homeData = await YouTubeMusicService.getHomeFeed(HOMEFEED_SECTION_LIMIT, forceRefresh);
 
-      console.log('📊 YTMusic Home - Innertube Response Summary:', {
-        sectionsCount: Array.isArray(homeData) ? homeData.length : 0,
-        firstSectionTitle: Array.isArray(homeData) && homeData[0]?.title ? homeData[0].title : 'none'
-      });
-
       let itemsArray = [];
 
       // Process the YTMusic API response (direct from Python)
       if (Array.isArray(homeData) && homeData.length > 0) {
-        console.log(`YTMusic Home - Processing ${homeData.length} sections from Innertube API`);
-
         for (const section of homeData) {
           const sectionTitle = section.title || 'Unknown Section';
 
           // Skip "Quick picks" section as requested
           if (sectionTitle.toLowerCase().includes('quick pick') || isVideoSection(section)) {
-            console.log(`⏭️  Skipping section: "${sectionTitle}" (Quick Pick or Video)`);
             continue;
           }
 
-          // console.log(`Processing section: "${sectionTitle}", contents: ${section.contents?.length || 0}`);
+          // if (section.contents && Array.isArray(section.contents)) {
+          // Filter and process playlists and albums
+          const sectionItems = section.contents
+            .filter(item => {
+              // Skip null or undefined items
+              if (!item || typeof item !== 'object') {
+                return false;
+              }
 
-          if (section.contents && Array.isArray(section.contents)) {
-            // Filter and process playlists and albums
-            const sectionItems = section.contents
-              .filter(item => {
-                // Skip null or undefined items
-                if (!item || typeof item !== 'object') {
-                  console.log(`  ⏭️  Skipping null/invalid item in section "${sectionTitle}"`);
-                  return false;
-                }
+              // Determine if item is a playlist or album based on available IDs
+              // YTMusic playlists have playlistId (starts with RDCLAK, PL, VL, etc.)
+              // YTMusic albums have browseId (starts with MPREb_)
+              const hasPlaylistId = item.playlistId && typeof item.playlistId === 'string';
+              const hasBrowseId = item.browseId && typeof item.browseId === 'string';
+              const hasVideoId = item.videoId && typeof item.videoId === 'string';
 
-                // Determine if item is a playlist or album based on available IDs
-                // YTMusic playlists have playlistId (starts with RDCLAK, PL, VL, etc.)
-                // YTMusic albums have browseId (starts with MPREb_)
-                const hasPlaylistId = item.playlistId && typeof item.playlistId === 'string';
-                const hasBrowseId = item.browseId && typeof item.browseId === 'string';
-                const hasVideoId = item.videoId && typeof item.videoId === 'string';
+              // Include if it has playlistId or browseId
+              // Note: Some albums have videoId for "Quick Play" - we should still include them
+              const include = hasPlaylistId || hasBrowseId;
 
-                // Include if it has playlistId or browseId
-                // Note: Some albums have videoId for "Quick Play" - we should still include them
-                const include = hasPlaylistId || hasBrowseId;
+              if (!include) {
+              }
 
-                if (!include) {
-                  console.log(`  ⏭️  Skipping item: "${item.title || 'unknown'}" (videoId only, likely a song)`);
-                }
+              return include;
+            })
+            .map(item => {
+              // Determine type based on ID patterns
+              const isPlaylist = (item.playlistId && typeof item.playlistId === 'string') || item.type === 'playlist';
+              // browseId starting with MPRE or OLAK is strictly an album
+              const isAlbum = (item.browseId && (item.browseId.startsWith('MPRE') || item.browseId.startsWith('OLAK'))) || item.type === 'album';
 
-                return include;
-              })
-              .map(item => {
-                // Determine type based on ID patterns
-                const isPlaylist = (item.playlistId && typeof item.playlistId === 'string') || item.type === 'playlist';
-                // browseId starting with MPRE or OLAK is strictly an album
-                const isAlbum = (item.browseId && (item.browseId.startsWith('MPRE') || item.browseId.startsWith('OLAK'))) || item.type === 'album';
+              // Normalize the item structure
+              const normalizedItem = {
+                id: item.playlistId || item.browseId || `yt_${Math.random()}`,
+                title: item.title || 'Unknown Title',
+                type: isPlaylist ? 'playlist' : 'album',
+                thumbnails: item.thumbnails || item.thumbnail || [],
+                artists: item.artists || [],
+                year: item.year,
+                sectionTitle: sectionTitle,
+                sectionStrapline: section.strapline,
+                downloadUrl: item.playlistId || item.browseId
+              };
 
-                // Normalize the item structure
-                const normalizedItem = {
-                  id: item.playlistId || item.browseId || `yt_${Math.random()}`,
-                  title: item.title || 'Unknown Title',
-                  type: isPlaylist ? 'playlist' : 'album',
-                  thumbnails: item.thumbnails || item.thumbnail || [],
-                  artists: item.artists || [],
-                  year: item.year,
-                  sectionTitle: sectionTitle,
-                  sectionStrapline: section.strapline,
-                  downloadUrl: item.playlistId || item.browseId
-                };
+              return normalizedItem;
+            });
 
-                console.log(`  ✅ Added ${normalizedItem.type}: "${normalizedItem.title}" (ID: ${normalizedItem.id})`);
-                return normalizedItem;
-              });
-
-            if (sectionItems.length > 0) {
-              itemsArray.push(...sectionItems);
-              // console.log(`✅ Section "${sectionTitle}" complete: ${sectionItems.length} items`);
-            } else {
-              // console.log(`⚠️  No playlists/albums found in section: "${sectionTitle}"`);
-            }
+          if (sectionItems.length > 0) {
+            itemsArray.push(...sectionItems);
+            // } else {
+            // }
           }
         }
       } else {
@@ -285,8 +254,6 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
         });
       }
 
-      // console.log(`🎵 YTMusic Home - Total items collected: ${itemsArray.length}`);
-
       if (itemsArray.length > 0) {
         setYtMusicItems(itemsArray);
         setHasData(true);
@@ -294,10 +261,7 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
 
         // Cache the data locally
         await AsyncStorage.setItem('ytmusic_home_section', JSON.stringify(itemsArray));
-        console.log('✅ YTMusic data cached successfully');
-        console.log('🎉 YTMusic content ready to display!');
       } else {
-        console.log('⚠️  No playlists or albums found in Python response');
         setYtMusicItems([]);
         setHasData(false);
         setLoading(false);
@@ -320,13 +284,10 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
     } finally {
       // Always set loading to false when done, regardless of forceRefresh
       setLoading(false);
-      // console.log('🏁 YTMusic fetch complete');
     }
   };
 
   useEffect(() => {
-    // console.log('🚀 YTMusicHomeSection - Component mounted');
-
     const initializeYTMusic = async () => {
       // Step 1: Check for cached data FIRST (don't reset on every mount!)
       try {
@@ -334,7 +295,6 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
         if (cachedData) {
           const parsedData = JSON.parse(cachedData);
           if (parsedData && Array.isArray(parsedData) && parsedData.length > 0) {
-            console.log('📦 YTMusic - Using cached data, skipping refetch');
             setYtMusicItems(parsedData);
             setHasData(true);
             setLoading(false);
@@ -342,20 +302,16 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
           }
         }
       } catch (cacheError) {
-        console.log('⚠️ YTMusic cache read error:', cacheError.message);
       }
 
       // Step 2: No valid cache - initialize and fetch fresh
-      console.log('🔧 Initializing Music Client...');
       const bridgeReady = await initializeInnertube();
 
       if (bridgeReady) {
-        console.log('✅ Music Client ready, proceeding with data fetch...');
         // Fetch fresh data with higher limit to get more sections
         await fetchYTMusicHomeData(true);
       } else {
         console.error('❌ YouTube Music Service initialization failed, cannot fetch YTMusic data');
-        console.log('💡 Check Python dependencies and bridge setup');
         setLoading(false);
       }
     };
@@ -366,14 +322,11 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
   // Process YTMusic items (playlists/albums) to match app format
   const processedItems = useMemo(() => {
     if (!Array.isArray(ytMusicItems) || ytMusicItems.length === 0) {
-      // console.log('No items to process');
       return [];
     }
 
     const processed = ytMusicItems.map((item, index) => {
-      // console.log(`Processing item ${index + 1}:`, item.title || 'unknown', `(type: ${item.type})`);
-
-      // Get the best thumbnail (largest available) safety check
+      // // Get the best thumbnail (largest available) safety check
       let bestThumbnail = null;
       if (item.thumbnails && Array.isArray(item.thumbnails) && item.thumbnails.length > 0) {
         bestThumbnail = item.thumbnails.reduce((best, current) =>
@@ -418,11 +371,9 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
         sectionStrapline: item.sectionStrapline
       };
 
-      // console.log(`✅ Processed: "${processedItem.name}" (${processedItem.type})`);
       return processedItem;
     });
 
-    // console.log(`🎵 Total processed items: ${processed.length}`);
     return processed;
   }, [ytMusicItems]);
 
@@ -642,8 +593,7 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
 
               if (matchingTitle) {
                 const sectionIndex = sectionTitles.indexOf(matchingTitle);
-                // console.log(`[YT Render] Rendering pinned keyword: "${matchingTitle}" at index ${sectionIndex}`);
-                return renderSingleSection(matchingTitle, sectionIndex);
+                // return renderSingleSection(matchingTitle, sectionIndex);
               }
               return null;
             }
@@ -654,8 +604,7 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
               if (sectionTitle) {
                 // Check for exclusion
                 if (exclude && sectionTitle.toLowerCase().includes(exclude)) {
-                  // console.log(`[YT Render] Excluding index ${props.sectionIndex} ("${sectionTitle}") due to keyword match: "${exclude}"`);
-                  return null;
+                  // return null;
                 }
                 return renderSingleSection(sectionTitle, props.sectionIndex);
               }

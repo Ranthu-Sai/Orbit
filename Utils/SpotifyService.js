@@ -1,9 +1,6 @@
 import { SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, SPOTIFY_TOKEN_URL, SPOTIFY_API_BASE_URL } from './secrets';
 import base64 from 'base-64';
 
-console.log('🔍 SpotifyService Debug: Using direct secrets.js');
-console.log('🔍 SpotifyService Debug: SPOTIFY_CLIENT_ID Check:', SPOTIFY_CLIENT_ID ? 'Matches' : 'MISSING');
-
 let accessToken = null;
 let tokenExpiration = 0;
 
@@ -22,8 +19,6 @@ export const SpotifyService = {
         }
 
         try {
-            console.log('🔄 Authenticaton with Spotify...');
-
             if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
                 throw new Error('Missing Spotify credentials in .env');
             }
@@ -51,7 +46,6 @@ export const SpotifyService = {
             // Set expiration 5 minutes before actual expiration (usually 3600s) for safety
             tokenExpiration = Date.now() + ((data.expires_in - 300) * 1000);
 
-            console.log('✅ Spotify authentication successful');
             return accessToken;
         } catch (error) {
             console.error('Error getting Spotify access token:', error);
@@ -103,8 +97,6 @@ export const SpotifyService = {
             const token = await SpotifyService.getAccessToken();
             const baseUrl = SPOTIFY_API_BASE_URL || 'https://api.spotify.com/v1';
 
-            console.log(`📥 Fetching Spotify playlist: ${playlistId}`);
-
             // Fetch playlist details
             const response = await fetch(`${baseUrl}/playlists/${playlistId}`, {
                 headers: {
@@ -129,7 +121,6 @@ export const SpotifyService = {
             // For MVP/Robustness, let's fetch one more page if exists (up to 200 songs)
             // to avoid hitting rate limits or long wait times.
             if (nextUrl) {
-                console.log('📥 Fetching next page of Spotify tracks...');
                 const nextResponse = await fetch(nextUrl, {
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -141,8 +132,6 @@ export const SpotifyService = {
                     tracks = [...tracks, ...nextData.items];
                 }
             }
-
-            console.log(`✅ Loaded ${tracks.length} tracks from Spotify`);
 
             // Filter and map tracks, excluding unavailable ones
             const availableTracks = tracks.map(item => {
@@ -170,8 +159,6 @@ export const SpotifyService = {
                 };
             }).filter(t => t !== null);
 
-            console.log(`✅ Filtered to ${availableTracks.length} available tracks (${tracks.length - availableTracks.length} unavailable filtered out)`);
-
             return {
                 id: data.id,
                 name: data.name,
@@ -197,8 +184,6 @@ export const SpotifyService = {
         try {
             const token = await SpotifyService.getAccessToken();
             const baseUrl = SPOTIFY_API_BASE_URL || 'https://api.spotify.com/v1';
-
-            console.log(`📥 Fetching Spotify album: ${albumId}`);
 
             const response = await fetch(`${baseUrl}/albums/${albumId}`, {
                 headers: {
@@ -264,8 +249,6 @@ export const SpotifyService = {
         try {
             const token = await SpotifyService.getAccessToken();
             const baseUrl = SPOTIFY_API_BASE_URL || 'https://api.spotify.com/v1';
-
-            console.log(`📥 Fetching Spotify track: ${trackId}`);
 
             const response = await fetch(`${baseUrl}/tracks/${trackId}`, {
                 headers: {
@@ -339,8 +322,6 @@ export const SpotifyService = {
         if (!cached && type !== 'all') {
             const allCached = SpotifyService.searchCache.get(allCacheKey);
             if (allCached && (Date.now() - allCached.timestamp < SpotifyService.CACHE_TTL)) {
-                console.log(`🚀 Spotify Search [CACHE REDIRECT]: Reusing 'all' cache for type: ${type}`);
-
                 // Construct a specific result from the 'all' data
                 const filteredResults = type === 'tracks' || type === 'songs'
                     ? allCached.data.data.tracks
@@ -357,7 +338,6 @@ export const SpotifyService = {
         }
 
         if (cached && (Date.now() - cached.timestamp < SpotifyService.CACHE_TTL)) {
-            console.log(`🚀 Spotify Search [CACHE HIT]: "${query}"`);
             return cached.data;
         }
 
@@ -370,8 +350,6 @@ export const SpotifyService = {
             const spotifyType = type === 'all'
                 ? 'track,album,playlist'
                 : (type === 'tracks' || type === 'songs' ? 'track' : type === 'albums' ? 'album' : 'playlist');
-
-            console.log(`🔍 Spotify Search [API]: "${query}" types: ${spotifyType}`);
 
             const response = await fetch(
                 `${baseUrl}/search?q=${encodeURIComponent(query)}&type=${spotifyType}&limit=${limit}`,

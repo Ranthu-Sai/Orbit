@@ -20,8 +20,6 @@ export const importFromLink = async (url, onProgress) => {
         if (!linkInfo) {
             throw new Error('Unsupported or invalid link. Please use a valid Spotify or YouTube link.');
         }
-
-        console.log('🔗 Link Detected:', linkInfo);
         const { source, type, id } = linkInfo;
 
         // Route based on type
@@ -80,7 +78,6 @@ export const importToLibrary = async (url, onProgress) => {
                     const firstTrack = tracks[0];
                     if (firstTrack.album?.name) {
                         albumName = firstTrack.album.name;
-                        console.log('Using album name from first track:', albumName);
                     }
                 }
 
@@ -88,7 +85,6 @@ export const importToLibrary = async (url, onProgress) => {
                 if (!albumName && tracks.length > 0) {
                     // As a last resort, use "Album" + first track artist
                     albumName = `Album by ${tracks[0].artist || 'Unknown Artist'}`;
-                    console.log('Generated fallback album name:', albumName);
                 }
 
                 // Get artist with fallbacks
@@ -108,7 +104,6 @@ export const importToLibrary = async (url, onProgress) => {
 
                 if (albumName) {
                     // We have enough info - add the album directly!
-                    console.log('✅ Adding album to library:', { albumName, albumArtist, id });
                     onProgress(50, 100, `Adding Album: ${albumName}...`);
 
                     try {

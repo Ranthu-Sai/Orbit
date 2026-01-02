@@ -44,8 +44,7 @@ class LocalTracksMetadataManager {
             }
 
             this.isLoaded = true;
-            console.log('LocalTracksMetadataManager initialized. Loaded entries:', Object.keys(this.manifest).length);
-        } catch (error) {
+            } catch (error) {
             console.error('Error initializing LocalTracksMetadataManager:', error);
             this.manifest = {};
             this.isLoaded = true;
@@ -157,8 +156,6 @@ class LocalTracksMetadataManager {
         if (this.isProcessing || this.processingQueue.length === 0) return;
 
         this.isProcessing = true;
-        console.log(`LocalTracksMetadataManager: Starting background processing for ${this.processingQueue.length} tracks...`);
-
         let totalProcessed = 0;
         let totalArtworkFound = 0;
 
@@ -197,7 +194,6 @@ class LocalTracksMetadataManager {
         }
 
         this.isProcessing = false;
-        console.log(`LocalTracksMetadataManager: Completed! Processed ${totalProcessed} tracks, found ${totalArtworkFound} artworks`);
     }
 
     /**

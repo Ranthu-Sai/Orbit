@@ -36,8 +36,11 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
   const screenHeight = Dimensions.get("window").height;
   const screenWidth = Dimensions.get("window").width;
   const { theme, themeMode } = useThemeContext(); // Use custom theme context
-  // PERFORMANCE: Increased from 250ms to 500ms - still smooth for lyrics sync
-  const { position } = useProgress(500);
+  // Use 50ms interval for smooth real-time sync (500ms was too slow)
+  const { position } = useProgress(50);
+
+  // Sync offset in milliseconds to compensate for audio buffering delay
+  const SYNC_OFFSET_MS = 150;
 
   const artworkCenterOpacity = 0.3;
   const artworkEdgeOpacity = 1.0; // Fully opaque edge for artwork background
@@ -67,7 +70,8 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
 
   useEffect(() => {
     if (parsedLyrics.length === 0 || !ShowDailog) return;
-    const currentPositionMs = position * 1000;
+    // Apply sync offset to compensate for audio buffering delay
+    const currentPositionMs = (position * 1000) + SYNC_OFFSET_MS;
     let newActiveIndex = -1;
     for (let i = 0; i < parsedLyrics.length; i++) {
       if (currentPositionMs >= parsedLyrics[i].time) {

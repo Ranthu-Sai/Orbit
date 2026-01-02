@@ -65,19 +65,15 @@ export const useQueueManager = (options = {}) => {
   // Listen for queue-updated events to refresh queue when songs are added progressively
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('queue-updated', async (data) => {
-      console.log(`🔄 Queue update received: ${data?.count || 0} songs added (batch ${data?.batch || '?'})`);
       // Small delay to ensure TrackPlayer has finished adding tracks
       setTimeout(async () => {
         try {
           // Get ALL tracks from TrackPlayer without filtering
           const queue = await TrackPlayer.getQueue();
-          console.log(`📋 TrackPlayer has ${queue.length} tracks total`);
-
           if (queue.length > 0) {
             // Remove duplicates only
             const uniqueQueue = removeDuplicateTracks(queue);
             setUpcomingQueue(uniqueQueue);
-            console.log(`✅ Queue UI refreshed: ${uniqueQueue.length} tracks`);
           }
         } catch (error) {
           console.error('Error refreshing queue on update:', error);

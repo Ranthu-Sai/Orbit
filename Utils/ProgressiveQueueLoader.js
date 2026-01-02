@@ -41,13 +41,10 @@ class ProgressiveQueueLoader {
      * @param {number} startIndex - Index to start from (for individual song play)
      */
     async initialize(songs, processSingleSong, startIndex = 0) {
-        console.log(`🚀 ProgressiveQueueLoader: Initializing with ${songs.length} songs, starting at index ${startIndex}`);
-
         // Cleanup any existing state
         this.cleanup();
 
         if (!songs || songs.length === 0) {
-            console.log('⚠️ ProgressiveQueueLoader: No songs provided');
             return { initialBatch: [], success: false };
         }
 
@@ -72,8 +69,6 @@ class ProgressiveQueueLoader {
         const validInitialSongs = processedInitial.filter(song => song !== null);
 
         this.loadedCount = validInitialSongs.length;
-
-        console.log(`✅ ProgressiveQueueLoader: Initial batch ready (${this.loadedCount}/${this.totalCount})`);
 
         // Setup track change listener for threshold-based loading
         this._setupTrackChangeListener();
@@ -111,7 +106,6 @@ class ProgressiveQueueLoader {
                 const remainingLoaded = this.loadedCount - currentIndex - 1;
 
                 if (remainingLoaded <= LOAD_THRESHOLD) {
-                    console.log(`📥 ProgressiveQueueLoader: Threshold reached (${remainingLoaded} songs left), loading next batch...`);
                     await this._loadNextBatch();
                 }
             }
@@ -161,8 +155,6 @@ class ProgressiveQueueLoader {
                 await TrackPlayer.add(validBatch);
                 this.loadedCount += validBatch.length;
 
-                console.log(`✅ ProgressiveQueueLoader: Added batch (${this.loadedCount}/${this.totalCount})`);
-
                 // Emit event for UI updates (debounced in ContextState)
                 DeviceEventEmitter.emit('queue-updated', {
                     count: this.loadedCount,
@@ -197,9 +189,6 @@ class ProgressiveQueueLoader {
         if (!this.isActive || this.loadedCount >= this.totalCount) {
             return;
         }
-
-        console.log(`📥 ProgressiveQueueLoader: Force loading all remaining songs...`);
-
         while (this.loadedCount < this.totalCount && this.isActive) {
             await this._loadNextBatch();
             // Small delay between batches
@@ -224,8 +213,6 @@ class ProgressiveQueueLoader {
      * Cleanup and reset state
      */
     cleanup() {
-        console.log('🧹 ProgressiveQueueLoader: Cleaning up');
-
         if (this.trackChangeListener) {
             this.trackChangeListener.remove();
             this.trackChangeListener = null;

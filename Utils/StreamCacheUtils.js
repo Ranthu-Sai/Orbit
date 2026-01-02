@@ -81,13 +81,11 @@ export async function getOrFetchStreamUrl(videoId, fetchFn, source = 'ytmusic') 
     // Check cache first
     const cached = getCachedStreamUrl(videoId, source);
     if (cached) {
-        console.log(`[StreamCache] Using cached URL for ${source}:${videoId}`);
         return cached;
     }
 
     // Fetch fresh URL
     try {
-        console.log(`[StreamCache] Fetching fresh URL for ${source}:${videoId}`);
         const freshUrl = await fetchFn();
 
         if (freshUrl) {
@@ -122,6 +120,4 @@ export function batchCacheStreamUrls(streams) {
             CacheManager.setStreamUrl(videoId, url, source);
         }
     });
-
-    console.log(`[StreamCache] Batch cached ${streams.length} stream URLs`);
 }

@@ -38,7 +38,6 @@ export async function embedMetadataInFile(filePath, metadata, artworkPath = null
             metadata.year?.toString() || null,
             artworkPath
         );
-        console.log(`NativeMetadataWriter: Successfully embedded metadata into ${filePath}`);
         return true;
     } catch (error) {
         console.error('NativeMetadataWriter: Failed to embed metadata:', error);

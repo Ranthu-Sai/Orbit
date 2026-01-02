@@ -24,8 +24,6 @@ export class DownloadManager {
     const songId = songData?.id;
 
     try {
-      console.log("DownloadManager: Received song data:", JSON.stringify(songData, null, 2));
-
       // Validate input
       if (!songData || !songId) {
         const error = new Error("Invalid song data provided - missing songData or songId");
@@ -42,33 +40,19 @@ export class DownloadManager {
         if (onError) onError(error, songId);
         return false;
       }
-
-      console.log("DownloadManager: Starting download for:", songData.title, "URL:", downloadUrl);
-
       // Check if already downloaded
-      console.log("DownloadManager: Checking if song is already downloaded, songId:", songId);
       const isAlreadyDownloaded = await StorageManager.isSongDownloaded(songId);
-      console.log("DownloadManager: isSongDownloaded result:", isAlreadyDownloaded);
-
       if (isAlreadyDownloaded) {
-        console.log("DownloadManager: Song already downloaded:", songId);
         Alert.alert("Already Downloaded", "This song is already in your library");
         if (onComplete) onComplete(true, songId);
         return true;
       }
-
-      console.log("DownloadManager: Song not downloaded yet, proceeding with download");
-
       // Ensure directories exist
-      console.log("DownloadManager: Ensuring directories exist...");
       await this.ensureDownloadDirectories();
 
       // Prepare download path
       const downloadPath = await this.getDownloadPath(songId, songData.title);
-      console.log("DownloadManager: Download path:", downloadPath);
-
       // Start download
-      console.log("DownloadManager: Starting file download...");
       const downloadSuccess = await this.performDownload(
         downloadUrl,
         downloadPath,
@@ -78,19 +62,13 @@ export class DownloadManager {
       if (!downloadSuccess) {
         throw new Error("Failed to download song file");
       }
-
-      console.log("DownloadManager: File download successful, saving metadata...");
       // Save metadata
       await this.saveMetadata(songData, downloadPath, downloadUrl);
-
-      console.log("DownloadManager: Downloading artwork...");
       // Download artwork if available
       await this.downloadArtwork(songData);
 
       // Emit completion events
       EventRegister.emit('download-complete', songId);
-      console.log("DownloadManager: Download completed successfully for:", songData.title);
-
       if (onComplete) onComplete(true, songId);
       return true;
 
@@ -122,7 +100,6 @@ export class DownloadManager {
     try {
       // Use StorageManager's directory structure
       await StorageManager.ensureDirectoriesExist();
-      console.log("DownloadManager: Directories ensured via StorageManager");
     } catch (error) {
       console.error("DownloadManager: Error in ensureDownloadDirectories:", error);
       // Continue - ReactNativeBlobUtil might handle this
@@ -206,7 +183,6 @@ export class DownloadManager {
       };
 
       await StorageManager.saveDownloadedSongMetadata(songData.id, metadata);
-      console.log("DownloadManager: Metadata saved successfully for:", songData.id);
     } catch (error) {
       console.error("DownloadManager: Error saving metadata:", error);
       // Continue - song is still downloaded even if metadata fails
@@ -219,7 +195,6 @@ export class DownloadManager {
    */
   static async downloadArtwork(songData) {
     if (!songData.artwork || typeof songData.artwork !== 'string') {
-      console.log("DownloadManager: No artwork URL provided");
       return;
     }
 
@@ -233,9 +208,7 @@ export class DownloadManager {
       // Use StorageManager for artwork download
       const artworkPath = await StorageManager.saveArtwork(songData.id, highQualityArtwork);
       if (artworkPath) {
-        console.log("DownloadManager: Artwork saved successfully via StorageManager");
       } else {
-        console.log("DownloadManager: Artwork download failed via StorageManager");
       }
     } catch (artworkError) {
       console.error("DownloadManager: Error saving artwork:", artworkError);
@@ -271,7 +244,6 @@ export class DownloadManager {
       // Detection: source='spotify' OR spotifyId OR _needsSpotifyMapping flag
       // ============================================================
       if (song.source === 'spotify' || song.spotifyId || song._needsSpotifyMapping || song.url?.startsWith('spotify://')) {
-        console.log('🎵 DownloadManager: Spotify track detected, mapping to YTMusic:', song.title || song.name);
         try {
           const YouTubeMusicService = require('../../Utils/YouTubeMusicService').default;
           const ytMusicResult = await YouTubeMusicService.searchAndStream(
@@ -280,7 +252,6 @@ export class DownloadManager {
           );
 
           if (ytMusicResult && ytMusicResult.url && !ytMusicResult.error) {
-            console.log('✅ DownloadManager: Spotify → YTMusic mapped:', song.title, '→', ytMusicResult.videoId);
             return ytMusicResult.url;
           }
           console.error('❌ DownloadManager: Failed to map Spotify track:', song.title);

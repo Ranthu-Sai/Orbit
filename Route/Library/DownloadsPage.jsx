@@ -21,8 +21,6 @@ export const DownloadsPage = () => {
       // Use SimpleOrbitScanner (no native module required)
       const SimpleOrbitScanner = require('../../Utils/SimpleOrbitScanner').default;
       const songs = await SimpleOrbitScanner.scanOrbitSongs();
-
-      console.log(`[DownloadsPage] Loaded ${songs.length} songs from orbit/songs folder`);
       setDownloads(songs);
       setDebugInfo(`Found ${songs.length} songs`);
     } catch (error) {
@@ -35,13 +33,11 @@ export const DownloadsPage = () => {
   };
 
   const testScanner = async () => {
-    console.log('🧪 [DEBUG] Manual scanner test triggered');
     ToastAndroid.show('Testing scanner... check logs', ToastAndroid.LONG);
     await loadDownloadedSongs();
   };
 
   const onRefresh = async () => {
-    console.log('🔄 [DownloadsPage] Refresh triggered - starting scan...');
     ToastAndroid.show('🔄 Refreshing downloads...', ToastAndroid.SHORT);
     setRefreshing(true);
     await loadDownloadedSongs();

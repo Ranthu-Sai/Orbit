@@ -36,7 +36,6 @@ export default function AlbumsDisplay({ data, limit, Searchtext, source }) {
           temp.data.results = finalData
           setData(temp)
         } catch (e) {
-          console.log(e);
         } finally {
           setLoading(false)
         }

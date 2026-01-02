@@ -17,7 +17,6 @@ async function SetUserNameValue(name){
   try {
     await AsyncStorage.setItem('Name', name);
   } catch (e) {
-    console.log("Name Save Error");
   }
 }
 

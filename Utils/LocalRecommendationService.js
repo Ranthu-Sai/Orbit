@@ -35,17 +35,12 @@ class LocalRecommendationService {
             if (!forceRefresh) {
                 const cached = await this.getFromCache();
                 if (cached) {
-                    console.log('✨ LocalRecs: Returning cached Quick Picks');
                     return cached;
                 }
             }
-
-            console.log('✨ LocalRecs: Generating new Quick Picks from history...');
-
             // 1. Get recent history
             const history = await historyManager.getFilteredHistory('recent');
             if (!history || history.length === 0) {
-                console.log('✨ LocalRecs: No history found, returning empty');
                 return [];
             }
 
@@ -59,15 +54,11 @@ class LocalRecommendationService {
             if (recentSongs.length === 0) {
                 return [];
             }
-
-            console.log(`✨ LocalRecs: Seeding with ${recentSongs.length} songs. Target total: 20`);
-
             // 2. Fetch "Up Next" for each seed song in parallel
             // We use getNext(videoId) which returns the radio/mix for that song
             const promises = recentSongs.map(song =>
                 InnerTubeClient.getNext(song.id)
                     .catch(e => {
-                        console.log(`✨ LocalRecs: Failed to get radio for ${song.title}`, e.message);
                         return null;
                     })
             );
@@ -84,8 +75,6 @@ class LocalRecommendationService {
             // Dynamic distribution: If we have few seeds, take more from each to fill the grid
             // Target ~20 songs total. We use 24 to be safe (divisible by 4).
             const songsToTakePerSeed = Math.ceil(24 / validResults.length);
-            console.log(`✨ LocalRecs: Taking ${songsToTakePerSeed} songs per seed to fill grid`);
-
             let aggregatedSongs = [];
             const seenIds = new Set();
 
@@ -111,9 +100,6 @@ class LocalRecommendationService {
             // Limit total to 20 (4 columns * 5 rows or 5 cols * 4 rows)
             const targetCount = 20;
             aggregatedSongs = aggregatedSongs.slice(0, targetCount);
-
-            console.log(`✨ LocalRecs: Generated ${aggregatedSongs.length} personalized songs`);
-
             // 5. Cache results
             await this.saveToCache(aggregatedSongs);
 

@@ -41,27 +41,20 @@ export const useLocalTracks = (options = {}) => {
     setError(null);
 
     try {
-      console.log('useLocalTracks: Loading local tracks...');
-
       const allMetadata = await StorageManager.getAllDownloadedSongsMetadata();
 
       if (!allMetadata || Object.keys(allMetadata).length === 0) {
-        console.log('useLocalTracks: No downloaded songs metadata found');
         setLocalTracks([]);
         hasLoadedRef.current = true;
         setIsLoading(false);
         return;
       }
 
-      console.log(`useLocalTracks: Processing ${Object.keys(allMetadata).length} metadata entries`);
-
       // Use the metadata processor utility
       const processedTracks = await LocalTracksMetadataProcessor.processMetadataToTracks(allMetadata);
 
       setLocalTracks(processedTracks);
       hasLoadedRef.current = true;
-      console.log(`useLocalTracks: Successfully loaded ${processedTracks.length} local tracks`);
-
     } catch (error) {
       console.error('useLocalTracks: Error loading local tracks:', error);
       setError(error);
@@ -86,8 +79,6 @@ export const useLocalTracks = (options = {}) => {
     }
 
     try {
-      console.log('useLocalTracks: Playing local track:', track.title);
-      
       // Validate track has required properties
       if (!track.url) {
         throw new Error('Track URL is missing');
@@ -110,9 +101,6 @@ export const useLocalTracks = (options = {}) => {
       if (onTrackPlay) {
         onTrackPlay(track);
       }
-      
-      console.log('useLocalTracks: Successfully started playing:', track.title);
-      
     } catch (error) {
       console.error('useLocalTracks: Error playing local track:', error);
       setError(error);

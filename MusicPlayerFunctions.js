@@ -78,8 +78,6 @@ export const setupPlayer = async () => {
           autoHandleInterruptions: true,
           autoUpdateMetadata: true,
         });
-        console.log('Player initialized successfully in MusicPlayerFunctions');
-
         // NOTE: Remote control listeners (play, pause, next, previous) are registered in service.js
         // to avoid duplicate event listeners. DO NOT add them here.
 
@@ -125,7 +123,6 @@ export const setupPlayer = async () => {
       } catch (setupError) {
         // Check if the error is about player already being initialized
         if (setupError.message && setupError.message.includes('player has already been initialized')) {
-          console.log('Player already initialized in MusicPlayerFunctions');
           isPlayerInitialized = true;
           smartPrefetchManager.initialize();
         } else {
@@ -134,7 +131,6 @@ export const setupPlayer = async () => {
         }
       }
     } else {
-      console.log('Player already initialized, skipping setup in MusicPlayerFunctions');
     }
   } catch (error) {
     console.error('Error in setupPlayer function:', error);
@@ -152,7 +148,6 @@ async function PlayOneSong(song) {
 
     // Ensure player is initialized
     if (!isPlayerInitialized) {
-      console.log('Player not initialized, setting up...');
       await setupPlayer();
     }
 
@@ -169,8 +164,6 @@ async function PlayOneSong(song) {
 
     if (isYouTubeSong) {
       try {
-        console.log('Fetching YouTube stream for video ID:', song.id);
-
         // OPTIMISTIC UI: Emit early metadata event so mini player shows immediately
         // This provides instant feedback while the 2-3 second stream fetch happens
         const earlyArtwork = extractArtwork(song) || song.artwork || song.image || '';
@@ -183,8 +176,6 @@ async function PlayOneSong(song) {
           duration: song.duration,
           isLoading: true,
         });
-        console.log('📱 Emitted early metadata for immediate UI feedback');
-
         // Use StreamFetchManager for deduplication and abort support
         const streamData = await streamFetchManager.fetchStream(
           song.id,
@@ -217,8 +208,6 @@ async function PlayOneSong(song) {
             title: updatedSong.title || streamData.title,
             artist: updatedSong.artist || 'Unknown Artist',
           };
-          console.log('YouTube stream URL fetched successfully');
-
           // Reset error counter on successful fetch
           skipOperationManager.resetErrorCounter();
         } else {
@@ -239,8 +228,6 @@ async function PlayOneSong(song) {
     // Check if this is a SPOTIFY track - needs to be mapped to YTMusic
     else if (song.source === 'spotify' || song.spotifyId) {
       try {
-        console.log('🎵 Spotify Track detected! Mapping to YTMusic:', song.title, '-', song.artist);
-
         // OPTIMISTIC UI: Emit early metadata so mini player shows immediately
         // Uses Spotify artwork while we search for YTMusic match
         const earlyArtwork = extractArtwork(song) || song.artwork || song.image || '';
@@ -254,8 +241,6 @@ async function PlayOneSong(song) {
           isLoading: true,
           isSpotifyMapping: true, // Flag for UI to show mapping indicator
         });
-        console.log('📱 Emitted optimistic UI for Spotify → YTMusic mapping');
-
         // Use YouTubeMusicService.searchAndStream to find and get stream URL
         const YouTubeMusicService = require('./Utils/YouTubeMusicService').default;
         const searchQuery = `${song.title || song.name} ${song.artist || ''}`.trim();
@@ -303,8 +288,6 @@ async function PlayOneSong(song) {
     // Check if this is a DAB Music track
     else if (song.isDabTrack || song.source === 'dab' || (!isNaN(song.url) && String(song.url).length > 5)) {
       try {
-        console.log('🎵 DAB Track detected! Fetching stream URL for ID:', song.id);
-
         // OPTIMISTIC UI: Emit early metadata so mini player shows immediately
         const earlyArtwork = extractArtwork(song) || song.artwork || song.image || '';
         DeviceEventEmitter.emit('song-loading-started', {
@@ -317,8 +300,6 @@ async function PlayOneSong(song) {
           isLoading: true,
           isDabTrack: true, // Flag for UI to show DAB indicator
         });
-        console.log('📱 Emitted optimistic UI for DAB Music');
-
         await dabMusicService.initialize();
         const streamUrl = await dabMusicService.getStreamUrl(song.id);
 
@@ -343,8 +324,6 @@ async function PlayOneSong(song) {
             isDabTrack: true,
             currentPlayingQuality: dabQuality  // Set actual FLAC quality
           };
-          console.log('✅ DAB stream URL fetched successfully');
-          console.log('🎵 Quality:', dabQuality);
         } else {
           console.error('Failed to get DAB stream URL');
           ToastAndroid.show('Failed to load DAB stream', ToastAndroid.SHORT);
@@ -407,7 +386,6 @@ async function PlayOneSong(song) {
     if (!isLocalFile) {
       NetInfo.fetch().then(netInfo => {
         if (!netInfo.isConnected) {
-          console.log('Warning: Playing online song but device may be offline');
         }
       }).catch(() => { /* ignore */ });
     }
@@ -456,7 +434,9 @@ async function PlayOneSong(song) {
       // CRITICAL: Preserve existing quality for YTMusic/Spotify/DAB tracks
       // Only use Saavn quality setting if no quality was already set by stream handler
       currentPlayingQuality: updatedSong.currentPlayingQuality || currentQuality,
-      artwork: playingArtwork // Use enhanced w500 quality
+      artwork: playingArtwork, // Use enhanced w500 quality
+      // Store original full name for lyrics search (not truncated for display)
+      originalTitle: song.name || song.title || updatedSong.name || updatedSong.title,
     };
 
     await TrackPlayer.reset();
@@ -490,8 +470,6 @@ async function PlayOneSong(song) {
 
         // For DAB songs, use Last.fm-powered recommendations
         if (isDABSong && lastFMService.isAuthenticated()) {
-          console.log(`🧠 DAB Song: Using Last.fm brain for recommendations`);
-
           // Register the song as a seed for vibe tracking
           dabRecommendationService.registerSongPlayed({
             title: song.title || song.name,
@@ -508,21 +486,17 @@ async function PlayOneSong(song) {
 
             if (filteredRecs.length > 0) {
               await AddSongsToQueue(filteredRecs);
-              console.log(`✅ DAB Queue loaded: ${filteredRecs.length} Last.fm recommendations`);
-
               // Trigger prefetch for N+1
               setImmediate(() => {
                 const smartPrefetchManager = require('./Utils/SmartPrefetchManager').default;
                 smartPrefetchManager._prefetchTrackAtIndex(1)
                   .catch(err => {
                     if (!err.message?.includes("doesn't exist")) {
-                      console.log('Initial N+1 prefetch skipped:', err.message);
                     }
                   });
               });
             }
           } else {
-            console.log(`⚠️ No Last.fm recommendations found, falling back to YTMusic`);
             // Fall back to YTMusic recommendations using song title/artist search
           }
 
@@ -534,8 +508,6 @@ async function PlayOneSong(song) {
         // For Spotify-mapped songs, use YTMusic recommendations via the mapped videoId
         const source = (isSpotifyMapped || isYTId) ? 'ytmusic' : 'saavn';
         const recommendationSongId = isSpotifyMapped ? updatedSong.ytMusicVideoId : song.id;
-
-        console.log(`🎵 Loading recommendations: source=${source}, songId=${recommendationSongId}${isSpotifyMapped ? ' (Spotify→YTMusic)' : ''}`);
 
         // Load initial recommendations
         const recommendations = await queueManager.buildQueueFromRecommendations(recommendationSongId, source, 20);
@@ -549,8 +521,6 @@ async function PlayOneSong(song) {
 
           if (filteredRecs.length > 0) {
             await AddSongsToQueue(filteredRecs);
-            console.log(`✅ Initial queue loaded: ${filteredRecs.length} songs`);
-
             // 🎵 PREMIUM UX: Trigger initial prefetch for N+1 immediately after queue loads
             // This ensures the next song is ready even faster
             setImmediate(() => {
@@ -559,7 +529,6 @@ async function PlayOneSong(song) {
                 .catch(err => {
                   // Silence expected errors when queue isn't ready
                   if (!err.message?.includes("doesn't exist")) {
-                    console.log('Initial N+1 prefetch skipped:', err.message);
                   }
                 });
             });
@@ -596,7 +565,6 @@ async function AddPlaylist(songs, startSongId = null) {
     if (startSongId) {
       const startIndex = songs.findIndex(s => s.id === startSongId || s.videoId === startSongId);
       if (startIndex !== -1) {
-        console.log(`🎵 Playing from index ${startIndex} (Song ID: ${startSongId}), skipping previous ${startIndex} songs`);
         tracksToAdd = songs.slice(startIndex);
       } else {
         console.warn(`⚠️ Start song ID ${startSongId} not found in playlist, playing all`);
@@ -653,7 +621,6 @@ async function AddPlaylist(songs, startSongId = null) {
       else if (song.source === 'spotify' || song.spotifyId) {
         if (isFirstSong) {
           try {
-            console.log('🎵 Fetching YTMusic stream for first Spotify playlist song:', song.title);
             const earlyArtwork = extractArtwork(song) || song.artwork || song.image || '';
             DeviceEventEmitter.emit('song-loading-started', {
               id: song.id,
@@ -688,7 +655,6 @@ async function AddPlaylist(songs, startSongId = null) {
                 mappedFromSpotify: true,
                 currentPlayingQuality: `${codec} ${bitrateKbps}kbps`,
               };
-              console.log('✅ Spotify → YTMusic mapping successful for first song');
             } else {
               console.error('❌ Failed to map first Spotify song to YTMusic');
             }
@@ -711,7 +677,6 @@ async function AddPlaylist(songs, startSongId = null) {
       else if (song.isDabTrack || song.source === 'dab' || (!isNaN(song.url) && String(song.url).length > 5)) {
         if (isFirstSong) {
           try {
-            console.log('🎵 Fetching DAB stream for first playlist song:', song.title);
             await dabMusicService.initialize();
             const streamUrl = await dabMusicService.getStreamUrl(song.id);
 
@@ -721,7 +686,6 @@ async function AddPlaylist(songs, startSongId = null) {
               const fmt = fmtMatch ? fmtMatch[1] : null;
               const formatMap = { '5': 'MP3 320kbps', '6': 'FLAC 16-bit/44.1kHz', '7': 'FLAC 24-bit/96kHz', '27': 'FLAC 24-bit/192kHz' };
               updatedSong = { ...updatedSong, url: streamUrl, source: 'dab', isDabTrack: true, currentPlayingQuality: formatMap[fmt] || 'FLAC' };
-              console.log('✅ DAB stream URL fetched for first song');
             }
           } catch (error) {
             console.error('Error fetching DAB stream for first song:', error.message);
@@ -760,7 +724,9 @@ async function AddPlaylist(songs, startSongId = null) {
         artist: extractedArtist,
         artwork: artworkUrl,
         image: artworkUrl,
-        currentPlayingQuality: updatedSong.currentPlayingQuality || currentQuality
+        currentPlayingQuality: updatedSong.currentPlayingQuality || currentQuality,
+        // Store original full name for lyrics search (not truncated for display)
+        originalTitle: song.name || song.title || updatedSong.name || updatedSong.title,
       };
 
       // SAFETY: Ensure URL exists
@@ -794,8 +760,6 @@ async function AddPlaylist(songs, startSongId = null) {
     const initialTracks = tracksToAdd.slice(0, INITIAL_BATCH_SIZE);
     const remainingTracks = tracksToAdd.slice(INITIAL_BATCH_SIZE);
 
-    console.log(`⚡ AddPlaylist: Processing ${initialTracks.length} initial songs (deferring ${remainingTracks.length})`);
-
     // Process initial batch - only first song gets stream fetch
     const initialProcessed = await Promise.all(
       initialTracks.map((song, index) => processSingleSong(song, index, index === 0))
@@ -810,9 +774,11 @@ async function AddPlaylist(songs, startSongId = null) {
     await TrackPlayer.add(validInitialSongs);
     await TrackPlayer.play();
 
-    DeviceEventEmitter.emit('playback-mode-changed', { isPlaylist: true });
-    console.log(`✅ Playlist: Added initial ${validInitialSongs.length} songs and started playback`);
+    // CRITICAL: Emit queue-updated immediately so Context.Queue syncs
+    // This ensures queue panel shows songs even before progressive loading completes
+    DeviceEventEmitter.emit('queue-updated', { count: validInitialSongs.length });
 
+    DeviceEventEmitter.emit('playback-mode-changed', { isPlaylist: true });
     // ============================================================
     // PROGRESSIVE LOADING: Use ProgressiveQueueLoader for remaining songs
     // This uses threshold-based loading - adds batches when user approaches
@@ -831,8 +797,6 @@ async function AddPlaylist(songs, startSongId = null) {
           InteractionManager.runAfterInteractions(async () => {
             try {
               await TrackPlayer.add(result.initialBatch);
-              console.log(`✅ Playlist: Added progressive batch (${result.initialBatch.length} songs), ${result.hasMore ? 'more available' : 'all loaded'}`);
-
               DeviceEventEmitter.emit('queue-updated', {
                 count: validInitialSongs.length + result.initialBatch.length,
                 isProgressiveBatch: true
@@ -879,8 +843,6 @@ async function AddPlaylist(songs, startSongId = null) {
 }
 
 async function AddSongsToQueue(songs) {
-  console.log(`🎵 AddSongsToQueue: Lazy loading ${songs.length} songs...`);
-
   const qualityIndex = await getIndexQuality();
   const qualityNames = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
   const currentQuality = qualityNames[qualityIndex] || 'Unknown';
@@ -929,19 +891,16 @@ async function AddSongsToQueue(songs) {
           await new Promise(resolve => setTimeout(resolve, 300));
         } else {
           // If no stream URL, mark for Saavn fallback
-          console.log(`⚠️ DAB stream unavailable for ${song.title}, skipping`);
           processedSong.url = null;
         }
       } catch (e) {
         // Handle rate limiting (429) gracefully
         if (e.message?.includes('429') || e.response?.status === 429) {
-          console.log(`⚠️ DAB rate limited, waiting 2s before retry...`);
           await new Promise(resolve => setTimeout(resolve, 2000));
           try {
             const retryUrl = await dabMusicService.getStreamUrl(song.id);
             if (retryUrl) processedSong.url = retryUrl;
           } catch (retryErr) {
-            console.log(`❌ DAB retry failed for ${song.title}`);
           }
         }
       }
@@ -990,6 +949,9 @@ async function AddSongsToQueue(songs) {
       }
     }
 
+    // 4. Store original full name for lyrics search
+    processedSong.originalTitle = song.name || song.title || processedSong.name || processedSong.title;
+
     processedSongs.push(processedSong);
   }
 
@@ -999,7 +961,6 @@ async function AddSongsToQueue(songs) {
   );
 
   if (validSongs.length !== processedSongs.length) {
-    console.log(`⚠️ AddSongsToQueue: Filtered out ${processedSongs.length - validSongs.length} songs without valid URLs`);
   }
 
   if (validSongs.length > 0) {
@@ -1010,8 +971,6 @@ async function AddSongsToQueue(songs) {
       const initialBatch = validSongs.slice(0, INITIAL_BATCH_SIZE);
 
       await TrackPlayer.add(initialBatch);
-      console.log(`✅ Queue: Added initial ${initialBatch.length} songs instantly`);
-
       // Emit event to update UI immediately
       DeviceEventEmitter.emit('queue-updated', { count: initialBatch.length });
 
@@ -1029,7 +988,6 @@ async function AddSongsToQueue(songs) {
               if (i > 0) await new Promise(resolve => setTimeout(resolve, 50));
 
               await TrackPlayer.add(batch);
-              console.log(`✅ Queue: Added background batch ${i / BATCH_SIZE + 1} (${batch.length} songs)`);
             }
 
             // Final event to ensuring everything is synced
@@ -1072,22 +1030,17 @@ async function PlayNextSong() {
     try {
       // Ensure player is initialized
       if (!isPlayerInitialized) {
-        console.log('Player not initialized, setting up...');
         await setupPlayer();
       }
 
       // NON-BLOCKING: Stop tracking in background
-      historyManager.stopTracking().catch(e => console.log('History stop:', e.message));
+      historyManager.stopTracking().catch(() => { });
 
       // Get current track index ONLY (not full queue - expensive!)
       const currentTrack = await TrackPlayer.getCurrentTrack();
       const queueLength = (await TrackPlayer.getQueue()).length;
-
-      console.log('⏭️ PlayNextSong - Current:', currentTrack, 'Queue:', queueLength);
-
       // If there's no next track, just return
       if (currentTrack >= queueLength - 1) {
-        console.log('No next track available');
         return;
       }
 
@@ -1095,7 +1048,6 @@ async function PlayNextSong() {
       const nextTrack = await TrackPlayer.getTrack(nextTrackIndex);
 
       if (!nextTrack) {
-        console.log('No next track available');
         return;
       }
 
@@ -1123,16 +1075,12 @@ async function PlayNextSong() {
         const cachedStream = smartPrefetchManager.getPrefetchedStream(nextTrack.id);
 
         if (cachedStream) {
-          console.log('✅ Using cached prefetched stream for skip');
           // This is fast - just update metadata
           await smartPrefetchManager.replaceTrackAndWait(nextTrackIndex, nextTrack, cachedStream);
         } else {
           // 🚀 INSTANT SKIP: Don't wait for stream - skip now, error handler will recover
-          console.log('⚡ No cached stream - skipping immediately (error handler will recover)');
           // Start fetch in background for error handler
-          smartPrefetchManager.fetchOnDemand(nextTrack.id).catch(e =>
-            console.log('Background fetch error:', e.message)
-          );
+          smartPrefetchManager.fetchOnDemand(nextTrack.id).catch(() => { });
         }
       }
 
@@ -1144,9 +1092,7 @@ async function PlayNextSong() {
         try {
           const newTrack = await TrackPlayer.getActiveTrack();
           if (newTrack) {
-            historyManager.startTracking(newTrack).catch(e =>
-              console.log('History start error:', e.message)
-            );
+            historyManager.startTracking(newTrack).catch(() => { });
             skipOperationManager.resetErrorCounter();
           }
 
@@ -1156,13 +1102,11 @@ async function PlayNextSong() {
             await TrackPlayer.play();
           }
         } catch (e) {
-          console.log('Post-skip operations error:', e.message);
         }
       });
 
     } catch (error) {
       if (error.message === 'AbortError') {
-        console.log('⏭️ Skip cancelled');
       } else {
         console.error('❌ Error in PlayNextSong:', error);
       }
@@ -1171,7 +1115,6 @@ async function PlayNextSong() {
   });
 
   if (!executed) {
-    console.log('⏭️ Skip blocked - operation in progress');
   }
 }
 
@@ -1185,12 +1128,11 @@ async function PlayPreviousSong() {
     try {
       // Ensure player is initialized
       if (!isPlayerInitialized) {
-        console.log('Player not initialized, setting up...');
         await setupPlayer();
       }
 
       // NON-BLOCKING: Stop tracking in background
-      historyManager.stopTracking().catch(e => console.log('History stop:', e.message));
+      historyManager.stopTracking().catch(() => { });
 
       // Check if operation was cancelled
       if (signal.aborted) {
@@ -1199,12 +1141,8 @@ async function PlayPreviousSong() {
 
       // Get current track index ONLY (not full queue - expensive!)
       const currentTrack = await TrackPlayer.getCurrentTrack();
-
-      console.log('⏮️ PlayPreviousSong - Current:', currentTrack);
-
       // If there's no previous track, just return
       if (currentTrack <= 0) {
-        console.log('No previous track available');
         return;
       }
 
@@ -1212,7 +1150,6 @@ async function PlayPreviousSong() {
       const prevTrack = await TrackPlayer.getTrack(prevTrackIndex);
 
       if (!prevTrack) {
-        console.log('No previous track available');
         return;
       }
 
@@ -1240,16 +1177,12 @@ async function PlayPreviousSong() {
         const cachedStream = smartPrefetchManager.getPrefetchedStream(prevTrack.id);
 
         if (cachedStream) {
-          console.log('✅ Using cached prefetched stream for previous');
           // This is fast - just update metadata
           await smartPrefetchManager.replaceTrackAndWait(prevTrackIndex, prevTrack, cachedStream);
         } else {
           // 🚀 INSTANT SKIP: Don't wait for stream - skip now, error handler will recover
-          console.log('⚡ No cached stream - skipping immediately (error handler will recover)');
           // Start fetch in background for error handler
-          smartPrefetchManager.fetchOnDemand(prevTrack.id).catch(e =>
-            console.log('Background fetch error:', e.message)
-          );
+          smartPrefetchManager.fetchOnDemand(prevTrack.id).catch(() => { });
         }
       }
 
@@ -1261,9 +1194,7 @@ async function PlayPreviousSong() {
         try {
           const newTrack = await TrackPlayer.getActiveTrack();
           if (newTrack) {
-            historyManager.startTracking(newTrack).catch(e =>
-              console.log('History start error:', e.message)
-            );
+            historyManager.startTracking(newTrack).catch(() => { });
             skipOperationManager.resetErrorCounter();
           }
 
@@ -1273,13 +1204,11 @@ async function PlayPreviousSong() {
             await TrackPlayer.play();
           }
         } catch (e) {
-          console.log('Post-skip operations error:', e.message);
         }
       });
 
     } catch (error) {
       if (error.message === 'AbortError') {
-        console.log('⏮️ Skip cancelled');
       } else {
         console.error('❌ Error in PlayPreviousSong:', error);
       }
@@ -1288,7 +1217,6 @@ async function PlayPreviousSong() {
   });
 
   if (!executed) {
-    console.log('⏮️ Skip blocked - operation in progress');
   }
 }
 async function SkipToTrack(trackIndex) {
@@ -1318,17 +1246,13 @@ async function SkipToTrack(trackIndex) {
       targetTrack.url?.includes('music.youtube.com');
 
     if (needsStream && !targetTrack._prefetched) {
-      console.log('🎯 Random track selection - checking cache...');
-
       // FIRST: Check if SmartPrefetchManager has cached stream
       const cachedStream = smartPrefetchManager.getPrefetchedStream(targetTrack.id);
 
       let streamData = cachedStream;
 
       if (cachedStream) {
-        console.log('✅ Using cached prefetched stream for random selection');
       } else {
-        console.log('🔄 Track not in cache, fetching on-demand...');
         // Use SmartPrefetchManager for on-demand fetch (with retry)
         streamData = await smartPrefetchManager.fetchOnDemand(targetTrack.id);
       }
@@ -1336,7 +1260,6 @@ async function SkipToTrack(trackIndex) {
       if (streamData && streamData.url) {
         // Replace track in queue with valid URL using SAFE non-blocking method
         await smartPrefetchManager.replaceTrackAndWait(validIndex, targetTrack, streamData);
-        console.log('✅ Track replaced for random selection');
       } else {
         console.error('❌ Failed to get stream for random track');
         return;
@@ -1383,8 +1306,6 @@ async function getIndexQuality() {
 
 async function AddOneSongToPlaylist(song) {
   try {
-    console.log('🎵 AddOneSongToPlaylist called with song:', song?.title || 'Unknown');
-
     // Import the bottom sheet playlist selector manager for better UX
     const { PlaylistSelectorBottomSheetManager } = require('./Utils/PlaylistSelectorBottomSheetManager');
 
@@ -1394,11 +1315,6 @@ async function AddOneSongToPlaylist(song) {
       ToastAndroid.show('Invalid song data', ToastAndroid.SHORT);
       return false;
     }
-
-    console.log('✅ Song validation passed, song ID:', song.id);
-
-    console.log('AddOneSongToPlaylist called with song (bottom sheet):', song.title);
-
     // Safe image URL extraction
     const getImageUrl = (imageData) => {
       if (!imageData) return null;
@@ -1426,9 +1342,7 @@ async function AddOneSongToPlaylist(song) {
     };
 
     // Use the PlaylistSelectorBottomSheetManager to show the bottom drawer
-    console.log('📱 Attempting to show PlaylistSelectorBottomSheet...');
     const result = PlaylistSelectorBottomSheetManager.show(formattedSong);
-    console.log('📱 PlaylistSelectorBottomSheetManager.show result:', result);
     return result;
   } catch (error) {
     console.error('❌ Error showing playlist selector bottom sheet:', error);

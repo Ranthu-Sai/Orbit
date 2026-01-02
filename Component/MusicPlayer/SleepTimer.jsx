@@ -143,18 +143,16 @@ export const SleepTimerButton = ({ size = 25, iconColor }) => {
   useEffect(() => {
     if (!isTimerActive) return;
 
-    console.log('Sleep Timer: Playback state changed to:', playerState.state, 'Timer paused:', isTimerPaused);
-
     if (playerState.state === 'playing') {
       // Resume timer if it was paused
       if (isTimerPaused) {
-        console.log('Sleep Timer: Resuming timer');
+
         resumeTimer();
       }
     } else if (playerState.state === 'paused' || playerState.state === 'stopped') {
       // Pause timer when music is paused/stopped
       if (!isTimerPaused) {
-        console.log('Sleep Timer: Pausing timer');
+
         pauseTimer();
       }
     }
@@ -194,17 +192,16 @@ export const SleepTimerButton = ({ size = 25, iconColor }) => {
   };
 
   const resumeTimer = () => {
-    console.log('Sleep Timer: resumeTimer called');
+
     if (pauseStartTimeRef.current) {
       const pauseDuration = Date.now() - pauseStartTimeRef.current;
       globalPausedTime += pauseDuration;
       globalEndTime += pauseDuration; // Extend end time by pause duration
       pauseStartTimeRef.current = null;
-      console.log('Sleep Timer: Extended end time by', pauseDuration, 'ms');
+
     }
 
     const secondsRemaining = Math.max(0, Math.floor((globalEndTime - Date.now()) / 1000));
-    console.log('Sleep Timer: Seconds remaining after resume:', secondsRemaining);
 
     if (secondsRemaining > 0) {
       setupCountdown();

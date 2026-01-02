@@ -54,7 +54,6 @@ export class UnifiedDownloadService {
         downloadUrl = downloadResult.url;
         downloadHeaders = downloadResult.headers || null;
         audioFormat = downloadResult.format || null; // e.g., 'webm', 'm4a', 'opus'
-        console.log('📥 [Download] Using YTMusic stream with headers, format:', audioFormat);
       } else {
         downloadUrl = downloadResult;
       }
@@ -75,7 +74,6 @@ export class UnifiedDownloadService {
       } else {
         effectiveSource = song.source || (song.isDabTrack ? 'dab' : null);
       }
-      console.log('📂 Getting song path with source:', effectiveSource, '(original:', song.source, ', format:', audioFormat, ')');
       const songPath = await StorageManager.getSongPath(song.id, song.title, effectiveSource);
       const artworkPath = await StorageManager.getArtworkPath(song.id);
 
@@ -107,13 +105,7 @@ export class UnifiedDownloadService {
       // Download artwork if available (to temp location for embedding)
       let artworkDownloadSuccess = false;
       const artworkUrl = this.getArtworkUrl(song);
-      console.log(`🎨 [Artwork Debug] Song object keys:`, Object.keys(song));
-      console.log(`🎨 [Artwork Debug] song.artwork:`, song.artwork);
-      console.log(`🎨 [Artwork Debug] song.image:`, song.image);
-      console.log(`🎨 [Artwork Debug] Resolved artworkUrl:`, artworkUrl);
-
       if (artworkUrl) {
-        console.log(`🎨 [Artwork] Downloading from: ${artworkUrl}`);
         try {
           artworkDownloadSuccess = await downloadFileWithAnalytics(
             artworkUrl,
@@ -130,7 +122,6 @@ export class UnifiedDownloadService {
             const fileExists = await RNFS.exists(artworkPath);
             if (fileExists) {
               const fileInfo = await RNFS.stat(artworkPath);
-              console.log(`🎨 [Artwork] Download result: success=true, fileSize=${fileInfo.size} bytes`);
               // Ensure file has actual content (at least 100 bytes for a valid image)
               if (fileInfo.size < 100) {
                 console.warn(`🎨 [Artwork] Downloaded file too small (${fileInfo.size} bytes), likely invalid`);
@@ -153,15 +144,12 @@ export class UnifiedDownloadService {
       // Detect actual file format using magic bytes before attempting metadata embedding
       // This prevents errors when YouTube returns WebM/Opus but claims M4A
       const formatInfo = await detectAudioFormat(songPath);
-      console.log(`🔍 [Format] Detected format: ${formatInfo.format}, canEmbed: ${formatInfo.canEmbedMetadata}`);
-
       // If file has wrong extension, rename it
       let finalSongPath = songPath;
       if (formatInfo.actualExtension && !songPath.toLowerCase().endsWith(formatInfo.actualExtension)) {
         const renamedPath = await renameToCorrectExtension(songPath, formatInfo.actualExtension);
         if (renamedPath) {
           finalSongPath = renamedPath;
-          console.log(`📝 [File] Renamed to correct extension: ${finalSongPath}`);
         }
       }
 
@@ -170,9 +158,6 @@ export class UnifiedDownloadService {
       if (formatInfo.canEmbedMetadata) {
         try {
           const artworkPathToEmbed = artworkDownloadSuccess ? artworkPath : null;
-          console.log(`📝 [Metadata] Embedding into: ${song.title}`);
-          console.log(`🎨 [Metadata] Artwork path for embedding: ${artworkPathToEmbed || 'NONE (artwork download failed)'}`);
-
           metadataEmbedded = await embedMetadataInFile(
             finalSongPath,
             {
@@ -185,12 +170,10 @@ export class UnifiedDownloadService {
           );
 
           if (metadataEmbedded) {
-            console.log(`✅ Metadata embedded successfully for: ${song.title}`);
             // Clean up separate artwork file since it's now embedded
             if (artworkDownloadSuccess && await RNFS.exists(artworkPath)) {
               try {
                 await RNFS.unlink(artworkPath);
-                console.log('Cleaned up temp artwork file (now embedded)');
               } catch (cleanupErr) {
                 // Non-critical, continue
               }
@@ -201,7 +184,6 @@ export class UnifiedDownloadService {
           // Continue without embedded metadata - file is still playable
         }
       } else {
-        console.log(`⏭️ [Metadata] Skipping embedding for ${song.title} - format ${formatInfo.format} doesn't support metadata`);
       }
 
       // Prepare metadata for Orbit's internal library
@@ -225,8 +207,6 @@ export class UnifiedDownloadService {
 
       // Save metadata to AsyncStorage for Orbit's internal use
       await StorageManager.saveDownloadedSongMetadata(song.id, metadata);
-
-      console.log(`Download completed successfully for: ${song.title} (ID: ${song.id})`);
 
       // Emit download completed event
       EventRegister.emit('download-complete', song.id);
@@ -270,14 +250,12 @@ export class UnifiedDownloadService {
         (song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isDabTrack && !song.isLocalMusic);
 
       if (isYTMusic) {
-        console.log('🎵 YTMusic track detected, fetching download URL for ID:', song.id);
         try {
           const youtubeStreamingService = require('./YouTubeStreamingService').default;
           // Pass preferM4A=true for downloads to get M4A format (supports metadata embedding)
           const streamData = await youtubeStreamingService.getStreamUrl(song.id, true);
 
           if (streamData && streamData.url) {
-            console.log('✅ Got YTMusic download URL successfully');
             // Return object with URL, headers, and format metadata
             return {
               url: streamData.url,
@@ -305,7 +283,6 @@ export class UnifiedDownloadService {
       // Uses same logic as SmartPrefetchManager for playback
       // ============================================================
       if (song.source === 'spotify' || song.spotifyId || song._needsSpotifyMapping || song.url?.startsWith('spotify://')) {
-        console.log('🎵 Spotify track detected, mapping to YTMusic for download:', song.title || song.name);
         try {
           const YouTubeMusicService = require('./YouTubeMusicService').default;
           const ytMusicResult = await YouTubeMusicService.searchAndStream(
@@ -314,7 +291,6 @@ export class UnifiedDownloadService {
           );
 
           if (ytMusicResult && ytMusicResult.url && !ytMusicResult.error) {
-            console.log('✅ Spotify → YTMusic mapped for download:', song.title, '→', ytMusicResult.videoId);
             return {
               url: ytMusicResult.url,
               headers: ytMusicResult.headers || {
@@ -338,14 +314,12 @@ export class UnifiedDownloadService {
       // Detection: source='dab' OR isDabTrack flag
       // ============================================================
       if (song.source === 'dab' || song.isDabTrack === true) {
-        console.log('🎵 DAB track detected, fetching download URL for ID:', song.id);
         try {
           const dabMusicService = require('./DabMusicService').default;
           await dabMusicService.initialize();
 
           const streamUrl = await dabMusicService.getStreamUrl(song.id);
           if (streamUrl) {
-            console.log('✅ Got DAB download URL successfully');
             return streamUrl;
           }
           console.error('❌ Failed to get DAB download URL - no URL returned');

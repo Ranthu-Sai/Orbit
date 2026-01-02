@@ -95,7 +95,6 @@ export function deduplicateEventHandler(handler, keyExtractor = (data) => JSON.s
         const currentKey = keyExtractor(eventData);
 
         if (currentKey === lastKey) {
-            console.log('🔄 Skipping duplicate event');
             return;
         }
 

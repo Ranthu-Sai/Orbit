@@ -82,7 +82,6 @@ const isVideoSection = (section) => {
                 const aspectRatio = thumb.width / thumb.height;
                 // If aspect ratio is > 1.4, it's likely a video thumbnail
                 if (aspectRatio > 1.4) {
-                    console.log(`[YTMusicHomeFeed] Filtering video section: "${section.title}" (aspect ratio: ${aspectRatio.toFixed(2)})`);
                     return true;
                 }
             }
@@ -95,7 +94,6 @@ const isVideoSection = (section) => {
         );
 
         if (hasNoMusicContent && contents.length > 2) {
-            console.log(`[YTMusicHomeFeed] Filtering non-music section: "${section.title}"`);
             return true;
         }
     }
@@ -276,12 +274,10 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
                 // Try RAM cache first
                 cachedSections = CacheManager.get(cacheKey);
                 if (cachedSections) {
-                    console.log('[YTMusicHomeFeed] RAM cache HIT for sections:', cachedSections.length);
                 } else {
                     // Try disk cache
                     cachedSections = await CacheManager.getAsync(cacheKey);
                     if (cachedSections) {
-                        console.log('[YTMusicHomeFeed] Disk cache HIT for sections:', cachedSections.length);
                     }
                 }
             }
@@ -290,24 +286,17 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
             if (forceRefresh) {
                 CacheManager.invalidate(cacheKey);
                 await localRecommendationService.clearCache();
-                console.log('[YTMusicHomeFeed] Cache cleared, fetching fresh...');
             }
 
             let processedSections = cachedSections;
 
             // Fetch from API if no cache or force refresh
             if (!processedSections) {
-                console.log('[YTMusicHomeFeed] Fetching sections from API...');
-
                 const homeData = await YouTubeMusicService.getHomeFeed(100, forceRefresh);
 
                 if (homeData && Array.isArray(homeData) && homeData.length > 0 && isMounted.current) {
-                    console.log('[YTMusicHomeFeed] Received sections:', homeData.length);
-
                     // Filter out video-like sections (OuterTune approach)
                     const filteredData = homeData.filter(section => !isVideoSection(section));
-                    console.log('[YTMusicHomeFeed] After filtering video sections:', filteredData.length);
-
                     // Process music-only sections from the API
                     processedSections = filteredData.map(section => {
                         const sectionTitle = section.title || 'Music';
@@ -373,7 +362,6 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
 
                     // Shuffle sections and items on hard refresh for variety
                     if (forceRefresh) {
-                        console.log('[YTMusicHomeFeed] Shuffling sections and items for variety...');
                         processedSections = shuffleArray(processedSections);
                         processedSections = processedSections.map(section => ({
                             ...section,
@@ -387,7 +375,6 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
 
                     // Cache sections (without Quick Picks) to disk for 24 hours
                     CacheManager.set(cacheKey, processedSections, CACHE_TTL.HOME_DATA);
-                    console.log('[YTMusicHomeFeed] Cached sections to disk:', processedSections.length);
                 }
             }
 
@@ -399,7 +386,6 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
 
                 // Inject Local Quick Picks at the top if available
                 if (localQuickPicks && localQuickPicks.length > 0) {
-                    console.log('✨ [YTMusicHomeFeed] Injecting Local Quick Picks:', localQuickPicks.length);
                     finalSections.unshift({
                         title: 'Quick Picks',
                         type: 'songs',
@@ -407,8 +393,6 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
                         items: localQuickPicks
                     });
                 }
-
-                console.log('[YTMusicHomeFeed] Final sections with Quick Picks:', finalSections.length);
                 setSections(finalSections);
             }
         } catch (error) {
@@ -461,7 +445,6 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
     // Load more sections callback - called from parent scroll
     const loadMoreSections = () => {
         if (hasMoreSections) {
-            console.log(`[YTMusicHomeFeed] Loading more sections: ${visibleCount} -> ${visibleCount + SECTIONS_PER_LOAD}`);
             setVisibleCount(prev => Math.min(prev + SECTIONS_PER_LOAD, sections.length));
         }
     };
@@ -469,7 +452,6 @@ export const YTMusicHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, re
     // Expose methods to parent via ref - MUST be before conditional returns
     useImperativeHandle(ref, () => ({
         refresh: async () => {
-            console.log('🔄 YTMusicHomeFeed - Hard refresh triggered');
             setVisibleCount(INITIAL_SECTIONS); // Reset lazy loading on refresh
             await fetchHomeData(true);
         },

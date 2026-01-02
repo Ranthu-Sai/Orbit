@@ -14,7 +14,6 @@ export const InitialScreen = ({navigation}) => {
     try {
       // First initialize the cache system
       setStatusMessage('Preparing app data...');
-      console.log('Initializing cache system');
       await initializeCache();
       
       // Then proceed with normal app initialization

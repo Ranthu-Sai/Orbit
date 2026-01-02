@@ -60,7 +60,6 @@ export const CustomPlaylist = () => {
       if (!forceRefresh) {
         const cached = await CacheManager.getAsync(cacheKey);
         if (cached) {
-          console.log('[CustomPlaylist] Using cached data - no API call needed');
           setPlaylists(cached.playlists || {});
           setUserPlaylists(cached.userPlaylists || []);
           setLikedPlaylists(cached.likedPlaylists || []);
@@ -76,16 +75,12 @@ export const CustomPlaylist = () => {
       }
 
       setError(null);
-      console.log('[CustomPlaylist] Fetching playlist data...');
-
       // Load legacy custom playlists
       const customPlaylists = await GetCustomPlaylists();
       setPlaylists(customPlaylists);
 
       // Load user playlists from the new PlaylistManager
       const newUserPlaylists = await getUserPlaylists();
-      console.log('Loaded user playlists:', newUserPlaylists?.length || 0);
-
       // Ensure we're setting a valid array to state
       if (Array.isArray(newUserPlaylists)) {
         setUserPlaylists(newUserPlaylists);
@@ -101,8 +96,6 @@ export const CustomPlaylist = () => {
       const filteredLikedPlaylists = Object.values(likedPlaylistsData.playlist || {})
         .filter(Boolean)
         .sort((a, b) => (a.count || 0) - (b.count || 0));
-
-      console.log('Loaded liked playlists:', filteredLikedPlaylists.length);
       setLikedPlaylists(filteredLikedPlaylists);
 
       // Check if we have any playlists from all sources
@@ -121,7 +114,6 @@ export const CustomPlaylist = () => {
           likedPlaylists: filteredLikedPlaylists,
           hasPlaylists: hasAnyPlaylists
         }, CACHE_TTL.LIBRARY_DATA);
-        console.log('[CustomPlaylist] Data cached');
       }
     } catch (error) {
       console.error('Error loading playlists:', error);
@@ -166,7 +158,6 @@ export const CustomPlaylist = () => {
   };
 
   const onImportSuccess = useCallback(() => {
-    console.log('Import successful, refreshing playlists...');
     // Clear cache and reload immediately
     CacheManager.invalidate(CACHE_KEYS.CUSTOM_PLAYLISTS);
     clearPlaylistCache();
@@ -176,7 +167,6 @@ export const CustomPlaylist = () => {
   // Listen for playlist updates (imports, creates, deletes)
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('playlist-updated', () => {
-      console.log('Playlist update event received, refreshing...');
       CacheManager.invalidate(CACHE_KEYS.CUSTOM_PLAYLISTS);
       clearPlaylistCache();
       loadPlaylists(true);
@@ -203,12 +193,8 @@ export const CustomPlaylist = () => {
   // Delete playlist - receives playlist data directly from drawer callback
   const handleMenuDelete = async (playlist) => {
     if (!playlist) {
-      console.log('No playlist data received for delete');
       return;
     }
-
-    console.log('Deleting playlist:', playlist.name, 'type:', playlist.type);
-
     try {
       if (playlist.type === 'user') {
         // Use proper file-based delete from PlaylistManager
@@ -238,11 +224,8 @@ export const CustomPlaylist = () => {
   // Rename playlist - receives playlist data directly from drawer callback
   const handleMenuRename = (playlist) => {
     if (!playlist) {
-      console.log('No playlist data received for rename');
       return;
     }
-
-    console.log('Renaming playlist:', playlist.name, 'type:', playlist.type);
     setSelectedPlaylist(playlist);
     setNewPlaylistName(playlist.name || '');
     setEditModalVisible(true);
@@ -390,8 +373,6 @@ export const CustomPlaylist = () => {
 
   const renderUserPlaylist = ({ item, index }) => {
     // Reduce logging to avoid console spam
-    // console.log(`Rendering user playlist: ${item.name} (${item.id})`);
-
     const handlePlaylistPress = () => {
       // Navigate to the playlist view with the songs from this playlist
       if (item.songs && item.songs.length > 0) {
@@ -617,8 +598,6 @@ export const CustomPlaylist = () => {
   // Add back handler to handle embedded view and library navigation
   useEffect(() => {
     const handleBack = () => {
-      console.log('Back pressed in CustomPlaylist');
-
       // If showing playlist detail, return to list view
       if (showPlaylistDetail) {
         setShowPlaylistDetail(false);

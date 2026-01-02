@@ -26,7 +26,6 @@ const OfflineManager = ({
   // Load cached tracks from AsyncStorage
   const loadCachedData = useCallback(async () => {
     try {
-      console.log('OfflineManager: Loading cached data');
       const cachedData = await AsyncStorage.getItem('cachedTracks');
       
       if (cachedData) {
@@ -36,10 +35,7 @@ const OfflineManager = ({
         if (onCachedDataLoaded) {
           onCachedDataLoaded(parsedTracks);
         }
-        
-        console.log(`OfflineManager: Loaded ${parsedTracks.length} cached tracks`);
       } else {
-        console.log('OfflineManager: No cached data found');
         setCachedTracks([]);
       }
     } catch (error) {
@@ -51,13 +47,10 @@ const OfflineManager = ({
   // Load local tracks with better error handling for artwork
   const loadLocalTracks = useCallback(async () => {
     try {
-      console.log('OfflineManager: Loading local tracks');
-      
       // Get all downloaded songs metadata
       const allMetadata = await StorageManager.getAllDownloadedSongsMetadata();
       
       if (!allMetadata || Object.keys(allMetadata).length === 0) {
-        console.log('OfflineManager: No downloaded songs metadata found');
         setLocalTracks([]);
         return [];
       }
@@ -105,8 +98,6 @@ const OfflineManager = ({
       if (onLocalTracksLoaded) {
         onLocalTracksLoaded(tracks);
       }
-      
-      console.log(`OfflineManager: Loaded ${tracks.length} local tracks`);
       return tracks;
     } catch (error) {
       console.error('OfflineManager: Error loading local tracks:', error);
@@ -118,13 +109,10 @@ const OfflineManager = ({
   // Build offline queue for TrackPlayer
   const buildOfflineQueue = useCallback(async (currentTrack) => {
     try {
-      console.log('OfflineManager: Building offline queue');
-      
       // Get all downloaded songs metadata
       const allMetadata = await StorageManager.getAllDownloadedSongsMetadata();
       
       if (!allMetadata || Object.keys(allMetadata).length === 0) {
-        console.log('OfflineManager: No downloaded songs found for offline queue');
         return currentTrack ? [currentTrack] : [];
       }
 
@@ -168,8 +156,6 @@ const OfflineManager = ({
           console.error(`OfflineManager: Error processing track ${songId} for queue:`, trackError);
         }
       }
-
-      console.log(`OfflineManager: Built offline queue with ${queue.length} tracks`);
       return queue;
     } catch (error) {
       console.error('OfflineManager: Error building offline queue:', error);
@@ -187,12 +173,9 @@ const OfflineManager = ({
         const currentTrack = await TrackPlayer.getActiveTrack();
         
         if (!currentTrack || state === State.None || state === State.Ready) {
-          console.log(`OfflineManager: Adding ${localTracksLoaded.length} downloaded tracks to queue in offline mode`);
-          
           try {
             await TrackPlayer.reset();
             await TrackPlayer.add(localTracksLoaded);
-            console.log('OfflineManager: Offline queue initialized with downloaded tracks');
           } catch (queueError) {
             console.error('OfflineManager: Error setting up offline queue:', queueError);
           }
@@ -205,8 +188,6 @@ const OfflineManager = ({
 
   // Handle transition to offline mode
   const handleOfflineTransition = useCallback(async (networkData) => {
-    console.log('OfflineManager: Handling transition to offline mode');
-    
     try {
       // Load cached data
       await loadCachedData();
@@ -240,14 +221,11 @@ const OfflineManager = ({
               // Restore position and playback
               if (position > 0) await TrackPlayer.seekTo(position);
               if (wasPlaying) await TrackPlayer.play();
-              
-              console.log('OfflineManager: Rebuilt queue with current track first in offline mode');
             }
           } else {
             // No local track playing, just add all tracks
             await TrackPlayer.reset();
             await TrackPlayer.add(tracks);
-            console.log('OfflineManager: Added all local tracks to queue in offline mode');
           }
         } catch (error) {
           console.error('OfflineManager: Error setting up queue for offline mode:', error);
@@ -264,8 +242,6 @@ const OfflineManager = ({
 
   // Handle transition to online mode
   const handleOnlineTransition = useCallback(async (networkData) => {
-    console.log('OfflineManager: Handling transition to online mode');
-    
     if (onOnlineTransition) {
       onOnlineTransition(networkData, { cachedTracks, localTracks });
     }
@@ -290,7 +266,6 @@ const OfflineManager = ({
 
         if (mounted) {
           setIsInitialized(true);
-          console.log('OfflineManager: Initialized successfully');
         }
       } catch (error) {
         console.error('OfflineManager: Error during initialization:', error);

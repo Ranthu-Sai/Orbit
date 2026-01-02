@@ -129,7 +129,6 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
     // Defer heavy download operation to prevent UI blocking
     InteractionManager.runAfterInteractions(async () => {
       try {
-        console.log('📥 QueueRenderSongs: Starting download for:', songData.title);
         await UnifiedDownloadService.downloadSong(songData, (progress) => {
           // Emit progress event for state update
           EventRegister.emit('download-progress', { songId: songData.id, progress });
@@ -244,12 +243,8 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       // Check if the current track has a sourceType (mymusic or download)
       const sourceType = (currentTrack.sourceType || (isLocalTrack(currentTrack) ? 'download' : 'online'))?.toString?.().toLowerCase();
       // Verbose logging commented for performance
-      // console.log('Current track source type:', sourceType);
-
-      // If playing a track from MyMusic, only show MyMusic tracks in the queue
+      // // If playing a track from MyMusic, only show MyMusic tracks in the queue
       if (sourceType === 'mymusic') {
-        console.log('Playing from MyMusic - showing only MyMusic tracks in queue');
-
         // PERFORMANCE: Use provided queue if available, otherwise fallback to Context
         let fullQueue = providedQueue || Queue || [];
 
@@ -259,16 +254,12 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
           const now = Date.now();
           if (trackPlayerQueueCache.current && (now - trackPlayerQueueCacheTime.current) < QUEUE_CACHE_TTL) {
             fullQueue = trackPlayerQueueCache.current;
-            console.log(`[MyMusic Queue] Using cached queue (${fullQueue.length} tracks)`);
           } else {
-            console.log('[MyMusic Queue] Context Queue is empty - fetching from TrackPlayer');
             try {
               fullQueue = await TrackPlayer.getQueue();
               trackPlayerQueueCache.current = fullQueue;
               trackPlayerQueueCacheTime.current = now;
-              console.log(`[MyMusic Queue] TrackPlayer has ${fullQueue.length} tracks`);
             } catch (e) {
-              console.log('[MyMusic Queue] TrackPlayer fallback failed');
             }
           }
         }
@@ -295,8 +286,6 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       // If playing a downloaded track
       // Treat both 'download' and legacy 'downloaded' as downloaded source
       if (sourceType === 'download' || sourceType === 'downloaded' || (isLocalTrack(currentTrack) && !currentTrack.sourceType)) {
-        console.log('Playing downloaded track - showing all downloaded tracks in queue');
-
         // Always use downloaded tracks in offline mode or when explicitly playing downloaded music
         // PERFORMANCE: Use provided queue if available, otherwise fallback to Context
         let fullQueue = providedQueue || Queue || [];
@@ -307,16 +296,12 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
           const now = Date.now();
           if (trackPlayerQueueCache.current && (now - trackPlayerQueueCacheTime.current) < QUEUE_CACHE_TTL) {
             fullQueue = trackPlayerQueueCache.current;
-            console.log(`[Downloads Queue] Using cached queue (${fullQueue.length} tracks)`);
           } else {
-            console.log('[Downloads Queue] Context Queue is empty - fetching from TrackPlayer');
             try {
               fullQueue = await TrackPlayer.getQueue();
               trackPlayerQueueCache.current = fullQueue;
               trackPlayerQueueCacheTime.current = now;
-              console.log(`[Downloads Queue] TrackPlayer has ${fullQueue.length} tracks`);
             } catch (e) {
-              console.log('[Downloads Queue] TrackPlayer fallback failed');
             }
           }
         }
@@ -363,32 +348,27 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         // PERFORMANCE: Use provided queue if available, otherwise fallback to Context
         let fullQueue = providedQueue || Queue || [];
         // Reduced logging for performance
-        // console.log(`filterQueueBySource: Queue source has ${fullQueue.length} tracks (Manual: ${!!providedQueue})`);
-
-        // FALLBACK: If Context.Queue is empty (due to React state batching delay),
+        // // FALLBACK: If Context.Queue is empty (due to React state batching delay),
         // fetch directly from TrackPlayer - BUT USE CACHE to avoid expensive bridge calls
         if (fullQueue.length === 0) {
           const now = Date.now();
           // Use cached queue if fresh enough
           if (trackPlayerQueueCache.current && (now - trackPlayerQueueCacheTime.current) < QUEUE_CACHE_TTL) {
             fullQueue = trackPlayerQueueCache.current;
-            // console.log(`filterQueueBySource: Using cached queue (${fullQueue.length} tracks)`);
           } else {
-            console.log('Context Queue is empty - fetching from TrackPlayer as fallback');
+            // Cache is stale or empty - fetch fresh queue from TrackPlayer
             try {
               fullQueue = await TrackPlayer.getQueue();
               // Cache the result
               trackPlayerQueueCache.current = fullQueue;
               trackPlayerQueueCacheTime.current = now;
-              console.log(`filterQueueBySource: TrackPlayer fallback has ${fullQueue.length} tracks (cached)`);
             } catch (e) {
-              console.log('TrackPlayer fallback failed, using current track only');
+              // Ignore error, fallback to empty queue
             }
           }
         }
 
         if (fullQueue.length === 0) {
-          console.log('Both Context and TrackPlayer queues empty, using current track');
           return [currentTrack];
         }
 
@@ -417,8 +397,6 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       } else {
         // In offline mode, if current track is not local/downloaded or from MyMusic,
         // default to showing downloaded songs as fallback
-        console.log('In offline mode with non-local track - showing downloaded tracks as fallback');
-
         // If we have downloaded tracks, show them
         if (downloadedTracks.length > 0) {
           return [currentTrack, ...downloadedTracks.filter(t => t.id !== currentTrack.id)];
@@ -493,9 +471,7 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
           const filtered = await filterQueueBySource(track);
 
           // Reduced logging for performance - uncomment for debugging
-          // console.log(`Track changed - filtered queue contains ${filtered.length} tracks`);
-
-          // Filter out duplicate songs based on ID
+          // // Filter out duplicate songs based on ID
           const uniqueIds = new Set();
           const uniqueFiltered = filtered.filter(track => {
             if (!track || !track.id || uniqueIds.has(track.id)) return false;
@@ -538,7 +514,6 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       // Skip this init if it was triggered by drag end (queue already reordered)
       if (skipNextQueueInitRef.current) {
         skipNextQueueInitRef.current = false;
-        console.log('Skipping queue init - reorder just completed');
         return;
       }
 
@@ -617,7 +592,6 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
           )
         )) {
           // Just log a simpler message instead
-          console.log('Suppressed playlist/network error');
           return;
         }
 
@@ -658,7 +632,6 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       const actualIndex = queue.findIndex(track => track.id === trackId);
 
       if (actualIndex === -1) {
-        console.log(`Track with ID ${trackId} not found in player queue`);
         // If not found in player but in our state, remove it from state anyway
         setUpcomingQueue(prev => prev.filter(t => t.id !== trackId));
         operationInProgressRef.current = false;
@@ -685,8 +658,6 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
 
       // Remove the track from the actual player queue
       await TrackPlayer.remove(actualIndex);
-      console.log(`Removed track at index ${actualIndex} (${trackId}) from TrackPlayer`);
-
       // CRITICAL: Update the visual queue state immediately
       // This ensures the UI reflects the removal even before any events trigger
       setUpcomingQueue(prev => prev.filter(t => t.id !== trackId));
@@ -716,7 +687,6 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         currentTrack = await TrackPlayer.getActiveTrack();
 
         if (currentTrack?.id === item.id) {
-          console.log('Selected currently playing track - toggle playback');
           const state = await TrackPlayer.getState();
 
           if (state === State.Playing) {
@@ -743,8 +713,6 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
 
         // If the track isn't in the queue but we want to play it anyway
         if (item.url) {
-          console.log('Track has URL but not in queue, adding it to queue');
-
           // Ensure the sourceType property is properly set based on track type
           let sourceType = item.sourceType;
 
@@ -859,9 +827,6 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
           return;
         }
       }
-
-      console.log(`Selected track "${item.title}" at queue index ${actualIndex}`);
-
       // Skip to the actual index in the queue
       await SkipToTrack(actualIndex);
 
@@ -919,8 +884,6 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       // So the moved track is at `data[to]`, NOT `data[from]`!
       const movedTrackId = data[to]?.id;
       const movedTrackTitle = data[to]?.title;
-      console.log(`🎯 Moved track: "${movedTrackTitle}" from visual ${from} to visual ${to}`);
-
       if (!movedTrackId) {
         console.error('Could not identify the moved track');
         setIsDragging(false);
@@ -930,7 +893,6 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
 
       // BLOCK moves to position 0 - current track can't be displaced
       if (to === 0) {
-        console.log('⚠️ Cannot move to position 0 (current track position) - syncing with TrackPlayer');
         const freshQueue = await TrackPlayer.getQueue();
         const currentTrack = await TrackPlayer.getActiveTrack();
         if (freshQueue && currentTrack) {
@@ -965,9 +927,6 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       // Get the current track's ACTUAL index in TrackPlayer queue
       const currentTrackTPIndex = await TrackPlayer.getActiveTrackIndex();
       const currentTrackId = currentPlaying?.id;
-
-      console.log(`📍 Current track "${currentPlaying?.title}" is at TrackPlayer index ${currentTrackTPIndex}`);
-
       // ANCHOR-BASED APPROACH: Find the track that should come AFTER the moved track
       // In the post-drag array (data), the track at position (to + 1) is the anchor
       // We find where this anchor is in TrackPlayer and insert BEFORE it
@@ -990,11 +949,9 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
             // Moving backward: anchor doesn't shift, target is anchorIndex
             actualToIndex = anchorIndex;
           }
-          console.log(`📎 Using anchor track "${anchorTrack.title}" at TP index ${anchorIndex}`);
         } else {
           // Anchor not found - use offset-based fallback
           actualToIndex = currentTrackTPIndex + to;
-          console.log(`⚠️ Anchor not found, using offset-based: ${actualToIndex}`);
         }
       } else {
         // Moving to end of visible queue - place after the last visible track
@@ -1016,17 +973,6 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
           actualToIndex = actualFromIndex;
         }
       }
-
-      console.log(`📊 Index calculation: actualFrom=${actualFromIndex}, actualTo=${actualToIndex}`);
-      console.log('Queue move operation:', {
-        visualFrom: from,
-        visualTo: to,
-        actualFrom: actualFromIndex,
-        actualTo: actualToIndex,
-        currentTrackTPIndex: currentTrackTPIndex,
-        trackTitle: movedTrackTitle
-      });
-
       // SAFER APPROACH: Use remove() + add() instead of move() for precise control
       // TrackPlayer.move() has inconsistent behavior across platforms
       if (actualFromIndex !== -1 && actualToIndex !== -1 && actualFromIndex !== actualToIndex) {
@@ -1035,8 +981,6 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
 
         // Step 1: Remove the track from its current position
         await TrackPlayer.remove(actualFromIndex);
-        console.log(`Removed track from index ${actualFromIndex}`);
-
         // Step 2: Recalculate insertion index after removal
         // If we removed from BEFORE the target, the target shifts down by 1
         let insertIndex = actualToIndex;
@@ -1048,13 +992,10 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         // Position 0 is reserved for the currently playing track
         if (insertIndex <= currentTrackTPIndex) {
           insertIndex = currentTrackTPIndex + 1;
-          console.log(`⚠️ Adjusted insert index to ${insertIndex} to protect current track`);
         }
 
         // Step 3: Add the track at the calculated position
         await TrackPlayer.add(trackToMove, insertIndex);
-        console.log(`Added track at index ${insertIndex}`);
-
         // Small delay to let TrackPlayer queue settle
         await new Promise(resolve => setTimeout(resolve, 150));
 
@@ -1063,9 +1004,6 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         const currentTrack = await TrackPlayer.getActiveTrack();
         const currentTrackId = currentTrack?.id;
         const newCurrentIndex = freshQueue.findIndex(t => t.id === currentTrackId);
-
-        console.log(`🔍 After reorder: currentTrack="${currentTrack?.title}", foundAt=${newCurrentIndex}`);
-
         if (newCurrentIndex === -1) {
           console.error('⚠️ Current track lost after move! This should not happen.');
         }
@@ -1094,12 +1032,9 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
 
         // DEBUG: Log actual TrackPlayer queue after move to verify correct order
         const first5 = uniqueSynced.slice(0, 5).map((t, i) => `${i}: ${t.title?.substring(0, 15)}`);
-        console.log('📋 Visual queue after sync (first 5):', first5.join(' | '));
-
         // Update UI with the SYNCED order from TrackPlayer
         setUpcomingQueue(uniqueSynced);
       } else {
-        console.log('No move executed (indices same or invalid) - syncing UI with TrackPlayer');
         // Sync with actual TrackPlayer state
         const freshQueue = await TrackPlayer.getQueue();
         const currentTrack = await TrackPlayer.getActiveTrack();
@@ -1109,15 +1044,11 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
           setUpcomingQueue(upcoming);
         }
       }
-
-      console.log(`Drag completed - queue synced with TrackPlayer`);
-
       // Trigger prefetch for the new next tracks after reorder
       // IMPORTANT: Use delay to ensure TrackPlayer queue is fully settled
       // SKIP for local sources as they don't need prefetching
       setTimeout(async () => {
         if (isLocalSource) {
-          console.log('⏭️ Skipping prefetch after reorder: Local source detected');
           return;
         }
 
@@ -1129,14 +1060,11 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
           // Then prefetch N+2
           const currentIdx = await TrackPlayer.getActiveTrackIndex();
           if (currentIdx !== null && currentIdx !== undefined) {
-            console.log(`🎵 After reorder: Starting N+2 prefetch at index ${currentIdx + 2}`);
             await smartPrefetchManager._prefetchTrackAtIndex(currentIdx + 2);
-            console.log(`✅ After reorder: N+2 prefetch complete`);
           }
         } catch (prefetchError) {
           // Silence expected errors when queue isn't ready
           if (!prefetchError.message?.includes("doesn't exist")) {
-            console.log('Prefetch after reorder skipped:', prefetchError.message);
           }
         }
       }, 500); // Wait 500ms for queue to fully settle
@@ -1167,16 +1095,12 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       try {
         const currentTrack = await TrackPlayer.getActiveTrack();
         if (currentTrack) {
-          console.log('📋 Queue updated event received - refreshing queue display');
-
           // CRITICAL FIX: Fetch fresh queue directly from TrackPlayer
           // Context.Queue might be stale due to React state batching when this event fires
           const freshQueue = await TrackPlayer.getQueue();
           // Update cache since we just fetched fresh data
           trackPlayerQueueCache.current = freshQueue;
           trackPlayerQueueCacheTime.current = Date.now();
-          console.log(`📋 Fresh queue from TrackPlayer: ${freshQueue.length} tracks (cache updated)`);
-
           const filtered = await filterQueueBySource(currentTrack, freshQueue);
 
           // Filter out duplicates

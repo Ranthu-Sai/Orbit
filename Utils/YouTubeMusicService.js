@@ -98,11 +98,10 @@ class YouTubeMusicService {
     static async registerPlayback(videoId) {
         // We use getNext as a lightweight way to register the "watch"
         // This updates the visitorData in InnerTubeClient
-        console.log(`[YouTubeMusicService] Registering playback for ${videoId} to update history`);
         // we don't await the result to avoid blocking, but we catch errors
-        InnerTubeClient.getNext(videoId).catch(e =>
-            console.log('[YouTubeMusicService] Failed to register playback:', e.message)
-        );
+        InnerTubeClient.getNext(videoId).catch(e => {
+            // Silently fail, this is just for stats/history
+        });
     }
 
     static async getCharts(country = 'IN') {

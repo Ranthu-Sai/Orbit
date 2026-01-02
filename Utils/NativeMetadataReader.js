@@ -19,23 +19,17 @@ class NativeMetadataReader {
    */
     static async initialize() {
         if (this.isInitialized) {
-            console.log('✅ NativeMetadataReader already initialized');
             return true;
         }
 
         try {
-            console.log('🔧 NativeMetadataReader: Checking native module...');
-
             if (!MetadataReaderModule) {
                 console.error('❌ MetadataReaderModule not found - native module not linked properly');
                 console.error('Available NativeModules:', Object.keys(NativeModules).filter(k => k.includes('Metadata')));
                 return false;
             }
-
-            console.log('✅ MetadataReaderModule found, initializing...');
             await MetadataReaderModule.initialize();
             this.isInitialized = true;
-            console.log('✅ NativeMetadataReader initialized successfully');
             return true;
         } catch (error) {
             console.error('❌ Failed to initialize NativeMetadataReader:', error);
@@ -83,8 +77,6 @@ class NativeMetadataReader {
    */
     static async readMetadataBatch(filePaths) {
         try {
-            console.log(`📚 [MetadataReader] Reading batch of ${filePaths.length} files...`);
-
             const initialized = await this.initialize();
             if (!initialized) {
                 console.error('❌ [MetadataReader] Not initialized, returning empty array');
@@ -95,11 +87,7 @@ class NativeMetadataReader {
                 console.warn('❌ [MetadataReader] MetadataReaderModule not available');
                 return [];
             }
-
-            console.log('🔍 [MetadataReader] Calling native readMetadataBatch...');
             const metadataArray = await MetadataReaderModule.readMetadataBatch(filePaths);
-            console.log(`✅ [MetadataReader] Received ${metadataArray.length} metadata objects`);
-
             // Convert artwork base64 to data URI for each result
             const processedArray = metadataArray.map((metadata, index) => {
                 if (metadata.artworkBase64) {
@@ -109,8 +97,6 @@ class NativeMetadataReader {
                 }
                 return metadata;
             });
-
-            console.log(`✅ [MetadataReader] Processed ${processedArray.length} metadata objects`);
             return processedArray;
         } catch (error) {
             console.error('❌ [MetadataReader] Failed to read metadata batch:', error);
@@ -134,8 +120,6 @@ class NativeMetadataReader {
                 console.warn('MetadataReaderModule.readMetadataFromUri not available');
                 return null;
             }
-
-            console.log('📱 Reading metadata from content URI:', contentUri);
             const metadata = await MetadataReaderModule.readMetadataFromUri(contentUri);
 
             // Convert artwork base64 to data URI if present
@@ -144,8 +128,6 @@ class NativeMetadataReader {
                 metadata.artworkDataUri = `data:${mimeType};base64,${metadata.artworkBase64}`;
                 delete metadata.artworkBase64;
             }
-
-            console.log('✅ Metadata read from URI:', metadata.title);
             return metadata;
         } catch (error) {
             console.error(`Failed to read metadata from URI ${contentUri}:`, error.message);
@@ -166,8 +148,6 @@ class NativeMetadataReader {
                 console.warn('MetadataReaderModule.resolveContentUri not available');
                 return null;
             }
-
-            console.log('🔍 Resolving content URI:', contentUri);
             return await MetadataReaderModule.resolveContentUri(contentUri);
         } catch (error) {
             console.error(`Failed to resolve content URI ${contentUri}:`, error.message);

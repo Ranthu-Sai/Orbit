@@ -162,12 +162,8 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
   }
 
   async function AddSongToPlayer() {
-    console.log(`[Playback] Clicked on song: "${title}", Source: ${source}, ID: ${id}`);
-
     // Handle local/downloaded songs - queue all downloaded songs with proper metadata
     if (isLocal && allSongs.length > 0) {
-      console.log(`[Downloads] Playing local song, queuing ${allSongs.length} downloaded songs`);
-
       // Helper to check if artwork is valid (not a placeholder)
       const isValidArtwork = (art) => {
         if (!art || typeof art !== 'string') return false;
@@ -209,7 +205,6 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
       }
 
       if (formattedTracks.length > 0) {
-        console.log(`[Downloads] Queuing ${formattedTracks.length} tracks, starting with: ${formattedTracks[0]?.title}`);
         try {
           await TrackPlayer.reset();
           await TrackPlayer.add(formattedTracks);
@@ -241,8 +236,6 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
         // Use the new AddPlaylist logic which handles slicing and lazy loading
         // Pass the full songs array and the ID of the song to start from
         const sourceType = isDabPlaylist ? 'DAB' : (isSpotifyPlaylist ? 'Spotify' : 'YTMusic');
-        console.log(`[Playback] ${sourceType} Playlist: Playing from song ${current.id || current.videoId} (Index: ${index})`);
-
         // Pass the raw songs array - AddPlaylist processes it
         await AddPlaylist(songs, current.id || current.videoId);
 
@@ -660,13 +653,6 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
       // Prepare song object for unified service
       // Use item's original source (from DAB/YTMusic transform) if available
       const actualSource = item?.source || source || 'saavn';
-      console.log('📥 [Download] Source detection:', {
-        itemSource: item?.source,
-        propSource: source,
-        actualSource: actualSource,
-        isDabTrack: item?.isDabTrack,
-        hasItem: !!item
-      });
       const songData = {
         id,
         title,
@@ -720,7 +706,6 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
       <Pressable
         onPress={AddSongToPlayer}
         onLongPress={() => {
-          console.log("🖱️ [EachSongCard] Long Press triggered. Prop detected:", !!onLongPress);
           if (onLongPress) onLongPress();
         }}
         android_ripple={{

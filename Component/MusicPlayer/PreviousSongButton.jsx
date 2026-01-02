@@ -31,7 +31,6 @@ export const PreviousSongButton = ({ size = 28, color, style }) => {
     // Fire and forget - SkipOperationManager handles debouncing
     PlayPreviousSong()
       .catch(error => {
-        console.log("Error playing previous song:", error);
       })
       .finally(() => {
         // Match SkipOperationManager's debounce (50ms)

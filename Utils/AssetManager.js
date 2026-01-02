@@ -24,16 +24,13 @@ class AssetManager {
     if (this.isInitialized) return;
 
     try {
-      console.log('🚀 Initializing Asset Manager...');
-      
       // Preload critical images
       await this.preloadCriticalAssets();
-      
+
       // Setup image cache configuration
       this.setupImageCaching();
-      
+
       this.isInitialized = true;
-      console.log('✅ Asset Manager initialized successfully');
     } catch (error) {
       console.error('❌ Asset Manager initialization failed:', error);
     }
@@ -48,8 +45,6 @@ class AssetManager {
       ImageManager.OPTIMIZED_IMAGES.PAUSED_ANIMATION,
       ImageManager.OPTIMIZED_IMAGES.DEFAULT_MUSIC,
       ImageManager.OPTIMIZED_IMAGES.DEFAULT_ALBUM,
-      ImageManager.OPTIMIZED_IMAGES.LOCAL_MUSIC_A,
-      ImageManager.OPTIMIZED_IMAGES.LOCAL_MUSIC_B,
     ];
 
     try {
@@ -60,7 +55,6 @@ class AssetManager {
 
       if (imageUris.length > 0) {
         await FastImage.preload(imageUris);
-        console.log(`📦 Preloaded ${imageUris.length} critical images`);
       }
     } catch (error) {
       console.warn('⚠️ Failed to preload some images:', error);
@@ -73,14 +67,12 @@ class AssetManager {
   setupImageCaching() {
     // Configure FastImage cache settings
     FastImage.preload([]);
-    
+
     // Set cache limits (if supported)
     if (Platform.OS === 'ios') {
       // iOS specific cache configuration
-      console.log('📱 Configured iOS image caching');
     } else {
       // Android specific cache configuration
-      console.log('🤖 Configured Android image caching');
     }
   }
 
@@ -89,18 +81,18 @@ class AssetManager {
    */
   getImageSource(type, customSource = null, cacheKey = null) {
     const key = cacheKey || `${type}_${customSource || 'default'}`;
-    
+
     // Check cache first
     if (this.imageCache.has(key)) {
       return this.imageCache.get(key);
     }
-    
+
     // Get optimized source
     const source = ImageManager.resolveImageSource(customSource, type);
-    
+
     // Cache the result
     this.imageCache.set(key, source);
-    
+
     return source;
   }
 
@@ -109,21 +101,21 @@ class AssetManager {
    */
   getFontStyle(type, customSize = null, preference = 'Medium') {
     const key = `${type}_${customSize || 'default'}_${preference}`;
-    
+
     // Check cache first
     if (this.fontSizeCache.has(key)) {
       return this.fontSizeCache.get(key);
     }
-    
+
     // Get optimized font style
     let fontStyle = FontManager.getOptimizedFontStyle(type, SCREEN_WIDTH, customSize);
-    
+
     // Apply user preference
     fontStyle = FontManager.applyFontSizePreference(fontStyle, preference);
-    
+
     // Cache the result
     this.fontSizeCache.set(key, fontStyle);
-    
+
     return fontStyle;
   }
 
@@ -131,16 +123,12 @@ class AssetManager {
    * Clear caches when memory is low
    */
   clearCaches() {
-    console.log('🧹 Clearing asset caches...');
-    
     // Clear image caches
     this.imageCache.clear();
     FastImage.clearMemoryCache();
-    
+
     // Clear font cache
     this.fontSizeCache.clear();
-    
-    console.log('✅ Asset caches cleared');
   }
 
   /**
@@ -159,7 +147,7 @@ class AssetManager {
    */
   getOptimizedArtwork(artworkUrl, quality = 'medium') {
     if (!artworkUrl) return null;
-    
+
     return ImageManager.getOptimizedArtworkUrl(artworkUrl, quality);
   }
 
@@ -192,18 +180,17 @@ class AssetManager {
    */
   async prefetchImages(items, imageExtractor) {
     if (!Array.isArray(items) || items.length === 0) return;
-    
+
     const urls = items
       .map(imageExtractor)
       .filter(url => url && typeof url === 'string' && url.startsWith('http'))
       .slice(0, 10); // Limit to first 10 items
-    
+
     if (urls.length === 0) return;
-    
+
     try {
       const sources = urls.map(url => ({ uri: url }));
       await FastImage.preload(sources);
-      console.log(`📦 Prefetched ${urls.length} images`);
     } catch (error) {
       console.warn('⚠️ Failed to prefetch some images:', error);
     }
@@ -220,7 +207,7 @@ class AssetManager {
         cache: FastImage.cacheControl.immutable,
         resizeMode: FastImage.resizeMode.cover,
       },
-      
+
       // Text rendering configuration
       text: FontManager.TEXT_PERFORMANCE_PROPS,
     };

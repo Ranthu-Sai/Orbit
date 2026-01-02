@@ -1,16 +1,49 @@
-import { Dimensions, TextInput, View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, StatusBar } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import Animated, { FadeInDown } from "react-native-reanimated";
-import { useState } from "react";
+import { Dimensions, TextInput, View, Text, StyleSheet, TouchableOpacity, Keyboard, StatusBar, ImageBackground, Platform } from "react-native";
+import Animated, { FadeInDown, useAnimatedStyle, withTiming, useSharedValue } from "react-native-reanimated";
+import { useState, useEffect, useCallback } from "react";
 import { SetUserNameValue } from "../../LocalStorage/StoreUserName";
 import { UserCircle2 } from "lucide-react-native";
-import ScreenSVG from "../../Images/screen.svg";
 import PlaylistSelectorWrapper from "../../Component/Playlist/PlaylistSelectorWrapper";
+
+const SlideImage = require("../../Images/slide.jpg");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export const Slide1 = ({ navigation }) => {
   const [Name, setName] = useState("");
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const bottomOffset = useSharedValue(0);
+
+  // Setup keyboard listeners
+  useEffect(() => {
+    const keyboardWillShow = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        const height = e.endCoordinates.height;
+        setKeyboardHeight(height);
+        bottomOffset.value = withTiming(height, { duration: 250 });
+      }
+    );
+
+    const keyboardWillHide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+        bottomOffset.value = withTiming(0, { duration: 250 });
+      }
+    );
+
+    return () => {
+      keyboardWillShow.remove();
+      keyboardWillHide.remove();
+    };
+  }, []);
+
+  const inputAnimatedStyle = useAnimatedStyle(() => ({
+    bottom: bottomOffset.value + 10,
+  }));
 
   async function NextPress(name) {
+    Keyboard.dismiss();
     if (name === "") {
       alert("Please Enter name!")
     } else {
@@ -21,42 +54,32 @@ export const Slide1 = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Background SVG - Full Screen */}
-      <ScreenSVG
-        width="100%"
-        height="100%"
-        style={styles.backgroundContainer}
-        preserveAspectRatio="xMidYMid slice"
-      />
-
-      {/* Status Bar */}
       <StatusBar
         backgroundColor="transparent"
         barStyle="light-content"
         translucent={true}
       />
 
-      {/* Content with SafeArea */}
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.contentContainer}
-        >
-          {/* Title */}
+      {/* Background Image - Full Screen Edge to Edge */}
+      <ImageBackground
+        source={SlideImage}
+        style={styles.backgroundContainer}
+        resizeMode="cover"
+      >
+        {/* Title Section - Centered */}
+        <View style={styles.titleSection}>
           <Animated.View entering={FadeInDown.duration(500)} style={styles.titleContainer}>
-            <Text style={styles.titleCyan}>Orbit</Text>
+            <Text style={[styles.titleCyan, styles.glowingText]}>Orbit</Text>
             <Text style={styles.titleWhite}>Music.</Text>
           </Animated.View>
 
-          {/* Slogan */}
           <Animated.View entering={FadeInDown.delay(200)}>
             <Text style={styles.slogan}>Your universe of music.</Text>
           </Animated.View>
+        </View>
 
-          {/* Spacer */}
-          <View style={{ flex: 1 }} />
-
-          {/* Input Field */}
+        {/* Input Section - Absolutely positioned at bottom */}
+        <Animated.View style={[styles.bottomSection, inputAnimatedStyle]}>
           <Animated.View entering={FadeInDown.delay(400)} style={styles.inputContainer}>
             <UserCircle2 size={20} color="#98bad5" style={styles.inputIcon} />
             <TextInput
@@ -68,7 +91,6 @@ export const Slide1 = ({ navigation }) => {
             />
           </Animated.View>
 
-          {/* Get Started Button */}
           <Animated.View entering={FadeInDown.delay(500)} style={{ width: '100%' }}>
             <TouchableOpacity
               style={styles.button}
@@ -78,8 +100,8 @@ export const Slide1 = ({ navigation }) => {
               <Text style={styles.buttonText}>Get Started</Text>
             </TouchableOpacity>
           </Animated.View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+        </Animated.View>
+      </ImageBackground>
 
       <PlaylistSelectorWrapper />
     </View>
@@ -92,42 +114,57 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f1820',
   },
   backgroundContainer: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  titleSection: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    width: '100%',
-    height: '100%',
-  },
-  safeArea: {
-    flex: 1,
-  },
-  contentContainer: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 40,
-    paddingBottom: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: SCREEN_HEIGHT * 0.22, // Uplift text
   },
   titleContainer: {
-    marginBottom: 0,
+    marginBottom: 5,
+    alignItems: 'center',
   },
   titleCyan: {
-    fontSize: Dimensions.get('window').width * 0.20,
+    fontSize: SCREEN_WIDTH * 0.15,
     fontWeight: 'bold',
-    color: '#9db6d3ff',
-    lineHeight: Dimensions.get('window').width * 0.22,
+    color: '#60a5fa', // Glowing Blue
+    lineHeight: SCREEN_WIDTH * 0.17,
+    textAlign: 'center',
+    transform: [{ translateX: -8 }], // Visual correction to align with "Music."
+  },
+  glowingText: {
+    textShadowColor: 'rgba(96, 165, 250, 0.6)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 20,
+    elevation: 5,
   },
   titleWhite: {
-    fontSize: Dimensions.get('window').width * 0.20,
+    fontSize: SCREEN_WIDTH * 0.15,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    lineHeight: Dimensions.get('window').width * 0.22,
+    lineHeight: SCREEN_WIDTH * 0.17,
+    textAlign: 'center',
   },
   slogan: {
-    fontSize: Dimensions.get('window').width * 0.055,
+    fontSize: SCREEN_WIDTH * 0.045,
     color: '#FFFFFF',
-    marginBottom: 20,
+    marginBottom: 0,
+    textAlign: 'center',
+    opacity: 0.8,
+  },
+  bottomSection: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    bottom: 40,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -135,8 +172,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(53, 58, 70, 0.8)',
     borderRadius: 25,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
     marginBottom: 16,
+    width: '100%',
   },
   inputIcon: {
     marginRight: 12,
@@ -145,16 +183,17 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#FFFFFF',
+    padding: 0,
   },
   button: {
     backgroundColor: '#FFFFFF',
     borderRadius: 50,
-    paddingVertical: 18,
+    paddingVertical: 16,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 10,
   },
   buttonText: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 'bold',
     color: '#000000',
   },

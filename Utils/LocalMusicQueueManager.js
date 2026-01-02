@@ -82,13 +82,10 @@ class LocalMusicQueueManager {
      * @returns {Object} { initialBatch, success }
      */
     async initialize(songs, startIndex = 0) {
-        console.log(`🎵 LocalMusicQueueManager: Initializing with ${songs.length} songs, starting at index ${startIndex}`);
-
         // Cleanup any existing state
         this.cleanup();
 
         if (!songs || songs.length === 0) {
-            console.log('⚠️ LocalMusicQueueManager: No songs provided');
             return { initialBatch: [], success: false };
         }
 
@@ -96,7 +93,6 @@ class LocalMusicQueueManager {
         const validSongs = songs.filter(song => song && song.path);
 
         if (validSongs.length === 0) {
-            console.log('⚠️ LocalMusicQueueManager: No valid songs with paths');
             return { initialBatch: [], success: false };
         }
 
@@ -122,8 +118,6 @@ class LocalMusicQueueManager {
 
         this.loadedStartIndex = 0;
         this.loadedEndIndex = initialBatch.length;
-
-        console.log(`✅ LocalMusicQueueManager: Initial batch ready (${initialBatch.length}/${this.allSongs.length})`);
 
         // Setup track change listener for threshold-based loading
         this._setupTrackChangeListener();
@@ -157,7 +151,6 @@ class LocalMusicQueueManager {
                 const remainingLoaded = queue.length - currentIndex - 1;
 
                 if (remainingLoaded <= LOAD_THRESHOLD && this.loadedEndIndex < this.allSongs.length) {
-                    console.log(`📥 LocalMusicQueueManager: Threshold reached (${remainingLoaded} songs left), loading next batch...`);
                     await this._loadNextBatch();
                 }
 
@@ -205,8 +198,6 @@ class LocalMusicQueueManager {
                 await TrackPlayer.add(batch);
                 this.loadedEndIndex = batchEnd;
 
-                console.log(`✅ LocalMusicQueueManager: Added batch (${this.loadedEndIndex}/${this.allSongs.length})`);
-
                 // Emit event for UI updates
                 DeviceEventEmitter.emit('queue-updated', {
                     count: this.loadedEndIndex,
@@ -246,7 +237,6 @@ class LocalMusicQueueManager {
                     }
 
                     this.loadedStartIndex += indicesToRemove.length;
-                    console.log(`🧹 LocalMusicQueueManager: Cleaned up ${indicesToRemove.length} old tracks`);
                 }
             }
         } catch (error) {
@@ -271,8 +261,6 @@ class LocalMusicQueueManager {
      * Cleanup and reset state
      */
     cleanup() {
-        console.log('🧹 LocalMusicQueueManager: Cleaning up');
-
         if (this.trackChangeListener) {
             this.trackChangeListener.remove();
             this.trackChangeListener = null;

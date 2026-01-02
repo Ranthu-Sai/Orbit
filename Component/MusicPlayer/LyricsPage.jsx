@@ -84,7 +84,7 @@ const LyricsSettings = React.memo(({
                         mode={activeProvider === p ? 'contained' : 'outlined'}
                         onPress={() => onProviderChange(p)}
                         style={styles.chip}
-                        labelStyle={{ fontSize: 12, color: activeProvider === p ? undefined : '#FFFFFF' }}
+                        labelStyle={{ fontSize: 12, color: '#FFFFFF' }}
                     >
                         {p}
                     </Button>
@@ -102,7 +102,7 @@ const LyricsSettings = React.memo(({
                         mode={lyricsTheme === t ? 'contained' : 'outlined'}
                         onPress={() => onThemeChange(t)}
                         style={styles.chip}
-                        labelStyle={{ fontSize: 12, color: lyricsTheme === t ? undefined : '#FFFFFF' }}
+                        labelStyle={{ fontSize: 12, color: '#FFFFFF' }}
                     >
                         {t}
                     </Button>
@@ -120,7 +120,7 @@ const LyricsSettings = React.memo(({
                         mode={textColorMode === c ? 'contained' : 'outlined'}
                         onPress={() => onTextColorModeChange(c)}
                         style={styles.chip}
-                        labelStyle={{ fontSize: 12, color: textColorMode === c ? undefined : '#FFFFFF' }}
+                        labelStyle={{ fontSize: 12, color: '#FFFFFF' }}
                     >
                         {c}
                     </Button>
@@ -138,7 +138,7 @@ const LyricsSettings = React.memo(({
                         mode={animationStyle === a ? 'contained' : 'outlined'}
                         onPress={() => onAnimationStyleChange(a)}
                         style={styles.chip}
-                        labelStyle={{ fontSize: 12, color: animationStyle === a ? undefined : '#FFFFFF' }}
+                        labelStyle={{ fontSize: 12, color: '#FFFFFF' }}
                     >
                         {a}
                     </Button>
@@ -161,9 +161,13 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading, reFetchL
     const { colors, dark } = useTheme();
     const { themeMode } = useThemeContext();
     const insets = useSafeAreaInsets();
-    // Reduced to 0ms for perfect sync
-    const { position } = useProgress(0);
+    // Use 50ms interval for smooth real-time updates (0 can be unreliable)
+    const { position } = useProgress(50);
     const flatListRef = useRef(null);
+
+    // Sync offset in milliseconds to compensate for audio buffering delay
+    // Positive value = lyrics show earlier (compensates for audio lag)
+    const SYNC_OFFSET_MS = 150;
 
     const [activeLineIndex, setActiveLineIndex] = useState(-1);
     const [animationStyle, setAnimationStyle] = useState('Apple');
@@ -274,11 +278,13 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading, reFetchL
         }
     }, [currentSong?.id]);
 
-    // Find active line with improved accuracy
+    // Find active line with improved accuracy and sync offset compensation
     useEffect(() => {
         if (!lyrics || lyrics.length === 0) return;
 
-        const currentTime = position * 1000; // Convert to ms
+        // Apply sync offset: add offset to make lyrics appear earlier
+        // This compensates for audio buffering/decoding delay
+        const currentTime = (position * 1000) + SYNC_OFFSET_MS; // Convert to ms + offset
 
         // Find the line that's currently active
         let newIndex = -1;
@@ -385,6 +391,7 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading, reFetchL
                 isActive={isActive}
                 isPast={isPast}
                 distance={distance}
+                syncOffset={SYNC_OFFSET_MS}
                 onPress={() => handleLinePress(item.time)}
                 animationStyle={animationStyle}
                 activeColor={activeTextColor}
@@ -392,7 +399,7 @@ const LyricsPage = ({ visible, onClose, currentSong, lyrics, isLoading, reFetchL
                 isDarkMode={isDarkMode}
                 fontSize={fontSize}
                 words={item.words}
-                currentTime={position * 1000}
+                currentTime={(position * 1000) + SYNC_OFFSET_MS}
             />
         );
     }, [activeLineIndex, animationStyle, activeTextColor, inactiveTextColor, isDarkMode, fontSize, position]);

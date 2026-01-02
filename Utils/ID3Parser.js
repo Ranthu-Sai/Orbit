@@ -458,18 +458,65 @@ class AudioMetadataParser {
     }
 
     /**
-     * Extract text from ID3 text frame
+     * Extract text from ID3 text frame with proper encoding support
+     * ID3v2 supports: ISO-8859-1 (0x00), UTF-16 with BOM (0x01), UTF-16BE (0x02), UTF-8 (0x03)
      */
     static extractTextFrame(bytes, offset, size) {
         try {
             if (size < 2) return null;
             const encoding = bytes[offset];
+            const textStart = offset + 1;
+            const textEnd = offset + size;
+
+            if (textStart >= bytes.length) return null;
+
             let text = '';
 
-            for (let i = offset + 1; i < offset + size && i < bytes.length; i++) {
-                const char = bytes[i];
-                if (char === 0) break; // Null terminator
-                if (char >= 32 && char <= 126) { // Printable ASCII
+            // ISO-8859-1 (Latin-1) - encoding 0x00
+            if (encoding === 0x00 || encoding === 0x03) {
+                for (let i = textStart; i < textEnd && i < bytes.length; i++) {
+                    const char = bytes[i];
+                    if (char === 0) break; // Null terminator
+                    text += String.fromCharCode(char);
+                }
+            }
+            // UTF-16 with BOM or UTF-16BE - encoding 0x01 or 0x02
+            else if (encoding === 0x01 || encoding === 0x02) {
+                let i = textStart;
+
+                // Check for BOM if encoding is 0x01
+                let littleEndian = false;
+                if (encoding === 0x01 && i + 1 < textEnd) {
+                    if (bytes[i] === 0xFF && bytes[i + 1] === 0xFE) {
+                        littleEndian = true;
+                        i += 2; // Skip BOM
+                    } else if (bytes[i] === 0xFE && bytes[i + 1] === 0xFF) {
+                        littleEndian = false;
+                        i += 2; // Skip BOM
+                    }
+                }
+
+                // Read UTF-16 characters (2 bytes each)
+                while (i + 1 < textEnd && i + 1 < bytes.length) {
+                    let charCode;
+                    if (littleEndian) {
+                        charCode = bytes[i] | (bytes[i + 1] << 8);
+                    } else {
+                        charCode = (bytes[i] << 8) | bytes[i + 1];
+                    }
+
+                    // Stop at null terminator (0x0000 in UTF-16)
+                    if (charCode === 0) break;
+
+                    text += String.fromCharCode(charCode);
+                    i += 2;
+                }
+            }
+            // Fallback: try to read as UTF-8
+            else {
+                for (let i = textStart; i < textEnd && i < bytes.length; i++) {
+                    const char = bytes[i];
+                    if (char === 0) break;
                     text += String.fromCharCode(char);
                 }
             }

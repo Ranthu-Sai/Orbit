@@ -38,8 +38,6 @@ export const BackButtonHandler = ({
       }
 
       if (Index === 1) {
-        console.log('BackButtonHandler: Back pressed in fullscreen mode, minimizing player');
-        
         // Minimize the player
         setIndex(0);
         

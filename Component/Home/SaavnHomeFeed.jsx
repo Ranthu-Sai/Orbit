@@ -88,7 +88,6 @@ export const SaavnHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, ref)
             if (!forceRefresh) {
                 const ramData = CacheManager.get(cacheKey);
                 if (ramData) {
-                    console.log('[SaavnHomeFeed] RAM cache HIT');
                     setData(ramData);
                     setLoading(false);
                     return;
@@ -96,14 +95,11 @@ export const SaavnHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, ref)
 
                 const diskData = await CacheManager.getAsync(cacheKey);
                 if (diskData) {
-                    console.log('[SaavnHomeFeed] Disk cache HIT');
                     setData(diskData);
                     setLoading(false);
                     return;
                 }
             }
-
-            console.log('[SaavnHomeFeed] Fetching from network...');
             const Languages = await GetLanguageValue();
             const data = await getHomePageData(Languages, forceRefresh);
 
@@ -124,7 +120,6 @@ export const SaavnHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, ref)
                 CacheManager.set(cacheKey, fetchedData, CACHE_TTL.HOME_DATA);
             }
         } catch (e) {
-            console.log('[SaavnHomeFeed] Error:', e);
         } finally {
             if (isMounted.current) {
                 setLoading(false);
@@ -174,7 +169,6 @@ export const SaavnHomeFeed = forwardRef(({ refreshing, onRefreshComplete }, ref)
     const loadMoreSections = () => {
         const totalSections = 8; // Number of sections in our map below
         if (visibleCount < totalSections) {
-            console.log(`[SaavnHomeFeed] Loading more sections: ${visibleCount} -> ${visibleCount + SECTIONS_PER_LOAD}`);
             setVisibleCount(prev => Math.min(prev + SECTIONS_PER_LOAD, totalSections));
         }
     };

@@ -74,7 +74,6 @@ const getValidDownloadUrl = (downloadUrl, index = 2) => {
     // Return empty string if it doesn't match expected format
     return '';
   } catch (error) {
-    console.log('Error parsing download URL:', error);
     return '';
   }
 };
@@ -304,8 +303,6 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
       try {
         if (routeId) {
           // If we have an ID from route params, clear previous data and use the new ones
-          console.log(`New playlist selected: ${routeId}, clearing previous playlist data cache`);
-
           setId(routeId);
           setImage(routeImage || '');
           setName(routeName || 'Playlist');
@@ -327,16 +324,11 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
 
           await AsyncStorage.setItem(CURRENT_PLAYLIST_ID_KEY, routeId);
           await AsyncStorage.setItem(CURRENT_PLAYLIST_DATA_KEY, JSON.stringify(playlistData));
-          console.log(`Stored new playlist data for: ${routeId}`);
-
         } else {
-          console.log('No playlist ID in route params, attempting to recover from storage');
-
           // Try to get stored playlist ID as fallback
           const storedId = await AsyncStorage.getItem(CURRENT_PLAYLIST_ID_KEY);
 
           if (storedId) {
-            console.log(`Recovered playlist ID from storage: ${storedId}`);
             setId(storedId);
 
             // Try to get the full playlist data
@@ -349,13 +341,11 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
                 setFollower(storedData.follower || '');
                 setSource(storedData.source || null);
                 setNavigationSource(storedData.navigationSource || null);
-                console.log('Successfully recovered playlist data from storage');
               } catch (parseError) {
                 console.error('Error parsing stored playlist data:', parseError);
               }
             }
           } else {
-            console.log('No playlist ID found in storage, navigating back to home');
             navigation.navigate('Home', { screen: 'HomePage' });
             return;
           }
@@ -402,19 +392,14 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
       await AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY);
       await AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY);
     } catch (error) {
-      console.log("Error clearing playlist navigation data:", error);
     }
 
     // Get the source and navigation source parameters from the route
     const source = route?.params?.source;
     const navigationSource = route?.params?.navigationSource;
     const previousScreen = route?.params?.previousScreen;
-
-    console.log(`Back pressed in Playlist. Source: ${source}, NavigationSource: ${navigationSource}, PreviousScreen: ${previousScreen}`);
-
     // Priority 1: Check for previousScreen parameter (used for specific flows)
     if (previousScreen === 'LikedPlaylists') {
-      console.log("Navigating back to LikedPlaylists from playlist view");
       navigation.navigate("Library", {
         screen: "LikedPlaylists",
         params: {
@@ -426,8 +411,6 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
 
     // Priority 2: Check if we came from a Home screen
     if (previousScreen === 'Home' || previousScreen === 'HomePage' || navigationSource === 'Home') {
-      console.log("Forcefully resetting navigation to Home screen");
-
       // Use CommonActions.reset to clear the navigation stack and force navigation to Home
       navigation.dispatch(
         CommonActions.reset({
@@ -533,12 +516,10 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
         }
         return true;
       } catch (error) {
-        console.log("Error navigating based on navigationSource:", error);
       }
     }
 
     // Default fallback: just reset to Home
-    console.log("Using fallback reset to Home");
     navigation.dispatch(
       CommonActions.reset({
         index: 0,
@@ -553,7 +534,6 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
 
   // Function to handle long press on song item
   const handleLongPress = useCallback((songData) => {
-    console.log("🖱️ [Playlist] Long Press detected on:", songData?.title);
     setActiveMenuSong({
       ...songData,
       visible: true

@@ -203,7 +203,6 @@ class NetworkMonitor {
       });
 
       this.isInitialized = true;
-      console.log('NetworkMonitor: Initialized successfully');
       return true;
 
     } catch (error) {
@@ -302,7 +301,6 @@ class NetworkMonitor {
     }
     this.listeners.clear();
     this.isInitialized = false;
-    console.log('NetworkMonitor: Cleanup completed');
   }
 }
 

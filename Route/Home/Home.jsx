@@ -107,8 +107,6 @@ export const Home = () => {
     // Create a shuffled array of indices
     const indices = Array.from({ length: charts.length }, (_, i) => i);
     setChartIndices(shuffleArray(indices).slice(0, 4)); // Take the first 4 shuffled indices
-
-    console.log('Randomized chart indices:', chartIndices);
   }, []);
 
   // CACHE-FIRST LOADING: Check cache first, fetch only if needed
@@ -126,7 +124,6 @@ export const Home = () => {
         const ramHomefeed = CacheManager.get(homefeedCacheKey);
 
         if (ramData) {
-          console.log('[Home] RAM cache HIT - instant load');
           setData(ramData);
           // DON'T shuffle on cache hit - preserve original order
           if (ramHomefeed) {
@@ -147,7 +144,6 @@ export const Home = () => {
         const diskHomefeed = await CacheManager.getAsync(homefeedCacheKey);
 
         if (diskData) {
-          console.log('[Home] Disk cache HIT - restored');
           setData(diskData);
           // DON'T shuffle on cache hit - preserve order
           if (diskHomefeed) {
@@ -159,7 +155,6 @@ export const Home = () => {
         }
 
         // Cache miss - continue to network fetch
-        console.log('[Home] Cache MISS - fetching from network');
       }
 
       // Step 2: Check network
@@ -185,11 +180,9 @@ export const Home = () => {
           if (forceRefresh && fetchedData.data) {
             if (fetchedData.data.playlists && fetchedData.data.playlists.length > 0) {
               fetchedData.data.playlists = shuffleArray(fetchedData.data.playlists);
-              console.log('🔀 Shuffled Saavn playlists for fresh positions');
             }
             if (fetchedData.data.trending?.albums && fetchedData.data.trending.albums.length > 0) {
               fetchedData.data.trending.albums = shuffleArray(fetchedData.data.trending.albums);
-              console.log('🔀 Shuffled Saavn albums for fresh positions');
             }
           }
 
@@ -204,18 +197,15 @@ export const Home = () => {
           randomizeCharts(fetchedData?.data?.charts);
           // Cache the shuffled data
           CacheManager.set(cacheKey, fetchedData, CACHE_TTL.HOME_DATA);
-          console.log('[Home] Data cached with TTL');
         }
 
         if (homefeedResult.status === 'fulfilled' && homefeedResult.value?.data) {
           const homefeed = homefeedResult.value.data || { playlists: [], albums: [] };
           setHomefeedData(homefeed);
           CacheManager.set(homefeedCacheKey, homefeed, CACHE_TTL.HOME_DATA);
-          console.log('[Home] Homefeed cached');
         }
       }
     } catch (e) {
-      console.log('[Home] Error fetching data:', e);
     } finally {
       if (isMounted.current) {
         setLoading(false);
@@ -243,15 +233,10 @@ export const Home = () => {
       );
       if (saavnKeys.length > 0) {
         await AsyncStorage.multiRemove(saavnKeys);
-        console.log('🧹 Cleared Saavn AsyncStorage keys:', saavnKeys.length);
       }
     } catch (e) {
-      console.log('⚠️ Failed to clear some Saavn cache keys:', e.message);
     }
-    console.log('🧹 Cleared all Home caches (UI + API + Saavn)');
-
     // Trigger hard refresh for both sections
-    console.log('🔄 Home - Triggering hard refresh for all sections...');
     setHybridVisibleCount(INITIAL_HYBRID_SECTIONS); // Reset lazy loading for Hybrid mode
 
     // Refresh the specific feed source
@@ -270,7 +255,6 @@ export const Home = () => {
 
     if (isMounted.current) {
       setRefreshing(false);
-      console.log('✅ Home - Hard refresh complete');
     }
   }, []);
 
@@ -307,7 +291,6 @@ export const Home = () => {
 
         // If source changed, update and reload
         if (activeSource !== homeFeedSource && homeFeedSource !== null) {
-          console.log(`[Home] Home source changed: ${homeFeedSource} -> ${activeSource}`);
           setLoading(true);
           // Invalidate cache prefix to ensure fresh feed
           CacheManager.invalidateByPrefix(CACHE_KEYS.HOME);
@@ -515,7 +498,6 @@ export const Home = () => {
                   // 3. Hybrid mode (local to this component)
                   if (homeFeedSource === 'Hybrid') {
                     if (hybridVisibleCount < hybridSections.length) {
-                      console.log(`[Home] Lazy loading Hybrid: ${hybridVisibleCount} -> ${hybridVisibleCount + HYBRID_SECTIONS_PER_LOAD}`);
                       setHybridVisibleCount(prev => Math.min(prev + HYBRID_SECTIONS_PER_LOAD, hybridSections.length));
                     }
                   }

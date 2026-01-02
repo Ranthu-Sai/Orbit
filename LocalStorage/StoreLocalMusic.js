@@ -9,7 +9,6 @@ async function GetLocalMusicFavorites() {
       return {};
     }
   } catch (e) {
-    console.log("Error retrieving local music favorites", e);
     return {};
   }
 }
@@ -22,7 +21,6 @@ async function AddLocalMusicToFavorites(song) {
     await AsyncStorage.setItem('LocalMusicFavorites', jsonValue);
     return true;
   } catch (e) {
-    console.log("Error adding local music to favorites", e);
     return false;
   }
 }
@@ -38,7 +36,6 @@ async function RemoveLocalMusicFromFavorites(songId) {
     }
     return false;
   } catch (e) {
-    console.log("Error removing local music from favorites", e);
     return false;
   }
 }
@@ -48,7 +45,6 @@ async function IsLocalMusicFavorite(songId) {
     const favorites = await GetLocalMusicFavorites();
     return !!favorites[songId];
   } catch (e) {
-    console.log("Error checking if local music is favorite", e);
     return false;
   }
 }

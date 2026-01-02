@@ -32,7 +32,6 @@ export default function DownloadScreen(props) {
     // Listen for download complete to clear cache
     const FastOrbitScanner = require('../../Utils/FastOrbitScanner').default;
     const downloadListener = (eventData) => {
-      console.log('📥 Download complete event received, clearing cache');
       FastOrbitScanner.clearCache();
       // Reload songs after a short delay
       setTimeout(() => getDownloadedSongs(), 500);
@@ -61,7 +60,6 @@ export default function DownloadScreen(props) {
   }, [searchQuery, downloadedSongs]);
 
   const onRefresh = async () => {
-    console.log('🔄 [DownloadScreen] Force refresh triggered');
     ToastAndroid.show('🔄 Refreshing...', ToastAndroid.SHORT);
     setRefreshing(true);
 
@@ -107,7 +105,6 @@ export default function DownloadScreen(props) {
             // Force string conversion
             stringPath = String(path);
           }
-          console.log('Converted non-string path:', stringPath);
         } catch (conversionError) {
           console.error('Error converting path to string:', conversionError);
           return false;
@@ -136,21 +133,15 @@ export default function DownloadScreen(props) {
 
   // Callback for metadata updates (shared between load and refresh)
   const handleMetadataUpdate = (updatedSongs) => {
-    console.log('🎨 [DownloadScreen] Metadata updated, refreshing display');
     setDownloadedSongs(updatedSongs);
   };
 
   const getDownloadedSongs = async () => {
     try {
       setIsLoading(true);
-
-      console.log('🔍 [DownloadScreen] Starting scan...');
-
       // Use FastOrbitScanner - loads from cache, only scans new files
       const FastOrbitScanner = require('../../Utils/FastOrbitScanner').default;
       const songs = await FastOrbitScanner.quickScan(handleMetadataUpdate);
-
-      console.log(`✅ [DownloadScreen] Loaded ${songs.length} songs`);
       setDownloadedSongs(songs);
 
     } catch (error) {
@@ -171,8 +162,6 @@ export default function DownloadScreen(props) {
     setFilteredSongs(prev => prev.filter(song => song.id !== songId));
 
     try {
-      console.log(`🗑️ [DownloadScreen] Deleting song in background: ${songTitle}`);
-
       // Perform disk operations in background
       // 1. Delete file and metadata from StorageManager
       await StorageManager.removeDownloadedSongMetadata(songId, localSongPath);

@@ -56,14 +56,6 @@ export const NetworkStateMonitor = ({ children, showToasts = true }) => {
     }
 
     setPreviousConnectionState(newIsConnected);
-    
-    console.log('Network state changed:', {
-      isConnected: newIsConnected,
-      isOffline: newIsOffline,
-      type: state.type,
-      isInternetReachable: state.isInternetReachable,
-      quality: connectionQuality
-    });
   };
 
   // Initialize network monitoring
@@ -100,7 +92,6 @@ export const NetworkStateMonitor = ({ children, showToasts = true }) => {
   // Network error suppression for offline mode
   useEffect(() => {
     if (isOffline) {
-      console.log('Network Monitor: Offline mode active - suppressing network errors');
       // Add any offline-specific error handling here
     }
   }, [isOffline]);

@@ -72,14 +72,6 @@ export const useNetworkMonitor = (options = {}) => {
     }
 
     setPreviousConnectionState(newIsConnected);
-    
-    console.log('Network state changed:', {
-      isConnected: newIsConnected,
-      isOffline: newIsOffline,
-      type: state.type,
-      isInternetReachable: state.isInternetReachable,
-      quality: enableQualityDetection ? connectionQuality : 'unknown'
-    });
   };
 
   // Initialize network monitoring

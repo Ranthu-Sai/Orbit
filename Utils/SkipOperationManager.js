@@ -77,7 +77,6 @@ class SkipOperationManager {
 
         // If already skipping, queue this skip or ignore based on immediate flag
         if (this.isSkipping) {
-            console.log('⏭️ Skip blocked - operation already in progress');
             return false;
         }
 
@@ -107,12 +106,10 @@ class SkipOperationManager {
 
         try {
             await operation(this.abortController.signal);
-            console.log('✅ Skip operation completed');
             return true;
         } catch (error) {
             // Ignore abort errors (expected when cancelling)
             if (error.name === 'AbortError') {
-                console.log('🚫 Skip operation cancelled');
             } else {
                 console.error('❌ Skip operation failed:', error);
             }

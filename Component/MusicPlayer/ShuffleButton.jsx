@@ -20,7 +20,6 @@ export const ShuffleButton = ({ size = 24, color, style }) => {
         // The state will be managed by user interaction only
         setIsShuffled(false);
       } catch (error) {
-        console.log('Error initializing shuffle state:', error);
       }
     };
 
@@ -105,7 +104,6 @@ export const ShuffleButton = ({ size = 24, color, style }) => {
         ToastAndroid.show('Shuffle disabled', ToastAndroid.SHORT);
       }
     } catch (error) {
-      console.log('Error toggling shuffle:', error);
       ToastAndroid.show('Error updating shuffle', ToastAndroid.SHORT);
     } finally {
       // Reset processing flag after a delay

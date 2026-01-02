@@ -27,7 +27,6 @@ const BottomSheetMusic = React.memo(({ color }) => {
   // Listen for early metadata event from PlayOneSong for immediate UI feedback
   useEffect(() => {
     const loadingListener = DeviceEventEmitter.addListener('song-loading-started', (songData) => {
-      console.log('📱 BottomSheetMusic: Received loading song metadata, showing player immediately');
       setLoadingSong(songData);
       setIsMusicActive(true); // Immediately show the player
     });
@@ -41,7 +40,6 @@ const BottomSheetMusic = React.memo(({ color }) => {
   useEffect(() => {
     if (currentPlaying && loadingSong && currentPlaying.id === loadingSong.id) {
       // Actual track is now ready, clear loading state
-      console.log('📱 BottomSheetMusic: Track ready, clearing loading state');
       setLoadingSong(null);
     }
   }, [currentPlaying, loadingSong]);
@@ -155,7 +153,6 @@ const BottomSheetMusic = React.memo(({ color }) => {
   // Function to specifically navigate to MyMusicPage
   const navigateToMyMusicPage = useCallback(() => {
     try {
-      console.log("Directly navigating to Library/MyMusicPage");
       navigation.navigate("Library", { screen: "MyMusicPage" });
     } catch (error) {
       console.error("Error navigating to MyMusicPage:", error);
@@ -165,8 +162,6 @@ const BottomSheetMusic = React.memo(({ color }) => {
   // Function to navigate to a specific screen based on the navigation path
   const navigateToScreen = useCallback(
     (tabName, screenName, nestedScreenName) => {
-      console.log("Navigating to:", tabName, screenName, nestedScreenName);
-
       try {
         if (tabName === "Library") {
           if (screenName === "MyMusicPage" || screenName === "MyMusic") {
@@ -306,10 +301,6 @@ const BottomSheetMusic = React.memo(({ color }) => {
 
             // If we're on MyMusicPage or any other nested screen in Library, explicitly navigate to LibraryPage
             if (currentLibraryScreenName !== "LibraryPage") {
-              console.log(
-                `In ${currentLibraryScreenName}, explicitly navigating to LibraryPage`
-              );
-
               // Use reset for consistent navigation behavior
               navigation.reset({
                 index: 0,
@@ -332,7 +323,6 @@ const BottomSheetMusic = React.memo(({ color }) => {
           (currentScreenName === "Home" || currentScreenName === "Discover") &&
           musicPreviousScreen.startsWith("Library")
         ) {
-          console.log("In wrong tab, navigating to Library main page");
           navigation.reset({
             index: 0,
             routes: [

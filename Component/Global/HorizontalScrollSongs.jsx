@@ -30,7 +30,6 @@ export const HorizontalScrollSongs = ({ id }) => {
       const maxOffset = Data.data.songs.length - 8;
       const offset = Math.floor(Math.random() * maxOffset);
       setRandomOffset(offset);
-      console.log(`Set random offset for playlist ${id}: ${offset}`);
     }
   }, [Data?.data?.songs, id]);
 
@@ -55,7 +54,6 @@ export const HorizontalScrollSongs = ({ id }) => {
       const data = await getPlaylistData(id)
       setData(data)
     } catch (e) {
-      console.log(`Error fetching playlist ${id}:`, e);
     } finally {
       setLoading(false)
     }

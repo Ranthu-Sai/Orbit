@@ -4,7 +4,6 @@ apply plugin: "kotlinx-serialization"
 apply plugin: "com.facebook.react"
 
 apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")
-apply from: "../../node_modules/react-native-code-push/android/codepush.gradle"
 apply from: project(':react-native-config').projectDir.getPath() + "/dotenv.gradle"
 apply plugin: "com.google.gms.google-services"
 
@@ -73,9 +72,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.orbit"
+    namespace "com.orbit.music"
     defaultConfig {
-        applicationId "com.orbit"
+        applicationId "com.orbit.music"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 3
@@ -119,50 +118,22 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
-            // Install debug builds side-by-side with release by adding a suffix.
-            // This makes the debug applicationId become com.orbit.beta so it won't replace an installed release (com.orbit).
-            applicationIdSuffix ".beta"
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
             signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
-            applicationIdSuffix ".beta"
             
-            // Fix for CodePush duplicate resources
             packagingOptions {
                 pickFirst "**/libjsc.so"
                 pickFirst "**/libc++_shared.so"
                 exclude "**/libhermes.so"
                 exclude "**/libhermes-executor-debug.so"
                 exclude "**/libhermes-executor-release.so"
-                doNotStrip "*/armeabi-v7a/libcodepush.so"
-                doNotStrip "*/arm64-v8a/libcodepush.so"
-                doNotStrip "*/x86/libcodepush.so"
-                doNotStrip "*/x86_64/libcodepush.so"
             }
         }
     }
-    
-    // Task to clean duplicate CodePushHash files before merging assets
-    afterEvaluate {
-        tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.each { mergeTask ->
-            mergeTask.doFirst {
-                def assetsDir = file("$buildDir/generated/assets")
-                if (assetsDir.exists()) {
-                    def codePushHashFiles = fileTree(assetsDir) {
-                        include "**/CodePushHash"
-                    }
-                    codePushHashFiles.each { file ->
-                        println "Deleting duplicate CodePushHash: ${file.absolutePath}"
-                        file.delete()
-                    }
-                }
-            }
-        }
-    }
+
 
     // Enable ABI splits
     splits {

@@ -23,9 +23,6 @@ const useOffline = () => {
       setIsOffline(!connected);
       setIsConnected(connected);
       setNetworkType(networkState.type);
-      
-      console.log(`Initial network state - Connected: ${connected}, Type: ${networkState.type}`);
-      
       return connected;
     } catch (error) {
       console.error('Error checking initial network status:', error);
@@ -48,9 +45,6 @@ const useOffline = () => {
       setIsOffline(!connected);
       setIsConnected(connected);
       setNetworkType(state.type);
-      
-      console.log(`Network state changed - Connected: ${connected}, Type: ${state.type}`);
-      
       // Emit events for other components to listen to
       DeviceEventEmitter.emit('networkStateChanged', {
         isOffline: !connected,

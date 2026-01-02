@@ -29,16 +29,12 @@ export const useArtistNavigation = (artistId, artistName, activeTab) => {
   // Handle hardware back button
   useEffect(() => {
     const handleBackPress = () => {
-      console.log('Back pressed in ArtistPage, navigating back properly');
-      console.log('Current active tab:', activeTab);
-
       // Check navigation state to detect potential loops
       const navigationState = navigation.getState();
       
       try {
         // Detect navigation loop using utility function
         if (detectNavigationLoop(navigationState)) {
-          console.log('Detected true navigation loop, resetting to Search');
           navigationHistoryManager.clearHistory();
           navigation.navigate('MainRoute', {
             screen: 'Home',

@@ -22,9 +22,6 @@ const OfflineDetector = ({
       
       // Update global offline mode
       setOfflineMode(!isConnected);
-      
-      console.log(`OfflineDetector: Network state changed - Connected: ${isConnected}, Type: ${state.type}`);
-      
       // Determine transition type
       let transitionType = 'no-change';
       if (!isConnected && !previousOfflineState) {
@@ -48,10 +45,8 @@ const OfflineDetector = ({
       
       // Call specific transition callbacks
       if (transitionType === 'online-to-offline' && onOfflineTransition) {
-        console.log('OfflineDetector: Transitioning to offline mode');
         onOfflineTransition(networkChangeData);
       } else if (transitionType === 'offline-to-online' && onOnlineTransition) {
-        console.log('OfflineDetector: Transitioning to online mode');
         onOnlineTransition(networkChangeData);
       }
       
@@ -85,9 +80,6 @@ const OfflineDetector = ({
       
       // Set initial offline mode
       setOfflineMode(!isConnected);
-      
-      console.log(`OfflineDetector: Initial network state - Connected: ${isConnected}, Type: ${networkState.type}`);
-      
       // Emit initial state
       const initialStateData = {
         isOffline: !isConnected,
@@ -137,7 +129,6 @@ const OfflineDetector = ({
             message.includes('Unable to resolve host') ||
             message.includes('Connection refused') ||
             message.includes('timeout')) {
-          console.log('OfflineDetector: Network error suppressed in offline mode');
           return;
         }
         

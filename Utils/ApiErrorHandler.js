@@ -343,8 +343,6 @@ export const retryApiCall = async (apiCall, options = {}) => {
           maxDelay
         );
 
-        console.log(`API call failed (attempt ${attempt}/${maxAttempts}), retrying in ${delay}ms:`, lastError.message);
-
         if (onRetry) {
           onRetry(lastError, attempt, delay);
         }

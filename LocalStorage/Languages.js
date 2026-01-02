@@ -17,7 +17,6 @@ async function SetLanguageValue(Language){
   try {
     await AsyncStorage.setItem('Language', Language);
   } catch (e) {
-    console.log("Language Save Error");
   }
 }
 

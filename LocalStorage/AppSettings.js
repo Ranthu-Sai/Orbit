@@ -18,7 +18,6 @@ async function SetFontSizeValue(FontSize) {
   try {
     await AsyncStorage.setItem('FontSize', FontSize);
   } catch (e) {
-    console.log("Font size Save Error");
   }
 }
 
@@ -39,7 +38,6 @@ async function SetPlaybackQuality(PlaybackQuality) {
   try {
     await AsyncStorage.setItem('PlaybackQuality', PlaybackQuality);
   } catch (e) {
-    console.log("PlaybackQuality Save Error");
   }
 }
 
@@ -60,7 +58,6 @@ async function SetDownloadPath(DownloadPath) {
   try {
     await AsyncStorage.setItem('DownloadPath', DownloadPath);
   } catch (e) {
-    console.log("SetDownloadPath Save Error");
   }
 }
 
@@ -73,7 +70,6 @@ async function GetThemePreference() {
       return 'dark' // Default theme is dark
     }
   } catch (e) {
-    console.log("Theme preference read error");
     return 'dark' // Fallback to dark theme
   }
 }
@@ -82,7 +78,6 @@ async function SetThemePreference(theme) {
   try {
     await AsyncStorage.setItem('ThemePreference', theme);
   } catch (e) {
-    console.log("Theme preference save error");
   }
 }
 
@@ -95,7 +90,6 @@ async function GetColorScheme() {
       return DEFAULT_COLOR_SCHEME // Default color scheme
     }
   } catch (e) {
-    console.log("Color scheme read error");
     return DEFAULT_COLOR_SCHEME // Fallback to default
   }
 }
@@ -104,7 +98,6 @@ async function SetColorScheme(colorScheme) {
   try {
     await AsyncStorage.setItem('ColorScheme', colorScheme);
   } catch (e) {
-    console.log("Color scheme save error");
   }
 }
 
@@ -120,7 +113,6 @@ async function GetIconColor() {
       return colorSchemes[scheme].iconActive;
     }
   } catch (e) {
-    console.log("Icon color read error");
     return colorSchemes[DEFAULT_COLOR_SCHEME].iconActive; // Fallback to default
   }
 }
@@ -130,7 +122,6 @@ async function SetIconColor(iconColor) {
   try {
     await AsyncStorage.setItem('IconColor', iconColor);
   } catch (e) {
-    console.log("Icon color save error");
   }
 }
 
@@ -146,7 +137,6 @@ async function GetTextColor() {
       return colorSchemes[scheme].textActive;
     }
   } catch (e) {
-    console.log("Text color read error");
     return colorSchemes[DEFAULT_COLOR_SCHEME].textActive; // Fallback to default
   }
 }
@@ -156,7 +146,6 @@ async function SetTextColor(textColor) {
   try {
     await AsyncStorage.setItem('TextColor', textColor);
   } catch (e) {
-    console.log("Text color save error");
   }
 }
 
@@ -172,7 +161,6 @@ async function GetAccentColor() {
       return colorSchemes[scheme].accent;
     }
   } catch (e) {
-    console.log("Accent color read error");
     return colorSchemes[DEFAULT_COLOR_SCHEME].accent; // Fallback to default
   }
 }
@@ -182,7 +170,6 @@ async function SetAccentColor(accentColor) {
   try {
     await AsyncStorage.setItem('AccentColor', accentColor);
   } catch (e) {
-    console.log("Accent color save error");
   }
 }
 
@@ -196,7 +183,6 @@ async function GetCustomColorsEnabled() {
       return false // Default to not using custom colors
     }
   } catch (e) {
-    console.log("Custom colors enabled read error");
     return false // Fallback to not using custom colors
   }
 }
@@ -206,7 +192,6 @@ async function SetCustomColorsEnabled(enabled) {
   try {
     await AsyncStorage.setItem('CustomColorsEnabled', enabled ? 'true' : 'false');
   } catch (e) {
-    console.log("Custom colors enabled save error");
   }
 }
 
@@ -220,7 +205,6 @@ async function GetMusicSource() {
       return 'Ytmusic' // Default music source
     }
   } catch (e) {
-    console.log("Music source read error");
     return 'Ytmusic' // Fallback to Ytmusic
   }
 }
@@ -230,7 +214,6 @@ async function SetMusicSource(musicSource) {
   try {
     await AsyncStorage.setItem('MusicSource', musicSource);
   } catch (e) {
-    console.log("Music source save error");
   }
 }
 
@@ -244,7 +227,6 @@ async function GetHomeFeedSource() {
       return 'Hybrid' // Default home feed source
     }
   } catch (e) {
-    console.log("Home feed source read error");
     return 'Hybrid' // Fallback to Hybrid
   }
 }
@@ -254,7 +236,6 @@ async function SetHomeFeedSource(homeFeedSource) {
   try {
     await AsyncStorage.setItem('HomeFeedSource', homeFeedSource);
   } catch (e) {
-    console.log("Home feed source save error");
   }
 }
 
@@ -268,7 +249,6 @@ async function GetLyricsProvider() {
       return 'LrcLib' // Default lyrics provider
     }
   } catch (e) {
-    console.log("Lyrics provider read error");
     return 'LrcLib' // Fallback
   }
 }
@@ -278,7 +258,6 @@ async function SetLyricsProvider(provider) {
   try {
     await AsyncStorage.setItem('LyricsProvider', provider);
   } catch (e) {
-    console.log("Lyrics provider save error");
   }
 }
 
@@ -292,7 +271,6 @@ async function GetLyricsAnimationStyle() {
       return 'Apple' // Default lyrics animation style (ArchiveTune-style)
     }
   } catch (e) {
-    console.log("Lyrics animation style read error");
     return 'Smooth' // Fallback
   }
 }
@@ -302,7 +280,6 @@ async function SetLyricsAnimationStyle(style) {
   try {
     await AsyncStorage.setItem('LyricsAnimationStyle', style);
   } catch (e) {
-    console.log("Lyrics animation style save error");
   }
 }
 
@@ -316,7 +293,6 @@ async function GetLyricsFontSize() {
       return 26 // Default font size
     }
   } catch (e) {
-    console.log("Lyrics font size read error");
     return 26
   }
 }
@@ -326,7 +302,6 @@ async function SetLyricsFontSize(size) {
   try {
     await AsyncStorage.setItem('LyricsFontSize', size.toString());
   } catch (e) {
-    console.log("Lyrics font size save error");
   }
 }
 
@@ -340,7 +315,6 @@ async function GetLyricsTheme() {
       return 'Blur' // Default theme
     }
   } catch (e) {
-    console.log("Lyrics theme read error");
     return 'Blur'
   }
 }
@@ -350,7 +324,6 @@ async function SetLyricsTheme(theme) {
   try {
     await AsyncStorage.setItem('LyricsTheme', theme);
   } catch (e) {
-    console.log("Lyrics theme save error");
   }
 }
 
@@ -364,7 +337,6 @@ async function GetLyricsTextColor() {
       return 'Auto' // Default to auto
     }
   } catch (e) {
-    console.log("Lyrics text color read error");
     return 'Auto'
   }
 }
@@ -374,7 +346,6 @@ async function SetLyricsTextColor(color) {
   try {
     await AsyncStorage.setItem('LyricsTextColor', color);
   } catch (e) {
-    console.log("Lyrics text color save error");
   }
 }
 
@@ -387,7 +358,6 @@ async function GetYtMusicQuality() {
       return 'Auto'
     }
   } catch (e) {
-    console.log("YtMusicQuality read error");
     return 'Auto'
   }
 }
@@ -396,7 +366,6 @@ async function SetYtMusicQuality(quality) {
   try {
     await AsyncStorage.setItem('YtMusicQuality', quality);
   } catch (e) {
-    console.log("YtMusicQuality save error");
   }
 }
 

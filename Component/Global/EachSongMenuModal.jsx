@@ -79,7 +79,6 @@ const getSongUrl = (urlData, quality = 4) => {
       return urlData.path;
     }
 
-    console.log("Unable to extract song URL from:", JSON.stringify(urlData));
     return null;
   } catch (error) {
     console.error("Error getting song URL:", error);
@@ -157,6 +156,8 @@ export const EachSongMenuModal = ({ Visible, setVisible }) => {
   async function actualDownload() {
     try {
       // Prepare song data for unified service
+      // CRITICAL: Preserve the original source (dab, ytmusic, spotify, saavn)
+      // to ensure correct stream URL fetching in UnifiedDownloadService
       const songData = {
         id: Visible?.id,
         title: Visible?.title,
@@ -166,7 +167,11 @@ export const EachSongMenuModal = ({ Visible, setVisible }) => {
         artwork: Visible?.image,
         duration: Visible?.duration,
         language: Visible?.language,
-        source: 'saavn' // Default source for online music
+        // Preserve source and detection flags from original song data
+        source: Visible?.source || 'saavn',
+        isDabTrack: Visible?.isDabTrack || false,
+        spotifyId: Visible?.spotifyId,
+        downloadUrl: Visible?.downloadUrl || Visible?.url, // Pass full URL array for Saavn
       };
 
       // Use unified download service
@@ -299,7 +304,6 @@ export const EachSongMenuModal = ({ Visible, setVisible }) => {
         if (granted === PermissionsAndroid.RESULTS.GRANTED) {
           actualDownload();
         } else {
-          console.log("please grant permission");
           ToastAndroid.showWithGravity(
             "Storage permission required for download",
             ToastAndroid.SHORT,
@@ -549,6 +553,9 @@ export const EachSongMenuModal = ({ Visible, setVisible }) => {
         backdropOpacity={0.4}
         animationIn="slideInUp"
         animationOut="slideOutDown"
+        animationInTiming={150}
+        animationOutTiming={150}
+        swipeThreshold={50}
         useNativeDriver
         hideModalContentWhileAnimating
         style={{

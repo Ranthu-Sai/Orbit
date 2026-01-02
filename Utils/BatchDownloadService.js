@@ -197,14 +197,11 @@ class BatchDownloadService {
                 // Check if already downloaded
                 const isAlreadyDownloaded = await StorageManager.isSongDownloaded(formattedSong.id);
                 if (isAlreadyDownloaded) {
-                    console.log(`[BatchDownload] Skipping already downloaded: ${formattedSong.title}`);
                     results.skipped++;
                     continue;
                 }
 
                 // Download the song
-                console.log(`[BatchDownload] Downloading (${i + 1}/${songs.length}): ${formattedSong.title}`);
-
                 try {
                     const success = await UnifiedDownloadService.downloadSong(formattedSong, (percent) => {
                         // Per-song progress callback - emit detailed progress

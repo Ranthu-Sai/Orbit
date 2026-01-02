@@ -58,7 +58,6 @@ export const SearchPage = ({ navigation }) => {
   useEffect(() => {
     const savedState = CacheManager.getSearchState();
     if (savedState && isInitialMount.current) {
-      console.log('[SearchPage] Restoring search state from cache');
       if (savedState.query) setQuery(savedState.query);
       if (savedState.searchText) setSearchText(savedState.searchText);
       if (savedState.activeTab !== undefined) setActiveTab(savedState.activeTab);
@@ -94,7 +93,6 @@ export const SearchPage = ({ navigation }) => {
           return true;
         }
         // Navigate to HomePage instead of default back (which might exit app)
-        console.log('[SearchPage] Back pressed, navigating to HomePage');
         navigation.navigate('HomePage');
         return true; // Prevent default back behavior
       };

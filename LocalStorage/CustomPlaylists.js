@@ -10,7 +10,6 @@ async function GetCustomPlaylists() {
       return {};
     }
   } catch (e) {
-    console.log("Error retrieving custom playlists", e);
     return {};
   }
 }
@@ -23,7 +22,6 @@ async function CreateCustomPlaylist(playlistName) {
       const jsonValue = JSON.stringify(customPlaylists);
       await AsyncStorage.setItem('CustomPlaylists', jsonValue);
     } catch (e) {
-      console.log("Error creating custom playlist");
     }
   }
 }
@@ -89,15 +87,11 @@ async function AddSongToCustomPlaylist(playlistName, song) {
       try {
         const jsonValue = JSON.stringify(customPlaylists);
         await AsyncStorage.setItem('CustomPlaylists', jsonValue);
-        console.log(`Added song "${sanitizedSong.title}" to playlist "${playlistName}"`);
       } catch (e) {
-        console.log("Error adding song to custom playlist", e);
       }
     } else {
-      console.log(`Song "${sanitizedSong.title}" already exists in playlist "${playlistName}"`);
     }
   } else {
-    console.log(`Playlist "${playlistName}" does not exist`);
   }
 }
 

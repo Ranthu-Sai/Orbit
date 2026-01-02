@@ -102,7 +102,6 @@ export const smartShuffleQueue = (songs) => {
     // PERFORMANCE: For large queues, use simpler O(n) album-aware shuffle
     // The complex artist-interleaving algorithm is O(n*m) and blocks UI
     if (songs.length > 100) {
-        console.log(`⚡ Large queue (${songs.length} songs): Using optimized shuffle`);
         return albumAwareShuffle(songs);
     }
 

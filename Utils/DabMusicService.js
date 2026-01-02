@@ -38,7 +38,6 @@ class DabMusicService {
         try {
             await DabAuthService.init();
             this.isInitialized = true;
-            console.log('✅ DAB Music Service initialized');
         } catch (error) {
             console.error('❌ DAB Service initialization failed:', error);
         }
@@ -80,13 +79,10 @@ class DabMusicService {
         const cacheKey = `search_${query}_${limit}`;
         const cached = this._getFromCache(this.searchCache, cacheKey);
         if (cached) {
-            console.log('🎯 Using cached DAB search results');
             return cached;
         }
 
         try {
-            console.log(`🔍 Searching DAB for: "${query}"`);
-
             const response = await axios.get(`${DAB_API_BASE}/search`, {
                 params: {
                     q: query,
@@ -102,8 +98,6 @@ class DabMusicService {
 
             // Cache results
             this._setInCache(this.searchCache, cacheKey, transformed);
-
-            console.log(`✅ Found ${transformed.length} DAB tracks`);
             return transformed;
         } catch (error) {
             console.error('❌ DAB search error:', error.message);
@@ -130,13 +124,10 @@ class DabMusicService {
         const cacheKey = `album_search_${query}_${limit}`;
         const cached = this._getFromCache(this.searchCache, cacheKey);
         if (cached) {
-            console.log('🎯 Using cached DAB album search results');
             return cached;
         }
 
         try {
-            console.log(`🔍 Searching DAB albums for: "${query}"`);
-
             const response = await axios.get(`${DAB_API_BASE}/search`, {
                 params: {
                     q: query,
@@ -152,8 +143,6 @@ class DabMusicService {
             const transformed = albums.map(this._transformAlbum.bind(this));
 
             this._setInCache(this.searchCache, cacheKey, transformed);
-
-            console.log(`✅ Found ${transformed.length} DAB albums`);
             return transformed;
         } catch (error) {
             console.error('❌ DAB album search error:', error.message);
@@ -179,13 +168,10 @@ class DabMusicService {
         const cacheKey = `album_details_${albumId}`;
         const cached = this._getFromCache(this.searchCache, cacheKey);
         if (cached) {
-            console.log('🎯 Using cached DAB album details');
             return cached;
         }
 
         try {
-            console.log(`📀 Getting DAB album details: ${albumId}`);
-
             const response = await axios.get(`${DAB_API_BASE}/album`, {
                 params: { albumId },
                 timeout: REQUEST_TIMEOUT,
@@ -197,8 +183,6 @@ class DabMusicService {
 
             // Cache for 30 minutes
             this._setInCache(this.searchCache, cacheKey, transformed, 30 * 60 * 1000);
-
-            console.log(`✅ Got DAB album: "${transformed.name}" with ${transformed.songs?.length || 0} tracks`);
             return transformed;
         } catch (error) {
             console.error('❌ DAB album details error:', error.message);
@@ -220,17 +204,12 @@ class DabMusicService {
         // CHECK CENTRALIZED CACHE FIRST (Hybrid: RAM -> Disk)
         const cachedData = await CacheManager.getStreamUrlAsync(trackId, 'dab');
         if (cachedData && cachedData.url) {
-            console.log(`🚀 [Cache] DAB stream URL cache HIT for ${trackId} (format: ${cachedData.format})`);
             return cachedData.url;
         }
 
         try {
-            console.log(`🎵 Getting stream URL for track: ${trackId}`);
-
             // Get authentication token
             const user = this.getCurrentUser();
-            console.log('Current user:', user);
-
             // Request highest quality (you can make this configurable)
             const quality = '27'; // Default quality code
 
@@ -241,10 +220,8 @@ class DabMusicService {
 
             if (token) {
                 headers['Authorization'] = `Bearer ${token}`;
-                console.log('✅ Added auth token to stream request');
             } else {
-                console.log('ℹ️ No auth token found for stream request (using cookies)');
-            }
+                }
 
             const response = await axios.get(`${DAB_API_BASE}/stream`, {
                 params: {
@@ -255,9 +232,6 @@ class DabMusicService {
                 timeout: REQUEST_TIMEOUT,
                 withCredentials: true,
             });
-
-            console.log('📦 Full stream API response:', JSON.stringify(response.data, null, 2));
-            console.log('Response status:', response.status);
 
             // API returns "url" not "streamUrl"
             const streamUrl = response.data?.url;
@@ -273,9 +247,6 @@ class DabMusicService {
                 format: 'flac',
                 mimeType: 'audio/flac',
             });
-            console.log(`📦 [Cache] DAB stream URL cached for ${trackId} (format: flac, 3-hour TTL)`);
-
-            console.log('✅ Got DAB stream URL');
             return streamUrl;
         } catch (error) {
             console.error('❌ DAB stream URL error:', error.message);
@@ -389,11 +360,8 @@ class DabMusicService {
      * @private
      */
     _transformAlbumDetails(albumData) {
-        console.log('📀 [DAB] Raw album API response:', JSON.stringify(albumData, null, 2).substring(0, 500));
-
         // DAB API wraps album data in an "album" property
         const album = albumData.album || albumData;
-        console.log(`📀 [DAB] Extracted album: ${album.title}, tracks: ${album.tracks?.length || 0}`);
         // DAB API may use different field names: cover/albumCover, title/name, tracks/items
         const imageUrl = album.cover || album.albumCover || album.image || '';
         const imageArray = imageUrl ? [
@@ -404,8 +372,6 @@ class DabMusicService {
 
         // DAB API may return 'items' or 'tracks' for the song list
         const rawTracks = album.tracks || album.items || album.songs || [];
-        console.log(`📀 [DAB] Found ${rawTracks.length} tracks in album`);
-
         // Transform tracks
         const tracks = rawTracks.map((track) => this._transformTrack({
             ...track,
@@ -492,14 +458,11 @@ class DabMusicService {
         if (error.response) {
             const status = error.response.status;
             if (status === 401) {
-                console.log('⚠️ DAB authentication required');
             } else if (status === 404) {
-                console.log('⚠️ DAB resource not found');
             } else if (status === 429) {
                 ToastAndroid.show('Rate limited. Please wait...', ToastAndroid.SHORT);
             }
         } else if (error.request) {
-            console.log('⚠️ DAB network error');
             ToastAndroid.show('Network error. Check connection.', ToastAndroid.SHORT);
         }
     }
@@ -510,7 +473,6 @@ class DabMusicService {
     clearCache() {
         this.searchCache.clear();
         this.streamCache.clear();
-        console.log('🗑️ DAB caches cleared');
     }
 
     /**

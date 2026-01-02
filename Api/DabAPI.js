@@ -221,9 +221,6 @@ export async function dabRegister(username, email, password, inviteCode = null) 
         if (inviteCode) {
             requestBody.inviteCode = inviteCode;
         }
-
-        console.log('📤 DAB Register request:', { username, email, hasInviteCode: !!inviteCode });
-
         const response = await axios.post(
             `${DAB_API_BASE_URL}/auth/register`,
             requestBody,
@@ -233,9 +230,6 @@ export async function dabRegister(username, email, password, inviteCode = null) 
                 withCredentials: true,
             }
         );
-
-        console.log('✅ DAB Register success:', response.data);
-
         return {
             success: true,
             message: response.data.message || 'User created successfully'
@@ -419,9 +413,6 @@ export async function getDabSearchSongData(searchText, page = 1, limit = 20) {
 
             const tracks = response.data?.tracks || [];
             const transformedTracks = tracks.map(transformDabToSaavnSong);
-
-            console.log(`✅ DAB Search Tracks - Found ${transformedTracks.length} tracks for: ${searchText}`);
-
             return {
                 status: 'SUCCESS',
                 message: '',
@@ -481,9 +472,6 @@ export async function getDabSearchAlbumData(searchText, page = 1, limit = 20) {
 
             const albums = response.data?.albums || [];
             const transformedAlbums = albums.map(transformDabToSaavnAlbum);
-
-            console.log(`✅ DAB Search Albums - Found ${transformedAlbums.length} albums for: ${searchText}`);
-
             return {
                 status: 'SUCCESS',
                 message: '',
@@ -543,9 +531,6 @@ export async function getDabSearchArtistData(searchText, page = 1, limit = 20) {
 
             const artists = response.data?.artists || [];
             const transformedArtists = artists.map(transformDabToSaavnArtist);
-
-            console.log(`✅ DAB Search Artists - Found ${transformedArtists.length} artists for: ${searchText}`);
-
             return {
                 status: 'SUCCESS',
                 message: '',
@@ -612,9 +597,6 @@ export async function getDabAlbumData(albumId) {
             }
 
             const transformedAlbum = transformDabToSaavnAlbum(album);
-
-            console.log(`✅ DAB Album - Loaded album: ${transformedAlbum.name}`);
-
             return {
                 status: 'SUCCESS',
                 message: `Loaded album with ${transformedAlbum.songCount} songs`,
@@ -671,9 +653,6 @@ export async function getDabArtistDiscography(artistId) {
 
             const transformedArtist = transformDabToSaavnArtist(artist);
             const transformedAlbums = albums.map(transformDabToSaavnAlbum);
-
-            console.log(`✅ DAB Artist - Loaded ${transformedAlbums.length} albums for: ${transformedArtist.name}`);
-
             return {
                 status: 'SUCCESS',
                 message: `Loaded ${transformedAlbums.length} albums`,
@@ -737,9 +716,6 @@ export async function getDabStreamingUrl(trackId, quality = '27') {
             if (!streamUrl) {
                 throw new Error('No streaming URL found');
             }
-
-            console.log(`✅ DAB Stream - Got URL for track: ${trackId}`);
-
             return streamUrl;
         } catch (error) {
             console.error('DAB streaming URL fetch error:', error);
@@ -786,9 +762,6 @@ export async function getDabLyrics(artist, title) {
                     message: 'No lyrics found'
                 };
             }
-
-            console.log(`✅ DAB Lyrics - Found for: ${artist} - ${title}`);
-
             return {
                 success: true,
                 data: {

@@ -55,20 +55,16 @@ export function useSmartRefresh(refreshFn, options = {}) {
             // Invalidate cache(s) before refresh
             if (cacheKey) {
                 CacheManager.invalidate(cacheKey);
-                console.log(`[SmartRefresh] Invalidated cache: ${cacheKey}`);
             }
 
             if (cacheKeysToInvalidate.length > 0) {
                 cacheKeysToInvalidate.forEach(key => {
                     CacheManager.invalidate(key);
                 });
-                console.log(`[SmartRefresh] Invalidated caches: ${cacheKeysToInvalidate.join(', ')}`);
-            }
+                }
 
             // Execute refresh function
             await refreshFn();
-
-            console.log('[SmartRefresh] Refresh completed successfully');
         } catch (error) {
             console.error('[SmartRefresh] Refresh failed:', error);
         } finally {
@@ -113,14 +109,11 @@ export function useBackgroundRefresh(refreshFn, options = {}) {
 
     const refreshInBackground = useCallback(async () => {
         try {
-            console.log('[BackgroundRefresh] Starting silent refresh...');
-
             const newData = await refreshFn();
 
             // Update cache with fresh data
             if (cacheKey && newData) {
                 CacheManager.set(cacheKey, newData);
-                console.log(`[BackgroundRefresh] Cache updated: ${cacheKey}`);
             }
 
             if (onComplete) {

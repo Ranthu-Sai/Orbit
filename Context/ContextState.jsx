@@ -74,11 +74,9 @@ const ContextState = (props) => {
                     ));
 
                 if (hasChanged || tracks.length > QueueRef.current.length) {
-                    console.log(`updateTrack: Updating Context.Queue with ${tracks.length} tracks`);
                     setQueue(tracks);
                 }
             } catch (error) {
-                console.log('updateTrack: TrackPlayer not ready yet');
             }
         });
     }
@@ -95,7 +93,6 @@ const ContextState = (props) => {
         // 🚫 SKIP RECOMMENDATIONS for Album/Playlist playback
         // Using dedicated isPlaylistActive flag instead of currentPlaylistData
         if (isPlaylistActive) {
-            console.log('Skipping recommendations: Album/Playlist is active');
             return;
         }
 
@@ -105,7 +102,6 @@ const ContextState = (props) => {
         const currentTrack = await TrackPlayer.getActiveTrack();
         if (currentTrack?.isYTMusic || currentTrack?.source === 'ytmusic' ||
             (currentTrack?.id && currentTrack.id.length === 11 && !currentTrack.isLocal)) {
-            console.log('Skipping Saavn recommendations for YouTube song:', id);
             return;
         }
 
@@ -145,7 +141,6 @@ const ContextState = (props) => {
                     await AddSongsToQueue(ForMusicPlayer)
                 }
             } catch (e) {
-                console.log(e);
             } finally {
                 await updateTrack()
             }
@@ -174,8 +169,6 @@ const ContextState = (props) => {
                         const smartPrefetchManager = require('../Utils/SmartPrefetchManager').default;
 
                         if (smartPrefetchManager.needsStream(currentTrack)) {
-                            console.log(`🔄 ContextState: Attempting on-demand recovery for: ${currentTrack.title}`);
-
                             try {
                                 const streamData = await smartPrefetchManager.fetchOnDemand(currentTrack.id);
 
@@ -194,12 +187,9 @@ const ContextState = (props) => {
                                     await TrackPlayer.add(updatedTrack, currentIndex);
                                     await TrackPlayer.skip(currentIndex);
                                     await TrackPlayer.play();
-
-                                    console.log(`✅ ContextState: On-demand recovery successful for: ${currentTrack.title}`);
                                     return; // Recovery successful, don't skip
                                 }
                             } catch (recoveryError) {
-                                console.log(`⚠️ ContextState: On-demand recovery failed:`, recoveryError.message);
                             }
                         }
                     }
@@ -214,7 +204,6 @@ const ContextState = (props) => {
 
                         // If still in error state, skip to next
                         if (state.state === 'error' || state.state === 'none') {
-                            console.log('🔄 ContextState: Fallback recovery - skipping to next track');
                             await TrackPlayer.skipToNext();
                             await TrackPlayer.play();
                         }
@@ -284,7 +273,6 @@ const ContextState = (props) => {
                                     }
 
                                     // Trigger sequential prefetch: N+1 then N+2
-                                    console.log('🎵 ContextState: Triggering continuous prefetch...');
                                     await smartPrefetchManager._prefetchNextFromCurrent();
 
                                     // N+2 after N+1 completes
@@ -298,12 +286,10 @@ const ContextState = (props) => {
                                         } catch (e) {
                                             // Silence expected errors
                                             if (!e.message?.includes("doesn't exist")) {
-                                                console.log('ContextState N+2 prefetch skipped:', e.message);
                                             }
                                         }
                                     });
                                 } catch (prefetchError) {
-                                    console.log('ContextState prefetch error:', prefetchError.message);
                                 }
                             });
                         }
@@ -354,7 +340,6 @@ const ContextState = (props) => {
             // Check if player is already initialized
             try {
                 await TrackPlayer.getPlaybackState();
-                console.log('Player already initialized in Context');
                 isPlayerReady.current = true; // Mark ready immediately
             } catch (playerError) {
                 // Player not initialized, set it up
@@ -366,7 +351,6 @@ const ContextState = (props) => {
                     autoHandleInterruptions: true,
                     autoUpdateMetadata: true,
                 });
-                console.log('Player initialized successfully in Context');
                 isPlayerReady.current = true; // Mark ready after setup
 
             }
@@ -395,7 +379,6 @@ const ContextState = (props) => {
             const song = await TrackPlayer.getActiveTrack();
             setCurrentPlaying(song);
         } catch (error) {
-            console.log('getCurrentSong: TrackPlayer not ready yet');
             setCurrentPlaying({});
         }
     }
@@ -406,25 +389,20 @@ const ContextState = (props) => {
         const playbackModeListener = DeviceEventEmitter.addListener(
             'playback-mode-changed',
             (event) => {
-                console.log('🎵 Playback mode changed:', event.isPlaylist ? 'Playlist/Album' : 'Single Song');
                 setIsPlaylistActive(event.isPlaylist);
             }
         );
 
         // Handle app state changes for history tracking
         const handleAppStateChange = (nextAppState) => {
-            console.log('Context: App state changed to', nextAppState);
-
             if (nextAppState === 'background' || nextAppState === 'inactive') {
                 // App going to background, enable background mode and save progress
-                console.log('Context: App going to background, enabling background tracking');
                 historyManager.setBackgroundMode(true);
                 historyManager.saveProgressBackground().catch(error => {
                     console.error('Error saving progress on background:', error);
                 });
             } else if (nextAppState === 'active') {
                 // App coming back to foreground, disable background mode
-                console.log('Context: App coming to foreground, disabling background tracking');
                 historyManager.setBackgroundMode(false);
 
                 // Check if we need to resume tracking
@@ -436,7 +414,6 @@ const ContextState = (props) => {
                                 // Check if TrackPlayer is initialized before accessing it
                                 const isInitialized = await TrackPlayer.getPlaybackState().catch(() => false);
                                 if (!isInitialized) {
-                                    console.log('Context: TrackPlayer not initialized yet, skipping tracking check');
                                     return;
                                 }
 
@@ -445,7 +422,6 @@ const ContextState = (props) => {
 
                                 if (currentTrack && playerState.state === 'playing' && !historyManager.isCurrentlyTracking) {
                                     // Resume tracking if song is playing and we're not already tracking
-                                    console.log('Context: Resuming tracking for', currentTrack.title);
                                     // Non-blocking: Don't await, let it run in background
                                     historyManager.startTracking(currentTrack).catch(err =>
                                         console.error('Error resuming tracking:', err)
@@ -477,12 +453,10 @@ const ContextState = (props) => {
             if (event?.isProgressiveBatch) {
                 // Debounce progressive batch updates by 500ms to reduce re-renders
                 queueUpdateTimeout = setTimeout(async () => {
-                    console.log('Context: Progressive batch update - deferred queue sync');
                     await updateTrack();
                 }, 500);
             } else {
                 // For non-progressive updates (e.g., play next, queue clear), sync immediately
-                console.log('Context: Received queue update event - syncing state');
                 await updateTrack();
             }
         });

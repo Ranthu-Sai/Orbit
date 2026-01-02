@@ -103,8 +103,6 @@ export const DownloadedSongCard = ({ song, index = 0, allSongs = [], refetch, on
         const sArtwork = isValidArtwork(s.image) ? s.image :
           (isValidArtwork(s.artwork) ? s.artwork : null);
 
-        console.log(`[Downloads] Song "${s.title}" artwork:`, sArtwork ? 'FOUND' : 'MISSING', sArtwork?.substring(0, 50));
-
         formattedTracks.push({
           id: s.id,
           url: fileUrl,
@@ -118,9 +116,6 @@ export const DownloadedSongCard = ({ song, index = 0, allSongs = [], refetch, on
           sourceType: 'downloaded'
         });
       }
-
-      console.log(`[Downloads] Queuing ${formattedTracks.length} downloaded songs, starting with: ${formattedTracks[0]?.title}`);
-
       // Reset and add all tracks
       try {
         await TrackPlayer.reset();
@@ -149,7 +144,6 @@ export const DownloadedSongCard = ({ song, index = 0, allSongs = [], refetch, on
           setMenuVisible(true);
         });
       } catch (error) {
-        console.log('Error measuring button position:', error);
         // Fallback position
         setMenuPosition({ top: 100, right: 20 });
         setMenuVisible(true);

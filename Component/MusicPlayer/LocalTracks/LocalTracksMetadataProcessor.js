@@ -25,9 +25,6 @@ export class LocalTracksMetadataProcessor {
 
     const tracks = [];
     const entries = Object.entries(allMetadata);
-    
-    console.log(`LocalTracksMetadataProcessor: Processing ${entries.length} metadata entries`);
-
     for (const [songId, metadata] of entries) {
       try {
         const processedTrack = await this.processIndividualTrack(songId, metadata);
@@ -39,8 +36,6 @@ export class LocalTracksMetadataProcessor {
         // Continue processing other tracks even if one fails
       }
     }
-
-    console.log(`LocalTracksMetadataProcessor: Successfully processed ${tracks.length} tracks`);
     return tracks;
   }
 
@@ -73,8 +68,6 @@ export class LocalTracksMetadataProcessor {
 
       // Create track object
       const track = this.createTrackObject(songId, metadata, filePaths);
-      
-      console.log(`LocalTracksMetadataProcessor: Successfully processed track: ${track.title}`);
       return track;
 
     } catch (error) {

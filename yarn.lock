@@ -2692,7 +2692,7 @@
   dependencies:
     invariant "^2.2.4"
 
-"@react-native-firebase/analytics@^21.12.3":
+"@react-native-firebase/analytics@^21.12.3", "@react-native-firebase/analytics@21.12.3":
   version "21.12.3"
   resolved "https://registry.npmjs.org/@react-native-firebase/analytics/-/analytics-21.12.3.tgz"
   integrity sha512-YYytd3fuW/hRHU0J5I6WgTuZ8u5k1Bmn2l30PvsHv56jkUcfB59O1KdgNxqWBXRZEfnwEeaBmzTbbG7vkzyl/Q==
@@ -2705,6 +2705,11 @@
   integrity sha512-q+FoAJ9yZrXg4hJDXQQputeO/b0yos3iMMV7nnhz3ZizVE9MxfpPCWACveYhs9Suni+c/+b44wPR9P6vS/kM/g==
   dependencies:
     firebase "11.3.1"
+
+"@react-native-firebase/remote-config@^21.12.3":
+  version "21.12.3"
+  resolved "https://registry.npmjs.org/@react-native-firebase/remote-config/-/remote-config-21.12.3.tgz"
+  integrity sha512-FmQbsRFDRRwZU8oz5NHFgN4Phqw34rEz6Fxn2g3rSsVfB3si6J6bmo0zNOj7NVRTX1hTRs/SrsdxO5UbpXWJqw==
 
 "@react-native-vector-icons/common@^12.3.0":
   version "12.3.1"

@@ -9,6 +9,7 @@ import { useTrackPlayerEvents, Event } from 'react-native-track-player';
 import Ionicons from "react-native-vector-icons/Ionicons";
 import Cover from "../../Images/Music.jpeg";
 import { useDeviceLibrary } from '../../Component/MusicPlayer/LocalTracks/useDeviceLibrary';
+import LocalTracksMetadataManager from '../../Component/MusicPlayer/LocalTracks/LocalTracksMetadataManager';
 
 export const MyMusicPage = () => {
   const theme = useTheme();
@@ -89,7 +90,7 @@ export const MyMusicPage = () => {
       borderBottomColor: 'rgba(255,255,255,0.1)',
     },
     title: {
-      fontSize: 20,
+      fontSize: 26,
       fontWeight: 'bold',
       color: theme.colors.text,
     }
@@ -97,6 +98,8 @@ export const MyMusicPage = () => {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    // Re-extract metadata with fixed UTF-16 parser
+    await LocalTracksMetadataManager.reprocessAll();
     await refetch();
     setRefreshing(false);
   }, [refetch]);
@@ -122,7 +125,6 @@ export const MyMusicPage = () => {
         await TrackPlayer.add(initialBatch);
         await TrackPlayer.play();
         setIndex(1);
-        console.log(`✅ MyMusicPage: Started playback with ${initialBatch.length} tracks (progressive loading enabled)`);
       } else {
         ToastAndroid.show('Failed to start playback', ToastAndroid.SHORT);
       }

@@ -41,7 +41,6 @@ class LastFMService {
         API_KEY = apiKey;
         API_SECRET = apiSecret;
         this.isInitialized = true;
-        console.log('🎵 LastFMService: Initialized');
     }
 
     /**
@@ -57,7 +56,6 @@ class LastFMService {
             if (sessionKey && username) {
                 this.sessionKey = sessionKey;
                 this.username = username;
-                console.log(`🎵 LastFMService: Restored session for ${username}`);
                 this.notifyListeners();
                 return true;
             }
@@ -187,8 +185,6 @@ class LastFMService {
      */
     async login(username, password) {
         try {
-            console.log(`🎵 LastFMService: Logging in as ${username}...`);
-
             const data = await this._apiRequest('auth.getMobileSession', {
                 username,
                 password
@@ -203,8 +199,6 @@ class LastFMService {
                     AsyncStorage.setItem(LASTFM_SESSION_KEY, this.sessionKey),
                     AsyncStorage.setItem(LASTFM_USERNAME_KEY, this.username)
                 ]);
-
-                console.log(`✅ LastFMService: Logged in as ${this.username}`);
                 this.notifyListeners();
 
                 return { success: true, username: this.username };
@@ -249,8 +243,6 @@ class LastFMService {
                 AsyncStorage.removeItem(LASTFM_SESSION_KEY),
                 AsyncStorage.removeItem(LASTFM_USERNAME_KEY)
             ]);
-
-            console.log('🎵 LastFMService: Logged out');
             this.notifyListeners();
 
             return { success: true };
@@ -295,8 +287,6 @@ class LastFMService {
      */
     async getSimilarTracks(artist, track, limit = 20) {
         try {
-            console.log(`🧠 LastFM Brain: Getting similar tracks for "${artist} - ${track}"`);
-
             // First, try with original title
             let data;
             try {
@@ -310,8 +300,6 @@ class LastFMService {
                 // If track not found, try with cleaned title
                 if (error.code === 6) { // Track not found
                     const cleanedTitle = this._cleanTrackTitle(track);
-                    console.log(`🧠 LastFM Brain: Retrying with cleaned title: "${cleanedTitle}"`);
-
                     if (cleanedTitle !== track && cleanedTitle.length > 0) {
                         try {
                             data = await this._apiRequest('track.getSimilar', {
@@ -322,7 +310,6 @@ class LastFMService {
                             });
                         } catch (retryError) {
                             // Still failed, will use artist fallback below
-                            console.log(`🧠 LastFM Brain: Cleaned title also not found`);
                         }
                     }
                 }
@@ -340,13 +327,10 @@ class LastFMService {
                     match: parseFloat(t.match) || 0,
                     url: t.url || ''
                 })).filter(t => t.match >= 0.1);
-
-                console.log(`🧠 LastFM Brain: Found ${results.length} similar tracks`);
                 return results;
             }
 
             // FALLBACK: Use mood-based discovery (tags + similar artists) for better diversity
-            console.log(`🧠 LastFM Brain: No similar tracks found, falling back to mood-based discovery`);
             const moodRecs = await this.getMoodBasedRecommendations(artist, track, limit);
 
             if (moodRecs && moodRecs.length > 0) {
@@ -354,7 +338,6 @@ class LastFMService {
             }
 
             // FINAL FALLBACK: Artist top tracks if mood fails
-            console.log(`🧠 LastFM Brain: Mood discovery failed, falling back to artist top tracks`);
             return await this.getArtistTopTracks(artist, limit);
 
         } catch (error) {
@@ -362,7 +345,6 @@ class LastFMService {
 
             // IMPROVED FALLBACK: Use mood-based + similar artists discovery
             try {
-                console.log(`🧠 LastFM Brain: Falling back to mood-based discovery`);
                 return await this.getMoodBasedRecommendations(artist, track, limit);
             } catch (fallbackError) {
                 console.error('🧠 LastFM Brain: Mood fallback also failed', fallbackError);
@@ -385,7 +367,6 @@ class LastFMService {
 
         try {
             // 1. Get track tags for mood detection
-            console.log(`🧠 LastFM Brain: Getting tags for mood detection`);
             const tags = await this.getTrackTags(artist, track);
 
             // Filter to meaningful mood/genre tags
@@ -395,13 +376,10 @@ class LastFMService {
                 tag.length > 2
             ).slice(0, 3);
 
-            console.log(`🧠 LastFM Brain: Detected mood tags: ${moodTags.join(', ')}`);
-
             // 2. Get similar artists for variety
             let similarArtists = [];
             try {
                 similarArtists = await this.getSimilarArtists(artist, 5);
-                console.log(`🧠 LastFM Brain: Found ${similarArtists.length} similar artists`);
             } catch (e) { /* ignore */ }
 
             // 3. Get tracks from mood tags (parallel for speed)
@@ -460,7 +438,6 @@ class LastFMService {
                 [results[i], results[j]] = [results[j], results[i]];
             }
 
-            console.log(`🧠 LastFM Brain: Got ${results.length} mood-based recommendations from ${new Set(results.map(r => r.artist)).size} artists`);
             return results.slice(0, limit);
 
         } catch (error) {
@@ -569,7 +546,6 @@ class LastFMService {
                 const cleanedTitle = this._cleanTrackTitle(track);
                 if (cleanedTitle !== track && cleanedTitle.length > 0) {
                     try {
-                        console.log(`🧠 LastFM Brain: Retrying tags with cleaned title: "${cleanedTitle}"`);
                         const data = await this._apiRequest('track.getTopTags', {
                             artist,
                             track: cleanedTitle,

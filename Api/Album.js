@@ -17,17 +17,8 @@ async function getAlbumData(id) {
 
   // If it's a YouTube Music album, use the YTMusic API
   if (isYouTubeAlbum) {
-    console.log(`Detected YouTube Music album ID: ${id}, using YTMusic API`);
     try {
       const ytResult = await getYTMusicAlbumData(id);
-      console.log(`YTMusic album API result for ${id}:`, {
-        success: ytResult?.success,
-        hasData: !!ytResult?.data,
-        status: ytResult?.status,
-        message: ytResult?.message,
-        songCount: ytResult?.data?.songCount || 0
-      });
-
       if (ytResult && ytResult.success && ytResult.data) {
         // Transform YTMusic response to match expected format
         return {
@@ -37,12 +28,9 @@ async function getAlbumData(id) {
           success: true
         };
       } else {
-        console.log(`YTMusic API failed for album ${id}, result:`, ytResult);
         // Fall through to JioSaavn API as fallback
       }
     } catch (ytError) {
-      console.log(`YTMusic API error for album ${id}:`, ytError.message);
-      console.log(`Full error:`, ytError);
       // Fall through to JioSaavn API as fallback
     }
   }
@@ -67,7 +55,6 @@ async function getAlbumData(id) {
 
   // Use cache manager with 60 minute expiration for album data
   try {
-    console.log(`Fetching album data for ID: ${id} using JioSaavn API`);
     return await getCachedData(cacheKey, fetchFunction, 60, CACHE_GROUPS.ALBUMS);
   } catch (error) {
     // If there's a storage error, try fetching directly without caching

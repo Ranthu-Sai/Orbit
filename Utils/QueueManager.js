@@ -27,12 +27,9 @@ class QueueManager {
      */
     async buildQueueFromRecommendations(songId, source = 'saavn', limit = 10) {
         try {
-            console.log(`🎵 Building queue from recommendations for song: ${songId}, source: ${source}`);
-
             // DAB songs use Last.fm recommendations via DABRecommendationService, not this method
             // Skip Saavn API calls for DAB songs to prevent 500 errors
             if (source === 'dab') {
-                console.log('⏭️ DAB songs use DABRecommendationService, skipping Saavn API');
                 return [];
             }
 
@@ -99,9 +96,6 @@ class QueueManager {
                             _needsStream: true // Mark for on-demand fetching
                         };
                     });
-
-                console.log(`✅ QueueManager: Built ${queueSongs.length} queue songs from recommendations`);
-
                 return queueSongs;
             }
 
@@ -109,13 +103,10 @@ class QueueManager {
             const recommendationsData = await getRecommendedSongs(songId);
 
             if (!recommendationsData?.data || recommendationsData.data.length === 0) {
-                console.log('⚠️ No recommendations found for song:', songId);
                 return [];
             }
 
             const recommendations = recommendationsData.data.slice(0, limit);
-            console.log(`✅ Found ${recommendations.length} recommendations`);
-
             // Get quality index for URL selection
             const qualityIndex = await getIndexQuality();
 
@@ -209,7 +200,6 @@ class QueueManager {
             // Check central cache first (Hybrid) - now returns object with url, format, mimeType
             const cachedData = await CacheManager.getStreamUrlAsync(track.id, track.source || 'ytmusic');
             if (cachedData && cachedData.url) {
-                console.log(`✅ Using centralized cached stream for: ${track.title} (format: ${cachedData.format})`);
                 return {
                     url: cachedData.url,
                     headers: { 'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 12; en_IN)', 'Range': 'bytes=0-' },
@@ -217,8 +207,6 @@ class QueueManager {
                     mimeType: cachedData.mimeType,
                 };
             }
-
-            console.log(`🔄 Fetching stream on-demand for: ${track.title}`);
             const streamData = await this._fetchStreamForSong(track, signal);
 
             if (streamData && streamData.url) {
@@ -240,7 +228,6 @@ class QueueManager {
                     format: streamData.format || null,
                     mimeType: streamData.mimeType || null,
                 });
-                console.log(`✅ Fetched and updated stream for: ${track.title}`);
                 return streamData;
             }
 
@@ -248,7 +235,6 @@ class QueueManager {
             return null;
         } catch (error) {
             if (error.name === 'AbortError') {
-                console.log(`🚫 Stream fetch aborted for track ${trackIndex}`);
             } else {
                 console.error('❌ Error fetching stream for track:', error);
             }
@@ -302,7 +288,6 @@ class QueueManager {
             return null;
         } catch (error) {
             if (error.message === 'AbortError' || error.name === 'AbortError') {
-                console.log(`🚫 Stream fetch aborted for: ${song.title}`);
             } else {
                 console.error('❌ Error in _fetchStreamForSong:', error);
             }
@@ -338,7 +323,6 @@ class QueueManager {
 
         // Set up track change listener (only triggers when tracks actually change)
         if (!this.trackChangeSubscription) {
-            console.log('📡 Starting continuous queue monitor');
             this.trackChangeSubscription = TrackPlayer.addEventListener(
                 'playback-active-track-changed',
                 this._onTrackChange.bind(this)
@@ -353,7 +337,6 @@ class QueueManager {
      */
     stopContinuousQueueMonitor() {
         if (this.trackChangeSubscription) {
-            console.log('🛑 Stopping continuous queue monitor');
             this.trackChangeSubscription.remove();
             this.trackChangeSubscription = null;
         }
@@ -393,14 +376,9 @@ class QueueManager {
             if (currentIndex === null || currentIndex === undefined) return;
 
             const songsRemaining = queue.length - currentIndex - 1;
-
-            console.log(`📊 Queue status: ${songsRemaining} songs remaining after current`);
-
             // If less than threshold songs remaining, fetch more
             if (songsRemaining <= this.fetchThreshold) {
                 this.isFetchingMore = true;
-                console.log(`🔄 Near end of queue! Fetching more recommendations...`);
-
                 // Get the last song in queue to base recommendations on
                 const lastSong = queue[queue.length - 1];
                 const videoIdForRecs = lastSong?.id || this.currentVideoId;
@@ -437,11 +415,8 @@ class QueueManager {
                     } else if (isSaavnSong) {
                         recommendationSource = 'saavn';
                     }
-                    console.log(`🔍 Detected source for queue refill: ${recommendationSource} (Last song ID: ${lastSong?.id || 'none'})`);
-
                     let recommendations = [];
                     if (recommendationSource === 'dab') {
-                        console.log('🧠 QueueManager: Fetching Last.fm recommendations for DAB queue refill');
                         recommendations = await dabRecommendationService.getRecommendations(20);
                     } else {
                         recommendations = await this.buildQueueFromRecommendations(
@@ -463,8 +438,6 @@ class QueueManager {
                                 source: recommendationSource
                             }));
                             await AddSongsToQueue(taggedSongs);
-                            console.log(`✅ Added ${newSongs.length} more ${recommendationSource} songs to extend queue!`);
-
                             // 🎵 PREMIUM UX: Trigger sequential prefetch for N+1 → N+2
                             // IMPORTANT: Use fresh index lookup to handle queue rearrangement
                             // SKIP for Saavn as it doesn't need prefetching
@@ -475,7 +448,6 @@ class QueueManager {
                                         // Get FRESH current index for N+1
                                         let currentIndex = await TrackPlayer.getActiveTrackIndex();
                                         if (currentIndex !== null && currentIndex !== undefined) {
-                                            console.log(`🎵 Queue populated! Prefetching N+1 at index ${currentIndex + 1}`);
                                             await smartPrefetchManager._prefetchTrackAtIndex(currentIndex + 1);
 
                                             // N+2 after N+1 completes - get FRESH index again
@@ -486,12 +458,10 @@ class QueueManager {
                                                         await smartPrefetchManager._prefetchTrackAtIndex(freshIdx + 2);
                                                     }
                                                 } catch (e) {
-                                                    console.log('N+2 prefetch skipped:', e.message);
                                                 }
                                             });
                                         }
                                     } catch (prefetchError) {
-                                        console.log('Prefetch trigger error:', prefetchError.message);
                                     }
                                 });
                             }
@@ -500,22 +470,18 @@ class QueueManager {
                             const lastAdded = newSongs[newSongs.length - 1];
                             if (lastAdded?.id) {
                                 this.currentVideoId = lastAdded.id;
-                                console.log(`🔄 Updated seed ID for next refill: ${lastAdded.id}`);
                             }
                         } else {
-                            console.log('⚠️ No new songs to add (all duplicates)');
                             // If all duplicates, try using a different song as seed
                             // Use a random song from recommendations as new seed
                             if (recommendations.length > 0) {
                                 const randomSeed = recommendations[Math.floor(Math.random() * recommendations.length)];
                                 if (randomSeed?.id) {
                                     this.currentVideoId = randomSeed.id;
-                                    console.log(`🔄 Changed seed ID to avoid duplicates: ${randomSeed.id}`);
                                 }
                             }
                         }
                     } else {
-                        console.log(`⚠️ No recommendations returned for source: ${recommendationSource}`);
                     }
                 } catch (error) {
                     console.error('❌ Error fetching more recommendations:', error);
@@ -534,8 +500,7 @@ class QueueManager {
      */
     clearCache() {
         CacheManager.clearStreamCache();
-        console.log('🗑️ Stream cache cleared (Centralized)');
-    }
+        }
 }
 
 // Export singleton instance

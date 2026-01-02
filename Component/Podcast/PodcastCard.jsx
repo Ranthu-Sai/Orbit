@@ -46,7 +46,6 @@ export const PodcastCard = ({ podcast, width = 140, onPress, noMargin = false })
     };
 
     const handleImageError = () => {
-        console.log('🖼️ FastImage failed for:', podcast.title?.substring(0, 30));
         setImageError(true);
     };
 

@@ -22,11 +22,6 @@ export const safePath = (path) => {
   // Special handling for path objects
   try {
     // Log object type for debugging - will help identify the issue
-    console.log('Received non-string path:',
-      typeof path,
-      path && path.constructor ? path.constructor.name : 'unknown'
-    );
-
     // If it's an array, return empty string to prevent errors
     if (Array.isArray(path)) {
       console.warn('Array provided as path, returning empty string');
@@ -247,7 +242,6 @@ export const safeDownloadFile = async (url, path, customHeaders = null, onProgre
     // Priority 1: Use custom headers if provided (e.g., YTMusic requires specific User-Agent)
     if (customHeaders && typeof customHeaders === 'object') {
       downloadOptions.headers = customHeaders;
-      console.log('📥 [Download] Using custom headers for download');
     }
     // Priority 2: Add User-Agent for specific CDNs
     else if (url.includes('qobuz.com') || url.includes('akamaized.net')) {
@@ -347,44 +341,36 @@ export const detectAudioFormat = async (filePath) => {
 
     // Check for WebM/Matroska: 0x1A 0x45 0xDF 0xA3
     if (bytes[0] === 0x1A && bytes[1] === 0x45 && bytes[2] === 0xDF && bytes[3] === 0xA3) {
-      console.log('🔍 [Format Detection] WebM/Matroska container detected');
       return { format: 'webm', canEmbedMetadata: false, actualExtension: '.opus' };
     }
 
     // Check for MP4/M4A: 'ftyp' at offset 4
     if (bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) { // 'ftyp'
-      console.log('🔍 [Format Detection] MP4/M4A container detected');
       return { format: 'm4a', canEmbedMetadata: true, actualExtension: '.m4a' };
     }
 
     // Check for FLAC: 'fLaC'
     if (bytes[0] === 0x66 && bytes[1] === 0x4C && bytes[2] === 0x61 && bytes[3] === 0x43) {
-      console.log('🔍 [Format Detection] FLAC format detected');
       return { format: 'flac', canEmbedMetadata: true, actualExtension: '.flac' };
     }
 
     // Check for MP3: ID3 tag or frame sync
     if ((bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) || // 'ID3'
       (bytes[0] === 0xFF && (bytes[1] & 0xE0) === 0xE0)) { // Frame sync
-      console.log('🔍 [Format Detection] MP3 format detected');
       return { format: 'mp3', canEmbedMetadata: true, actualExtension: '.mp3' };
     }
 
     // Check for OGG: 'OggS'
     if (bytes[0] === 0x4F && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) {
-      console.log('🔍 [Format Detection] OGG container detected');
       return { format: 'ogg', canEmbedMetadata: true, actualExtension: '.ogg' };
     }
 
     // Check for WAV: 'RIFF'...'WAVE'
     if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
       bytes[8] === 0x57 && bytes[9] === 0x41 && bytes[10] === 0x56 && bytes[11] === 0x45) {
-      console.log('🔍 [Format Detection] WAV format detected');
       return { format: 'wav', canEmbedMetadata: true, actualExtension: '.wav' };
     }
 
-    console.log('🔍 [Format Detection] Unknown format, first bytes:',
-      Array.from(bytes.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' '));
     return { format: 'unknown', canEmbedMetadata: false, actualExtension: '' };
 
   } catch (error) {
@@ -416,8 +402,6 @@ export const renameToCorrectExtension = async (currentPath, newExtension) => {
 
     // Rename file
     await RNFS.moveFile(stringPath, newPath);
-    console.log(`📝 [File Rename] ${stringPath} -> ${newPath}`);
-
     // Scan new file for media library
     if (Platform.OS === 'android') {
       try {

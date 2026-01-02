@@ -38,14 +38,12 @@ function removeDuplicateArtists(artists) {
 
     // Check for duplicate IDs
     if (seen.has(artist.id)) {
-      console.log(`Removing duplicate artist ID: ${artist.id} - ${artist.name}`);
       return false;
     }
 
     // Check for duplicate normalized names
     const normalizedName = normalizeArtistName(artist.name);
     if (seenNames.has(normalizedName)) {
-      console.log(`Removing duplicate artist name: "${artist.name}" (normalized: "${normalizedName}")`);
       return false;
     }
 
@@ -97,10 +95,6 @@ export default function ArtistDisplay({ data, limit, Searchtext }) {
               // Combine existing and new results, then remove duplicates
               const combinedData = [...Data.data.results, ...fetchdata.data.results]
               const finalData = removeDuplicateArtists(combinedData)
-
-              console.log(`Combined ${Data.data.results.length} existing + ${fetchdata.data.results.length} new = ${combinedData.length} total`);
-              console.log(`After deduplication: ${finalData.length} unique artists`);
-
               // Create new data object instead of mutating existing one
               const newData = {
                 ...Data,
@@ -126,7 +120,6 @@ export default function ArtistDisplay({ data, limit, Searchtext }) {
             }
           }
         } catch (e) {
-          console.log(e);
         } finally {
           setLoading(false)
         }

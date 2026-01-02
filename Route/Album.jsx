@@ -62,7 +62,6 @@ export const Album = ({ route }) => {
       const onBackPress = () => {
         // Check if we should return to FullScreenMusic
         if (returnToFullScreen || fullScreenNavigationTarget === 'Album') {
-          console.log('[Album] Returning to FullScreenMusic');
           // Clear the navigation target
           setFullScreenNavigationTarget(null);
 
@@ -81,7 +80,6 @@ export const Album = ({ route }) => {
 
         // Check if we came from favorites
         if (source === 'favorites') {
-          console.log('[Album] Returning to Favorites');
           navigation.navigate('Library', { screen: 'Favorites' });
           return true; // Prevent default back behavior
         }
@@ -102,7 +100,6 @@ export const Album = ({ route }) => {
       try {
         if (routeId) {
           // Clear any previous album data if we have a new album ID
-          console.log(`New album selected: ${routeId}, clearing previous album data cache`);
           setId(routeId);
           setSource(route?.params?.source || null);
 
@@ -115,16 +112,11 @@ export const Album = ({ route }) => {
             searchText: route?.params?.searchText || null
           };
           await AsyncStorage.setItem(CURRENT_ALBUM_DATA_KEY, JSON.stringify(albumData));
-          console.log(`Stored new album ID and data for: ${routeId}`);
-
         } else {
-          console.log('No album ID in route params, attempting to recover from storage');
-
           // Try to get stored album ID as fallback
           const storedId = await AsyncStorage.getItem(CURRENT_ALBUM_ID_KEY);
 
           if (storedId) {
-            console.log(`Recovered album ID from storage: ${storedId}`);
             setId(storedId);
 
             // Try to get the full album data
@@ -133,13 +125,11 @@ export const Album = ({ route }) => {
               try {
                 const storedData = JSON.parse(storedDataStr);
                 setSource(storedData.source || null);
-                console.log('Successfully recovered album data from storage');
               } catch (parseError) {
                 console.error('Error parsing stored album data:', parseError);
               }
             }
           } else {
-            console.log('No stored album ID found, navigating back to safe screen');
             // Navigate to a safe screen if we can't recover data
             navigation.navigate('Home', { screen: 'HomePage' });
           }
@@ -163,7 +153,6 @@ export const Album = ({ route }) => {
         AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
         AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY)
       ]);
-      console.log('Cleared all navigation data from AsyncStorage when leaving album');
     } catch (error) {
       console.error('Error clearing navigation data:', error);
     }
@@ -183,13 +172,10 @@ export const Album = ({ route }) => {
 
     try {
       setLoading(true);
-      console.log(`📀 [Album] Fetching album: ${albumId}, source: ${source}`);
       let response;
       if (source === 'dab') {
         // Fetch DAB album details
-        console.log(`📀 [Album] Using DAB API for album: ${albumId}`);
         const dabAlbum = await dabMusicService.getAlbumDetails(albumId);
-        console.log(`📀 [Album] DAB response:`, dabAlbum?.name, dabAlbum?.songs?.length, 'tracks');
         response = {
           success: true,
           data: dabAlbum,
@@ -238,7 +224,6 @@ export const Album = ({ route }) => {
         };
         await AsyncStorage.setItem(CURRENT_ALBUM_ID_KEY, albumId);
         await AsyncStorage.setItem(CURRENT_ALBUM_DATA_KEY, JSON.stringify(albumDataToStore));
-        console.log("Album data saved to AsyncStorage");
       } catch (storageError) {
         console.error("Failed to save album data to storage:", storageError);
       }

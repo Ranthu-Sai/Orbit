@@ -44,13 +44,9 @@ class FastOrbitScanner {
             if (this._memoryCache && this._memoryCache.length > 0) {
                 const cacheAge = Date.now() - this._memoryCacheTimestamp;
                 if (cacheAge < this.MEMORY_CACHE_TTL) {
-                    console.log(`⚡ [FastScanner] Instant return: ${this._memoryCache.length} songs from memory cache`);
                     return this._memoryCache;
                 }
             }
-
-            console.log('🔍 [FastScanner] Starting quick scan...');
-
             // Get current files in directory
             const songsDir = await this.getSongsDirectory();
             if (!songsDir) return [];
@@ -66,9 +62,6 @@ class FastOrbitScanner {
                 const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
                 return this.SUPPORTED_EXTENSIONS.includes(ext) && file.isFile();
             });
-
-            console.log(`📁 [FastScanner] Found ${audioFiles.length} audio files`);
-
             if (audioFiles.length === 0) return [];
 
             // Get cached songs
@@ -78,9 +71,6 @@ class FastOrbitScanner {
             // Find new files (not in cache)
             const newFiles = audioFiles.filter(f => !cachedMap.has(f.path));
             const existingFiles = audioFiles.filter(f => cachedMap.has(f.path));
-
-            console.log(`⚡ [FastScanner] Cached: ${existingFiles.length}, New: ${newFiles.length}`);
-
             // Build result from cache for existing files
             let allSongs = existingFiles.map(f => cachedMap.get(f.path));
 
@@ -97,9 +87,6 @@ class FastOrbitScanner {
                     this.enrichNewSongs(newSongs, newFiles, allSongs, onUpdate);
                 }
             }
-
-            console.log(`✅ [FastScanner] Returning ${allSongs.length} songs`);
-
             // Update memory cache for instant access on next visit
             this._memoryCache = allSongs;
             this._memoryCacheTimestamp = Date.now();
@@ -116,7 +103,6 @@ class FastOrbitScanner {
      * Force full rescan (clears cache and rescans all)
      */
     static async fullRescan(onUpdate = null) {
-        console.log('🔄 [FastScanner] Force full rescan...');
         await this.clearCache();
 
         const songsDir = await this.getSongsDirectory();
@@ -138,9 +124,6 @@ class FastOrbitScanner {
 
         // Save immediately
         await this.saveCachedSongs(songs);
-
-        console.log(`✅ [FastScanner] Created ${songs.length} basic song entries`);
-
         // Enrich all in background
         if (onUpdate) {
             this.enrichNewSongs(songs, audioFiles, songs, onUpdate);
@@ -156,8 +139,6 @@ class FastOrbitScanner {
     static async enrichNewSongs(newSongs, newFiles, allSongs, onUpdate) {
         try {
             if (newSongs.length === 0) return;
-
-            console.log(`🎨 [FastScanner] Enriching ${newSongs.length} new songs (parallel)...`);
 
             const AudioMetadataParser = require('./ID3Parser').default;
             const NativeMetadataReader = require('./NativeMetadataReader').default;
@@ -239,9 +220,6 @@ class FastOrbitScanner {
             // Also update memory cache with enriched data
             this._memoryCache = allSongs;
             this._memoryCacheTimestamp = Date.now();
-
-            console.log(`✅ [FastScanner] Enrichment complete, saved to permanent cache`);
-
         } catch (error) {
             console.error('❌ [FastScanner] Enrichment error:', error);
         }
@@ -356,13 +334,11 @@ class FastOrbitScanner {
 
             const exists = await RNFS.exists(metadataPath);
             if (!exists) {
-                console.log('📂 [FastScanner] No metadata file found, starting fresh');
                 return [];
             }
 
             const content = await RNFS.readFile(metadataPath, 'utf8');
             const songs = JSON.parse(content);
-            console.log(`📂 [FastScanner] Loaded ${songs.length} songs from disk cache`);
             return songs;
         } catch (error) {
             // Silently handle load errors - will scan fresh
@@ -379,8 +355,6 @@ class FastOrbitScanner {
                     if (metadataPath) {
                         await RNFS.writeFile(metadataPath, backupContent, 'utf8').catch(() => { });
                     }
-
-                    console.log(`✅ [FastScanner] Restored ${songs.length} songs from backup`);
                     return songs;
                 }
             } catch (backupError) {
@@ -415,9 +389,7 @@ class FastOrbitScanner {
 
             // Write new metadata file
             await RNFS.writeFile(metadataPath, jsonContent, 'utf8');
-            console.log(`💾 [FastScanner] Saved ${songs.length} songs to disk (${(jsonContent.length / 1024).toFixed(1)}KB)`);
-
-        } catch (error) {
+            } catch (error) {
             // Silently handle save errors - graceful degradation
             // Cache will be rebuilt on next scan
         }
@@ -447,8 +419,7 @@ class FastOrbitScanner {
             // Also clear legacy AsyncStorage cache
             await AsyncStorage.removeItem(this.CACHE_KEY);
 
-            console.log('🗑️ [FastScanner] Cache cleared (memory + disk + legacy)');
-        } catch (error) {
+            } catch (error) {
             console.error('Failed to clear cache:', error.message);
         }
     }
@@ -468,8 +439,7 @@ class FastOrbitScanner {
                 this._memoryCache = this._memoryCache.filter(s => s.localSongPath !== songPath);
             }
 
-            console.log(`🗑️ [FastScanner] Removed ${songPath} from cache (disk + memory)`);
-        } catch (error) {
+            } catch (error) {
             console.error('Failed to remove from cache:', error);
         }
     }
@@ -521,16 +491,12 @@ class FastOrbitScanner {
 
             const songs = JSON.parse(legacyCache);
             if (songs && songs.length > 0) {
-                console.log(`🔄 [FastScanner] Migrating ${songs.length} songs from AsyncStorage to disk...`);
-
                 // Save to disk
                 const jsonContent = JSON.stringify(songs, null, 2);
                 await RNFS.writeFile(metadataPath, jsonContent, 'utf8');
 
                 // Remove old AsyncStorage cache to free up space
                 await AsyncStorage.removeItem(this.CACHE_KEY);
-
-                console.log(`✅ [FastScanner] Migration complete! ${songs.length} songs now on disk`);
             }
         } catch (error) {
             console.error('❌ [FastScanner] Migration failed:', error.message);

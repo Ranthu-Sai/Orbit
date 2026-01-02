@@ -214,7 +214,6 @@ export const EachSongMenuButton = ({
 
       if (isYouTubeSong) {
         // For YouTube songs, fetch the actual stream URL
-        console.log('🎵 Fetching YouTube stream for add to queue:', song.id);
         try {
           const streamData = await youtubeStreamingService.getStreamUrl(song.id);
 
@@ -229,7 +228,6 @@ export const EachSongMenuButton = ({
               duration: streamData.duration || songMetadata.duration,
               title: streamData.title || songMetadata.title,
             };
-            console.log('✅ YouTube stream URL fetched successfully');
           } else {
             console.error('❌ Failed to get YouTube stream URL');
             ToastAndroid.show('Failed to get stream URL', ToastAndroid.SHORT);
@@ -242,7 +240,6 @@ export const EachSongMenuButton = ({
         }
       } else if (isDabTrack) {
         // For DAB tracks, fetch the actual stream URL
-        console.log('🎵 DAB Track detected in add to queue! Fetching stream URL for ID:', song.id);
         try {
           await dabMusicService.initialize();
           const streamUrl = await dabMusicService.getStreamUrl(song.id);
@@ -253,7 +250,6 @@ export const EachSongMenuButton = ({
               ...songMetadata,
               url: streamUrl,
             };
-            console.log('✅ DAB stream URL fetched successfully for add to queue');
           } else {
             console.error('❌ Failed to get DAB stream URL');
             ToastAndroid.show('Failed to load DAB stream', ToastAndroid.SHORT);
@@ -268,9 +264,6 @@ export const EachSongMenuButton = ({
         // For non-YouTube/non-DAB songs, get the URL from song data
         songUrl = getHighestQualityUrl(song.url);
       }
-
-      console.log('Using URL for add to queue:', songUrl);
-
       if (!songUrl) {
         ToastAndroid.show('Invalid song URL format', ToastAndroid.SHORT);
         return;
@@ -316,7 +309,6 @@ export const EachSongMenuButton = ({
 
       if (isYouTubeSong) {
         // For YouTube songs, fetch the actual stream URL
-        console.log('🎵 Fetching YouTube stream for play next:', song.id);
         try {
           const streamData = await youtubeStreamingService.getStreamUrl(song.id);
 
@@ -331,7 +323,6 @@ export const EachSongMenuButton = ({
               duration: streamData.duration || songMetadata.duration,
               title: streamData.title || songMetadata.title,
             };
-            console.log('✅ YouTube stream URL fetched successfully');
           } else {
             console.error('❌ Failed to get YouTube stream URL:', streamData);
             ToastAndroid.show('Failed to get stream URL', ToastAndroid.SHORT);
@@ -344,7 +335,6 @@ export const EachSongMenuButton = ({
         }
       } else if (isDabTrack) {
         // For DAB tracks, fetch the actual stream URL
-        console.log('🎵 DAB Track detected in play next! Fetching stream URL for ID:', song.id);
         try {
           await dabMusicService.initialize();
           const streamUrl = await dabMusicService.getStreamUrl(song.id);
@@ -355,7 +345,6 @@ export const EachSongMenuButton = ({
               ...songMetadata,
               url: streamUrl,
             };
-            console.log('✅ DAB stream URL fetched successfully for play next');
           } else {
             console.error('❌ Failed to get DAB stream URL');
             ToastAndroid.show('Failed to load DAB stream', ToastAndroid.SHORT);
@@ -370,9 +359,6 @@ export const EachSongMenuButton = ({
         // For non-YouTube/non-DAB songs, get the URL from song data
         songUrl = getHighestQualityUrl(song.url);
       }
-
-      console.log('Using URL for play next:', songUrl);
-
       if (!songUrl) {
         ToastAndroid.show('Invalid song URL format', ToastAndroid.SHORT);
         return;
@@ -395,15 +381,11 @@ export const EachSongMenuButton = ({
       // Get current track index and queue
       const currentIndex = await TrackPlayer.getCurrentTrack();
       const queue = await TrackPlayer.getQueue();
-      console.log('Current track index:', currentIndex);
-      console.log('Current queue length:', queue.length);
-
       if (currentIndex === null || queue.length === 0) {
         // If no track is playing, just start playing this song
         await TrackPlayer.reset();
         await TrackPlayer.add([trackToAdd]);
         await TrackPlayer.play();
-        console.log('Added song to empty queue and started playing:', trackToAdd.title);
       } else {
         // For play next, we need to insert right after the current playing track
         // First, remove the track if it already exists in the queue to avoid duplicates
@@ -417,7 +399,6 @@ export const EachSongMenuButton = ({
           // Insert right after current track
           await TrackPlayer.add([trackToAdd], currentIndex + 1);
         }
-        console.log('Added song to play next at position', currentIndex + 1);
       }
 
       updateTrack();
@@ -526,14 +507,6 @@ export const EachSongMenuButton = ({
       } else if (song.source) {
         actualSource = song.source;
       }
-
-      console.log('📥 [Menu Download] Source detection:', {
-        isDabTrack,
-        isYouTubeSong,
-        songSource: song.source,
-        actualSource
-      });
-
       // Use the unified download service with proper source
       const success = await UnifiedDownloadService.downloadSong({
         ...song,
@@ -589,8 +562,6 @@ export const EachSongMenuButton = ({
   // Helper function to get highest quality URL from an array of URL objects
   const getHighestQualityUrl = (urlData) => {
     try {
-      console.log('Processing URL data type:', typeof urlData);
-
       // If it's undefined or null, handle the error gracefully
       if (urlData == null) {
         console.error('URL data is null or undefined');
@@ -620,8 +591,6 @@ export const EachSongMenuButton = ({
               const qualityB = parseInt(b.quality?.replace(/[^\d]/g, '') || 0);
               return qualityB - qualityA; // Descending order
             });
-
-            console.log('Selected highest quality:', sortedUrls[0]?.quality);
             return sortedUrls[0]?.url || '';
           }
           // If it's just an array of URLs, return the first one

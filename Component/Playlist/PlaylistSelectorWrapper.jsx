@@ -10,8 +10,6 @@ const PlaylistSelectorWrapperComponent = forwardRef((props, ref) => {
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    console.log('PlaylistSelectorWrapperComponent mounted');
-    
     // Initialize immediately
     setInitialized(true);
     
@@ -21,10 +19,8 @@ const PlaylistSelectorWrapperComponent = forwardRef((props, ref) => {
         // Create default playlists structure if it doesn't exist
         const existingPlaylists = await AsyncStorage.getItem('userPlaylists');
         if (!existingPlaylists) {
-          console.log('Initializing user playlists with empty array');
           await AsyncStorage.setItem('userPlaylists', JSON.stringify([]));
         }
-        console.log('PlaylistSelectorWrapper initialized successfully');
       } catch (error) {
         console.error('Error initializing playlists:', error);
       }
@@ -43,13 +39,11 @@ const PlaylistSelectorWrapperComponent = forwardRef((props, ref) => {
     
     return () => {
       appStateSubscription.remove();
-      console.log('PlaylistSelectorWrapperComponent unmounting');
     };
   }, []);
 
   useImperativeHandle(ref, () => ({
     show: (song) => {
-      console.log('PlaylistSelector show called with song:', song?.title);
       if (!song) {
         console.error('Attempted to show PlaylistSelector without a song');
         return false;
@@ -59,7 +53,6 @@ const PlaylistSelectorWrapperComponent = forwardRef((props, ref) => {
       return true;
     },
     hide: () => {
-      console.log('PlaylistSelector hide called');
       setVisible(false);
       return true;
     },
@@ -72,7 +65,6 @@ const PlaylistSelectorWrapperComponent = forwardRef((props, ref) => {
   }));
 
   const handleClose = () => {
-    console.log('PlaylistSelector closed');
     setVisible(false);
     // Clear song data after a small delay to prevent UI flickering
     setTimeout(() => {

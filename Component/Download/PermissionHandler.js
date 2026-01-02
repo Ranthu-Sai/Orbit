@@ -20,15 +20,11 @@ export class PermissionHandler {
 
       // For Android, check version
       const deviceVersion = DeviceInfo.getSystemVersion();
-      console.log(`Android version detected: ${deviceVersion}`);
-      
       if (parseInt(deviceVersion) >= 13) {
         // Android 13+ uses scoped storage, no need for permissions
-        console.log("Android 13+ detected, using app-specific directory");
         return true;
       } else {
         // For older Android, request storage permission
-        console.log("Requesting storage permission for older Android");
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
           {
@@ -40,10 +36,8 @@ export class PermissionHandler {
         );
         
         if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          console.log("Storage permission granted");
           return true;
         } else {
-          console.log("Storage permission denied");
           Alert.alert(
             "Permission Denied",
             "Storage permission is required to download songs. Please enable it in app settings."
@@ -54,7 +48,6 @@ export class PermissionHandler {
     } catch (versionError) {
       console.error("Error detecting device version:", versionError);
       // Fallback - try anyway, it might work with app-specific storage
-      console.log("Falling back to default permission handling");
       return true;
     }
   }

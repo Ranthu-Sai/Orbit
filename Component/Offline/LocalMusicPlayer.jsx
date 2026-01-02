@@ -23,12 +23,9 @@ const LocalMusicPlayer = ({
   // Load all local tracks from storage
   const loadLocalTracks = useCallback(async () => {
     try {
-      console.log('LocalMusicPlayer: Loading local tracks');
-      
       const allMetadata = await StorageManager.getAllDownloadedSongsMetadata();
       
       if (!allMetadata || Object.keys(allMetadata).length === 0) {
-        console.log('LocalMusicPlayer: No downloaded songs found');
         setLocalTracks([]);
         return [];
       }
@@ -69,8 +66,6 @@ const LocalMusicPlayer = ({
       tracks.sort((a, b) => (b.downloadTime || 0) - (a.downloadTime || 0));
       
       setLocalTracks(tracks);
-      console.log(`LocalMusicPlayer: Loaded ${tracks.length} local tracks`);
-      
       return tracks;
     } catch (error) {
       console.error('LocalMusicPlayer: Error loading local tracks:', error);
@@ -82,12 +77,9 @@ const LocalMusicPlayer = ({
   // Build queue with local tracks
   const buildLocalQueue = useCallback(async (startTrack = null, shuffled = false) => {
     try {
-      console.log('LocalMusicPlayer: Building local queue');
-      
       const tracks = await loadLocalTracks();
       
       if (!tracks || tracks.length === 0) {
-        console.log('LocalMusicPlayer: No local tracks available for queue');
         return [];
       }
 
@@ -109,9 +101,6 @@ const LocalMusicPlayer = ({
           queue.unshift(track);
         }
       }
-      
-      console.log(`LocalMusicPlayer: Built queue with ${queue.length} tracks`);
-      
       if (onQueueBuilt) {
         onQueueBuilt(queue);
       }
@@ -126,8 +115,6 @@ const LocalMusicPlayer = ({
   // Play a specific local track
   const playLocalTrack = useCallback(async (track, startFromQueue = false) => {
     try {
-      console.log(`LocalMusicPlayer: Playing local track: ${track.title}`);
-      
       if (!track.url || !track.url.startsWith('file://')) {
         throw new Error('Invalid local track URL');
       }
@@ -157,9 +144,6 @@ const LocalMusicPlayer = ({
       if (onLocalTrackPlay) {
         onLocalTrackPlay(track);
       }
-      
-      console.log('LocalMusicPlayer: Local track playback started');
-      
     } catch (error) {
       console.error('LocalMusicPlayer: Error playing local track:', error);
       
@@ -175,9 +159,6 @@ const LocalMusicPlayer = ({
       if (!isOffline || !autoPlayOnOffline) {
         return;
       }
-      
-      console.log('LocalMusicPlayer: Initializing offline queue');
-      
       const tracks = await loadLocalTracks();
       
       if (tracks && tracks.length > 0) {
@@ -186,13 +167,9 @@ const LocalMusicPlayer = ({
         
         // Only initialize if nothing is playing or queue is empty
         if (!currentTrack || state === State.None || state === State.Ready) {
-          console.log(`LocalMusicPlayer: Adding ${tracks.length} tracks to offline queue`);
-          
           await TrackPlayer.reset();
           await TrackPlayer.add(tracks);
           setIsLocalQueueActive(true);
-          
-          console.log('LocalMusicPlayer: Offline queue initialized');
         }
       }
     } catch (error) {
@@ -203,8 +180,6 @@ const LocalMusicPlayer = ({
   // Handle queue management for offline transitions
   const handleOfflineTransition = useCallback(async () => {
     try {
-      console.log('LocalMusicPlayer: Handling offline transition');
-      
       const tracks = await loadLocalTracks();
       
       if (tracks && tracks.length > 0) {
@@ -228,7 +203,6 @@ const LocalMusicPlayer = ({
             if (wasPlaying) await TrackPlayer.play();
             
             setIsLocalQueueActive(true);
-            console.log('LocalMusicPlayer: Rebuilt queue for offline mode');
           }
         } else {
           // No local track playing, initialize offline queue

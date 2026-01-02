@@ -43,8 +43,6 @@ class DABRecommendationService {
 
             // Load recent history for exclusion
             await this.loadRecentHistory();
-
-            console.log('🧠 DABRecommendationService: Initialized');
         } catch (error) {
             console.error('DABRecommendationService: Init failed', error);
         }
@@ -63,7 +61,6 @@ class DABRecommendationService {
                     track: song.title,
                     id: song.id
                 }));
-                console.log(`🧠 Loaded ${this.topPlayedSongs.length} shadow seeds`);
             }
         } catch (error) {
             console.error('DABRecommendationService: Failed to load top played', error);
@@ -79,7 +76,6 @@ class DABRecommendationService {
             const history = await historyManager.getFilteredHistory('recent');
             if (history && history.length > 0) {
                 this.recentHistory = new Set(history.slice(0, 100).map(s => s.id));
-                console.log(`🧠 Loaded ${this.recentHistory.size} recent songs for exclusion`);
             }
         } catch (error) {
             console.error('DABRecommendationService: Failed to load history', error);
@@ -97,7 +93,6 @@ class DABRecommendationService {
         const detectedLanguage = this._detectLanguage(song);
         if (detectedLanguage) {
             this.sessionLanguage = detectedLanguage;
-            console.log(`🧠 DABRecs: Detected language: ${detectedLanguage}`);
         }
 
         // Add to session seeds (max 3 in rolling window)
@@ -118,8 +113,7 @@ class DABRecommendationService {
             this.recentHistory.add(song.id);
         }
 
-        console.log(`🧠 DABRecs: Registered seed "${song.title}" (${this.sessionSeeds.length} seeds)`);
-    }
+        }
 
     /**
      * Detect language from song metadata
@@ -182,12 +176,9 @@ class DABRecommendationService {
      * @returns {Promise<Array<Object>>} - Resolved playable song objects
      */
     async getRecommendations(count = 10) {
-        console.log(`🧠 DABRecs: Fetching ${count} recommendations...`);
-
         // Determine seeds based on session state
         const seeds = this.getActiveSeeds();
         if (seeds.length === 0) {
-            console.log('🧠 DABRecs: No seeds available');
             return [];
         }
 
@@ -218,9 +209,6 @@ class DABRecommendationService {
 
         // Filter by match threshold (> 0.1 for maximum variety)
         const filtered = allRecommendations.filter(r => r.match >= 0.1);
-
-        console.log(`🧠 DABRecs: Got ${filtered.length} unique recommendations`);
-
         // SEQUENTIAL RESOLUTION: Process one at a time with delays to avoid rate limits
         const resolved = [];
         const albumCounts = {};  // Track album counts for diversity
@@ -243,7 +231,6 @@ class DABRecommendationService {
 
                     // LANGUAGE filter check - only allow matching language songs
                     if (!this._matchesLanguageFilter(result.song, this.sessionLanguage)) {
-                        console.log(`🧠 DABRecs: Skipping "${rec.track}" (language filter: ${this.sessionLanguage})`);
                         continue;
                     }
 
@@ -251,7 +238,6 @@ class DABRecommendationService {
                     const artistKey = (result.song.artist || rec.artist || '').toLowerCase();
                     const currentArtistCount = artistCounts[artistKey] || 0;
                     if (currentArtistCount >= 2) {
-                        console.log(`🧠 DABRecs: Skipping "${rec.track}" (artist diversity limit)`);
                         continue;
                     }
 
@@ -259,7 +245,6 @@ class DABRecommendationService {
                     const albumId = result.song.albumId || result.song.album || 'unknown';
                     const currentAlbumCount = albumCounts[albumId] || 0;
                     if (currentAlbumCount >= 2) {
-                        console.log(`🧠 DABRecs: Skipping "${rec.track}" (album diversity limit)`);
                         continue;
                     }
 
@@ -282,13 +267,11 @@ class DABRecommendationService {
                     await new Promise(resolve => setTimeout(resolve, DELAY_MS));
                 }
             } catch (e) {
-                console.log(`🧠 DABRecs: Failed to resolve "${rec.track}":`, e.message);
             }
         }
 
         const uniqueArtists = Object.keys(artistCounts).length;
         const uniqueAlbums = Object.keys(albumCounts).length;
-        console.log(`🧠 DABRecs: Resolved ${resolved.length} songs from ${uniqueArtists} artists, ${uniqueAlbums} albums`);
         return resolved;
     }
 
@@ -301,19 +284,15 @@ class DABRecommendationService {
 
         if (sessionCount === 0) {
             // Cold Start: Use top played songs as shadow seeds
-            console.log('🧠 DABRecs: Cold Start - using shadow seeds');
             return this.topPlayedSongs.slice(0, 3);
         } else if (sessionCount === 1) {
             // Single seed: 100% weight on current, supplement with shadow seeds
-            console.log('🧠 DABRecs: 1 seed - supplementing with shadows');
             return [...this.sessionSeeds, ...this.topPlayedSongs.slice(0, 2)];
         } else if (sessionCount === 2) {
             // Two seeds: 50/50 weight
-            console.log('🧠 DABRecs: 2 seeds - balanced');
             return this.sessionSeeds;
         } else {
             // 3+ seeds: Rolling window of last 3
-            console.log('🧠 DABRecs: 3+ seeds - rolling window');
             return this.sessionSeeds.slice(-3);
         }
     }
@@ -324,7 +303,6 @@ class DABRecommendationService {
     reset() {
         this.sessionSeeds = [];
         this.sessionTags = [];
-        console.log('🧠 DABRecs: Session reset');
     }
 
     /**
@@ -332,7 +310,6 @@ class DABRecommendationService {
      */
     setEnabled(enabled) {
         this.isEnabled = enabled;
-        console.log(`🧠 DABRecs: ${enabled ? 'Enabled' : 'Disabled'}`);
     }
 }
 

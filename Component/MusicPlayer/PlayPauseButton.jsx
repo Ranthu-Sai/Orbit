@@ -32,7 +32,7 @@ export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
         await TrackPlayer.pause();
       }
     } catch (error) {
-      console.log("Error in play/pause action:", error);
+
     } finally {
       setTimeout(() => {
         isProcessingRef.current = false;

@@ -262,9 +262,6 @@ export const CustomPlaylistView = (props) => {
     setTimeout(async () => {
       try {
         if (!isMounted.current) return;
-
-        console.log('CustomPlaylistView initializing with route params:', props.route?.params);
-
         // First check navigation state for params
         const state = navigation.getState();
         let paramsFromState = null;
@@ -298,9 +295,6 @@ export const CustomPlaylistView = (props) => {
           setPlaylistName(name);
           setPlaylistId(id);
           setIsUserPlaylist(userPlaylist);
-
-          console.log(`CustomPlaylistView loaded with ${songs.length} songs and name: ${name}, ID: ${id}`);
-
           // Load first chunk of songs
           loadSongChunk(songs, 0);
 
@@ -313,7 +307,6 @@ export const CustomPlaylistView = (props) => {
             }
           }, 500);
         } else {
-          console.log('No route params available, using default values');
           setSongs([]);
           setPlaylistName("Custom Playlist");
 
@@ -401,7 +394,6 @@ export const CustomPlaylistView = (props) => {
       if (name && songs && songs.length > 0) {
         const playlistData = { name, songs, id };
         await AsyncStorage.setItem('last_viewed_custom_playlist', JSON.stringify(playlistData));
-        console.log(`Stored playlist "${name}" with ${songs.length} songs for recovery`);
       }
     } catch (err) {
       console.error('Failed to save playlist data:', err);
@@ -430,9 +422,6 @@ export const CustomPlaylistView = (props) => {
             setPlaylistId(playlistData.id);
             setIsUserPlaylist(playlistData.id.startsWith('playlist_'));
           }
-
-          console.log(`Recovered playlist data: ${playlistData.name} with ${playlistData.songs.length} songs`);
-
           // Load first chunk of songs
           loadSongChunk(playlistData.songs, 0);
 
@@ -448,11 +437,9 @@ export const CustomPlaylistView = (props) => {
             }
           }, 300);
         } else {
-          console.log('Recovered playlist had no songs, not using it');
           setVisibleSongs([]);
         }
       } else {
-        console.log('No stored playlist found for recovery');
         setVisibleSongs([]);
       }
     } catch (error) {
@@ -471,15 +458,11 @@ export const CustomPlaylistView = (props) => {
     const handleBack = () => {
       try {
         if (!isMounted.current) return true;
-
-        console.log('Back pressed in CustomPlaylistView');
-
         // Check if we were navigated from CustomPlaylist
         const previousScreen = props.route?.params?.previousScreen;
 
         // Always try to navigate to the playlist list first
         if (previousScreen === "CustomPlaylist") {
-          console.log('Navigating back to CustomPlaylist');
           if (navigation.canGoBack()) {
             navigation.goBack();
           } else {
@@ -489,7 +472,6 @@ export const CustomPlaylistView = (props) => {
             });
           }
         } else {
-          console.log('Navigating to Library/CustomPlaylist screen');
           navigation.navigate('Library', {
             screen: 'CustomPlaylist',
             params: { fromCustomPlaylistView: true }
@@ -517,7 +499,6 @@ export const CustomPlaylistView = (props) => {
 
       // Always try to navigate to the playlist list first
       if (previousScreen === "CustomPlaylist") {
-        console.log('Navigating back to CustomPlaylist');
         if (navigation.canGoBack()) {
           navigation.goBack();
         } else {
@@ -527,7 +508,6 @@ export const CustomPlaylistView = (props) => {
           });
         }
       } else {
-        console.log('Navigating to Library/CustomPlaylist screen');
         navigation.navigate('Library', {
           screen: 'CustomPlaylist',
           params: { fromCustomPlaylistView: true }
@@ -575,7 +555,6 @@ export const CustomPlaylistView = (props) => {
   const AddAllSongsToQueue = useCallback(async (forcePlay = false) => {
     try {
       if (!Songs || Songs.length === 0) {
-        console.log('No songs to play');
         return;
       }
 
@@ -605,9 +584,6 @@ export const CustomPlaylistView = (props) => {
               await new Promise(resolve => setTimeout(resolve, 50));
             }
           }
-
-          console.log(`Adding ${allFormattedTracks.length} tracks to queue`);
-
           // Always reset queue and add all songs when playing a playlist
           await TrackPlayer.reset();
           await TrackPlayer.add(allFormattedTracks);

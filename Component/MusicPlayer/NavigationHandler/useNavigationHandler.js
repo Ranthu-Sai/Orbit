@@ -24,8 +24,6 @@ export const useNavigationHandler = (options = {}) => {
   // Handle player close with complex navigation logic
   const handlePlayerClose = useCallback(() => {
     try {
-      console.log('useNavigationHandler: Closing fullscreen player, previous screen:', musicPreviousScreen);
-
       const navigationState = navigation.getState();
 
       if (musicPreviousScreen) {
@@ -35,11 +33,8 @@ export const useNavigationHandler = (options = {}) => {
         }
 
         const parts = cleanPath.split('/');
-        console.log('useNavigationHandler: Navigation path parts:', parts);
-
         // Special handling for Search
         if (parts.length >= 1 && parts[0] === 'Search') {
-          console.log('useNavigationHandler: Returning to Search screen');
           navigation.navigate('Home', {
             screen: 'Search',
             params: {
@@ -55,7 +50,6 @@ export const useNavigationHandler = (options = {}) => {
 
         // Special handling for Library screens
         if (parts.length >= 2 && parts[0] === 'Library' && parts[1] === 'MyMusicPage') {
-          console.log('useNavigationHandler: Returning to Library with MyMusicPage');
           navigation.navigate('MainRoute', {
             screen: 'Library'
           });
@@ -88,8 +82,6 @@ export const useNavigationHandler = (options = {}) => {
                   if (onNavigationChange) {
                     onNavigationChange(`MainRoute/${tabName}/${screenName}`, playlistData);
                   }
-
-                  console.log('useNavigationHandler: Restored CustomPlaylistView with data');
                 } else {
                   navigation.navigate('MainRoute', {
                     screen: tabName,
@@ -123,7 +115,6 @@ export const useNavigationHandler = (options = {}) => {
                   if (targetTab && targetTab.state && targetTab.state.routes) {
                     const targetScreen = targetTab.state.routes.find(r => r.name === screenName);
                     if (targetScreen && targetScreen.params) {
-                      console.log(`useNavigationHandler: Found existing params for ${screenName}:`, targetScreen.params);
                       existingParams = targetScreen.params;
                     }
                   }
@@ -144,7 +135,6 @@ export const useNavigationHandler = (options = {}) => {
             }
           }
         } else if (parts.length === 1) {
-          console.log(`useNavigationHandler: Navigation to main tab: ${parts[0]}`);
           navigation.navigate('MainRoute', {
             screen: parts[0]
           });
@@ -154,7 +144,6 @@ export const useNavigationHandler = (options = {}) => {
           }
         }
       } else {
-        console.log('useNavigationHandler: No previous screen info, defaulting to Library tab');
         navigation.navigate('MainRoute', {
           screen: 'Library'
         });
@@ -186,11 +175,8 @@ export const useNavigationHandler = (options = {}) => {
         }
 
         const parts = cleanPath.split('/');
-        console.log('useNavigationHandler: Back navigation path:', parts);
-
         // Special handling for Search
         if (parts.length >= 1 && parts[0] === 'Search') {
-          console.log('useNavigationHandler: Back to Search screen');
           setTimeout(() => {
             navigation.navigate('MainRoute', {
               screen: 'Home',
@@ -212,8 +198,6 @@ export const useNavigationHandler = (options = {}) => {
         // Special handling for download screen
         if (parts.length >= 2 && parts[0] === 'Library' &&
           (parts[1] === 'DownloadScreen' || parts[1] === 'DownloadSongsPage')) {
-          console.log('useNavigationHandler: Back to DownloadScreen');
-
           setTimeout(() => {
             navigation.navigate('MainRoute', {
               screen: 'Library',
@@ -237,7 +221,6 @@ export const useNavigationHandler = (options = {}) => {
 
         // Special handling for MyMusicPage
         if (parts.length >= 2 && parts[0] === 'Library' && parts[1] === 'MyMusicPage') {
-          console.log('useNavigationHandler: Back to MyMusicPage');
           setTimeout(() => {
             navigation.navigate('MainRoute', {
               screen: 'Library',
@@ -259,8 +242,6 @@ export const useNavigationHandler = (options = {}) => {
           const playlistData = await AsyncStorage.getItem('last_viewed_custom_playlist');
           if (playlistData) {
             const parsedData = JSON.parse(playlistData);
-            console.log('useNavigationHandler: Back to CustomPlaylistView with data');
-
             setTimeout(() => {
               navigation.navigate('MainRoute', {
                 screen: parts[0],
@@ -279,7 +260,6 @@ export const useNavigationHandler = (options = {}) => {
 
         // Generic fallback for other screens
         if (parts.length >= 2) {
-          console.log('useNavigationHandler: Generic back navigation to:', parts[0], parts[1]);
           setTimeout(() => {
             navigation.navigate('MainRoute', {
               screen: parts[0],
@@ -293,7 +273,6 @@ export const useNavigationHandler = (options = {}) => {
             }
           }, 100);
         } else if (parts.length === 1) {
-          console.log('useNavigationHandler: Back to main tab:', parts[0]);
           setTimeout(() => {
             navigation.navigate('MainRoute', {
               screen: parts[0]
@@ -306,7 +285,6 @@ export const useNavigationHandler = (options = {}) => {
         }
       } else {
         // No previous screen info, default to Home
-        console.log('useNavigationHandler: No previous screen, defaulting to Home');
         setTimeout(() => {
           navigation.navigate('MainRoute', {
             screen: 'Home'
@@ -396,7 +374,6 @@ export const useNavigationHandler = (options = {}) => {
         }
       } else {
         // Fallback: navigate to MainRoute if can't go back
-        console.log('useNavigationHandler: Cannot go back, navigating to MainRoute');
         navigation.navigate('MainRoute', {
           screen: 'Home'
         });

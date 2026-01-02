@@ -12,8 +12,7 @@ async function getHomePageData(languages, forceRefresh = false) {
     // Append timestamp to bypass Vercel/CDN cache if forcing refresh
     if (forceRefresh) {
       apiUrl += `&_t=${Date.now()}`;
-      console.log('🔄 Fetching fresh Home Data from API (bypassing cache)...');
-    }
+      }
 
     let config = {
       method: 'get',

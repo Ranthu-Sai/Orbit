@@ -109,8 +109,6 @@ export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, 
             params.language = language;
           }
 
-          console.log(`Navigating to Album with params:`, JSON.stringify(params));
-
           // First, clear any existing album and playlist data to prevent navigation conflicts
           // Await all operations to ensure they complete before navigation
           await Promise.all([
@@ -131,8 +129,6 @@ export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, 
           }
         } else {
           // Default navigation if no source is provided
-          console.log(`Navigating to Album with id:`, id);
-
           // First, clear any existing album and playlist data to prevent navigation conflicts
           // Await all operations to ensure they complete before navigation
           await Promise.all([

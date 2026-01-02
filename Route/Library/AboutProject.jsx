@@ -1,10 +1,10 @@
 import { MainWrapper } from "../../Layout/MainWrapper";
-import { Linking, Pressable, ScrollView, View, Image, StyleSheet, Dimensions, TouchableOpacity } from "react-native";
+import { Linking, Pressable, ScrollView, View, Image, StyleSheet, Dimensions, TouchableOpacity, ToastAndroid } from "react-native";
 import { PlainText } from "../../Component/Global/PlainText";
 import { Heading } from "../../Component/Global/Heading";
 import { SmallText } from "../../Component/Global/SmallText";
 import { useNavigation, useTheme } from "@react-navigation/native";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   Button,
@@ -12,6 +12,7 @@ import {
   Chip,
   Text,
   Surface,
+  ActivityIndicator,
   useTheme as usePaperTheme
 } from 'react-native-paper';
 import AntDesign from "react-native-vector-icons/AntDesign";
@@ -21,6 +22,9 @@ import FontAwesome from "react-native-vector-icons/FontAwesome";
 import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
 import Entypo from "react-native-vector-icons/Entypo";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import DeviceInfo from "react-native-device-info";
+import updateService from "../../Utils/UpdateService";
+import UpdateModal from "../../Component/Modals/UpdateModal";
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -29,11 +33,48 @@ export const AboutProject = () => {
   const theme = useTheme();
   const paperTheme = usePaperTheme();
 
+  // Update state
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateModalVisible, setUpdateModalVisible] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState(null);
+  const appVersion = DeviceInfo.getVersion();
+
   // Removed BackHandler - let RootRoute handle navigation
 
   const openLink = (url) => {
     if (url) {
       Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
+    }
+  };
+
+  const checkForUpdates = async () => {
+    setIsCheckingUpdate(true);
+    try {
+      const result = await updateService.checkForUpdate(true); // Force check
+      if (result.updateAvailable) {
+        setUpdateInfo(result);
+        setUpdateModalVisible(true);
+      } else {
+        ToastAndroid.show("You're up to date! ✓", ToastAndroid.SHORT);
+      }
+    } catch (error) {
+      console.error('Update check failed:', error);
+      ToastAndroid.show('Failed to check for updates', ToastAndroid.SHORT);
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
+  const handleUpdateDismiss = async () => {
+    setUpdateModalVisible(false);
+    if (updateInfo?.latestVersion) {
+      await updateService.dismissUpdate(updateInfo.latestVersion);
+    }
+  };
+
+  const handleUpdateNow = async () => {
+    if (updateInfo?.url) {
+      await updateService.openUpdateLink(updateInfo.url);
     }
   };
 
@@ -222,16 +263,62 @@ export const AboutProject = () => {
           </Card.Content>
         </Card>
 
+        {/* Check for Updates Section */}
+        <View style={styles.sectionHeader}>
+          <Surface style={[styles.sectionHeaderIcon, { backgroundColor: paperTheme.colors.surfaceVariant }]} elevation={2}>
+            <MaterialCommunityIcons name="update" size={16} color={paperTheme.colors.onSurface} />
+          </Surface>
+          <View>
+            <Text variant="titleMedium" style={[styles.sectionTitle, { color: paperTheme.colors.onSurface }]}>
+              App Updates
+            </Text>
+            <Text variant="bodyMedium" style={[styles.sectionSubtitle, { color: paperTheme.colors.onSurfaceVariant }]}>
+              Check for the latest version.
+            </Text>
+          </View>
+        </View>
+
+        <Card
+          style={styles.updateCard}
+          elevation={3}
+          onPress={isCheckingUpdate ? undefined : checkForUpdates}
+        >
+          <Card.Content style={[styles.updateCardContent, { backgroundColor: paperTheme.colors.surfaceVariant }]}>
+            <View style={styles.updateTextContainer}>
+              <Text variant="titleMedium" style={[styles.updateTitle, { color: paperTheme.colors.onSurface }]}>
+                Version {appVersion}
+              </Text>
+              <Text variant="bodySmall" style={[styles.updateDescription, { color: paperTheme.colors.onSurfaceVariant }]}>
+                Tap to check for updates
+              </Text>
+            </View>
+            {isCheckingUpdate ? (
+              <ActivityIndicator size={24} color={paperTheme.colors.primary} />
+            ) : (
+              <Surface style={[styles.updateIconContainer, { backgroundColor: paperTheme.colors.primaryContainer }]} elevation={2}>
+                <MaterialCommunityIcons name="download" size={24} color={paperTheme.dark ? "#FFFFFF" : "#000000"} />
+              </Surface>
+            )}
+          </Card.Content>
+        </Card>
 
         <View style={styles.versionContainer}>
           <Text variant="labelSmall" style={[styles.versionText, { color: paperTheme.colors.onSurfaceVariant }]}>
-            Version 3.0.0
+            Version {appVersion}
           </Text>
           <Text variant="labelSmall" style={[styles.versionText, { color: paperTheme.colors.onSurfaceVariant }]}>
             Made with ❤️ in India
           </Text>
         </View>
       </ScrollView>
+
+      {/* Update Modal */}
+      <UpdateModal
+        visible={updateModalVisible}
+        onDismiss={handleUpdateDismiss}
+        updateInfo={updateInfo}
+        onUpdate={handleUpdateNow}
+      />
     </MainWrapper>
   );
 };
@@ -394,5 +481,36 @@ const styles = StyleSheet.create({
   versionContainer: {
     alignItems: 'center',
     marginTop: 16,
+  },
+  updateCard: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  updateCardContent: {
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  updateTextContainer: {
+    flex: 1,
+    marginRight: 16,
+  },
+  updateTitle: {
+    fontSize: 18,
+    marginBottom: 4,
+  },
+  updateDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.9,
+  },
+  updateIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

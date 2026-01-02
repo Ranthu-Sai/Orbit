@@ -73,7 +73,6 @@ export const useArtistSongs = (artistId, songsPerPage = 10, source = 'saavn', pr
   const loadInitialSongs = async () => {
     // If we have preloaded songs, use them instead of fetching
     if (preloadedSongs && preloadedSongs.length > 0) {
-      console.log(`✅ Using ${preloadedSongs.length} preloaded songs`);
       setVisibleSongs(preloadedSongs);
       setTotalSongs(preloadedSongs.length);
       setCurrentSongPage(1);
@@ -89,13 +88,11 @@ export const useArtistSongs = (artistId, songsPerPage = 10, source = 'saavn', pr
 
         // Fallback to Saavn song search if YouTube Music returns no songs
         if (!response?.data?.songs || response.data.songs.length === 0) {
-          console.log('🔄 YTMusic artist API returned no songs, falling back to Saavn search...');
           const { getSearchSongData } = require('../Api/Songs');
 
           // Try to extract artist name from artistId or use it directly
           // Since we don't have artist name here, we'll need to get it from somewhere
           // For now, skip the fallback in this hook - the issue is we need artist name
-          console.log('⚠️ Cannot fall back to search without artist name');
         }
       } else {
         response = await getArtistSongsPaginated(artistId, 1, songsPerPage);

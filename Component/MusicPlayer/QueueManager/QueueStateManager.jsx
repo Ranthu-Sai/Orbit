@@ -72,8 +72,7 @@ export const QueueStateManager = ({
 
         // Store in AsyncStorage or similar
         // This would need to be implemented based on storage preference
-        // console.log('QueueStateManager: Persisting queue data', queueData);
-      } catch (error) {
+        // } catch (error) {
         console.error('Error persisting queue:', error);
         if (onQueueError) {
           onQueueError(error, 'persistence');
@@ -89,8 +88,6 @@ export const QueueStateManager = ({
         try {
           // This would restore from AsyncStorage or similar
           // Implementation depends on storage preference
-          console.log('QueueStateManager: Attempting to restore queue');
-
           // For now, just reinitialize
           await initializeQueue();
         } catch (error) {

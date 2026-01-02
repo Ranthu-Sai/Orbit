@@ -20,19 +20,16 @@ class DownloadQueueService {
      */
     static async initialize() {
         if (DownloadQueueService.isListening) {
-            console.log('[DownloadQueueService] Already initialized');
             return;
         }
 
         try {
             // Listen for queue end events
             TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async (event) => {
-                console.log('[DownloadQueueService] Queue ended event received');
                 await DownloadQueueService.handleQueueEnded();
             });
 
             DownloadQueueService.isListening = true;
-            console.log('[DownloadQueueService] Initialized successfully');
         } catch (error) {
             console.error('[DownloadQueueService] Failed to initialize:', error);
         }
@@ -46,23 +43,18 @@ class DownloadQueueService {
             // Get the last track that was playing
             const queue = await TrackPlayer.getQueue();
             if (queue.length === 0) {
-                console.log('[DownloadQueueService] Queue is empty, nothing to do');
                 return;
             }
 
             const lastTrack = queue[queue.length - 1];
-            console.log('[DownloadQueueService] Last track:', lastTrack?.title, 'isDownloaded:', lastTrack?.isDownloaded);
-
             // Only handle if the queue was downloaded/local songs
             if (!lastTrack?.isDownloaded && !lastTrack?.isLocal && lastTrack?.sourceType !== 'downloaded' && lastTrack?.sourceType !== 'mymusic') {
-                console.log('[DownloadQueueService] Queue was not from downloads, skipping');
                 return;
             }
 
             // Check network connectivity
             const netState = await NetInfo.fetch();
             if (!netState.isConnected) {
-                console.log('[DownloadQueueService] Offline - stopping playback');
                 ToastAndroid.show('You\'re offline. Queue ended.', ToastAndroid.SHORT);
                 return;
             }
@@ -81,15 +73,12 @@ class DownloadQueueService {
         try {
             // Use the last track's title or artist as search query
             const searchQuery = lastTrack.artist || lastTrack.title || 'popular hindi songs';
-            console.log(`[DownloadQueueService] Fetching suggestions for: "${searchQuery}"`);
-
             ToastAndroid.show('Finding more songs for you...', ToastAndroid.SHORT);
 
             // Search for songs using Saavn API
             const searchResult = await getSearchSongData(searchQuery, 1, 15);
 
             if (!searchResult?.data?.results || searchResult.data.results.length === 0) {
-                console.log('[DownloadQueueService] No suggestions found');
                 ToastAndroid.show('No more suggestions available', ToastAndroid.SHORT);
                 return;
             }
@@ -139,13 +128,9 @@ class DownloadQueueService {
             }
 
             if (suggestedTracks.length === 0) {
-                console.log('[DownloadQueueService] No valid tracks to queue');
                 ToastAndroid.show('No more songs available', ToastAndroid.SHORT);
                 return;
             }
-
-            console.log(`[DownloadQueueService] Adding ${suggestedTracks.length} suggested songs to queue`);
-
             // Add suggested tracks to queue and play
             await TrackPlayer.add(suggestedTracks);
             await TrackPlayer.play();

@@ -32,7 +32,6 @@ export const LikedPlaylistPage = () => {
     if (!forceRefresh) {
       const cached = await CacheManager.getAsync(cacheKey);
       if (cached) {
-        console.log('[LikedPlaylist] Using cached data - no refetch needed');
         setLikedPlaylist(cached);
         return;
       }
@@ -49,7 +48,6 @@ export const LikedPlaylistPage = () => {
       setLikedPlaylist(result);
       // Cache with 10-minute TTL
       CacheManager.set(cacheKey, result, CACHE_TTL.LIBRARY_DATA);
-      console.log('[LikedPlaylist] Data cached');
     }
   }, []);
 

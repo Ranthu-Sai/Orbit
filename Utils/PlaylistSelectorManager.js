@@ -42,7 +42,6 @@ export const PlaylistSelectorManager = {
       }
       
       if (PlaylistSelectorRef.current) {
-        console.log('Showing PlaylistSelector for song:', song.title);
         return PlaylistSelectorRef.current.show(song);
       } else {
         console.error('PlaylistSelector reference is not initialized');

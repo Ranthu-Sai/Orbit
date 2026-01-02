@@ -52,11 +52,7 @@ export const RegisterScreen = ({ navigation }) => {
     setLoading(true);
 
     try {
-      console.log("🔐 Attempting DAB registration...");
       const result = await dabRegister(username, email, password, inviteCode || null);
-
-      console.log("📋 Registration result:", result);
-
       if (result.success) {
         // Show success message and navigate
         if (typeof ToastAndroid !== 'undefined') {
@@ -69,9 +65,6 @@ export const RegisterScreen = ({ navigation }) => {
         navigation.replace("Login");
       } else {
         const errorMessage = result.message || "Registration failed";
-        console.log("📛 Registration failed:", errorMessage);
-        console.log("📛 Full error details:", result.error);
-
         setError(errorMessage);
         Alert.alert("Registration Failed", errorMessage);
       }

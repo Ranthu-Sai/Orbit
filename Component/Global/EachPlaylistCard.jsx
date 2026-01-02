@@ -99,9 +99,6 @@ export const EachPlaylistCard = memo(function EachPlaylistCard({
           const currentRouteIndex = navState.index;
           currentRouteName = navState.routes[currentRouteIndex]?.name || 'Unknown';
         }
-
-        console.log(`Current screen before navigation: ${currentRouteName}`);
-
         // Always set previousScreen parameter to ensure proper back navigation
         params.previousScreen = currentRouteName;
 
@@ -114,7 +111,6 @@ export const EachPlaylistCard = memo(function EachPlaylistCard({
           await AsyncStorage.setItem('NAVIGATION_SOURCE', currentRouteName);
         }
       } catch (navError) {
-        console.log('Could not determine current screen:', navError);
         // Use fallback navigation source to ensure we can navigate back somewhere
         params.previousScreen = 'Home';
         await AsyncStorage.setItem('NAVIGATION_SOURCE', 'Home');
@@ -152,7 +148,6 @@ export const EachPlaylistCard = memo(function EachPlaylistCard({
         }
       }
 
-      console.log(`Navigating to PlaylistPage with params:`, JSON.stringify(params));
       navigation.navigate("Playlist", params);
     } catch (error) {
       console.error('Error navigating to Playlist:', error);

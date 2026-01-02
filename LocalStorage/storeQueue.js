@@ -18,7 +18,6 @@ async function SetQueueSongs(queue){
     const jsonValue = JSON.stringify(queue);
     await AsyncStorage.setItem('QueueSongs', jsonValue);
   } catch (e) {
-    console.log("Queue Save Error");
   }
 }
 export {GetQueueSongs, SetQueueSongs}

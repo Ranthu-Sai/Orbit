@@ -127,9 +127,6 @@ class LRUCacheManager {
         try {
             const allKeys = await AsyncStorage.getAllKeys();
             const relevantKeys = allKeys.filter(key => key.startsWith(`${this.namespace}_`));
-
-            console.log(`[LRUCache:${this.namespace}] Reconciling ${relevantKeys.length} keys...`);
-
             for (const storageKey of relevantKeys) {
                 const key = storageKey.replace(`${this.namespace}_`, '');
                 if (!this.metadata.has(key)) {
@@ -158,7 +155,6 @@ class LRUCacheManager {
     async evictOldest(count = null) {
         // Prevent concurrent evictions
         if (this.evictionInProgress) {
-            console.log(`[LRUCache:${this.namespace}] Eviction already in progress, skipping`);
             return 0;
         }
 
@@ -186,9 +182,6 @@ class LRUCacheManager {
             if (candidates.length === 0) {
                 return 0;
             }
-
-            console.log(`[LRUCache:${this.namespace}] 🧹 LRU eviction: Removing ${candidates.length} oldest entries`);
-
             // Remove from AsyncStorage
             const keysToRemove = candidates.map(key => this._getStorageKey(key));
             await AsyncStorage.multiRemove(keysToRemove);
@@ -200,8 +193,6 @@ class LRUCacheManager {
 
             // Save updated metadata
             await this._saveMetadata();
-
-            console.log(`[LRUCache:${this.namespace}] ✅ Evicted ${candidates.length} entries`);
             return candidates.length;
 
         } catch (error) {
@@ -218,7 +209,6 @@ class LRUCacheManager {
     async emergencyEvict() {
         // Evict 50% of the cache or at least 10 items
         const countToEvict = Math.max(10, Math.ceil(this.metadata.size * 0.5));
-        console.log(`[LRUCache:${this.namespace}] 🚨 Emergency eviction: Clearing ${countToEvict} items due to full disk`);
         return await this.evictOldest(countToEvict);
     }
 
@@ -286,7 +276,6 @@ class LRUCacheManager {
 
             // Skip extremely large items (>500KB) to prevent SQLite issues
             if (dataSize > 500000) {
-                console.log(`[LRUCache:${this.namespace}] Data too large (${dataSize} bytes), keeping in memory only`);
                 return false;
             }
 
@@ -317,7 +306,6 @@ class LRUCacheManager {
                     const shouldWarn = now - this.lastDiskFullWarning > this.diskFullWarningCooldown;
 
                     if (shouldWarn) {
-                        console.log(`[LRUCache:${this.namespace}] ⚠️ Disk full detected, performing aggressive LRU eviction...`);
                         this.lastDiskFullWarning = now;
                     }
 
@@ -330,8 +318,7 @@ class LRUCacheManager {
                             await AsyncStorage.setItem(storageKey, dataString);
                             this._touch(key, dataSize);
                             await this._saveMetadata();
-                            if (shouldWarn) console.log(`[LRUCache:${this.namespace}] ✅ Saved after emergency eviction`);
-                            return true;
+                            if (shouldWarn) return true;
                         } catch (retryError) {
                             if (shouldWarn) console.warn(`[LRUCache:${this.namespace}] Save failed even after emergency eviction`);
                         }
@@ -391,8 +378,6 @@ class LRUCacheManager {
             }
 
             this.metadata.clear();
-            console.log(`[LRUCache:${this.namespace}] Cache cleared`);
-
         } catch (error) {
             console.error(`[LRUCache:${this.namespace}] Clear failed:`, error.message);
         }

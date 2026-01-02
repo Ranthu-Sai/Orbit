@@ -12,31 +12,25 @@ export const OPTIMIZED_IMAGES = {
   DEFAULT_MUSIC: require('../Images/Music.jpeg'),
   LOCAL_MUSIC: require('../Images/Music.jpeg'),
   DEFAULT_PLAYLIST: require('../Images/wav.png'),
-  
+
   // Animation GIFs (small, essential)
   PLAYING_ANIMATION: require('../Images/playing.gif'),
   PAUSED_ANIMATION: require('../Images/songPaused.gif'),
-  
-  // Local music placeholders (optimized)
-  LOCAL_MUSIC_A: require('../Images/a.gif'),
-  LOCAL_MUSIC_B: require('../Images/b.gif'),
-  
+
   // Essential UI images
   OFFLINE_INDICATOR: require('../Images/offline.png'),
   LIKED_MUSIC: require('../Images/likedMusic.webp'),
   APP_LOGO: require('../Images/Logo.jpg'),
-  
-  // Category/Genre images (will be optimized)
+
+  // Category/Genre images
   LOFI_GENRE: require('../Images/lofi.jpg'),
   POP_GENRE: require('../Images/pop.png'),
-  TRENDING_IMAGE: require('../Images/Trending.jpg'),
-  
-  // Feature images (will be compressed)
+  TRENDING_IMAGE: require('../Images/trending.png'),
+
+  // Feature images
   LIKED_PLAYLIST: require('../Images/LikedPlaylist.png'),
   LIKED_SONG: require('../Images/LikedSong.png'),
   MOST_SEARCHED: require('../Images/MostSearched.png'),
-  CONTINUE_LISTENING: require('../Images/continueListning.png'),
-  ABOUT_PROJECT: require('../Images/AboutProject.png'),
 };
 
 // Default fallback URLs for remote images
@@ -53,30 +47,30 @@ export const getOptimizedImageSource = (type, customSource = null) => {
   switch (type) {
     case 'album':
       return customSource ? { uri: customSource } : OPTIMIZED_IMAGES.DEFAULT_ALBUM;
-    
+
     case 'music':
       return customSource ? { uri: customSource } : OPTIMIZED_IMAGES.DEFAULT_MUSIC;
 
     case 'local-music':
       return customSource ? { uri: customSource } : OPTIMIZED_IMAGES.LOCAL_MUSIC;
-    
+
     case 'playlist':
       return customSource ? { uri: customSource } : OPTIMIZED_IMAGES.DEFAULT_PLAYLIST;
-    
+
     case 'playing':
       return OPTIMIZED_IMAGES.PLAYING_ANIMATION;
-    
+
     case 'paused':
       return OPTIMIZED_IMAGES.PAUSED_ANIMATION;
-    
 
-    
+
+
     case 'local-collapsed':
-      return OPTIMIZED_IMAGES.LOCAL_MUSIC_B;
-    
+      return OPTIMIZED_IMAGES.DEFAULT_MUSIC;
+
     case 'artist':
       return customSource ? { uri: customSource } : { uri: FALLBACK_URLS.ARTIST_PLACEHOLDER };
-    
+
     default:
       return OPTIMIZED_IMAGES.DEFAULT_MUSIC;
   }
@@ -89,13 +83,13 @@ export const getOptimizedArtworkUrl = (artworkUrl, quality = 'high') => {
   if (!artworkUrl || artworkUrl === 'null' || artworkUrl === 'undefined') {
     return null;
   }
-  
+
   try {
     // For local files, return as is
     if (artworkUrl.startsWith('file://')) {
       return artworkUrl;
     }
-    
+
     // Special handling for JioSaavn CDN
     if (artworkUrl.includes('saavncdn.com')) {
       const qualityMap = {
@@ -103,10 +97,10 @@ export const getOptimizedArtworkUrl = (artworkUrl, quality = 'high') => {
         'medium': '500x500',
         'high': '500x500'
       };
-      
+
       return artworkUrl.replace(/50x50|150x150|500x500/g, qualityMap[quality] || '500x500');
     }
-    
+
     // For other URLs, try to add quality parameter
     try {
       const url = new URL(artworkUrl);
@@ -132,24 +126,24 @@ export const resolveImageSource = (imageData, fallbackType = 'music') => {
   if (!imageData) {
     return getOptimizedImageSource(fallbackType);
   }
-  
+
   // Handle string URLs
   if (typeof imageData === 'string') {
     const optimizedUrl = getOptimizedArtworkUrl(imageData);
     return optimizedUrl ? { uri: optimizedUrl } : getOptimizedImageSource(fallbackType);
   }
-  
+
   // Handle require() results (numbers)
   if (typeof imageData === 'number') {
     return imageData;
   }
-  
+
   // Handle objects with uri property
   if (imageData && typeof imageData === 'object' && imageData.uri) {
     const optimizedUrl = getOptimizedArtworkUrl(imageData.uri);
     return optimizedUrl ? { uri: optimizedUrl } : getOptimizedImageSource(fallbackType);
   }
-  
+
   // Handle arrays (try to get best quality)
   if (Array.isArray(imageData)) {
     for (const item of imageData) {
@@ -164,7 +158,7 @@ export const resolveImageSource = (imageData, fallbackType = 'music') => {
       }
     }
   }
-  
+
   // Handle objects with url/link properties
   if (imageData && typeof imageData === 'object') {
     const url = imageData.url || imageData.link;
@@ -173,7 +167,7 @@ export const resolveImageSource = (imageData, fallbackType = 'music') => {
       return optimizedUrl ? { uri: optimizedUrl } : getOptimizedImageSource(fallbackType);
     }
   }
-  
+
   // Final fallback
   return getOptimizedImageSource(fallbackType);
 };
@@ -188,10 +182,8 @@ export const preloadCriticalImages = () => {
     OPTIMIZED_IMAGES.DEFAULT_MUSIC,
     OPTIMIZED_IMAGES.LOCAL_MUSIC,
     OPTIMIZED_IMAGES.DEFAULT_ALBUM,
-    OPTIMIZED_IMAGES.LOCAL_MUSIC_A,
-    OPTIMIZED_IMAGES.LOCAL_MUSIC_B,
   ];
-  
+
   FastImage.preload(criticalImages.map(source => ({ uri: source })));
 };
 

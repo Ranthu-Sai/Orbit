@@ -7,7 +7,6 @@ export let PlaylistSelectorBottomSheetRef = { current: null };
 // Function to set the reference
 export const setPlaylistSelectorBottomSheetRef = (ref) => {
   PlaylistSelectorBottomSheetRef.current = ref;
-  console.log('PlaylistSelectorBottomSheetRef initialized:', !!ref);
 };
 
 // Function to show the playlist selector bottom sheet with error handling
@@ -32,8 +31,6 @@ export const showPlaylistSelectorBottomSheetWithFallback = (song) => {
 export const PlaylistSelectorBottomSheetManager = {
   show: (song) => {
     try {
-      console.log('🔍 PlaylistSelectorBottomSheetManager.show called');
-
       if (!song) {
         console.error('❌ Cannot show playlist selector bottom sheet: No song provided');
         return false;
@@ -43,17 +40,11 @@ export const PlaylistSelectorBottomSheetManager = {
         console.error('❌ Invalid song object for playlist selector bottom sheet:', song);
         return false;
       }
-
-      console.log('🔍 Checking PlaylistSelectorBottomSheetRef.current:', !!PlaylistSelectorBottomSheetRef.current);
-
       if (PlaylistSelectorBottomSheetRef.current) {
-        console.log('✅ Showing PlaylistSelectorBottomSheet for song:', song.title);
         const result = PlaylistSelectorBottomSheetRef.current.show(song);
-        console.log('📱 Bottom sheet show result:', result);
         return result;
       } else {
         console.error('❌ PlaylistSelectorBottomSheet reference is not initialized');
-        console.log('🔍 Current ref state:', PlaylistSelectorBottomSheetRef);
         ToastAndroid.show('Cannot open playlist selector now', ToastAndroid.SHORT);
         return false;
       }
@@ -66,7 +57,6 @@ export const PlaylistSelectorBottomSheetManager = {
   hide: () => {
     try {
       if (PlaylistSelectorBottomSheetRef.current) {
-        console.log('Hiding PlaylistSelectorBottomSheet');
         return PlaylistSelectorBottomSheetRef.current.hide();
       } else {
         console.warn('PlaylistSelectorBottomSheet reference is not initialized');

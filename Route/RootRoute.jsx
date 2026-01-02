@@ -106,7 +106,6 @@ export const RootRoute = () => {
 
           // If we're at LibraryPage and there's a previous tab, go back to that tab
           if (previousTabName.current && previousTabName.current !== 'Library') {
-            console.log('At LibraryPage, returning to previous tab:', previousTabName.current);
             navigation.navigate(previousTabName.current);
             return true;
           }
@@ -132,10 +131,8 @@ export const RootRoute = () => {
 
     // Log for debugging
     if (Index === 1) {
-      console.log('Fullscreen player opened (overlay mode)');
-    } else if (prevFullscreenState.current) {
-      console.log('Fullscreen player closed (screens preserved)');
-    }
+      } else if (prevFullscreenState.current) {
+      }
   }, [Index]);
 
   // Track screen changes continuously to better remember which screen the user was on
@@ -175,7 +172,6 @@ export const RootRoute = () => {
 
             // Check if this is a navigation to MyMusicPage through params
             if (activeNestedRoute.params && activeNestedRoute.params.screen === 'MyMusicPage') {
-              console.log('Detected MyMusicPage navigation through params');
               fullNavPath = `${currentTabRoute.name}/MyMusicPage`;
             }
             // Check for deeper nesting (for screens like MyMusicPage in Library)
@@ -193,7 +189,6 @@ export const RootRoute = () => {
           // Clean fullNavPath if it has MainRoute prefix for consistency
           if (fullNavPath.startsWith('MainRoute/')) {
             fullNavPath = fullNavPath.replace('MainRoute/', '');
-            console.log('Cleaned MainRoute prefix from path:', fullNavPath);
           }
 
           // CRITICAL FIX: Special handling for Library tab
@@ -206,11 +201,9 @@ export const RootRoute = () => {
             // Check if we're trying to navigate to MyMusicPage specifically
             if (screenFromParams === 'MyMusicPage') {
               fullNavPath = `Library/MyMusicPage`;
-              console.log('Fixed Library path for MyMusicPage:', fullNavPath);
             } else if (screenFromParams !== 'Library') {
               // Only use params if the screen is not 'Library' to avoid Library/Library
               fullNavPath = `Library/${screenFromParams}`;
-              console.log('Fixed Library path using params:', fullNavPath);
             }
           }
 
@@ -291,7 +284,6 @@ export const RootRoute = () => {
             // Clear any special navigation flags
             AsyncStorage.removeItem('came_from_fullscreen_player')
               .then(() => {
-                console.log('Cleared navigation flags on direct Library tab press');
               })
               .catch(error => {
                 console.error('Error clearing navigation flag:', error);
@@ -352,7 +344,6 @@ export const RootRoute = () => {
 
                 // If coming from a different tab (not already on Home), clear navigation data
                 if (currentTab?.name && currentTab.name !== 'Home') {
-                  console.log(`Explicit tab switch from ${currentTab.name} to Home, clearing stored screen data`);
                   Promise.all([
                     AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
                     AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY),
@@ -383,7 +374,6 @@ export const RootRoute = () => {
 
                 // Only reset if coming from a different tab (not within Discover)
                 if (currentTab?.name && currentTab.name !== 'Discover') {
-                  console.log(`Explicit tab switch from ${currentTab.name} to Discover, clearing stored screen data`);
                   Promise.all([
                     AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
                     AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY),
@@ -420,7 +410,6 @@ export const RootRoute = () => {
                 const currentTab = mainRoute?.state?.routes?.[currentTabIndex];
 
                 if (currentTab?.name && currentTab.name !== 'Library') {
-                  console.log(`Explicit tab switch from ${currentTab.name} to Library, clearing stored screen data`);
                   Promise.all([
                     AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
                     AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY),

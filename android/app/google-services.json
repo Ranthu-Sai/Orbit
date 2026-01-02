@@ -9,7 +9,26 @@
       "client_info": {
         "mobilesdk_app_id": "1:136179289541:android:46db26cf92a8b89db54fac",
         "android_client_info": {
-          "package_name": "com.orbit.beta"
+          "package_name": "com.orbit"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC8ENz3twXmC6kmuvLipt0JAwlAIJ8w62Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:136179289541:android:d127d8184f24cba5b54fac",
+        "android_client_info": {
+          "package_name": "com.orbit.music"
         }
       },
       "oauth_client": [],

@@ -111,7 +111,6 @@ export const LikedSongPage = () => {
       if (!forceRefresh) {
         const cached = await CacheManager.getAsync(cacheKey);
         if (cached) {
-          console.log("[LikedSongPage] Using cached data");
           setLikedSongs(cached.songs || []);
           setLikedAlbums(cached.albums || []);
           setLoading(false);
@@ -123,9 +122,6 @@ export const LikedSongPage = () => {
       if (isInitialLoad.current) {
         setLoading(true);
       }
-
-      console.log("[LikedSongPage] Fetching favorites data...");
-
       // Load liked songs
       const songsData = await GetLikedSongs();
       const processedSongs = [];
@@ -180,7 +176,6 @@ export const LikedSongPage = () => {
           },
           CACHE_TTL.LIBRARY_DATA
         );
-        console.log("[LikedSongPage] Data cached");
       }
     } catch (error) {
       console.error("Error loading favorites:", error);
@@ -247,7 +242,6 @@ export const LikedSongPage = () => {
     const favoritesUpdateListener = DeviceEventEmitter.addListener(
       'favorites-updated',
       () => {
-        console.log('[LikedSongPage] Favorites updated, refreshing...');
         // Clear cache and reload
         CacheManager.invalidate("favorites_data");
         loadFavoritesData(true);

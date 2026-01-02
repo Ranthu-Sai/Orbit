@@ -143,16 +143,12 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
   }, [showNewPlaylistModal, keyboardHeight]);
 
   useEffect(() => {
-    console.log('📱 PlaylistSelectorBottomSheet visibility changed:', visible);
     if (visible) {
-      console.log('📱 Loading playlists and expanding bottom sheet...');
       loadPlaylists();
       setTimeout(() => {
-        console.log('📱 Attempting to expand bottom sheet...');
         bottomSheetRef.current?.expand();
       }, 100);
     } else {
-      console.log('📱 Closing bottom sheet...');
       bottomSheetRef.current?.close();
     }
   }, [visible, loadPlaylists]);

@@ -101,10 +101,6 @@ export const PodcastDetailScreen = () => {
             console.error('Episode not found in list');
             return;
         }
-
-        console.log('🎙️ Playing podcast episode:', episode.title);
-        console.log('📋 Adding', episodes.length - episodeIndex, 'episodes to queue');
-
         try {
             // Transform episodes starting from the clicked one
             const tracksFromEpisode = episodes.slice(episodeIndex).map(episodeToTrack);
@@ -120,8 +116,6 @@ export const PodcastDetailScreen = () => {
     // Play all episodes (start from first, add all to queue)
     const handlePlayAll = async () => {
         if (episodes.length > 0) {
-            console.log('🎙️ Playing all episodes, total:', episodes.length);
-
             try {
                 // Transform all episodes to tracks
                 const tracks = episodes.map(episodeToTrack);
@@ -142,8 +136,6 @@ export const PodcastDetailScreen = () => {
         if (episodes.length > 0) {
             // Shuffle the episodes array
             const shuffledEpisodes = [...episodes].sort(() => Math.random() - 0.5);
-            console.log('🎙️ Shuffle playing episodes');
-
             try {
                 // Transform all shuffled episodes to tracks
                 const tracks = shuffledEpisodes.map(episodeToTrack);

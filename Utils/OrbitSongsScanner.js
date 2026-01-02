@@ -23,14 +23,10 @@ class OrbitSongsScanner {
         const { ToastAndroid } = require('react-native');
 
         try {
-            console.log('🔍 [OrbitScanner] Starting scan of orbit/songs folder...');
             ToastAndroid.show('Starting scan...', ToastAndroid.SHORT);
 
             // Initialize metadata reader
-            console.log('🔧 [OrbitScanner] Initializing native metadata reader...');
             const initResult = await NativeMetadataReader.initialize();
-            console.log(`✅ [OrbitScanner] Metadata reader initialized: ${initResult}`);
-
             if (!initResult) {
                 ToastAndroid.show('❌ Native module failed to initialize', ToastAndroid.LONG);
                 return [];
@@ -38,7 +34,6 @@ class OrbitSongsScanner {
 
             // Get the songs directory path
             const songsDir = await this.getSongsDirectory();
-            console.log(`📂 [OrbitScanner] Songs directory path: ${songsDir}`);
             ToastAndroid.show(`Path: ${songsDir}`, ToastAndroid.LONG);
 
             if (!songsDir) {
@@ -49,15 +44,12 @@ class OrbitSongsScanner {
 
             // Check if directory exists
             const dirExists = await RNFS.exists(songsDir);
-            console.log(`📁 [OrbitScanner] Directory exists: ${dirExists}`);
             ToastAndroid.show(`Directory exists: ${dirExists}`, ToastAndroid.SHORT);
 
             if (!dirExists) {
-                console.log('📭 [OrbitScanner] Songs directory does not exist yet, creating it...');
                 ToastAndroid.show('Creating directory...', ToastAndroid.SHORT);
                 try {
                     await RNFS.mkdir(songsDir, { NSURLIsExcludedFromBackupKey: true });
-                    console.log('✅ [OrbitScanner] Created songs directory');
                 } catch (mkdirError) {
                     console.error('❌ [OrbitScanner] Failed to create directory:', mkdirError);
                     ToastAndroid.show(`Failed to create dir: ${mkdirError.message}`, ToastAndroid.LONG);
@@ -66,56 +58,41 @@ class OrbitSongsScanner {
             }
 
             // Read all files in the directory
-            console.log('📖 [OrbitScanner] Reading directory contents...');
             ToastAndroid.show('Reading directory...', ToastAndroid.SHORT);
 
             const files = await RNFS.readDir(songsDir);
-            console.log(`📄 [OrbitScanner] Found ${files.length} total items in directory`);
             ToastAndroid.show(`Found ${files.length} total items`, ToastAndroid.SHORT);
 
             // Log first few files for debugging
             if (files.length > 0) {
-                console.log('📋 [OrbitScanner] First few items:', files.slice(0, 5).map(f => ({ name: f.name, isFile: f.isFile() })));
-            }
+                }
 
             // Filter for audio files only
             const audioFiles = files.filter(file => {
                 const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
                 const isAudio = this.SUPPORTED_EXTENSIONS.includes(ext) && file.isFile();
                 if (isAudio) {
-                    console.log(`🎵 [OrbitScanner] Found audio file: ${file.name} (${ext})`);
-                }
+                    }
                 return isAudio;
             });
-
-            console.log(`🎵 [OrbitScanner] Found ${audioFiles.length} audio files`);
             ToastAndroid.show(`Found ${audioFiles.length} audio files`, ToastAndroid.LONG);
 
             if (audioFiles.length === 0) {
-                console.log('⚠️ [OrbitScanner] No audio files found in directory');
                 ToastAndroid.show('⚠️ No audio files found', ToastAndroid.LONG);
                 return [];
             }
 
             // Extract metadata from all files using batch operation
             const filePaths = audioFiles.map(file => file.path);
-            console.log(`🔍 [OrbitScanner] Extracting metadata from ${filePaths.length} files...`);
-            console.log('📝 [OrbitScanner] File paths:', filePaths.slice(0, 3));
             ToastAndroid.show(`Extracting metadata from ${filePaths.length} files...`, ToastAndroid.SHORT);
 
             let metadataArray = [];
             try {
                 metadataArray = await NativeMetadataReader.readMetadataBatch(filePaths);
-                console.log(`✅ [OrbitScanner] Extracted metadata for ${metadataArray.length} files`);
                 ToastAndroid.show(`✅ Extracted ${metadataArray.length} metadata`, ToastAndroid.SHORT);
 
                 // Log sample metadata
                 if (metadataArray.length > 0) {
-                    console.log('📊 [OrbitScanner] Sample metadata:', {
-                        title: metadataArray[0].title,
-                        artist: metadataArray[0].artist,
-                        hasArtwork: !!metadataArray[0].artworkDataUri
-                    });
                 }
             } catch (metadataError) {
                 console.error('❌ [OrbitScanner] Failed to extract metadata:', metadataError);
@@ -150,8 +127,6 @@ class OrbitSongsScanner {
                     source: 'orbit_download'
                 };
             });
-
-            console.log(`✅ [OrbitScanner] Successfully scanned ${songs.length} songs`);
             ToastAndroid.show(`✅ Successfully scanned ${songs.length} songs`, ToastAndroid.LONG);
             return songs;
 

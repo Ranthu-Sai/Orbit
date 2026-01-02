@@ -64,15 +64,6 @@ class InnerTubeClient {
                     effectiveVisitorData = await AsyncStorage.getItem('innertube_visitor_data');
                 } catch (e) { }
             }
-
-            console.log('🌐 InnerTube request:', {
-                endpoint,
-                gl,
-                hl,
-                authenticated: !!authCookies,
-                hasVisitorData: !!effectiveVisitorData,
-            });
-
             // Create context with dynamic GL, HL, and visitorData (like OuterTune)
             const client = {
                 ...WEB_REMIX_CONTEXT.context.client,
@@ -116,7 +107,6 @@ class InnerTubeClient {
                 try {
                     const AsyncStorage = require('@react-native-async-storage/async-storage').default;
                     await AsyncStorage.setItem('innertube_visitor_data', data.responseContext.visitorData);
-                    console.log('📍 Stored new visitorData for personalization');
                 } catch (e) { }
             }
 
@@ -159,7 +149,6 @@ class InnerTubeClient {
             await AsyncStorage.removeItem('innertube_visitor_data');
             // Also clear the home feed cache
             await AsyncStorage.removeItem('ytmusic_home_feed_full_v6');
-            console.log('🔄 Reset visitorData - recommendations will be refreshed');
             return true;
         } catch (e) {
             console.error('Failed to reset visitorData:', e);
@@ -191,10 +180,8 @@ class InnerTubeClient {
             const ytAuthService = require('../Utils/YouTubeAuthService').default;
             if (ytAuthService.isAuth()) {
                 authCookies = await ytAuthService.getCookies();
-                console.log('🔐 InnerTube getHome: Using authenticated request');
             }
         } catch (e) {
-            console.log('InnerTube getHome: Proceeding without auth');
         }
 
         // Get user's language and country preference from settings
@@ -208,9 +195,7 @@ class InnerTubeClient {
             const storedCountry = await AsyncStorage.getItem('ytmusic_country');
             if (storedLang) userLanguage = storedLang;
             if (storedCountry) userCountry = storedCountry;
-            console.log(`🌍 InnerTube getHome: Using locale ${userLanguage}/${userCountry}`);
         } catch (e) {
-            console.log('InnerTube getHome: Using system default locale');
         }
 
         // Initial request with user's language preference
@@ -218,8 +203,6 @@ class InnerTubeClient {
 
         // Parse initial sections, chips, and continuation token
         let { sections, chips, continuation } = this.parseHomeWithContinuation(data);
-        console.log(`📊 InnerTube getHome: Initial sections: ${sections.length}, chips: ${chips?.length || 0}`);
-
         let allSections = [...sections];
         const seenTitles = new Set(sections.map(s => s.title));
 
@@ -228,7 +211,6 @@ class InnerTubeClient {
         const MAX_CONTINUATIONS = 5;
 
         while (continuation && allSections.length < sectionLimit && continuationCount < MAX_CONTINUATIONS) {
-            console.log(`🔄 InnerTube getHome: Following continuation ${continuationCount + 1}...`);
             const contData = await this.request('browse', { continuation }, userCountry, authCookies, userLanguage);
             const contResult = this.parseHomeContinuation(contData);
 
@@ -240,8 +222,6 @@ class InnerTubeClient {
                     addedInThisCont++;
                 }
             });
-
-            console.log(`✅ Added ${addedInThisCont} sections from continuation ${continuationCount + 1}`);
             continuation = contResult.continuation;
             continuationCount++;
 
@@ -250,15 +230,12 @@ class InnerTubeClient {
 
         // 2. Fetch from chips (additional variety like OuterTune)
         if (chips && chips.length > 0 && allSections.length < sectionLimit) {
-            console.log(`🎨 InnerTube getHome: Found ${chips.length} chips, loading content from top chips...`);
-
             const chipsToFetch = [];
 
             // Prioritize the "Music" chip if found (contains personalized "Albums for you")
             const musicChip = chips.find(c => c.title.toLowerCase().includes('music'));
             if (musicChip) {
                 chipsToFetch.push(musicChip);
-                console.log('🎯 InnerTube getHome: Prioritizing "Music" chip for personalized content');
             }
 
             // Add other chips up to limit
@@ -280,7 +257,6 @@ class InnerTubeClient {
                     const chipResult = this.parseHomeWithContinuation(chipData);
                     return chipResult.sections;
                 } catch (e) {
-                    console.log(`❌ Failed to fetch chip "${chip.title}":`, e.message);
                     return [];
                 }
             });
@@ -292,13 +268,10 @@ class InnerTubeClient {
                     if (section.title && !seenTitles.has(section.title)) {
                         seenTitles.add(section.title);
                         allSections.push(section);
-                        console.log(`✅ Added from chip: "${section.title}"`);
                     }
                 });
             });
         }
-
-        console.log(`🎉 InnerTube getHome: Total sections fetched: ${allSections.length}`);
         return allSections;
     }
 
@@ -375,17 +348,13 @@ class InnerTubeClient {
     }
 
     static async getAlbum(browseId) {
-        console.log('🎵 getAlbum called with browseId:', browseId);
-
         // For OLAK IDs (which are playlist IDs), try with VL prefix FIRST
         // This avoids the unnecessary 400 error from direct browse
         if (browseId.startsWith('OLAK')) {
-            console.log('🔄 OLAK ID detected, fetching as playlist with VL prefix...');
             const playlistBrowseId = `VL${browseId}`;
             const data = await this.request('browse', { browseId: playlistBrowseId });
 
             if (!data?.error) {
-                console.log('✅ Successfully fetched OLAK as playlist, parsing...');
                 const playlist = this.parsePlaylist(data);
                 if (playlist && playlist.songs?.length > 0) {
                     // Convert playlist format to album format
@@ -417,7 +386,6 @@ class InnerTubeClient {
             // Try converting OLAK to MPRE format and browse
             if (browseId.startsWith('OLAK')) {
                 const mpreId = browseId.replace('OLAK', 'MPREb_');
-                console.log('🔄 Trying MPRE format:', mpreId);
                 data = await this.request('browse', { browseId: mpreId });
 
                 if (!data?.error) {
@@ -464,7 +432,6 @@ class InnerTubeClient {
 
         // If we got an automix playlist endpoint, fetch the radio playlist
         if (result.automixPlaylistId) {
-            console.log(`🎵 Following automix playlist: ${result.automixPlaylistId}`);
             const radioResult = await this.getNextWithPlaylist(videoId, result.automixPlaylistId);
             if (radioResult && radioResult.items && radioResult.items.length > 0) {
                 // Combine current items with radio items
@@ -545,25 +512,13 @@ class InnerTubeClient {
         let chips = [];
 
         try {
-            console.log('🔍 parseHomeWithContinuation: Analyzing response structure...');
-            console.log('🔍 Response has contents:', !!data?.contents);
-            console.log('🔍 Response has singleColumnBrowseResultsRenderer:', !!data?.contents?.singleColumnBrowseResultsRenderer);
-
             const tabs = data?.contents?.singleColumnBrowseResultsRenderer?.tabs;
-            console.log('🔍 Tabs found:', tabs?.length || 0);
-
             if (!tabs) {
-                console.log('❌ No tabs found in response');
-                console.log('🔍 Response keys:', Object.keys(data || {}));
                 return { sections: [], continuation: null, chips: [] };
             }
 
             const sectionListRenderer = tabs[0]?.tabRenderer?.content?.sectionListRenderer;
             const content = sectionListRenderer?.contents;
-
-            console.log('🔍 SectionListRenderer contents count:', content?.length || 0);
-            console.log('🔍 SectionListRenderer has continuations:', !!sectionListRenderer?.continuations);
-
             // Extract chips from header (used for loading more content)
             const chipCloud = sectionListRenderer?.header?.chipCloudRenderer?.chips;
             if (chipCloud && Array.isArray(chipCloud)) {
@@ -576,15 +531,11 @@ class InnerTubeClient {
                         isSelected: chipRenderer.isSelected || false
                     };
                 }).filter(c => c && c.params && !c.isSelected);
-                console.log('🎨 Found chips:', chips.map(c => c.title).join(', '));
-            }
+                }
 
             // Get continuation token for more sections
             continuation = sectionListRenderer?.continuations?.[0]?.nextContinuationData?.continuation ||
                 sectionListRenderer?.continuations?.[0]?.reloadContinuationData?.continuation;
-
-            console.log('🔍 Continuation token found:', continuation ? 'YES' : 'NO');
-
             content?.forEach((section, idx) => {
                 if (section.musicCarouselShelfRenderer) {
                     const shelf = section.musicCarouselShelfRenderer;
@@ -592,7 +543,6 @@ class InnerTubeClient {
                     const title = headerRenderer?.title?.runs?.[0]?.text || '';
                     const strapline = headerRenderer?.strapline?.runs?.[0]?.text;
                     const items = shelf.contents?.map(item => this.parseItem(item)).filter(i => i) || [];
-                    console.log(`🎯 Section ${idx}: "${title}" (strapline: ${strapline}) - ${items.length} items`);
                     if (items.length > 0) {
                         sections.push({
                             title,
@@ -607,7 +557,6 @@ class InnerTubeClient {
                     const title = headerRenderer?.title?.runs?.[0]?.text || 'Featured';
                     const strapline = headerRenderer?.strapline?.runs?.[0]?.text;
                     const items = shelf.contents?.map(item => this.parseItem(item)).filter(i => i) || [];
-                    console.log(`🎯 Immersive Section ${idx}: "${title}" (strapline: ${strapline}) - ${items.length} items`);
                     if (items.length > 0) {
                         sections.push({
                             title,
@@ -616,14 +565,11 @@ class InnerTubeClient {
                         });
                     }
                 } else {
-                    console.log(`⏭️ Section ${idx}: Skipped (not a carousel shelf). Keys:`, Object.keys(section));
-                }
+                    }
             });
         } catch (e) {
             console.error('Parse Home With Continuation Error', e);
         }
-
-        console.log(`📊 parseHomeWithContinuation: Returning ${sections.length} sections, ${chips.length} chips`);
         return { sections, continuation, chips };
     }
 
@@ -636,16 +582,9 @@ class InnerTubeClient {
         let continuation = null;
 
         try {
-            console.log('🔍 parseHomeContinuation: Analyzing response...');
-            console.log('🔍 Has continuationContents:', !!data?.continuationContents);
-            console.log('🔍 Has contents:', !!data?.contents);
-            console.log('🔍 Response keys:', Object.keys(data || {}));
-
             const sectionListContinuation = data?.continuationContents?.sectionListContinuation;
 
             if (sectionListContinuation) {
-                console.log('✅ Found sectionListContinuation with', sectionListContinuation.contents?.length || 0, 'sections');
-
                 // Get next continuation token
                 continuation = sectionListContinuation.continuations?.[0]?.nextContinuationData?.continuation ||
                     sectionListContinuation.continuations?.[0]?.reloadContinuationData?.continuation;
@@ -658,7 +597,6 @@ class InnerTubeClient {
                         const title = headerRenderer?.title?.runs?.[0]?.text || '';
                         const strapline = headerRenderer?.strapline?.runs?.[0]?.text;
                         const items = shelf.contents?.map(item => this.parseItem(item)).filter(i => i) || [];
-                        console.log(`🎯 Continuation Section ${idx}: "${title}" (strapline: ${strapline}) - ${items.length} items`);
                         if (items.length > 0) {
                             sections.push({
                                 title,
@@ -671,18 +609,14 @@ class InnerTubeClient {
             } else if (data?.contents?.singleColumnBrowseResultsRenderer) {
                 // Fallback: API returned fresh content instead of continuation
                 // Parse it as a fresh response but skip duplicates
-                console.log('⚠️ No continuationContents, falling back to fresh response parsing');
                 const result = this.parseHomeWithContinuation(data);
                 sections.push(...result.sections);
                 continuation = result.continuation;
             } else {
-                console.log('❌ No valid response structure found');
             }
         } catch (e) {
             console.error('Parse Home Continuation Error', e);
         }
-
-        console.log(`📊 parseHomeContinuation: Returning ${sections.length} sections, continuation: ${!!continuation}`);
         return { sections, continuation };
     }
 
@@ -693,7 +627,6 @@ class InnerTubeClient {
 
             const contents = data?.contents?.tabbedSearchResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents;
             if (!contents) {
-                console.log('InnerTube Search: No contents found');
                 return [];
             }
 
@@ -704,26 +637,20 @@ class InnerTubeClient {
                 // Check for DIRECT musicShelfRenderer (when results exist)
                 if (section.musicShelfRenderer) {
                     musicShelfRenderer = section.musicShelfRenderer;
-                    console.log('  -> Found musicShelfRenderer directly!');
                     break;
                 }
 
                 // Check inside itemSectionRenderer wrapper (no results case)
                 if (section.itemSectionRenderer?.contents) {
-                    console.log('  -> itemSectionRenderer has', section.itemSectionRenderer.contents.length, 'items');
                     for (const item of section.itemSectionRenderer.contents) {
                         const keys = Object.keys(item);
-                        console.log(`     Item keys: [${keys.join(', ')}]`);
-
                         // Check for messageRenderer (no results message)
                         if (item.messageRenderer) {
                             const message = item.messageRenderer.text?.runs?.[0]?.text;
-                            console.log(`     -> messageRenderer: "${message}"`);
                         }
 
                         if (item.musicShelfRenderer) {
                             musicShelfRenderer = item.musicShelfRenderer;
-                            console.log('  -> Found musicShelfRenderer!');
                             break;
                         }
                     }
@@ -732,7 +659,6 @@ class InnerTubeClient {
             }
 
             if (!musicShelfRenderer) {
-                console.log('InnerTube Search: No musicShelfRenderer found');
                 return [];
             }
 
@@ -744,8 +670,6 @@ class InnerTubeClient {
                     }
                 });
             }
-
-            console.log(`InnerTube Search: Returning ${results.length} results`);
         } catch (e) { console.error('Parse Search Error', e); }
         return results;
     }
@@ -1179,8 +1103,6 @@ class InnerTubeClient {
     static parseAlbum(data) {
         try {
             // Debug: Log top-level keys to understand structure
-            console.log('parseAlbum: Top-level keys:', Object.keys(data || {}));
-
             // Check for error response first
             if (data?.error) {
                 console.error('parseAlbum: API error response:', JSON.stringify(data.error));
@@ -1188,11 +1110,9 @@ class InnerTubeClient {
             }
 
             if (data?.contents) {
-                console.log('parseAlbum: contents keys:', Object.keys(data.contents));
-            }
+                }
             if (data?.header) {
-                console.log('parseAlbum: header keys:', Object.keys(data.header));
-            }
+                }
 
             // Try multiple possible structures for album header
             let header = data?.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicResponsiveHeaderRenderer;
@@ -1231,8 +1151,6 @@ class InnerTubeClient {
                     }
                 }
             }
-
-            console.log('parseAlbum: Header found:', !!header, header ? Object.keys(header) : 'none');
 
             // Try multiple possible structures for tracks
             let tracksContent = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer?.contents;
@@ -1337,9 +1255,6 @@ class InnerTubeClient {
 
             // Get browseId from the data if available
             const browseId = data?.responseContext?.serviceTrackingParams?.[0]?.params?.find(p => p.key === 'browse_id')?.value;
-
-            console.log(`InnerTube parseAlbum: title="${title}", artist="${artist}", year="${year}", tracks=${tracks.length}, thumbnails=${thumbnails.length}`);
-
             // Return in format expected by getYTMusicAlbumData
             return {
                 title,
@@ -1398,9 +1313,6 @@ class InnerTubeClient {
             // Get continuation token - check multiple locations
             const continuations = section?.continuations;
             const continuation = continuations?.[0]?.nextContinuationData?.continuation;
-
-            console.log(`InnerTube parseSection: Found ${items.length} items, title="${title}"`);
-
             return {
                 title,
                 items,
@@ -1415,13 +1327,10 @@ class InnerTubeClient {
     static parsePlaylist(data) {
         try {
             // Debug: Log structure
-            console.log('parsePlaylist: Top-level keys:', Object.keys(data || {}));
             if (data?.header) {
-                console.log('parsePlaylist: header keys:', Object.keys(data.header));
-            }
+                }
             if (data?.contents) {
-                console.log('parsePlaylist: contents keys:', Object.keys(data.contents));
-            }
+                }
 
             // Try multiple header locations
             let header = data?.header?.musicDetailHeaderRenderer;
@@ -1465,8 +1374,6 @@ class InnerTubeClient {
                     }
                 }
             }
-
-            console.log('parsePlaylist: Header found:', !!header, header ? Object.keys(header) : 'none');
 
             // Try multiple tracks locations
             let tracks = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer?.contents;
@@ -1514,7 +1421,6 @@ class InnerTubeClient {
                 const firstSong = songs[0];
                 if (firstSong.album?.name) {
                     title = firstSong.album.name;
-                    console.log('parsePlaylist: Inferred title from first song album:', title);
                 }
             }
 
@@ -1563,9 +1469,6 @@ class InnerTubeClient {
             const cleanBrowseId = dataBrowseId?.startsWith('VL') ? dataBrowseId.substring(2) : dataBrowseId;
 
             const id = headerId || cleanBrowseId;
-
-            console.log(`InnerTube parsePlaylist: title="${title}", songs=${songs.length}, id=${id}, author="${author}"`);
-
             return {
                 id,
                 title,
@@ -1600,7 +1503,6 @@ class InnerTubeClient {
             const panel = data?.contents?.singleColumnMusicWatchNextResultsRenderer?.tabbedRenderer?.watchNextTabbedResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.musicQueueRenderer?.content?.playlistPanelRenderer;
 
             if (!panel) {
-                console.log('InnerTube parseNext: No panel found');
                 return { items: [], continuation: null, automixPlaylistId: null };
             }
 
@@ -1614,7 +1516,6 @@ class InnerTubeClient {
                     const watchEndpoint = item.automixPreviewVideoRenderer?.content?.automixPlaylistVideoRenderer?.navigationEndpoint?.watchPlaylistEndpoint;
                     if (watchEndpoint?.playlistId) {
                         automixPlaylistId = watchEndpoint.playlistId;
-                        console.log(`🎵 Found automix playlist ID: ${automixPlaylistId}`);
                     }
                     continue;
                 }
@@ -1627,9 +1528,6 @@ class InnerTubeClient {
 
             // Get continuation token for loading more recommendations
             const continuation = panel.continuations?.[0]?.nextContinuationData?.continuation || null;
-
-            console.log(`InnerTube parseNext: Found ${items.length} recommendations, automix: ${automixPlaylistId ? 'yes' : 'no'}, continuation: ${continuation ? 'yes' : 'no'}`);
-
             return {
                 items,
                 continuation,
@@ -1649,7 +1547,6 @@ class InnerTubeClient {
             const item = itemWrapper.musicResponsiveListItemRenderer || itemWrapper.musicTwoRowItemRenderer || itemWrapper.playlistPanelVideoRenderer;
             if (!item) {
                 // Debug: log what keys are present in itemWrapper
-                console.log('parseItem: No recognized renderer, keys:', Object.keys(itemWrapper || {}));
                 return null;
             }
 

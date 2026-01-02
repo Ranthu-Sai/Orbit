@@ -24,7 +24,6 @@ const getBaseDir = async () => {
       }
     } else {
       publicDir = RNFS.DocumentDirectoryPath;
-      console.log('StorageManager: Using iOS/Documents directory');
     }
 
     if (!publicDir) {
@@ -38,7 +37,6 @@ const getBaseDir = async () => {
   } catch (error) {
     console.error('StorageManager: Error determining base directory:', error);
     const fallbackPath = `${RNFS.DocumentDirectoryPath}/orbit_music`;
-    console.log(`StorageManager: Using emergency fallback: ${fallbackPath}`);
     return fallbackPath;
   }
 };
@@ -65,7 +63,6 @@ const ensureDirectoriesExist = async () => {
     const nomediaPath = `${artworkDir}/.nomedia`;
     if (!(await safeExists(nomediaPath))) {
       await RNFS.writeFile(nomediaPath, '', 'utf8');
-      console.log('Created .nomedia file to hide artwork from gallery');
     }
   } catch (error) {
     console.error('Error ensuring directories exist:', error);
@@ -210,8 +207,6 @@ const cleanupOldMetadata = async (allMetadata) => {
       STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
       JSON.stringify(cleanedMetadata),
     );
-
-    console.log(`Cleaned up ${removeCount} old metadata entries`);
   } catch (error) {
     console.error('Error cleaning up old metadata:', error);
   }
@@ -293,11 +288,9 @@ const removeDownloadedSongMetadata = async (songId, localFilePath = null) => {
       if (localFilePath.startsWith('file://')) {
         songPath = localFilePath.replace('file://', '');
       }
-      console.log(`[StorageManager] Using provided local path: ${songPath}`);
     } else if (metadata) {
       // Calculate path from metadata
       songPath = await getSongPath(songId, metadata.title, metadata.source);
-      console.log(`[StorageManager] Calculated path from metadata: ${songPath}`);
     }
 
     // Delete song file from external storage
@@ -305,20 +298,17 @@ const removeDownloadedSongMetadata = async (songId, localFilePath = null) => {
       try {
         // Just try to unlink directly - no need for multiple exist checks
         await RNFS.unlink(songPath);
-        console.log(`✅ [StorageManager] File successfully deleted: ${songPath}`);
       } catch (unlinkError) {
         // If file doesn't exist, ignore the error
         if (unlinkError.message.includes('no such file or directory') ||
           unlinkError.message.includes('File does not exist')) {
-          console.log(`⚠️ [StorageManager] Song file not found (already gone): ${songPath}`);
-        } else {
+          } else {
           console.error(`❌ [StorageManager] RNFS.unlink error:`, unlinkError.message);
           // Don't throw for artwork or non-critical file issues, but here it's the main song
           throw unlinkError;
         }
       }
     } else {
-      console.log(`⚠️ No file path provided or found for song: ${songId}`);
     }
 
     // Skip artwork deletion - artwork is embedded in the audio file
@@ -330,7 +320,6 @@ const removeDownloadedSongMetadata = async (songId, localFilePath = null) => {
         STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
         JSON.stringify(allMetadata),
       );
-      console.log(`🗑️ Removed metadata for song: ${songId}`);
     }
   } catch (error) {
     console.error(`❌ Error removing downloaded song ${songId}:`, error);
@@ -354,7 +343,6 @@ const isSongDownloaded = async (songId) => {
 
     // If metadata exists but file doesn't, clean up the orphaned metadata
     if (!fileExists) {
-      console.log(`📁 File missing for ${songId}, cleaning up orphaned metadata`);
       delete allMetadata[String(songId)];
       await AsyncStorage.setItem(
         STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
@@ -438,7 +426,6 @@ const saveLocalMusicCache = async (musicData) => {
       STORAGE_KEYS.LOCAL_MUSIC_CACHE,
       JSON.stringify(cacheData),
     );
-    console.log('Local music cache saved successfully');
   } catch (error) {
     console.error('Error saving local music cache:', error);
   }
@@ -455,10 +442,8 @@ const getLocalMusicCache = async () => {
       const maxCacheAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
       if (cacheAge < maxCacheAge) {
-        console.log('Retrieved local music cache (age:', Math.round(cacheAge / (60 * 1000)), 'minutes)');
         return cacheData;
       } else {
-        console.log('Local music cache expired, clearing...');
         await AsyncStorage.removeItem(STORAGE_KEYS.LOCAL_MUSIC_CACHE);
         return null;
       }
@@ -474,7 +459,6 @@ const getLocalMusicCache = async () => {
 const clearLocalMusicCache = async () => {
   try {
     await AsyncStorage.removeItem(STORAGE_KEYS.LOCAL_MUSIC_CACHE);
-    console.log('Local music cache cleared');
   } catch (error) {
     console.error('Error clearing local music cache:', error);
   }
@@ -484,7 +468,6 @@ const clearLocalMusicCache = async () => {
 const updateDownloadPathDirectories = async () => {
   try {
     await ensureDirectoriesExist();
-    console.log('Download path directories updated');
   } catch (error) {
     console.error('Error updating download path directories:', error);
   }

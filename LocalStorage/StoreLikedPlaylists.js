@@ -30,7 +30,6 @@ async function SetLikedPlaylist(image, name, follower, id) {
     await AsyncStorage.setItem('LikedPlaylists', jsonValue);
     DeviceEventEmitter.emit('playlist-updated');
   } catch (e) {
-    console.log("Liked Song Save Error");
   }
 }
 
@@ -45,7 +44,6 @@ async function DeleteALikedPlaylist(id) {
     await AsyncStorage.setItem('LikedPlaylists', jsonValue);
     DeviceEventEmitter.emit('playlist-updated');
   } catch (e) {
-    console.log("Liked Playlist Save Error");
   }
 }
 

@@ -20,8 +20,6 @@ export const NavigationHandler = ({ children, musicPreviousScreen }) => {
   // Handle player close with complex navigation logic
   const handlePlayerClose = useCallback(() => {
     try {
-      console.log('NavigationHandler: Closing fullscreen player, previous screen:', musicPreviousScreen);
-
       // Get the navigation state to make informed decisions
       const navigationState = navigation.getState();
 
@@ -34,11 +32,8 @@ export const NavigationHandler = ({ children, musicPreviousScreen }) => {
 
         // Split into parts
         const parts = cleanPath.split('/');
-        console.log('NavigationHandler: Navigation path parts:', parts);
-
         // Special handling for Search
         if (parts.length >= 1 && parts[0] === 'Search') {
-          console.log('NavigationHandler: Returning to Search screen after fullscreen player');
           navigation.navigate('Home', {
             screen: 'Search',
             params: {
@@ -50,7 +45,6 @@ export const NavigationHandler = ({ children, musicPreviousScreen }) => {
 
         // Special handling for download songs screen within Library tab
         if (parts.length >= 2 && parts[0] === 'Library' && parts[1] === 'MyMusicPage') {
-          console.log('NavigationHandler: Returning to Library with MyMusicPage in history stack');
           navigation.navigate('MainRoute', {
             screen: 'Library'
           });
@@ -75,8 +69,6 @@ export const NavigationHandler = ({ children, musicPreviousScreen }) => {
                       params: playlistData
                     }
                   });
-
-                  console.log('NavigationHandler: Restored CustomPlaylistView with recovered data');
                 } else {
                   navigation.navigate('MainRoute', {
                     screen: tabName,
@@ -103,7 +95,6 @@ export const NavigationHandler = ({ children, musicPreviousScreen }) => {
                   if (targetTab && targetTab.state && targetTab.state.routes) {
                     const targetScreen = targetTab.state.routes.find(r => r.name === screenName);
                     if (targetScreen && targetScreen.params) {
-                      console.log(`NavigationHandler: Found existing params for ${screenName}:`, targetScreen.params);
                       existingParams = targetScreen.params;
                     }
                   }
@@ -120,13 +111,11 @@ export const NavigationHandler = ({ children, musicPreviousScreen }) => {
             });
           }
         } else if (parts.length === 1) {
-          console.log(`NavigationHandler: Navigation to main tab: ${parts[0]}`);
           navigation.navigate('MainRoute', {
             screen: parts[0]
           });
         }
       } else {
-        console.log('NavigationHandler: No previous screen info, defaulting to Library tab');
         navigation.navigate('MainRoute', {
           screen: 'Library'
         });
@@ -151,11 +140,8 @@ export const NavigationHandler = ({ children, musicPreviousScreen }) => {
         }
 
         const parts = cleanPath.split('/');
-        console.log('NavigationHandler: Back navigation path:', parts);
-
         // Special handling for Search
         if (parts.length >= 1 && parts[0] === 'Search') {
-          console.log('NavigationHandler: Returning to Search screen after back press');
           setTimeout(() => {
             navigation.navigate('Home', {
               screen: 'Search',
@@ -170,8 +156,6 @@ export const NavigationHandler = ({ children, musicPreviousScreen }) => {
         // Special handling for download screen
         if (parts.length >= 2 && parts[0] === 'Library' &&
           (parts[1] === 'DownloadScreen' || parts[1] === 'DownloadSongsPage')) {
-          console.log('NavigationHandler: Ensuring proper back navigation from DownloadScreen');
-
           setTimeout(() => {
             navigation.navigate('Library', {
               screen: 'DownloadScreen',
@@ -182,20 +166,17 @@ export const NavigationHandler = ({ children, musicPreviousScreen }) => {
             });
 
             AsyncStorage.setItem('came_from_fullscreen_player', 'true');
-            console.log('NavigationHandler: Set flag to track special navigation from fullscreen');
           }, 100);
           return;
         }
 
         // Special handling for MyMusicPage
         if (parts.length >= 2 && parts[0] === 'Library' && parts[1] === 'MyMusicPage') {
-          console.log('NavigationHandler: Ensuring Library is in stack when returning from MyMusicPage');
           setTimeout(() => {
             navigation.navigate('Library', {
               screen: 'MyMusicPage',
               params: { previousScreen: 'Library' }
             });
-            console.log('NavigationHandler: Navigated to Library/MyMusicPage after closing fullscreen player');
           }, 100);
           return;
         }
@@ -205,8 +186,6 @@ export const NavigationHandler = ({ children, musicPreviousScreen }) => {
           const playlistData = await AsyncStorage.getItem('last_viewed_custom_playlist');
           if (playlistData) {
             const parsedData = JSON.parse(playlistData);
-            console.log('NavigationHandler: Found stored playlist data:', parsedData.playlistName);
-
             setTimeout(() => {
               navigation.navigate(parts[0], {
                 screen: parts[1],

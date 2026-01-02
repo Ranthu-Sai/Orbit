@@ -254,7 +254,6 @@ const fetchYouTubeAccountInfo = async (cookieString) => {
         const sapisid = cookieMap['SAPISID'];
 
         if (!sapisid) {
-            console.log('No SAPISID cookie found');
             return null;
         }
 
@@ -291,8 +290,6 @@ const fetchYouTubeAccountInfo = async (cookieString) => {
 
         if (response.ok) {
             const data = await response.json();
-            console.log('Account menu response received');
-
             // Parse the response - ArchiveTune's path:
             // actions[0].openPopupAction.popup.multiPageMenuRenderer.header.activeAccountHeaderRenderer
             const activeAccountHeader = data?.actions?.[0]?.openPopupAction?.popup?.
@@ -303,9 +300,6 @@ const fetchYouTubeAccountInfo = async (cookieString) => {
                 const email = activeAccountHeader.email?.runs?.[0]?.text || '';
                 const channelHandle = activeAccountHeader.channelHandle?.runs?.[0]?.text || '';
                 const avatarUrl = activeAccountHeader.accountPhoto?.thumbnails?.slice(-1)?.[0]?.url || '';
-
-                console.log('Extracted account info:', { name, email, channelHandle, avatarUrl });
-
                 return {
                     name: name || email?.split('@')?.[0] || 'YouTube User',
                     handle: channelHandle || (email ? `@${email.split('@')[0]}` : ''),
@@ -313,12 +307,10 @@ const fetchYouTubeAccountInfo = async (cookieString) => {
                 };
             }
         } else {
-            console.log('Account menu request failed:', response.status);
         }
 
         return null;
     } catch (error) {
-        console.log('fetchYouTubeAccountInfo error:', error);
         return null;
     }
 };
@@ -354,8 +346,6 @@ true;
         try {
             setLoading(true);
             const cookies = await CookieManager.get('https://music.youtube.com');
-            console.log('Extracted Cookies:', cookies);
-
             // Convert to cookie string format expected by Python requests
             // Format: "name=value; name2=value2"
             const cookieString = Object.entries(cookies)
@@ -409,15 +399,11 @@ true;
             };
 
             await RNFS.writeFile(path, JSON.stringify(headers), 'utf8');
-            console.log('Headers saved to:', path);
-
             // Try to fetch actual YouTube account info
             let finalUserInfo = userInfo;
             if (!finalUserInfo || !finalUserInfo.name || finalUserInfo.name === 'YouTube User') {
-                console.log('Fetching YouTube account info...');
                 const fetchedInfo = await fetchYouTubeAccountInfo(cookieString);
                 if (fetchedInfo) {
-                    console.log('Fetched YouTube account info:', fetchedInfo);
                     finalUserInfo = fetchedInfo;
                 }
             }
@@ -499,7 +485,6 @@ true;
                             // Check if we're on YouTube Music after login
                             if (url.includes('music.youtube.com') && !hasSavedCookiesRef.current) {
                                 // Inject script to extract user info from the page
-                                console.log('🔍 On YouTube Music page, injecting user info extraction...');
                                 webViewRef.current?.injectJavaScript(DELAYED_USER_INFO_EXTRACTION_JS);
                             }
                         }}
@@ -510,8 +495,6 @@ true;
                             try {
                                 const parsed = JSON.parse(data);
                                 if (parsed.type === 'userInfo' && parsed.data) {
-                                    console.log('📝 Received user info:', parsed.data);
-
                                     // Get current user data
                                     const currentUser = ytAuthService.getUser();
 
@@ -543,7 +526,6 @@ true;
                             // Handle as cookie string
                             const cookies = data;
                             if (cookies && cookies.includes('SAPISID') && !loading && !hasSavedCookiesRef.current) {
-                                console.log('✅ Auto-detected login cookies');
                                 saveAndSendCookies(cookies, { fromAutoCapture: true });
                             }
                         }}

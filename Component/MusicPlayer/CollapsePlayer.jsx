@@ -24,7 +24,6 @@ export const CollapsePlayer = ({ setIndex }) => {
   // Listen for early metadata event from PlayOneSong
   useEffect(() => {
     const loadingListener = DeviceEventEmitter.addListener('song-loading-started', (songData) => {
-      console.log('📱 CollapsePlayer: Received loading song metadata');
       setLoadingSong(songData);
     });
 
@@ -55,10 +54,10 @@ export const CollapsePlayer = ({ setIndex }) => {
 
   return (
     <Pressable onPress={handlePress} style={[styles.container, { backgroundColor: theme.colors.card }]}>
-      {/* Show b.gif when playing local music */}
+      {/* Show default artwork when playing local music */}
       {isLocal && !isLoadingStream ? (
         <Image
-          source={require('../../Images/b.gif')}
+          source={require('../../Images/Music.jpeg')}
           style={styles.artwork}
         />
       ) : (

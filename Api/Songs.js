@@ -342,8 +342,6 @@ async function getLyricsFromLrcLib(artist, title) {
   const cleanArtist = artist.split(',')[0].trim();
 
   const cacheKey = `lrc_lib_${cleanArtist.toLowerCase()}_${cleanTitle.toLowerCase()}`;
-  console.log(`Searching lyrics for: ${cleanArtist} - ${cleanTitle}`);
-
   const fetchFunction = async () => {
     const urlsToTry = [
       `https://lrclib.net/api/search?artist_name=${encodeURIComponent(cleanArtist)}&track_name=${encodeURIComponent(cleanTitle)}`,
@@ -352,13 +350,17 @@ async function getLyricsFromLrcLib(artist, title) {
 
     for (const url of urlsToTry) {
       try {
-        console.log('Trying URL:', url);
+        console.log('[LrcLib] Try URL:', url);
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
+          console.log('[LrcLib] Response length:', data ? data.length : 0);
           if (data && data.length > 0 && (data[0].syncedLyrics || data[0].plainLyrics)) {
+            console.log('[LrcLib] Success match:', data[0].name, data[0].artistName);
             return { success: true, data: data[0] };
           }
+        } else {
+          console.log('[LrcLib] Response not OK:', response.status);
         }
       } catch (error) {
         console.error(`Search failed for URL ${url}:`, error);
@@ -416,6 +418,7 @@ function parseTTML(ttml) {
 
         // Clean up text for the full line
         const text = innerContent.replace(/<[^>]+>/g, '').trim();
+        console.log('[parseTTML] Line:', text.substring(0, 30), 'Words found:', words.length);
 
         if (text) {
           lyrics.push({
@@ -452,10 +455,13 @@ async function getLyricsFromBetterLyrics(artist, title, duration) {
   const fetchFunction = async () => {
     try {
       const url = `https://lyrics-api-go-better-lyrics-api-pr-12.up.railway.app/getLyrics?s=${encodeURIComponent(cleanTitle)}&a=${encodeURIComponent(cleanArtist)}${duration ? `&d=${Math.floor(duration)}` : ''}`;
+      console.log('[BetterLyrics] Fetching:', url);
 
       const response = await fetch(url);
+      console.log('[BetterLyrics] Response status:', response.status);
       if (response.ok) {
         const data = await response.json();
+        console.log('[BetterLyrics] Data received:', !!data, 'Has TTML:', !!data?.ttml);
         if (data && data.ttml) {
           const syncedLyrics = parseTTML(data.ttml);
           if (syncedLyrics && syncedLyrics.length > 0) {
@@ -495,9 +501,9 @@ async function getLyricsFromYTMusic(track) {
 
   try {
     // 1. Attempt Synced Transcript (Official YT Lyrics)
-    console.log(`🔍 Attempting YTMusic transcript for: ${videoId}`);
     const transcript = await InnerTubeModule.getTranscript(videoId);
     if (transcript) {
+      console.log('[YTMusic] Transcript found for', videoId);
       return {
         success: true,
         data: {
@@ -507,14 +513,12 @@ async function getLyricsFromYTMusic(track) {
       };
     }
   } catch (error) {
-    console.log('YTMusic transcript fetch failed:', error);
   }
 
   try {
     // 2. Fallback to Plain Lyrics if endpoint is available
     const lyricsEndpoint = track.lyricsEndpoint || track.endpoint?.lyricsEndpoint;
     if (lyricsEndpoint?.browseId) {
-      console.log(`🔍 Attempting YTMusic plain lyrics for: ${lyricsEndpoint.browseId}`);
       const lyrics = await InnerTubeModule.getLyrics(lyricsEndpoint.browseId, lyricsEndpoint.params || null);
       if (lyrics) {
         return {
@@ -526,7 +530,6 @@ async function getLyricsFromYTMusic(track) {
       }
     }
   } catch (error) {
-    console.log('YTMusic plain lyrics fetch failed:', error);
   }
 
   return { success: false, message: 'No YTMusic lyrics found' };
@@ -534,7 +537,24 @@ async function getLyricsFromYTMusic(track) {
 
 // Unified lyrics fetcher with fallback logic
 async function getUnifiedLyrics(artist, title, duration, preferredProvider = 'LrcLib', track = null) {
-  console.log(`Getting unified lyrics. Preferred: ${preferredProvider}`);
+  // Use full title from track object if available, as the passed 'title' might be truncated for display
+  let fullTitle = title;
+  if (track) {
+    // Priority: originalTitle (stored full name) > name > title
+    const trackFullName = track.originalTitle || track.name || track.title;
+    // Use the longer, non-truncated name
+    if (trackFullName && !trackFullName.endsWith('...') && !trackFullName.endsWith('…')) {
+      fullTitle = trackFullName;
+    }
+  }
+  // Clean up HTML entities
+  fullTitle = fullTitle.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'");
+  // If still truncated (ends with ...), strip it but note this is lossy
+  if (fullTitle.endsWith('...') || fullTitle.endsWith('…')) {
+    fullTitle = fullTitle.slice(0, -3).trim();
+  }
+
+  console.log('[UnifiedLyrics] Request:', { artist, originalTitle: title, resolvedTitle: fullTitle, preferredProvider, trackId: track?.id || track?.videoId });
 
   // Determine provider order
   let providers = [];
@@ -549,11 +569,10 @@ async function getUnifiedLyrics(artist, title, duration, preferredProvider = 'Lr
   }
 
   for (const provider of providers) {
-    const result = await provider(artist, title, duration);
+    const result = await provider(artist, fullTitle, duration);
     if (result && result.success) {
       return result;
     }
-    console.log(`Provider failed. Trying next.`);
   }
 
   return { success: false, message: 'No lyrics found from any provider' };

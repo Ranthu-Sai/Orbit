@@ -34,8 +34,6 @@ class AutoRecommendations {
      * Start auto-recommendations for a videoId
      */
     async start(videoId) {
-        console.log(`✨ AutoRecommendations: Starting for videoId: ${videoId}`);
-
         this.currentVideoId = videoId;
         this.continuation = null;
         this.isEnabled = true;
@@ -48,7 +46,6 @@ class AutoRecommendations {
      * Stop auto-recommendations
      */
     stop() {
-        console.log('✨ AutoRecommendations: Stopped');
         this.isEnabled = false;
         this.currentVideoId = null;
         this.continuation = null;
@@ -72,12 +69,8 @@ class AutoRecommendations {
             }
 
             const songsRemaining = queue.length - currentIndex;
-
-            console.log(`✨ AutoRecs: Position ${currentIndex}/${queue.length}, ${songsRemaining} songs remaining`);
-
             // Fetch when approaching end of queue
             if (songsRemaining <= this.fetchThreshold) {
-                console.log(`✨ AutoRecs: Threshold reached! Fetching more...`);
                 await this.fetchAndAppendRecommendations();
             }
         } catch (error) {
@@ -96,8 +89,6 @@ class AutoRecommendations {
         this.isFetching = true;
 
         try {
-            console.log(`✨ AutoRecs: Fetching recommendations for ${this.currentVideoId}`);
-
             // Call YouTube Music's getNext API
             const result = await YouTubeMusicService.getNext(
                 this.currentVideoId,
@@ -106,13 +97,9 @@ class AutoRecommendations {
             );
 
             if (!result || !result.items || result.items.length === 0) {
-                console.log('✨ AutoRecs: No recommendations returned');
                 this.isFetching = false;
                 return;
             }
-
-            console.log(`✨ AutoRecs: Received ${result.items.length} recommendations`);
-
             // Store continuation for next fetch
             this.continuation = result.continuation;
 
@@ -140,15 +127,12 @@ class AutoRecommendations {
             }).filter(song => song.id); // Filter out invalid songs
 
             if (formattedSongs.length === 0) {
-                console.log('✨ AutoRecs: No valid songs after formatting');
                 this.isFetching = false;
                 return;
             }
 
             // Append to queue
             await TrackPlayer.add(formattedSongs);
-            console.log(`✨ AutoRecs: Added ${formattedSongs.length} songs to queue`);
-
             // Update currentVideoId to last song for next fetch
             if (formattedSongs.length > 0) {
                 this.currentVideoId = formattedSongs[formattedSongs.length - 1].id;
@@ -184,8 +168,6 @@ class AutoRecommendations {
 
         // Listen for track changes
         TrackPlayer.addEventListener(Event.PlaybackTrackChanged, debouncedTrackHandler);
-
-        console.log('✨ AutoRecommendations: Initialized with debouncing');
     }
 }
 

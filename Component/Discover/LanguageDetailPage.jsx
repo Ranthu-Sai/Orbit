@@ -45,7 +45,6 @@ export const LanguageDetailPage = ({ route }) => {
       if (!forceRefresh) {
         const cached = await CacheManager.getAsync(cacheKey);
         if (cached) {
-          console.log(`[LanguageDetail] Cache HIT for ${language}`);
           setData(cached);
           setLoading(false);
           return;
@@ -55,8 +54,6 @@ export const LanguageDetailPage = ({ route }) => {
       if (isInitialLoad.current) {
         setLoading(true);
       }
-
-      console.log(`[LanguageDetail] Fetching data for: ${language}`);
       const data = await getHomePageData(language || 'hindi');
 
       if (!isMounted.current) return;
@@ -65,12 +62,10 @@ export const LanguageDetailPage = ({ route }) => {
         setData(data);
         CacheManager.set(cacheKey, data, CACHE_TTL.LANGUAGE_DATA);
         setFetchError(null);
-        console.log(`[LanguageDetail] Data cached for ${language}`);
       } else {
         setFetchError("Failed to load music data");
       }
     } catch (e) {
-      console.log("Error fetching language data:", e);
       setFetchError(e.message || "An error occurred while loading data");
     } finally {
       if (isMounted.current) {
@@ -99,8 +94,6 @@ export const LanguageDetailPage = ({ route }) => {
   // Add back handler for hardware back button
   useEffect(() => {
     const handleBackPress = () => {
-      console.log('Back pressed in LanguageDetailPage, navigating to Discover');
-
       // Use CommonActions to reset the navigation state completely
       try {
         navigation.dispatch(

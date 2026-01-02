@@ -266,15 +266,10 @@ async function getYTMusicSearchSongData(searchText, page = 1, limit = 20) {
 
   const fetchFunction = async () => {
     try {
-      console.log(`🌐 YTMusic Search Songs - Using Innertube Client for query: ${searchText}`);
-
       const searchResults = await YouTubeMusicService.search(searchText, 'songs', limit);
 
       if (searchResults && Array.isArray(searchResults)) {
         const transformedResults = searchResults.map(transformYTToSaavnSong);
-
-        console.log(`✅ YTMusic Search Songs - Found ${transformedResults.length} songs for: ${searchText}`);
-
         return {
           status: "SUCCESS",
           message: "",
@@ -286,8 +281,6 @@ async function getYTMusicSearchSongData(searchText, page = 1, limit = 20) {
           success: true
         };
       }
-
-      console.log('YTMusic Search Songs - No results found');
       return {
         status: "SUCCESS",
         message: "",
@@ -330,15 +323,10 @@ async function getYTMusicSearchArtistData(searchText, page = 1, limit = 20) {
 
   const fetchFunction = async () => {
     try {
-      console.log(`🌐 YTMusic Search Artists - Using Innertube Client for query: ${searchText}`);
-
       const searchResults = await YouTubeMusicService.search(searchText, 'artists', limit);
 
       if (searchResults && Array.isArray(searchResults)) {
         const transformedResults = searchResults.map(transformYTToSaavnArtist);
-
-        console.log(`✅ YTMusic Search Artists - Found ${transformedResults.length} artists for: ${searchText}`);
-
         return {
           status: "SUCCESS",
           message: "",
@@ -350,8 +338,6 @@ async function getYTMusicSearchArtistData(searchText, page = 1, limit = 20) {
           success: true
         };
       }
-
-      console.log('YTMusic Search Artists - No results found');
       return {
         status: "SUCCESS",
         message: "",
@@ -394,15 +380,10 @@ async function getYTMusicSearchAlbumData(searchText, page = 1, limit = 20) {
 
   const fetchFunction = async () => {
     try {
-      console.log(`🌐 YTMusic Search Albums - Using Innertube Client for query: ${searchText}`);
-
       const searchResults = await YouTubeMusicService.search(searchText, 'albums', limit);
 
       if (searchResults && Array.isArray(searchResults)) {
         const transformedResults = searchResults.map(transformYTToSaavnAlbum);
-
-        console.log(`✅ YTMusic Search Albums - Found ${transformedResults.length} albums for: ${searchText}`);
-
         return {
           status: "SUCCESS",
           message: "",
@@ -414,8 +395,6 @@ async function getYTMusicSearchAlbumData(searchText, page = 1, limit = 20) {
           success: true
         };
       }
-
-      console.log('YTMusic Search Albums - No results found');
       return {
         status: "SUCCESS",
         message: "",
@@ -458,16 +437,11 @@ async function getYTMusicSearchPlaylistData(searchText, page = 1, limit = 20) {
 
   const fetchFunction = async () => {
     try {
-      console.log(`🌐 YTMusic Search Playlists - Using Innertube Client for query: ${searchText}`);
-
       // Use YouTube Music Service
       const searchResults = await YouTubeMusicService.search(searchText, 'playlists', limit);
 
       if (searchResults && Array.isArray(searchResults)) {
         const transformedResults = searchResults.map(transformYTToSaavnPlaylist);
-
-        console.log(`✅ YTMusic Search Playlists - Found ${transformedResults.length} playlists for: ${searchText}`);
-
         return {
           status: "SUCCESS",
           message: "",
@@ -479,8 +453,6 @@ async function getYTMusicSearchPlaylistData(searchText, page = 1, limit = 20) {
           success: true
         };
       }
-
-      console.log('YTMusic Search Playlists - No results found');
       return {
         status: "SUCCESS",
         message: "",
@@ -524,8 +496,6 @@ async function getYTMusicHomeFeed(limit = 10, forceRefresh = false) {
   const fetchFunction = async () => {
     try {
       // Use YouTube Music Service (InnerTube API)
-      console.log('🌐 YTMusic Home - Using Innertube Client for homefeed...');
-
       const homeFeedData = await YouTubeMusicService.getHomeFeed(limit);
 
       if (homeFeedData) {
@@ -539,22 +509,13 @@ async function getYTMusicHomeFeed(limit = 10, forceRefresh = false) {
           // Extract playlists and albums from all sections
           const playlists = [];
           const albums = [];
-
-          console.log('Processing YTMusic homefeed sections:', feedSections.length);
-
           feedSections.forEach((section, sectionIndex) => {
             // Filter out non-music video sections
             if (isVideoSection(section)) {
-              console.log(`[YTMusic API] Skipping video section: "${section.title}"`);
               return;
             }
-
-            console.log(`Section ${sectionIndex}: ${section.title}, items: ${section.contents?.length || 0}`);
-
             if (section.contents && Array.isArray(section.contents)) {
               section.contents.forEach((item, itemIndex) => {
-                console.log(`  Item ${itemIndex}: type=${item.videoId ? 'song' : item.playlistId ? 'playlist' : item.browseId ? 'album' : 'unknown'}, id=${item.videoId || item.playlistId || item.browseId || item.id}, title=${item.title}`);
-
                 // Determine item type based on available properties
                 let itemType = 'unknown';
                 if (item.playlistId) {
@@ -579,7 +540,6 @@ async function getYTMusicHomeFeed(limit = 10, forceRefresh = false) {
                     thumbnails: item.thumbnails || []
                   });
                   playlists.push(transformedPlaylist);
-                  console.log('    Added playlist:', transformedPlaylist.title);
                 } else if (itemType === 'album') {
                   // Transform album data
                   const transformedAlbum = transformYTToSaavnAlbum({
@@ -589,21 +549,15 @@ async function getYTMusicHomeFeed(limit = 10, forceRefresh = false) {
                     year: item.year || ''
                   });
                   albums.push(transformedAlbum);
-                  console.log('    Added album:', transformedAlbum.title);
                 }
               });
             }
           });
-
-          console.log(`YTMusic homefeed processed: ${playlists.length} playlists, ${albums.length} albums`);
-
           // Log sample data for debugging
           // if (playlists.length > 0) {
-          //   console.log('Sample playlist:', JSON.stringify(playlists[0], null, 2));
-          // }
+          //   // }
           // if (albums.length > 0) {
-          //   console.log('Sample album:', JSON.stringify(albums[0], null, 2));
-          // }
+          //   // }
 
           const finalPlaylists = playlists.slice(0, 20);
           const finalAlbums = albums.slice(0, 20);
@@ -620,8 +574,6 @@ async function getYTMusicHomeFeed(limit = 10, forceRefresh = false) {
           };
         }
       }
-
-      console.log('YTMusic homefeed: No valid data from Innertube Client');
       return {
         status: "SUCCESS",
         message: "No data available",
@@ -665,8 +617,6 @@ async function getYTMusicPlaylistData(playlistId) {
 
   const fetchFunction = async () => {
     try {
-      console.log(`🌐 YTMusic Playlist - Using Innertube Client for playlist: ${playlistId}`);
-
       // Use YouTube Music Service
       const playlistData = await YouTubeMusicService.getPlaylist(playlistId);
 
@@ -816,20 +766,8 @@ async function getYTMusicAlbumData(albumId) {
 
   const fetchFunction = async () => {
     try {
-      console.log(`🌐 YTMusic Album - Using Innertube Client for album: ${albumId}`);
-
       // Use YouTube Music Service
       const albumData = await YouTubeMusicService.getAlbum(albumId);
-
-      console.log(`🔍 YTMusic Album - Raw response for ${albumId}:`, {
-        hasData: !!albumData,
-        error: albumData?.error,
-        title: albumData?.title,
-        tracksCount: albumData?.tracks?.length || 0,
-        songsCount: albumData?.songs?.length || 0,
-        thumbnailsCount: albumData?.thumbnails?.length || 0
-      });
-
       if (albumData && !albumData.error) {
         // Transform the tracks data to match Saavn format
         const transformedSongs = [];
@@ -948,9 +886,6 @@ async function getYTMusicAlbumData(albumId) {
           releaseDate: "",
           songCountText: `${transformedSongs.length} songs`
         };
-
-        console.log(`✅ YTMusic Album - Loaded ${transformedSongs.length} songs from album: ${transformedAlbum.name}`);
-
         return {
           status: "SUCCESS",
           message: `Loaded album with ${transformedSongs.length} songs`,
@@ -958,8 +893,6 @@ async function getYTMusicAlbumData(albumId) {
           success: true
         };
       }
-
-      console.log('YTMusic Album - No valid data from Innertube Client, albumData:', albumData);
       return {
         status: "FAILED",
         message: albumData?.error || `No album data found for ID: ${albumId}`,
@@ -1030,8 +963,6 @@ async function getYTMusicArtistDetails(artistId) {
 
   const fetchFunction = async () => {
     try {
-      console.log(`🌐 YTMusic Artist Details - query: ${artistId}`);
-
       const artistData = await YouTubeMusicService.getArtist(artistId);
 
       if (artistData && !artistData.error) {
@@ -1142,24 +1073,17 @@ async function getYTMusicNewReleases(limit = 20, forceRefresh = false) {
 
   const fetchFunction = async () => {
     try {
-      console.log('🌐 YTMusic New Releases - Fetching from FEmusic_explore...');
-
       // Use the explore endpoint to get both albums and singles
       const data = await InnerTubeClient.request('browse', {
         browseId: 'FEmusic_explore'
       });
 
       if (data && data.contents) {
-        console.log('📦 YTMusic New Releases - Received explore response');
-
         const allAlbums = [];
 
         // Parse all carousel sections from explore
         const sections = data.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]
           ?.tabRenderer?.content?.sectionListRenderer?.contents || [];
-
-        console.log(`📋 Found ${sections.length} sections in explore`);
-
         sections.forEach((section, sectionIdx) => {
           const carousel = section.musicCarouselShelfRenderer;
 
@@ -1169,8 +1093,6 @@ async function getYTMusicNewReleases(limit = 20, forceRefresh = false) {
 
             // Look for new releases sections (albums or singles)
             if (browseEndpoint && browseEndpoint.includes('new_releases')) {
-              console.log(`  Section ${sectionIdx}: "${sectionTitle}" (${carousel.contents?.length || 0} items)`);
-
               carousel.contents?.forEach((item, idx) => {
                 const renderer = item.musicTwoRowItemRenderer;
 
@@ -1193,8 +1115,6 @@ async function getYTMusicNewReleases(limit = 20, forceRefresh = false) {
                   // Only include albums with playlistId (playable albums)
                   if (browseId && title && playlistId) {
                     const itemType = browseEndpoint.includes('singles') ? 'single' : 'album';
-                    console.log(`    ${idx}: "${title}" (${itemType}, ${subtitle}) ✓ playable`);
-
                     const album = transformYTToSaavnAlbum({
                       id: browseId,
                       browseId: browseId,
@@ -1205,15 +1125,12 @@ async function getYTMusicNewReleases(limit = 20, forceRefresh = false) {
                     });
                     allAlbums.push(album);
                   } else if (browseId && title && !playlistId) {
-                    console.log(`    ${idx}: "${title}" ✗ skipped (no playlistId)`);
-                  }
+                    }
                 }
               });
             }
           }
         });
-
-        console.log(`✅ YTMusic New Releases - Transformed ${allAlbums.length} items (albums + singles)`);
 
         // Limit the results
         const limitedAlbums = allAlbums.slice(0, limit);
@@ -1225,8 +1142,6 @@ async function getYTMusicNewReleases(limit = 20, forceRefresh = false) {
           success: true
         };
       }
-
-      console.log('⚠️ YTMusic New Releases - No explore data found');
       return {
         status: "SUCCESS",
         message: "No new releases found",
@@ -1262,8 +1177,6 @@ async function getYTMusicCharts(forceRefresh = false) {
 
   const fetchFunction = async () => {
     try {
-      console.log(`🌐 YTMusic Charts - Fetching global/local charts...`);
-
       // Just fetch the charts page with default context
       const data = await InnerTubeClient.request('browse', {
         browseId: 'FEmusic_charts',
@@ -1271,8 +1184,6 @@ async function getYTMusicCharts(forceRefresh = false) {
       });
 
       if (data && data.contents) {
-        console.log('📦 YTMusic Charts - Received response');
-
         const charts = [];
         const artists = [];
         const seenIds = new Set(); // Prevent duplicates
@@ -1280,9 +1191,6 @@ async function getYTMusicCharts(forceRefresh = false) {
         // Parse sections for charts
         const sections = data.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]
           ?.tabRenderer?.content?.sectionListRenderer?.contents || [];
-
-        console.log('🔍 Analyzing response sections:', sections.length);
-
         sections.forEach(section => {
           let sectionTitle = '';
           let items = [];
@@ -1341,7 +1249,6 @@ async function getYTMusicCharts(forceRefresh = false) {
                   (sectionTitle && sectionTitle.toLowerCase().includes('artist'));
 
                 if (isArtist) {
-                  console.log(`      Found ARTIST: "${title}" (${sectionTitle})`);
                   artists.push(transformYTToSaavnArtist({
                     browseId: browseId,
                     name: title,
@@ -1349,7 +1256,6 @@ async function getYTMusicCharts(forceRefresh = false) {
                   }));
                 } else {
                   // It's a Chart (Playlist/Video)
-                  console.log(`      Found CHART: "${title}" (${sectionTitle})`);
                   charts.push(transformYTToSaavnAlbum({
                     id: uniqueId,
                     browseId: uniqueId,
@@ -1364,8 +1270,6 @@ async function getYTMusicCharts(forceRefresh = false) {
             }
           });
         });
-
-        console.log(`✅ YTMusic Charts - Found ${charts.length} charts and ${artists.length} artists`);
         return {
           status: "SUCCESS",
           message: `Found ${charts.length} charts and ${artists.length} artists`,

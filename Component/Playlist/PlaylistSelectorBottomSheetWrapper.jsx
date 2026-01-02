@@ -16,18 +16,15 @@ const PlaylistSelectorBottomSheetWrapperComponent = forwardRef((props, ref) => {
         // Set the reference for the manager
         PlaylistSelectorBottomSheetRef.current = {
           show: (song) => {
-            console.log('🎵 PlaylistSelectorBottomSheet show called with song:', song?.title);
             if (!song) {
               console.error('❌ Attempted to show PlaylistSelectorBottomSheet without a song');
               return false;
             }
-            console.log('✅ Setting selected song and making visible');
             setSelectedSong(song);
             setVisible(true);
             return true;
           },
           hide: () => {
-            console.log('🔽 PlaylistSelectorBottomSheet hide called');
             setVisible(false);
             return true;
           },
@@ -40,8 +37,6 @@ const PlaylistSelectorBottomSheetWrapperComponent = forwardRef((props, ref) => {
         };
 
         setInitialized(true);
-        console.log('✅ PlaylistSelectorBottomSheetWrapper initialized successfully in context:',
-          typeof window !== 'undefined' ? 'web' : 'native');
       } catch (error) {
         console.error('Error initializing PlaylistSelectorBottomSheetWrapper:', error);
       }
@@ -65,7 +60,6 @@ const PlaylistSelectorBottomSheetWrapperComponent = forwardRef((props, ref) => {
 
   useImperativeHandle(ref, () => ({
     show: (song) => {
-      console.log('PlaylistSelectorBottomSheet show called with song:', song?.title);
       if (!song) {
         console.error('Attempted to show PlaylistSelectorBottomSheet without a song');
         return false;
@@ -75,7 +69,6 @@ const PlaylistSelectorBottomSheetWrapperComponent = forwardRef((props, ref) => {
       return true;
     },
     hide: () => {
-      console.log('PlaylistSelectorBottomSheet hide called');
       setVisible(false);
       return true;
     },
@@ -88,7 +81,6 @@ const PlaylistSelectorBottomSheetWrapperComponent = forwardRef((props, ref) => {
   }));
 
   const handleClose = () => {
-    console.log('PlaylistSelectorBottomSheet closed');
     setVisible(false);
     // Clear song data after a small delay to prevent UI flickering
     setTimeout(() => {

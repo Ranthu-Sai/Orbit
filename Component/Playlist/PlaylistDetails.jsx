@@ -223,20 +223,13 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
   }, [playlistId]);
   
   async function AddToPlayer(){
-    console.log("PlaylistDetails: AddToPlayer called with data:", {
-      hasSongs: !!Data?.data?.songs,
-      songCount: Data?.data?.songs?.length || 0
-    });
-    
     if (!Data?.data?.songs || Data.data.songs.length === 0) {
-      console.log("No songs available to play");
       return;
     }
     
     try {
       // If already playing, pause playback
       if (isPlaying) {
-        console.log("Pausing playback since playlist is currently playing");
         await TrackPlayer.pause();
         setIsPlaying(false);
         return;
@@ -276,7 +269,6 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
       );
       
       if (isPlaylistTrackCurrent || isPlaylistInQueue) {
-        console.log("Playlist already in queue, resuming playback");
         // Resume playback if playlist is already in queue but paused
         await TrackPlayer.play();
         setIsPlaying(true);
@@ -303,7 +295,6 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
         const songUrl = getSongUrl(e, quality);
 
         if (!songUrl) {
-          console.log(`No valid URL found for song at index ${i}, song ID: ${e?.id || 'unknown'}`);
           continue;
         }
 
@@ -333,11 +324,7 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
           explicitContent: e?.explicitContent
         });
       }
-      
-      console.log(`Prepared ${ForMusicPlayer.length} songs for playback`);
-      
       if (ForMusicPlayer.length === 0) {
-        console.log("No valid tracks to play");
         setLoading(false);
         return;
       }
@@ -346,11 +333,9 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
       await AddPlaylist(ForMusicPlayer);
       
       // Set isPlaying to true immediately after starting playback
-      console.log("Playlist started playing, updating state");
       setIsPlaying(true);
       
       updateTrack();
-      console.log("Successfully added songs to player");
     } catch (error) {
       console.error("Error adding songs to player:", error);
     } finally {

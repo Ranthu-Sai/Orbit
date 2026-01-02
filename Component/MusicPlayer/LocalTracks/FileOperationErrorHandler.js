@@ -304,8 +304,6 @@ export class FileOperationErrorHandler {
           maxDelay
         );
         
-        console.log(`FileOperationErrorHandler: Retrying operation in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
-        
         if (onRetry) {
           onRetry(attempt + 1, error, delay);
         }

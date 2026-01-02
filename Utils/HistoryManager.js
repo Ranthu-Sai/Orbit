@@ -54,8 +54,6 @@ class HistoryManager {
   async initialize() {
     if (this.isInitialized) return;
     try {
-      console.log('HistoryManager: Initializing...');
-
       // Load history into memory once
       const historyFileExists = await RNFS.exists(HISTORY_FILE_PATH);
       if (historyFileExists) {
@@ -67,7 +65,6 @@ class HistoryManager {
       }
 
       this.isInitialized = true;
-      console.log('HistoryManager: Initialized with', this.history.length, 'entries');
     } catch (error) {
       console.error('HistoryManager: Initialization failed:', error);
       this.history = [];
@@ -85,7 +82,6 @@ class HistoryManager {
       if (!historyFileExists) {
         const legacyHistory = await AsyncStorage.getItem(HISTORY_STORAGE_KEY);
         if (legacyHistory) {
-          console.log('HistoryManager: Migrating history from AsyncStorage...');
           await RNFS.writeFile(HISTORY_FILE_PATH, legacyHistory, 'utf8');
           // Don't remove from AsyncStorage yet, wait for verification or just leave it as backup
           // AsyncStorage.removeItem(HISTORY_STORAGE_KEY); 
@@ -95,7 +91,6 @@ class HistoryManager {
       if (!statsFileExists) {
         const legacyStats = await AsyncStorage.getItem(WEEKLY_STATS_KEY);
         if (legacyStats) {
-          console.log('HistoryManager: Migrating weekly stats from AsyncStorage...');
           await RNFS.writeFile(WEEKLY_STATS_FILE_PATH, legacyStats, 'utf8');
           // AsyncStorage.removeItem(WEEKLY_STATS_KEY);
         }
@@ -162,8 +157,6 @@ class HistoryManager {
 
       // Add to history list immediately in memory
       this.addToHistoryMemory(song);
-
-      console.log(`HistoryManager: Tracking "${song.title}"`);
     } catch (error) {
       console.error('HistoryManager: Error starting tracking:', error);
     }
@@ -223,8 +216,6 @@ class HistoryManager {
       this.isTracking = false;
       this.currentTrack = null;
       this.startTime = null;
-
-      console.log(`HistoryManager: Stopped tracking "${title}"`);
     } catch (error) {
       this.isTracking = false;
     }
@@ -239,8 +230,6 @@ class HistoryManager {
 
       this.isPaused = true;
       this.pauseStartTime = Date.now();
-
-      console.log(`HistoryManager: Paused tracking for "${this.currentTrack?.title}"`);
     } catch (error) {
       console.error('HistoryManager: Error pausing tracking:', error);
     }
@@ -260,8 +249,6 @@ class HistoryManager {
       }
 
       this.isPaused = false;
-
-      console.log(`HistoryManager: Resumed tracking for "${this.currentTrack?.title}"`);
     } catch (error) {
       console.error('HistoryManager: Error resuming tracking:', error);
     }
@@ -391,7 +378,6 @@ class HistoryManager {
     try {
       this.history = [];
       await this.writeJsonFile(HISTORY_FILE_PATH, []);
-      console.log('HistoryManager: History cleared');
       return true;
     } catch (err) {
       console.error('HistoryManager: Error clearing history:', err);

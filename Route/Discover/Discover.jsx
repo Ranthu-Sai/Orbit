@@ -46,7 +46,6 @@ export const Discover = () => {
 
           // Use cached data if not expired
           if (now - timestamp < CACHE_EXPIRY) {
-            console.log('📦 Using cached new releases');
             setNewReleases(data);
             setLoadingReleases(false);
             return;
@@ -64,7 +63,6 @@ export const Discover = () => {
             data: response.data,
             timestamp: Date.now()
           }));
-          console.log('💾 Cached new releases');
         }
       } catch (error) {
         console.error('Error fetching new releases:', error);
@@ -81,14 +79,12 @@ export const Discover = () => {
     const fetchCharts = async () => {
       try {
         setLoadingCharts(true);
-        console.log('📈 Fetching charts...');
         const response = await getYTMusicCharts();
 
         if (response.success && response.data) {
           setCharts(response.data.charts || []);
           setArtists(response.data.artists || []);
         } else {
-          console.log('⚠️ No charts found');
         }
       } catch (error) {
         console.error('Error fetching charts:', error);
@@ -103,8 +99,6 @@ export const Discover = () => {
   // Clear any nested navigation params when Discover screen is focused  
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      console.log('Discover screen focused - ensuring clean navigation state');
-
       // Get the current navigation state
       const state = navigation.getState();
 
@@ -116,8 +110,6 @@ export const Discover = () => {
         if (currentRoute.params &&
           (currentRoute.params.screen === 'Playlist' ||
             (currentRoute.params.params && currentRoute.params.params.screen === 'Playlist'))) {
-          console.log('Detected potentially problematic params - cleaning navigation state');
-
           // Reset the navigation state to just the Discover screen
           navigation.setParams(null);
         }
@@ -183,7 +175,7 @@ export const Discover = () => {
     <MainWrapper>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 170 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
         }

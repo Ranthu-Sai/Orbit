@@ -79,7 +79,6 @@ export const LocalMusicCard = ({ song, index, allSongs, artist, activeTrackId, i
       const currentState = navigation.getState();
       if (currentState && currentState.routes && currentState.routes.length > 0) {
         const navPath = getNavigationPath();
-        console.log('Setting navigation path for local music:', navPath);
         setPreviousScreen(navPath);
         setMusicPreviousScreen(navPath);
       }
@@ -92,20 +91,14 @@ export const LocalMusicCard = ({ song, index, allSongs, artist, activeTrackId, i
 
   const formatTitle = (title) => {
     if (!title) return "Unknown Title";
-    let formatted = title.replace(/\.(mp3|m4a|wav|ogg|flac)$/i, '');
-    if (formatted.length > 20) {
-      return formatted.substring(0, 20) + "...";
-    }
-    return formatted;
+    // Remove file extension only - let UI handle truncation with ellipsis
+    return title.replace(/\.(mp3|m4a|wav|ogg|flac)$/i, '');
   };
 
   const formatArtist = (artistName) => {
     if (!artistName) return "Unknown Artist";
-    let formatted = artistName.replace(/\.(mp3|m4a|wav|ogg|flac)$/i, '');
-    if (formatted.length > 20) {
-      return formatted.substring(0, 20) + "...";
-    }
-    return formatted;
+    // Remove file extension only - let UI handle truncation with ellipsis
+    return artistName.replace(/\.(mp3|m4a|wav|ogg|flac)$/i, '');
   };
 
   const prepareAndPlayTracks = async () => {
@@ -159,7 +152,6 @@ export const LocalMusicCard = ({ song, index, allSongs, artist, activeTrackId, i
         await TrackPlayer.add(tracksWithSource);
         await TrackPlayer.play();
         setIndex(1);
-        console.log(`✅ LocalMusicCard: Started playback with ${initialBatch.length} tracks (progressive loading enabled)`);
       } else {
         console.error('Failed to initialize progressive queue');
       }

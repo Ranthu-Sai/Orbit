@@ -75,7 +75,6 @@ export const PlaylistTopHeader = ({
     const checkLiked = async () => {
       try {
         if (!playlistId) {
-          console.log("No valid playlist ID to check liked status");
           return;
         }
 
@@ -166,14 +165,12 @@ export const PlaylistTopHeader = ({
   const toggleLike = async () => {
     try {
       if (!playlistId) {
-        console.log("No valid playlist ID to like/unlike");
         return;
       }
 
       if (liked) {
         // Remove from liked playlists
         await DeleteALikedPlaylist(playlistId);
-        console.log(`Removed playlist ${playlistId} from liked playlists`);
         ToastAndroid.show("Removed from Favorites", ToastAndroid.SHORT);
         // Update state first to give immediate feedback
         setLiked(false);
@@ -203,8 +200,6 @@ export const PlaylistTopHeader = ({
             displayFollower,
             playlistId
           );
-
-          console.log(`Added playlist ${playlistId} to liked playlists`);
           ToastAndroid.show("Added to Favorites", ToastAndroid.SHORT);
           // Update state first to give immediate feedback
           setLiked(true);

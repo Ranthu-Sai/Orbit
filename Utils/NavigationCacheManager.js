@@ -103,8 +103,6 @@ class NavigationCacheManager {
                 // Restore to RAM for next time
                 this.cache.set(key, entry);
                 this._updateAccessOrder(key);
-                console.log(`[CacheManager] Restored ${key} from disk`);
-
                 return entry.data;
             }
         } catch (e) {
@@ -142,12 +140,10 @@ class NavigationCacheManager {
                 if (dataString.length < 500000) {
                     await AsyncStorage.setItem(`cache_${key}`, dataString);
                 } else {
-                    console.log(`[CacheManager] Skipping disk write for ${key} - too large (${dataString.length} bytes)`);
-                }
+                    }
             } catch (e) {
                 // Handle disk full gracefully - don't log error, data is still in RAM
                 if (e.message && (e.message.includes('code 13') || e.message.toLowerCase().includes('full'))) {
-                    console.log('[CacheManager] Disk full - data kept in memory only');
                 }
             }
         })();
@@ -257,7 +253,6 @@ class NavigationCacheManager {
 
                 // Restore to RAM
                 this.streamCache.set(key, entry);
-                console.log(`[CacheManager] Restored stream ${key} from disk (format: ${entry.format})`);
                 return {
                     url: entry.url,
                     format: entry.format || null,
@@ -309,7 +304,6 @@ class NavigationCacheManager {
                 }
             } catch (e) {
                 if (e.message && (e.message.includes('code 13') || e.message.toLowerCase().includes('full'))) {
-                    console.log('[CacheManager] Disk full - stream URL kept in memory only');
                 }
             }
         })();
@@ -332,7 +326,6 @@ class NavigationCacheManager {
      */
     clearStreamCache() {
         this.streamCache.clear();
-        console.log('[CacheManager] Stream cache cleared');
     }
 
     // ============================================
@@ -480,7 +473,6 @@ class NavigationCacheManager {
     async clearPlayerState() {
         try {
             await AsyncStorage.removeItem('cache_player_state');
-            console.log('[CacheManager] Player state cleared');
         } catch (e) {
             console.warn('[CacheManager] Failed to clear player state', e);
         }
@@ -492,7 +484,6 @@ class NavigationCacheManager {
      */
     async _emergencyCleanup() {
         try {
-            console.log('[CacheManager] 🧹 Performing emergency cleanup...');
             const keys = await AsyncStorage.getAllKeys();
             // Remove all cache_ and stream_ prefixed items (except player state)
             const cacheKeys = keys.filter(k =>
@@ -501,7 +492,6 @@ class NavigationCacheManager {
             );
             if (cacheKeys.length > 0) {
                 await AsyncStorage.multiRemove(cacheKeys);
-                console.log(`[CacheManager] ✅ Cleared ${cacheKeys.length} cached items`);
             }
             // Also clear RAM caches
             this.cache.clear();
@@ -544,7 +534,6 @@ class NavigationCacheManager {
         while (this.cache.size >= CACHE_LIMITS.MAX_ENTRIES && this.accessOrder.length > 0) {
             const oldestKey = this.accessOrder.shift();
             this.cache.delete(oldestKey);
-            console.log(`[CacheManager] LRU eviction: removed ${oldestKey}`);
             // Note: We don't strictly enforce clearing disk cache on LRU to keep more history on disk than RAM
             // But if we wanted to sync them 1:1, we would remove from AsyncStorage here too.
             // For now, let's keep disk cache slightly larger than RAM is fine, or rely on expiry.
@@ -564,7 +553,6 @@ class NavigationCacheManager {
                 // Also clear from disk if enforcing strict limit
                 AsyncStorage.removeItem(`stream_${key}`).catch(() => { });
             });
-            console.log(`[CacheManager] Stream cache cleanup: removed ${keysToRemove.length} entries`);
         }
     }
 
@@ -591,8 +579,7 @@ class NavigationCacheManager {
      */
     logStatus() {
         const stats = this.getStats();
-        console.log('[CacheManager] Status:', JSON.stringify(stats, null, 2));
-    }
+        }
 }
 
 // Export singleton instance

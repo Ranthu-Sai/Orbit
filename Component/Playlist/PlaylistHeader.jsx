@@ -188,7 +188,6 @@ export const PlaylistHeader = ({
             }
 
             const allDownloadedStatus = downloadedCount === songs.length && songs.length > 0;
-            console.log(`[PlaylistHeader] Download check: ${downloadedCount}/${songs.length} downloaded, showing checkmark: ${allDownloadedStatus}`);
             setAllDownloaded(allDownloadedStatus);
         };
 
@@ -253,9 +252,6 @@ export const PlaylistHeader = ({
     const formatSongsForPlayer = useCallback(async (shuffle = false) => {
         const quality = await getIndexQuality();
         const songs = songsData || playlistData?.data?.songs || [];
-
-        console.log(`PlaylistHeader: Formatting ${songs.length} songs for player`);
-
         const formatted = [];
         for (const song of songs) {
             if (!song) continue;
@@ -295,9 +291,6 @@ export const PlaylistHeader = ({
                 source: song.source || (isYTMusic ? 'ytmusic' : 'saavn'),
             });
         }
-
-        console.log(`PlaylistHeader: Formatted ${formatted.length} songs successfully`);
-
         if (shuffle && formatted.length > 0) {
             // Fisher-Yates shuffle
             for (let i = formatted.length - 1; i > 0; i--) {

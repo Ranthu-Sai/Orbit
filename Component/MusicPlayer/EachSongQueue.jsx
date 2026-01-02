@@ -154,7 +154,6 @@ export const EachSongQueue = memo(function EachSongQueue({
       // Default fallback - use static image instead of animated GIF
       return getDefaultImage();
     } catch (error) {
-      console.log('Error getting image source:', error);
       return getDefaultImage(); // Static image fallback
     }
   };
@@ -198,7 +197,6 @@ export const EachSongQueue = memo(function EachSongQueue({
         if (global.HapticFeedback) {
           global.HapticFeedback.impactMedium();
         }
-        console.log('Long press activated - starting drag');
         drag();
       }
     } catch (error) {
@@ -216,7 +214,6 @@ export const EachSongQueue = memo(function EachSongQueue({
   const handlePress = () => {
     try {
       if (typeof onPress === 'function') {
-        console.log(`Queue item pressed: ${title} (${id})`);
         onPress();
       } else {
         console.warn('Song press handler not available');
