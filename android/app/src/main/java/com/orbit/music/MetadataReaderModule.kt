@@ -1,4 +1,4 @@
-package com.orbit.music
+package com.orbit.app
 
 import android.graphics.BitmapFactory
 import android.util.Base64

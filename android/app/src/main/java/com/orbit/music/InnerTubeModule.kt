@@ -1,4 +1,4 @@
-package com.orbit.music
+package com.orbit.app
 
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext

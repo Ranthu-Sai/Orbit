@@ -72,13 +72,13 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.orbit.music"
+    namespace "com.orbit.app"
     defaultConfig {
-        applicationId "com.orbit.music"
+        applicationId "com.orbit.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "3.0.0"
+        versionCode 4
+        versionName "3.0.1"
         multiDexEnabled true
         
         // Java 8 Desugaring Support

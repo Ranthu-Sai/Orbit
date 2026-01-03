@@ -1,4 +1,4 @@
-package com.orbit.music
+package com.orbit.app
 
 import android.content.Intent
 import android.net.Uri

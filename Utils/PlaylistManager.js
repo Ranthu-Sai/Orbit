@@ -6,7 +6,7 @@ import { safeExists, ensureDirectoryExists } from './FileUtils';
 // File-based storage for playlists to avoid SQLite limits
 // Using app-private external storage (no permission needed on Android 11+)
 const getPlaylistsFilePath = async () => {
-  // Use ExternalDirectoryPath (/storage/emulated/0/Android/data/com.orbit.music/files)
+  // Use ExternalDirectoryPath (/storage/emulated/0/Android/data/com.orbit.app/files)
   // instead of DownloadDirectoryPath to avoid MANAGE_EXTERNAL_STORAGE requirement
   const baseDir = Platform.OS === 'android'
     ? `${RNFS.ExternalDirectoryPath}/orbit`

@@ -49,10 +49,10 @@
 }
 
 # Don't remove or rename the native Python bridge methods
--keep class com.orbit.music.PythonBridgeModule {
+-keep class com.orbit.app.PythonBridgeModule {
     <methods>;
 }
 
--keep class com.orbit.music.PythonPackage {
+-keep class com.orbit.app.PythonPackage {
     <methods>;
 }

@@ -82,8 +82,8 @@ export class UnifiedDownloadService {
         downloadUrl,
         songPath,
         {
-          id: song.id,
-          name: song.title || 'Unknown',
+          id: String(song.id),
+          name: String(song.title || 'Unknown'),
           type: 'song'
         },
         downloadHeaders, // Pass headers (null for non-YTMusic sources)
@@ -111,8 +111,8 @@ export class UnifiedDownloadService {
             artworkUrl,
             artworkPath,
             {
-              id: song.id,
-              name: `${song.title} - Artwork`,
+              id: String(song.id),
+              name: String(song.title || 'Unknown') + ' - Artwork',
               type: 'artwork'
             }
           );
@@ -161,10 +161,10 @@ export class UnifiedDownloadService {
           metadataEmbedded = await embedMetadataInFile(
             finalSongPath,
             {
-              title: song.title || 'Unknown',
-              artist: this.formatArtist(song.artist) || 'Unknown Artist',
-              album: song.album || 'Unknown Album',
-              year: song.year || new Date().getFullYear().toString()
+              title: String(song.title || 'Unknown'),
+              artist: String(this.formatArtist(song.artist) || 'Unknown Artist'),
+              album: String(song.album || 'Unknown Album'),
+              year: String(song.year || new Date().getFullYear().toString())
             },
             artworkPathToEmbed
           );
@@ -282,7 +282,7 @@ export class UnifiedDownloadService {
       // Detection: source='spotify' OR spotifyId OR _needsSpotifyMapping flag
       // Uses same logic as SmartPrefetchManager for playback
       // ============================================================
-      if (song.source === 'spotify' || song.spotifyId || song._needsSpotifyMapping || song.url?.startsWith('spotify://')) {
+      if (song.source === 'spotify' || song.spotifyId || song._needsSpotifyMapping || (typeof song.url === 'string' && song.url?.startsWith('spotify://'))) {
         try {
           const YouTubeMusicService = require('./YouTubeMusicService').default;
           const ytMusicResult = await YouTubeMusicService.searchAndStream(

@@ -302,7 +302,7 @@ const removeDownloadedSongMetadata = async (songId, localFilePath = null) => {
         // If file doesn't exist, ignore the error
         if (unlinkError.message.includes('no such file or directory') ||
           unlinkError.message.includes('File does not exist')) {
-          } else {
+        } else {
           console.error(`❌ [StorageManager] RNFS.unlink error:`, unlinkError.message);
           // Don't throw for artwork or non-critical file issues, but here it's the main song
           throw unlinkError;

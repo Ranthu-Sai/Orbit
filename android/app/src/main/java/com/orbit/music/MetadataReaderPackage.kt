@@ -1,4 +1,4 @@
-package com.orbit.music
+package com.orbit.app
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule

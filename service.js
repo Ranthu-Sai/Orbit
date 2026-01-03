@@ -5,7 +5,6 @@ import autoRecommendations from './Utils/AutoRecommendations';
 import DownloadQueueService from './Utils/DownloadQueueService';
 import listeningHistoryService from './Utils/ListeningHistoryService';
 import smartPrefetchManager from './Utils/SmartPrefetchManager';
-import { PlayNextSong, PlayPreviousSong } from './MusicPlayerFunctions';
 
 let isPlayerInitialized = false;
 
@@ -24,10 +23,26 @@ export const PlaybackService = async function () {
       isPlayerInitialized = true;
     }
 
+    // CRITICAL: Use simple native TrackPlayer methods for remote events
+    // Complex functions like PlayNextSong/PlayPreviousSong fail in background
+    // because they depend on React Native JS bundle being fully active.
+    // Native skipToNext/skipToPrevious work reliably from notification panel.
     TrackPlayer.addEventListener(Event.RemotePlay, () => TrackPlayer.play());
     TrackPlayer.addEventListener(Event.RemotePause, () => TrackPlayer.pause());
-    TrackPlayer.addEventListener(Event.RemoteNext, () => PlayNextSong());
-    TrackPlayer.addEventListener(Event.RemotePrevious, () => PlayPreviousSong());
+    TrackPlayer.addEventListener(Event.RemoteNext, async () => {
+      try {
+        await TrackPlayer.skipToNext();
+      } catch (e) {
+        // Silently fail if at end of queue
+      }
+    });
+    TrackPlayer.addEventListener(Event.RemotePrevious, async () => {
+      try {
+        await TrackPlayer.skipToPrevious();
+      } catch (e) {
+        // Silently fail if at start of queue
+      }
+    });
     TrackPlayer.addEventListener(Event.RemoteSeek, (e) => TrackPlayer.seekTo(e.position));
 
     // History tracking is handled by ContextState.jsx to avoid duplicate calls

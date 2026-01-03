@@ -664,7 +664,8 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
         language,
         artistID,
         source: actualSource, // Preserve original source (dab, ytmusic, saavn)
-        isDabTrack: item?.isDabTrack || false // Preserve DAB flag for detection
+        isDabTrack: item?.isDabTrack || false, // Preserve DAB flag for detection
+        downloadUrl: item?.downloadUrl || item?.download_url, // Pass downloadUrl arrays for Saavn
       };
 
       // Use the unified download service
@@ -800,10 +801,14 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
               image: image,
               id,
               url,
+              downloadUrl: item?.downloadUrl || item?.download_url,
               duration,
               language,
               artistID,
               localSongPath,
+              source: item?.source || source || 'saavn',
+              spotifyId: (source === 'spotify' || item?.source === 'spotify') ? id : undefined,
+              isDabTrack: item?.isDabTrack || source === 'dab' || false,
             }}
             isFromPlaylist={isFromPlaylist}
             isFromAlbum={isFromAlbum}
