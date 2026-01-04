@@ -27,6 +27,12 @@ const createHistoryEntry = (song, listenDuration = 0) => ({
   sourceType: song.sourceType || (song.isLocal ? 'local' : song.path ? 'download' : 'online'),
   isLocal: song.isLocal || false,
   path: song.path || null,
+  // Store YouTube video ID for songs that need stream fetching (Spotify mapped to YTMusic, etc.)
+  videoId: song.videoId || null,
+  // Store source for proper stream fetching (ytmusic, spotify, saavn, dab)
+  source: song.source || null,
+  // Store original Spotify ID if this was mapped from Spotify
+  spotifyId: song.spotifyId || (song.source === 'spotify' ? song.id : null),
 });
 
 class HistoryManager {

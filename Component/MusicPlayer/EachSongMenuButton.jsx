@@ -208,11 +208,41 @@ export const EachSongMenuButton = ({
       const isYouTubeSong = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
       // Check if this is a DAB Music track (multiple detection methods)
       const isDabTrack = song.isDabTrack || song.source === 'dab' || (!isNaN(song.url) && String(song.url).length > 5);
+      // Check if this is a Spotify track
+      const isSpotifyTrack = song.source === 'spotify' || song.spotifyId || song._needsSpotifyMapping || (typeof song.url === 'string' && song.url?.startsWith('spotify://'));
 
       let songUrl = '';
       let songMetadata = { ...song };
 
-      if (isYouTubeSong) {
+      if (isSpotifyTrack) {
+        // For Spotify songs, map to YouTube Music to get stream URL
+        try {
+          const ytMusicResult = await YouTubeMusicService.searchAndStream(
+            song.title || song.name,
+            song.artist || ''
+          );
+
+          if (ytMusicResult && ytMusicResult.url && !ytMusicResult.error) {
+            songUrl = ytMusicResult.url;
+            songMetadata = {
+              ...songMetadata,
+              url: ytMusicResult.url,
+              headers: ytMusicResult.headers,
+              userAgent: ytMusicResult.headers?.['User-Agent'],
+              artwork: ytMusicResult.thumbnail || songMetadata.artwork,
+              mappedFromSpotify: true,
+            };
+          } else {
+            console.error('❌ Failed to map Spotify track to YTMusic');
+            ToastAndroid.show('Failed to get stream URL', ToastAndroid.SHORT);
+            return;
+          }
+        } catch (error) {
+          console.error('❌ Error mapping Spotify to YTMusic:', error);
+          ToastAndroid.show('Failed to load Spotify stream', ToastAndroid.SHORT);
+          return;
+        }
+      } else if (isYouTubeSong) {
         // For YouTube songs, fetch the actual stream URL
         try {
           const streamData = await youtubeStreamingService.getStreamUrl(song.id);
@@ -279,6 +309,11 @@ export const EachSongMenuButton = ({
         duration: songMetadata.duration || 0,
         language: songMetadata.language || '',
         artistID: songMetadata.artistID || '',
+        // Preserve source metadata for info modal
+        source: isSpotifyTrack ? 'spotify' : (isDabTrack ? 'dab' : (isYouTubeSong ? 'ytmusic' : song.source)),
+        spotifyId: isSpotifyTrack ? song.id : song.spotifyId,
+        album: songMetadata.album || song.album || '',
+        mappedFromSpotify: songMetadata.mappedFromSpotify || false,
         ...(songMetadata.headers && { headers: songMetadata.headers }),
         ...(songMetadata.userAgent && { userAgent: songMetadata.userAgent })
       });
@@ -303,11 +338,41 @@ export const EachSongMenuButton = ({
       const isYouTubeSong = song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isLocalMusic;
       // Check if this is a DAB Music track (multiple detection methods)
       const isDabTrack = song.isDabTrack || song.source === 'dab' || (!isNaN(song.url) && String(song.url).length > 5);
+      // Check if this is a Spotify track
+      const isSpotifyTrack = song.source === 'spotify' || song.spotifyId || song._needsSpotifyMapping || (typeof song.url === 'string' && song.url?.startsWith('spotify://'));
 
       let songUrl = '';
       let songMetadata = { ...song };
 
-      if (isYouTubeSong) {
+      if (isSpotifyTrack) {
+        // For Spotify songs, map to YouTube Music to get stream URL
+        try {
+          const ytMusicResult = await YouTubeMusicService.searchAndStream(
+            song.title || song.name,
+            song.artist || ''
+          );
+
+          if (ytMusicResult && ytMusicResult.url && !ytMusicResult.error) {
+            songUrl = ytMusicResult.url;
+            songMetadata = {
+              ...songMetadata,
+              url: ytMusicResult.url,
+              headers: ytMusicResult.headers,
+              userAgent: ytMusicResult.headers?.['User-Agent'],
+              artwork: ytMusicResult.thumbnail || songMetadata.artwork,
+              mappedFromSpotify: true,
+            };
+          } else {
+            console.error('❌ Failed to map Spotify track to YTMusic');
+            ToastAndroid.show('Failed to get stream URL', ToastAndroid.SHORT);
+            return;
+          }
+        } catch (error) {
+          console.error('❌ Error mapping Spotify to YTMusic:', error);
+          ToastAndroid.show('Failed to load Spotify stream', ToastAndroid.SHORT);
+          return;
+        }
+      } else if (isYouTubeSong) {
         // For YouTube songs, fetch the actual stream URL
         try {
           const streamData = await youtubeStreamingService.getStreamUrl(song.id);
@@ -374,6 +439,11 @@ export const EachSongMenuButton = ({
         duration: songMetadata.duration || 0,
         language: songMetadata.language || '',
         artistID: songMetadata.artistID || '',
+        // Preserve source metadata for info modal
+        source: isSpotifyTrack ? 'spotify' : (isDabTrack ? 'dab' : (isYouTubeSong ? 'ytmusic' : song.source)),
+        spotifyId: isSpotifyTrack ? song.id : song.spotifyId,
+        album: songMetadata.album || song.album || '',
+        mappedFromSpotify: songMetadata.mappedFromSpotify || false,
         ...(songMetadata.headers && { headers: songMetadata.headers }),
         ...(songMetadata.userAgent && { userAgent: songMetadata.userAgent })
       };

@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 10,
-    paddingBottom: 120,
+    paddingBottom: 150,
   },
   footer: {
     height: 80,

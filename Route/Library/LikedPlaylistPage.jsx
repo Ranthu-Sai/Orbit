@@ -73,7 +73,7 @@ export const LikedPlaylistPage = () => {
       scrollEventThrottle={16}
       ref={AnimatedRef}
       contentContainerStyle={{
-        paddingBottom: 65,
+        paddingBottom: 150,
         backgroundColor: theme.colors.background,
       }}
     >

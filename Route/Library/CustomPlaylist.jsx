@@ -810,7 +810,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   playlistsContentContainer: {
-    paddingBottom: 80, // Add padding for the minimized player
+    paddingBottom: 150, // Add padding for the minimized player
   },
   playlistsSection: {
     marginBottom: 20,

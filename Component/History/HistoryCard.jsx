@@ -63,17 +63,77 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
   // Play song
   const playSong = async () => {
     try {
-      const songData = {
-        id: historyItem.id,
-        title: historyItem.title,
-        artist: historyItem.artist,
-        artwork: historyItem.artwork,
-        url: historyItem.url,
-        duration: historyItem.duration,
-        sourceType: historyItem.sourceType,
-        isLocal: historyItem.isLocal,
-        path: historyItem.path,
-      };
+      // Check if this is a legacy history entry (empty URL and no videoId)
+      // For these, we need to search YouTube Music by title/artist
+      const isLegacyEntry = !historyItem.url && !historyItem.videoId && historyItem.sourceType === 'online';
+
+      let songData;
+
+      if (isLegacyEntry) {
+        // Legacy entry without videoId - search YouTube Music first
+        console.log('🔍 History: Legacy entry, searching YTMusic for:', historyItem.title);
+        try {
+          const YouTubeMusicService = require('../../Utils/YouTubeMusicService').default;
+          const ytResult = await YouTubeMusicService.searchAndStream(
+            historyItem.title,
+            historyItem.artist || ''
+          );
+
+          if (ytResult && ytResult.url && !ytResult.error) {
+            // Successfully found on YouTube Music
+            songData = {
+              id: ytResult.videoId,
+              title: historyItem.title,
+              artist: historyItem.artist,
+              artwork: historyItem.artwork,
+              url: ytResult.url,
+              headers: ytResult.headers,
+              duration: historyItem.duration,
+              sourceType: 'online',
+              isLocal: false,
+              source: 'ytmusic',
+              videoId: ytResult.videoId,
+              _prefetched: true,
+            };
+            console.log('✅ History: Found on YTMusic:', ytResult.videoId);
+          } else {
+            throw new Error('Could not find song on YouTube Music');
+          }
+        } catch (searchError) {
+          console.error('❌ History: YTMusic search failed:', searchError.message);
+          ToastAndroid.show('Could not find song', ToastAndroid.SHORT);
+          return;
+        }
+      } else {
+        // Standard case - has URL or videoId
+        const needsStreamFetch = !historyItem.url && (
+          historyItem.videoId ||
+          historyItem.source === 'ytmusic' ||
+          historyItem.source === 'spotify' ||
+          historyItem.source === 'dab'
+        );
+
+        songData = {
+          // Use videoId as ID if available (for YTMusic playback), otherwise use original ID
+          id: historyItem.videoId || historyItem.id,
+          title: historyItem.title,
+          artist: historyItem.artist,
+          artwork: historyItem.artwork,
+          url: historyItem.url || '', // Empty URL will trigger stream fetch
+          duration: historyItem.duration,
+          sourceType: historyItem.sourceType,
+          isLocal: historyItem.isLocal,
+          path: historyItem.path,
+          // Include source info for proper stream fetching
+          source: historyItem.videoId ? 'ytmusic' : historyItem.source,
+          videoId: historyItem.videoId,
+          spotifyId: historyItem.spotifyId,
+          // Flag to trigger stream fetch if URL is empty
+          _needsStream: needsStreamFetch,
+          // Mark if this was mapped from Spotify
+          mappedFromSpotify: !!historyItem.spotifyId,
+        };
+      }
 
       await PlayOneSong(songData);
       setIndex(1); // Open full screen player
@@ -209,14 +269,15 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
   }, [historyItem.id, historyItem.sourceType]);
 
   return (
-    <View style={styles.container}>
-      <Pressable
-        onPress={playSong}
-        android_ripple={{
-          color: dark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
-          borderless: false,
-          radius: SCREEN_WIDTH * 0.45
-        }}
+    <Pressable
+      onPress={playSong}
+      android_ripple={{
+        color: dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)',
+        borderless: false,
+      }}
+      style={styles.container}
+    >
+      <View
         style={styles.pressableContent}
       >
         <FastImage
@@ -244,11 +305,14 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
             style={[styles.artist, { color: colors.textSecondary }]}
           />
         </View>
-      </Pressable>
+      </View>
 
       <Pressable
         ref={buttonRef}
-        onPress={showMenu}
+        onPress={(e) => {
+          e.stopPropagation();
+          showMenu();
+        }}
         style={styles.menuButton}
       >
         <MaterialCommunityIcons name="dots-vertical" size={22} color={colors.text} />
@@ -293,7 +357,7 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
           </View>
         </TouchableOpacity>
       </Modal>
-    </View>
+    </Pressable>
   );
 });
 
@@ -301,19 +365,24 @@ const getThemedStyles = (colors, dark) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginHorizontal: 10,
+    marginVertical: 2,
+    borderRadius: 8,
     backgroundColor: colors.background,
   },
   pressableContent: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 6,
+    paddingLeft: 4
   },
   artwork: {
     width: 50,
     height: 50,
-    borderRadius: 4,
+    borderRadius: 8,
     marginRight: 12,
   },
   textContainer: {

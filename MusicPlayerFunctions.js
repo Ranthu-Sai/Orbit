@@ -571,6 +571,35 @@ async function AddPlaylist(songs, startSongId = null) {
       }
     }
 
+    // OPTIMISTIC UI: Emit early metadata for first song so mini player shows immediately
+    // This provides instant feedback while stream URL is being fetched
+    const firstSong = tracksToAdd[0];
+    if (firstSong) {
+      const earlyArtwork = extractArtwork(firstSong) || firstSong.artwork || firstSong.image || '';
+      // Format artist properly - handle various data structures
+      let artistDisplay = firstSong.artist || 'Loading...';
+      if (!artistDisplay || artistDisplay === 'Loading...') {
+        if (firstSong.artists?.primary && Array.isArray(firstSong.artists.primary)) {
+          artistDisplay = FormatArtist(firstSong.artists.primary);
+        } else if (typeof firstSong.artists === 'string') {
+          artistDisplay = firstSong.artists;
+        } else if (firstSong.primaryArtists) {
+          artistDisplay = firstSong.primaryArtists;
+        }
+      }
+
+      DeviceEventEmitter.emit('song-loading-started', {
+        id: firstSong.id || firstSong.videoId,
+        title: firstSong.title || firstSong.name || firstSong.song || 'Loading...',
+        artist: artistDisplay,
+        artwork: earlyArtwork,
+        image: earlyArtwork,
+        duration: firstSong.duration,
+        isLoading: true,
+        isPlaylist: true, // Flag to indicate playlist/album playback
+      });
+    }
+
     // Get quality setting ONCE
     const qualityIndex = await getIndexQuality();
     const qualityNames = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];

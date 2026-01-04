@@ -3,22 +3,28 @@ import { getCachedData, CACHE_GROUPS, isNetworkAvailable } from './CacheManager'
 
 async function getRecommendedSongs(id) {
   try {
-    // Skip recommendation requests for YouTube Music songs (11-character IDs)
-    // ONLY if it's not explicitly a Saavn song OR doesn't have Saavn download URLs
-    const isYouTubeId = id && typeof id === 'string' && id.length === 11 && !/[\\/.]/.test(id);
-    if (isYouTubeId) {
-      // If we have access to the song object, we could be more precise.
-      // For now, let's assume if it's 11 chars AND doesn't look like a Saavn ID (optional)
-      // But Saavn IDs can be anything. Better to check if we're in a Saavn context.
+    // Skip if no ID provided
+    if (!id || typeof id !== 'string') {
+      return { data: [], success: true, message: "No valid ID provided" };
     }
 
-    if (isYouTubeId && !id.startsWith('_')) { // Many Saavn IDs start with underscores
-      return { data: [], success: true, message: "Recommendations not available for YouTube songs" };
+    // Skip recommendation requests for Spotify songs (22-character alphanumeric IDs)
+    // Spotify IDs are exactly 22 chars, containing only letters and numbers (Base62)
+    const isSpotifyId = id.length === 22 && /^[a-zA-Z0-9]+$/.test(id);
+    if (isSpotifyId) {
+      return { data: [], success: true, message: "Spotify uses its own recommendation system" };
+    }
+
+    // Skip recommendation requests for YouTube Music songs (11-character IDs)
+    // YouTube video IDs are 11 chars, can contain letters, numbers, hyphens, and underscores
+    const isYouTubeId = id.length === 11 && /^[a-zA-Z0-9_-]+$/.test(id);
+    if (isYouTubeId) {
+      return { data: [], success: true, message: "YouTube Music uses its own recommendation system" };
     }
 
     // Skip recommendation requests for DAB songs (purely numeric, typically 9-12 digits)
     // DAB uses Last.fm recommendations via DABRecommendationService, not Saavn
-    const isDabId = id && typeof id === 'string' && /^\d{6,15}$/.test(id);
+    const isDabId = /^\d{6,15}$/.test(id);
     if (isDabId) {
       return { data: [], success: true, message: "DAB uses Last.fm recommendations" };
     }

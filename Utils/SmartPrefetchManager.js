@@ -776,7 +776,12 @@ class SmartPrefetchManager {
             headers: streamData.headers,
             userAgent: streamData.headers?.['User-Agent'],
             _needsStream: false,
-            _prefetched: true
+            _prefetched: true,
+            // Store videoId for history tracking (enables playback from history)
+            videoId: streamData.videoId || originalTrack.videoId,
+            // Track if this was mapped from Spotify (for history)
+            mappedFromSpotify: streamData.mappedFromSpotify || originalTrack.mappedFromSpotify,
+            spotifyId: originalTrack.spotifyId || (originalTrack.source === 'spotify' ? originalTrack.id : null),
         };
     }
 

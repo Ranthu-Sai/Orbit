@@ -254,7 +254,7 @@ const ArtistPage = () => {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
-        contentContainerStyle={{ paddingBottom: 120 }}
+        contentContainerStyle={{ paddingBottom: 160 }}
       >
         {/* Hero Header */}
         <View style={styles.heroContainer}>
@@ -515,21 +515,45 @@ const ArtistSection = React.memo(({ section, theme, navigation, activeTrack, pla
   // Songs section - vertical list (like OuterTune)
   if (isSongsSection) {
     const displaySongs = items.slice(0, 5);
+    // Format songs for EachSongCard Data prop
+    const formattedData = {
+      data: {
+        songs: displaySongs.map(s => ({
+          ...s,
+          id: s.videoId || s.id,
+          name: s.title || s.name,
+          source: 'ytmusic',
+        }))
+      }
+    };
     return (
       <View style={styles.section}>
         <SectionHeader title={title || 'Songs'} hasMore={!!moreEndpoint} theme={theme} onViewMore={handleSeeAll} />
         <View style={styles.songsContainer}>
-          {displaySongs.map((song, index) => (
-            <SongListItem
-              key={`${song.id || song.videoId}-${index}`}
-              song={song}
-              index={index}
-              onPress={() => handleItemPress(song)}
-              isActive={activeTrack?.id === song.videoId || activeTrack?.id === song.id}
-              isPlaying={playbackState.state === 'playing' || playbackState.state === 3}
-              theme={theme}
-            />
-          ))}
+          {displaySongs.map((song, index) => {
+            const songId = song.videoId || song.id;
+            const thumbnail = song.thumbnail || song.thumbnails?.[0]?.url || song.artwork;
+            const songArtist = song.artist || song.artists?.map(a => a.name).join(', ') || 'Unknown';
+            return (
+              <EachSongCard
+                key={`${songId}-${index}`}
+                title={song.title || song.name}
+                artist={songArtist}
+                image={thumbnail}
+                id={songId}
+                url={songId}
+                duration={song.duration}
+                source="ytmusic"
+                isFromPlaylist={true}
+                Data={formattedData}
+                index={index}
+                showNumber={true}
+                truncateTitle={true}
+                activeTrackId={activeTrack?.id}
+                isPlaying={playbackState.state === 'playing' || playbackState.state === 3}
+              />
+            );
+          })}
         </View>
       </View>
     );
@@ -580,26 +604,7 @@ const SectionHeader = React.memo(({ title, hasMore, theme, onViewMore }) => (
   </View>
 ));
 
-// Song List Item
-const SongListItem = React.memo(({ song, index, onPress, isActive, isPlaying, theme }) => {
-  const thumbnail = song.thumbnail || song.thumbnails?.[0]?.url || song.artwork;
 
-  return (
-    <Pressable style={[styles.songItem, isActive && styles.songItemActive]} onPress={onPress}>
-      <Text style={[styles.songIndex, { color: theme.colors.text }]}>{index + 1}</Text>
-      <FastImage source={{ uri: thumbnail }} style={styles.songThumbnail} resizeMode={FastImage.resizeMode.cover} />
-      <View style={styles.songInfo}>
-        <Text style={[styles.songTitle, { color: theme.colors.text }, isActive && { color: theme.colors.primary }]} numberOfLines={1}>
-          {song.title || song.name}
-        </Text>
-        <Text style={[styles.songArtist, { color: theme.colors.text }]} numberOfLines={1}>
-          {song.artist || song.artists?.map(a => a.name).join(', ') || 'Unknown'}
-        </Text>
-      </View>
-      <IconButton icon="dots-vertical" size={20} iconColor={theme.colors.text} style={{ opacity: 0.6 }} />
-    </Pressable>
-  );
-});
 
 // Grid Card (Albums, Singles, Playlists)
 const GridCard = React.memo(({ item, onPress, theme }) => {
@@ -668,7 +673,7 @@ const styles = StyleSheet.create({
   heroContainer: { height: 350, position: 'relative', paddingTop: StatusBar.currentHeight || 0 },
   heroImage: { width: '100%', height: '100%', position: 'absolute' },
   heroGradient: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
-  heroContent: { position: 'absolute', bottom: 64, left: 24, right: 24 },
+  heroContent: { position: 'absolute', bottom: 44, left: 24, right: 24 },
   artistNameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
   artistName: { color: '#fff', fontSize: 36, fontWeight: 'bold', maxWidth: '90%' },
   followerText: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 4, marginBottom: 16 },
@@ -679,7 +684,7 @@ const styles = StyleSheet.create({
   buttonContent: { height: 48 },
 
   // Sections
-  section: { marginTop: 4, paddingHorizontal: 0 },
+  section: { marginTop: 0, paddingHorizontal: 0 },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',

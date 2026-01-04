@@ -920,6 +920,7 @@ export const CustomPlaylistView = (props) => {
         initialNumToRender={15}
         windowSize={11}
         removeClippedSubviews={true}
+        contentContainerStyle={{ paddingBottom: 150 }}
         ListHeaderComponent={
           <PlaylistHeader
             imageUrl={getSafeImageSource(Songs[Songs.length - 1] || {})?.uri || getSafeImageSource(Songs[Songs.length - 1] || {})}

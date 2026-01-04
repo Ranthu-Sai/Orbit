@@ -693,7 +693,7 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
             keyExtractor={keyExtractor}
             ListHeaderComponent={renderHeader}
             contentContainerStyle={{
-              paddingBottom: 120,
+              paddingBottom: 150,
               backgroundColor: theme.dark ? theme.colors.background : "#FFFFFF",
             }}
             style={{
@@ -756,7 +756,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 15,
   },
   bottomSpacer: {
-    height: 65,
+    height: 100,
     backgroundColor: "transparent",
   }
 });

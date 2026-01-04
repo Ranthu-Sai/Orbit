@@ -133,10 +133,12 @@ const BottomSheetMusic = React.memo(({ color }) => {
   // Timing animation config for smooth, predictable open/close transitions
   // Using timing instead of spring to avoid stuck transitions
   // OPTIMIZED: Higher stiffness spring for fast, responsive open/close
+  // OPTIMIZED: Ultra-fast spring animation for instant fullscreen transition
+  // Very high stiffness + very low mass = near-instant snap with no visible bottom gap
   const animationConfigs = useBottomSheetSpringConfigs({
-    damping: 25,
-    stiffness: 300,
-    mass: 0.4,
+    damping: 35,
+    stiffness: 700,
+    mass: 0.2,
     overshootClamping: true,
     restDisplacementThreshold: 0.01,
     restSpeedThreshold: 0.01,
@@ -396,6 +398,8 @@ const BottomSheetMusic = React.memo(({ color }) => {
       <BottomSheetView
         style={{
           ...styles.contentContainer,
+          // Solid background when fullscreen to prevent gap during animation
+          backgroundColor: Index === 1 ? (color || colors.musicPlayerBg) : 'transparent',
         }}
       >
         {Index !== 1 ? (

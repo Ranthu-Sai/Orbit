@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     listContent: {
-        paddingBottom: 100,
+        paddingBottom: 150,
         paddingHorizontal: 8,
     },
     columnWrapper: {
