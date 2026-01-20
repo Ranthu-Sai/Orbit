@@ -401,7 +401,42 @@ class InnerTubeClient {
 
     static async getPlaylist(browseId) {
         const data = await this.request('browse', { browseId: browseId.startsWith('VL') ? browseId : `VL${browseId}` });
-        return this.parsePlaylist(data);
+        const playlist = this.parsePlaylist(data);
+
+        // Handle continuations (load all songs)
+        if (playlist && playlist.continuation) {
+            let continuation = playlist.continuation;
+            // Limit to reasonable amount to prevent infinite loops (e.g. 50 requests * 100 songs = 5000 songs)
+            let loops = 0;
+            const MAX_LOOPS = 50;
+
+            while (continuation && loops < MAX_LOOPS) {
+                try {
+                    const contData = await this.request('browse', { continuation });
+                    const shelf = contData?.continuationContents?.musicPlaylistShelfContinuation;
+
+                    if (shelf) {
+                        const newSongs = shelf.contents?.map(t => this.parseItem(t)).filter(i => i) || [];
+                        if (newSongs.length > 0) {
+                            playlist.songs.push(...newSongs);
+                            // Update count
+                            playlist.count = playlist.songs.length;
+                        }
+
+                        continuation = shelf.continuations?.[0]?.nextContinuationData?.continuation ||
+                            shelf.continuations?.[0]?.reloadContinuationData?.continuation;
+                    } else {
+                        break;
+                    }
+                    loops++;
+                } catch (e) {
+                    console.error('Error fetching playlist continuation:', e);
+                    break;
+                }
+            }
+        }
+
+        return playlist;
     }
 
     static async getRelated(browseId) {
@@ -531,7 +566,7 @@ class InnerTubeClient {
                         isSelected: chipRenderer.isSelected || false
                     };
                 }).filter(c => c && c.params && !c.isSelected);
-                }
+            }
 
             // Get continuation token for more sections
             continuation = sectionListRenderer?.continuations?.[0]?.nextContinuationData?.continuation ||
@@ -565,7 +600,7 @@ class InnerTubeClient {
                         });
                     }
                 } else {
-                    }
+                }
             });
         } catch (e) {
             console.error('Parse Home With Continuation Error', e);
@@ -1110,9 +1145,9 @@ class InnerTubeClient {
             }
 
             if (data?.contents) {
-                }
+            }
             if (data?.header) {
-                }
+            }
 
             // Try multiple possible structures for album header
             let header = data?.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicResponsiveHeaderRenderer;
@@ -1328,9 +1363,9 @@ class InnerTubeClient {
         try {
             // Debug: Log structure
             if (data?.header) {
-                }
+            }
             if (data?.contents) {
-                }
+            }
 
             // Try multiple header locations
             let header = data?.header?.musicDetailHeaderRenderer;
@@ -1468,6 +1503,31 @@ class InnerTubeClient {
             // Clean VL prefix if present in the data browseId
             const cleanBrowseId = dataBrowseId?.startsWith('VL') ? dataBrowseId.substring(2) : dataBrowseId;
 
+            // Extract continuation token
+            // We need to find the renderer that contained the tracks again to get its continuation
+            let continuation = null;
+
+            // Re-find the renderer that holds the tracks
+            const allSections = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents ||
+                data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents ||
+                data?.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer ?
+                [{ musicPlaylistShelfRenderer: data.contents.twoColumnBrowseResultsRenderer.tabs[0].tabRenderer.content.sectionListRenderer.contents[0].musicPlaylistShelfRenderer }] :
+                [];
+
+            for (const section of allSections) {
+                if (section.musicPlaylistShelfRenderer) {
+                    if (section.musicPlaylistShelfRenderer.contents) {
+                        continuation = section.musicPlaylistShelfRenderer.continuations?.[0]?.nextContinuationData?.continuation;
+                        break;
+                    }
+                } else if (section.musicShelfRenderer) {
+                    if (section.musicShelfRenderer.contents) {
+                        continuation = section.musicShelfRenderer.continuations?.[0]?.nextContinuationData?.continuation;
+                        break;
+                    }
+                }
+            }
+
             const id = headerId || cleanBrowseId;
             return {
                 id,
@@ -1478,7 +1538,8 @@ class InnerTubeClient {
                 description,
                 author,
                 year,
-                count: songs.length
+                count: songs.length,
+                continuation
             };
         } catch (e) {
             console.error('Parse Playlist Error', e);

@@ -704,7 +704,6 @@ export const Playlist = ({ route, id: propId, name: propName, image: propImage, 
             windowSize={5}
             removeClippedSubviews={true}
             showsVerticalScrollIndicator={true}
-            ListFooterComponent={<View style={styles.bottomSpacer} />}
           />
         </View>
       )}
@@ -756,7 +755,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 15,
   },
   bottomSpacer: {
-    height: 100,
+    height: 0,
     backgroundColor: "transparent",
   }
 });

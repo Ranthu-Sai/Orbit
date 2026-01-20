@@ -117,19 +117,26 @@ export const SpotifyService = {
             let tracks = data.tracks.items;
             let nextUrl = data.tracks.next;
 
-            // If there dependancies are setup correctly, we could loop here to get all tracks.
-            // For MVP/Robustness, let's fetch one more page if exists (up to 200 songs)
-            // to avoid hitting rate limits or long wait times.
-            if (nextUrl) {
-                const nextResponse = await fetch(nextUrl, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
+            // Fetch all pages of tracks
+            while (nextUrl) {
+                try {
+                    const nextResponse = await fetch(nextUrl, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
 
-                if (nextResponse.ok) {
-                    const nextData = await nextResponse.json();
-                    tracks = [...tracks, ...nextData.items];
+                    if (nextResponse.ok) {
+                        const nextData = await nextResponse.json();
+                        tracks = [...tracks, ...nextData.items];
+                        nextUrl = nextData.next;
+                    } else {
+                        console.warn('Failed to fetch next page of playlist tracks:', nextResponse.status);
+                        break;
+                    }
+                } catch (err) {
+                    console.error('Error fetching next page of playlist tracks:', err);
+                    break;
                 }
             }
 
@@ -203,13 +210,22 @@ export const SpotifyService = {
             let tracks = data.tracks.items;
             let nextUrl = data.tracks.next;
 
-            if (nextUrl) {
-                const nextResponse = await fetch(nextUrl, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (nextResponse.ok) {
-                    const nextData = await nextResponse.json();
-                    tracks = [...tracks, ...nextData.items];
+            while (nextUrl) {
+                try {
+                    const nextResponse = await fetch(nextUrl, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (nextResponse.ok) {
+                        const nextData = await nextResponse.json();
+                        tracks = [...tracks, ...nextData.items];
+                        nextUrl = nextData.next;
+                    } else {
+                        console.warn('Failed to fetch next page of album tracks:', nextResponse.status);
+                        break;
+                    }
+                } catch (err) {
+                    console.error('Error fetching next page of album tracks:', err);
+                    break;
                 }
             }
 

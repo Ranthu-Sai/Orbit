@@ -3,6 +3,7 @@ import { View, FlatList, StyleSheet, Text, RefreshControl, Dimensions, TextInput
 import { useTheme } from '@react-navigation/native';
 import { HistoryCard } from './HistoryCard';
 import { HistoryFilters } from './HistoryFilters';
+import { useActiveTrack } from 'react-native-track-player';
 
 import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
@@ -14,6 +15,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 export const HistoryScreen = forwardRef((props, ref) => {
   const { colors, dark } = useTheme();
   const styles = getThemedStyles(colors, dark);
+  const activeTrack = useActiveTrack();
 
   const [historyData, setHistoryData] = useState([]);
   const [weeklyStats, setWeeklyStats] = useState(null);
@@ -242,6 +244,7 @@ export const HistoryScreen = forwardRef((props, ref) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.listContent,
+          { paddingBottom: activeTrack ? 180 : 100 },
           historyData.length === 0 && styles.emptyListContent
         ]}
         removeClippedSubviews={true}

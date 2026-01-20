@@ -627,7 +627,7 @@ async function getYTMusicPlaylistData(playlistId) {
 
         if (tracks && Array.isArray(tracks)) {
           // Limit processing to avoid excessive callbacks
-          const tracksToProcess = tracks.slice(0, 500); // Limit to 500 songs max
+          const tracksToProcess = tracks; // Process all tracks
 
           for (const song of tracksToProcess) {
             // Skip null/invalid songs
@@ -775,7 +775,7 @@ async function getYTMusicAlbumData(albumId) {
         const tracksArray = albumData.tracks || albumData.songs || [];
         if (tracksArray && Array.isArray(tracksArray) && tracksArray.length > 0) {
           // Limit processing to avoid excessive callbacks
-          const tracksToProcess = tracksArray.slice(0, 500); // Limit to 500 songs max
+          const tracksToProcess = tracksArray; // Process all tracks
 
           for (const song of tracksToProcess) {
             // Skip null/invalid songs
@@ -1125,7 +1125,7 @@ async function getYTMusicNewReleases(limit = 20, forceRefresh = false) {
                     });
                     allAlbums.push(album);
                   } else if (browseId && title && !playlistId) {
-                    }
+                  }
                 }
               });
             }
