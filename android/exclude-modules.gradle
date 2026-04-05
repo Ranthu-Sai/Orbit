@@ -1,0 +1,16 @@
+def excludeModules = [
+    "react-native-volume-control"
+]
+
+// This function will be used to filter out the excluded modules
+def filterModules(collection) {
+    return collection.findAll { entry ->
+        def moduleName = entry.key
+        !excludeModules.contains(moduleName)
+    }
+}
+
+ext {
+    excludeModules = excludeModules
+    filterModules = this.&filterModules
+}

@@ -1,0 +1,6 @@
+// File to disable react-native-volume-control module
+// This will be included in the main settings.gradle file
+
+ext.excludeFromNativeModules = { projectPath ->
+    return projectPath.contains('react-native-volume-control')
+}
