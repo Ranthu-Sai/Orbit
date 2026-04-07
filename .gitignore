@@ -66,6 +66,9 @@ yarn-error.log
 /coverage
 
 # Environment files
-# Embedded repositories
+.env
 
+# Embedded repositories
 Utils/secrets.js
+Utils/SpotifyService.js
+Utils/SpotifyService copy.js
