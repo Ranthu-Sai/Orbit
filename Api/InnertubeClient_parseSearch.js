@@ -1,4 +1,4 @@
-    static parseSearch(data, filter) {
+export function parseSearch(data, filter) {
     const results = [];
     try {
         const contents = data?.contents?.tabbedSearchResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents;
@@ -25,7 +25,9 @@
                     }
                 }
             }
-            if (musicShelfRenderer) break;
+            if (musicShelfRenderer) {
+                break;
+            }
         }
 
         if (!musicShelfRenderer) {
@@ -33,10 +35,10 @@
         }
         if (musicShelfRenderer?.contents) {
             musicShelfRenderer.contents.forEach((item, idx) => {
-                const parsed = this.parseItem(item);
-                if (parsed) {
-                    results.push(parsed);
-                }
+                // const parsed = parseItem(item);
+                // if (parsed) {
+                //     results.push(parsed);
+                // }
             });
         }
     } catch (e) { console.error('Parse Search Error', e); }

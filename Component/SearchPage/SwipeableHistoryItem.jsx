@@ -1,5 +1,11 @@
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet, Animated, Pressable, Dimensions } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Animated,
+  Pressable,
+  Dimensions,
+} from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Trash2, Clock } from 'lucide-react-native';
 import { useTheme } from '@react-navigation/native';
@@ -7,12 +13,7 @@ import { PlainText } from '../Global/PlainText';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const SwipeableHistoryItem = ({
-  item,
-  onPress,
-  onDelete,
-  onSwipeableOpen
-}) => {
+const SwipeableHistoryItem = ({ item, onPress, onDelete, onSwipeableOpen }) => {
   const { colors, dark } = useTheme();
   const swipeableRef = useRef(null);
   const [isSwiped, setIsSwiped] = useState(false);
@@ -45,7 +46,9 @@ const SwipeableHistoryItem = ({
 
     return (
       <View style={styles.rightAction}>
-        <Animated.View style={[styles.actionButton, { transform: [{ translateX: trans }] }]}>
+        <Animated.View
+          style={[styles.actionButton, { transform: [{ translateX: trans }] }]}
+        >
           <Pressable
             style={[styles.deleteButton, { backgroundColor: '#FF3B30' }]}
             onPress={handleDelete}
@@ -77,28 +80,11 @@ const SwipeableHistoryItem = ({
             color: dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)',
             borderless: false,
           }}
-          style={({ pressed }) => ([
-            styles.historyItem,
-            {
-              backgroundColor: isSwiped
-                ? dark
-                  ? 'rgba(255, 255, 255, 0.04)'
-                  : 'rgba(0, 0, 0, 0.02)'
-                : pressed
-                  ? dark
-                    ? 'rgba(255, 255, 255, 0.02)'
-                    : 'rgba(0, 0, 0, 0.01)'
-                  : 'transparent',
-            }
-          ])}
+          style={styles.historyItem}
         >
           <View style={styles.contentContainer}>
             <View style={styles.iconContainer}>
-              <Clock
-                size={18}
-                color={colors.text}
-                style={styles.historyIcon}
-              />
+              <Clock size={18} color={colors.text} style={styles.historyIcon} />
             </View>
             <PlainText
               text={item}

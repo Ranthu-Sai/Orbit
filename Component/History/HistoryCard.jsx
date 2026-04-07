@@ -1,5 +1,16 @@
 import React, { useState, useRef, useContext, memo } from 'react';
-import { View, Pressable, StyleSheet, Dimensions, Modal, TouchableOpacity, Text, UIManager, findNodeHandle, ToastAndroid } from 'react-native';
+import {
+  View,
+  Pressable,
+  StyleSheet,
+  Dimensions,
+  Modal,
+  TouchableOpacity,
+  Text,
+  UIManager,
+  findNodeHandle,
+  ToastAndroid,
+} from 'react-native';
 import FastImage from 'react-native-fast-image';
 import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
@@ -17,7 +28,10 @@ import historyManager from '../../Utils/HistoryManager';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh }) {
+export const HistoryCard = memo(function HistoryCard({
+  historyItem,
+  onRefresh,
+}) {
   const { colors, dark } = useTheme();
   const styles = getThemedStyles(colors, dark);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -37,13 +51,17 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
 
   // Format text helper
   const formatText = (text) => {
-    if (!text) return 'Unknown';
+    if (!text) {
+      return 'Unknown';
+    }
     return text.length > 30 ? text.substring(0, 30) + '...' : text;
   };
 
   // Format play count
   const formatPlayCount = (count) => {
-    if (count === 1) return '1 play';
+    if (count === 1) {
+      return '1 play';
+    }
     return `${count} plays`;
   };
 
@@ -65,15 +83,22 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
     try {
       // Check if this is a legacy history entry (empty URL and no videoId)
       // For these, we need to search YouTube Music by title/artist
-      const isLegacyEntry = !historyItem.url && !historyItem.videoId && historyItem.sourceType === 'online';
+      const isLegacyEntry =
+        !historyItem.url &&
+        !historyItem.videoId &&
+        historyItem.sourceType === 'online';
 
       let songData;
 
       if (isLegacyEntry) {
         // Legacy entry without videoId - search YouTube Music first
-        console.log('🔍 History: Legacy entry, searching YTMusic for:', historyItem.title);
+        console.log(
+          '🔍 History: Legacy entry, searching YTMusic for:',
+          historyItem.title
+        );
         try {
-          const YouTubeMusicService = require('../../Utils/YouTubeMusicService').default;
+          const YouTubeMusicService =
+            require('../../Utils/YouTubeMusicService').default;
           const ytResult = await YouTubeMusicService.searchAndStream(
             historyItem.title,
             historyItem.artist || ''
@@ -100,18 +125,21 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
             throw new Error('Could not find song on YouTube Music');
           }
         } catch (searchError) {
-          console.error('❌ History: YTMusic search failed:', searchError.message);
+          console.error(
+            '❌ History: YTMusic search failed:',
+            searchError.message
+          );
           ToastAndroid.show('Could not find song', ToastAndroid.SHORT);
           return;
         }
       } else {
         // Standard case - has URL or videoId
-        const needsStreamFetch = !historyItem.url && (
-          historyItem.videoId ||
-          historyItem.source === 'ytmusic' ||
-          historyItem.source === 'spotify' ||
-          historyItem.source === 'dab'
-        );
+        const needsStreamFetch =
+          !historyItem.url &&
+          (historyItem.videoId ||
+            historyItem.source === 'ytmusic' ||
+            historyItem.source === 'spotify' ||
+            historyItem.source === 'dab');
 
         songData = {
           // Use videoId as ID if available (for YTMusic playback), otherwise use original ID
@@ -225,7 +253,10 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
       }
 
       if (isDownloading) {
-        ToastAndroid.show(`Download in progress: ${downloadProgress}%`, ToastAndroid.SHORT);
+        ToastAndroid.show(
+          `Download in progress: ${downloadProgress}%`,
+          ToastAndroid.SHORT
+        );
         return;
       }
 
@@ -234,12 +265,15 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
       setMenuVisible(false);
 
       // Use the unified download service
-      const success = await UnifiedDownloadService.downloadSong({
-        ...historyItem,
-        source: historyItem.source || 'saavn'
-      }, (progress) => {
-        setDownloadProgress(progress);
-      });
+      const success = await UnifiedDownloadService.downloadSong(
+        {
+          ...historyItem,
+          source: historyItem.source || 'saavn',
+        },
+        (progress) => {
+          setDownloadProgress(progress);
+        }
+      );
 
       if (success) {
         setIsDownloaded(true);
@@ -248,7 +282,6 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
       } else {
         ToastAndroid.show('Download failed', ToastAndroid.SHORT);
       }
-
     } catch (error) {
       console.error('Download failed:', error);
       ToastAndroid.show(`Download failed: ${error.message}`, ToastAndroid.LONG);
@@ -261,7 +294,9 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
   React.useEffect(() => {
     const checkDownloadStatus = async () => {
       if (historyItem.sourceType === 'online') {
-        const downloaded = await StorageManager.isSongDownloaded(historyItem.id);
+        const downloaded = await StorageManager.isSongDownloaded(
+          historyItem.id
+        );
         setIsDownloaded(downloaded);
       }
     };
@@ -277,14 +312,14 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
       }}
       style={styles.container}
     >
-      <View
-        style={styles.pressableContent}
-      >
+      <View style={styles.pressableContent}>
         <FastImage
           source={
-            isPlaying ? require('../../Images/playing.gif') :
-              isPaused ? require('../../Images/songPaused.gif') :
-                { uri: getArtworkUri() }
+            isPlaying
+              ? require('../../Images/playing.gif')
+              : isPaused
+              ? require('../../Images/songPaused.gif')
+              : { uri: getArtworkUri() }
           }
           style={styles.artwork}
           resizeMode={FastImage.resizeMode.cover}
@@ -297,7 +332,7 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
               color: isCurrentlyPlaying ? '#1ED760' : colors.text,
               fontSize: 15,
               fontWeight: isCurrentlyPlaying ? '600' : '500',
-              marginBottom: 2
+              marginBottom: 2,
             }}
           />
           <SmallText
@@ -315,7 +350,11 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
         }}
         style={styles.menuButton}
       >
-        <MaterialCommunityIcons name="dots-vertical" size={22} color={colors.text} />
+        <MaterialCommunityIcons
+          name="dots-vertical"
+          size={22}
+          color={colors.text}
+        />
       </Pressable>
 
       {/* Menu Modal */}
@@ -330,27 +369,42 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
           activeOpacity={1}
           onPress={() => setMenuVisible(false)}
         >
-          <View style={[styles.menuContainer, {
-            top: menuPosition.top,
-            right: menuPosition.right,
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-          }]}>
+          <View
+            style={[
+              styles.menuContainer,
+              {
+                top: menuPosition.top,
+                right: menuPosition.right,
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+              },
+            ]}
+          >
             <TouchableOpacity style={styles.menuItem} onPress={playNext}>
               <MaterialIcons name="queue-music" size={20} color={colors.text} />
-              <Text style={[styles.menuText, { color: colors.text }]}>Play Next</Text>
+              <Text style={[styles.menuText, { color: colors.text }]}>
+                Play Next
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuItem} onPress={addToPlaylist}>
-              <MaterialIcons name="playlist-add" size={20} color={colors.text} />
-              <Text style={[styles.menuText, { color: colors.text }]}>Add to Playlist</Text>
+              <MaterialIcons
+                name="playlist-add"
+                size={20}
+                color={colors.text}
+              />
+              <Text style={[styles.menuText, { color: colors.text }]}>
+                Add to Playlist
+              </Text>
             </TouchableOpacity>
 
             {historyItem.sourceType === 'online' && !isDownloaded && (
               <TouchableOpacity style={styles.menuItem} onPress={downloadSong}>
                 <MaterialIcons name="download" size={20} color={colors.text} />
                 <Text style={[styles.menuText, { color: colors.text }]}>
-                  {isDownloading ? `Downloading ${downloadProgress}%` : 'Download'}
+                  {isDownloading
+                    ? `Downloading ${downloadProgress}%`
+                    : 'Download'}
                 </Text>
               </TouchableOpacity>
             )}
@@ -361,74 +415,75 @@ export const HistoryCard = memo(function HistoryCard({ historyItem, onRefresh })
   );
 });
 
-const getThemedStyles = (colors, dark) => StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    marginHorizontal: 10,
-    marginVertical: 2,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-  },
-  pressableContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingLeft: 4
-  },
-  artwork: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  textContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  artist: {
-    fontSize: 13,
-    marginBottom: 4,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  stats: {
-    fontSize: 11,
-  },
-  menuButton: {
-    padding: 8,
-    borderRadius: 16,
-    marginLeft: 4,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  menuContainer: {
-    position: 'absolute',
-    borderRadius: 8,
-    borderWidth: 1,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    minWidth: 150,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  menuText: {
-    marginLeft: 12,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-});
+const getThemedStyles = (colors, dark) =>
+  StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      marginHorizontal: 10,
+      marginVertical: 2,
+      borderRadius: 8,
+      backgroundColor: colors.background,
+    },
+    pressableContent: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 6,
+      paddingLeft: 4,
+    },
+    artwork: {
+      width: 50,
+      height: 50,
+      borderRadius: 8,
+      marginRight: 12,
+    },
+    textContainer: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    artist: {
+      fontSize: 13,
+      marginBottom: 4,
+    },
+    statsContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    stats: {
+      fontSize: 11,
+    },
+    menuButton: {
+      padding: 8,
+      borderRadius: 16,
+      marginLeft: 4,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    menuContainer: {
+      position: 'absolute',
+      borderRadius: 8,
+      borderWidth: 1,
+      elevation: 8,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      minWidth: 150,
+    },
+    menuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    menuText: {
+      marginLeft: 12,
+      fontSize: 14,
+      fontWeight: '500',
+    },
+  });

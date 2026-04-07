@@ -1,24 +1,22 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-async function GetLanguageValue(){
+async function GetLanguageValue() {
   try {
     const value = await AsyncStorage.getItem('Language');
     if (value !== null) {
-      return value
+      return value;
     } else {
-      return ''
+      return '';
     }
   } catch (e) {
     // error reading value
   }
 }
 
-async function SetLanguageValue(Language){
+async function SetLanguageValue(Language) {
   try {
     await AsyncStorage.setItem('Language', Language);
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
-
-export {GetLanguageValue, SetLanguageValue}
+export { GetLanguageValue, SetLanguageValue };

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { ToastAndroid } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import TrackPlayer from 'react-native-track-player';
@@ -19,8 +19,7 @@ export const ShuffleButton = ({ size = 24, color, style }) => {
         // Do not auto-enable shuffle just because a track is playing
         // The state will be managed by user interaction only
         setIsShuffled(false);
-      } catch (error) {
-      }
+      } catch (error) {}
     };
 
     loadShuffleState();
@@ -45,20 +44,26 @@ export const ShuffleButton = ({ size = 24, color, style }) => {
       }
 
       // Get current track and remaining tracks
-      const currentTrack = queue[currentTrackIndex];
-      const remainingTracks = queue.filter((_, index) => index !== currentTrackIndex);
+      const remainingTracks = queue.filter(
+        (_, index) => index !== currentTrackIndex
+      );
 
       // Fisher-Yates shuffle algorithm
       for (let i = remainingTracks.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [remainingTracks[i], remainingTracks[j]] = [remainingTracks[j], remainingTracks[i]];
+        [remainingTracks[i], remainingTracks[j]] = [
+          remainingTracks[j],
+          remainingTracks[i],
+        ];
       }
 
       try {
         // Remove all tracks after the current track
-        const tracksToRemove = queue.slice(currentTrackIndex + 1).map((_, index) => {
-          return currentTrackIndex + 1 + index;
-        });
+        const tracksToRemove = queue
+          .slice(currentTrackIndex + 1)
+          .map((_, index) => {
+            return currentTrackIndex + 1 + index;
+          });
 
         if (tracksToRemove.length > 0) {
           await TrackPlayer.remove(tracksToRemove);
@@ -118,23 +123,20 @@ export const ShuffleButton = ({ size = 24, color, style }) => {
 
   return (
     <IconButton
-      icon={() => (
+      icon={() =>
         isShuffling ? (
-          <ActivityIndicator
-            size={size * 0.8}
-            color={activeColor}
-          />
+          <ActivityIndicator size={size * 0.8} color={activeColor} />
         ) : (
           <MaterialIcons
             name="shuffle"
             size={size}
-            color={isShuffled ? activeColor : (color || theme.colors.text)}
+            color={isShuffled ? activeColor : color || theme.colors.text}
             style={{
               opacity: isShuffled ? 1 : 0.7,
             }}
           />
         )
-      )}
+      }
       size={32}
       onPress={toggleShuffle}
       disabled={isShuffling}

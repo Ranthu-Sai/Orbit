@@ -15,7 +15,7 @@ export const EachArtistCardGrid = memo(function EachArtistCardGrid({
   image,
   followerCount,
   mainContainerStyle,
-  searchText
+  searchText,
 }) {
   const navigation = useNavigation();
   const { theme } = useThemeContext();
@@ -48,41 +48,42 @@ export const EachArtistCardGrid = memo(function EachArtistCardGrid({
         paddingBottom: 4,
         height: 50,
         justifyContent: 'flex-start',
-        alignItems: 'center', // Center text 
+        alignItems: 'center', // Center text
         width: '100%',
-      }
+      },
     };
   }, [width]);
 
   const handlePress = () => {
     try {
       // Navigate using nested navigation structure
-      navigation.navigate("MainRoute", {
+      navigation.navigate('MainRoute', {
         screen: 'Home',
         params: {
           screen: 'ArtistPage',
           params: {
             artistId: id,
             artistName: name,
-            source: 'ytmusic',  // Always use ytmusic for consistent artist page experience
-            searchText: searchText
-          }
-        }
+            source: 'ytmusic', // Always use ytmusic for consistent artist page experience
+            searchText: searchText,
+          },
+        },
       });
     } catch (error) {
       console.error('Error navigating to Artist:', error);
       // Fallback navigation to prevent dead-end
-      navigation.navigate("MainRoute", {
+      navigation.navigate('MainRoute', {
         screen: 'Home',
-        params: { screen: "HomePage" }
+        params: { screen: 'HomePage' },
       });
     }
   };
 
   // Add validation for empty image URLs
-  const imageSource = image && image !== ""
-    ? { uri: image }
-    : require('../../Images/default.jpg');
+  const imageSource =
+    image && image !== ''
+      ? { uri: image }
+      : require('../../Images/default.jpg');
 
   return (
     <Pressable
@@ -94,10 +95,12 @@ export const EachArtistCardGrid = memo(function EachArtistCardGrid({
       }}
     >
       {/* Artist Image */}
-      <View style={{
-        position: 'relative',
-        // Removed margins/padding here as they are handled in responsiveStyles.image
-      }}>
+      <View
+        style={{
+          position: 'relative',
+          // Removed margins/padding here as they are handled in responsiveStyles.image
+        }}
+      >
         <FastImage
           source={imageSource}
           style={{
@@ -107,25 +110,27 @@ export const EachArtistCardGrid = memo(function EachArtistCardGrid({
         />
 
         {/* Play button overlay */}
-        <View style={{
-          position: 'absolute',
-          bottom: 18,
-          right: 18,
-          backgroundColor: theme.colors.primary,
-          borderRadius: 20,
-          width: 32,
-          height: 32,
-          justifyContent: 'center',
-          alignItems: 'center',
-          elevation: 4,
-          shadowColor: "#000",
-          shadowOffset: {
-            width: 0,
-            height: 2,
-          },
-          shadowOpacity: 0.3,
-          shadowRadius: 3,
-        }}>
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 18,
+            right: 18,
+            backgroundColor: theme.colors.primary,
+            borderRadius: 20,
+            width: 32,
+            height: 32,
+            justifyContent: 'center',
+            alignItems: 'center',
+            elevation: 4,
+            shadowColor: '#000',
+            shadowOffset: {
+              width: 0,
+              height: 2,
+            },
+            shadowOpacity: 0.3,
+            shadowRadius: 3,
+          }}
+        >
           <FontAwesome5
             name="play"
             size={12}

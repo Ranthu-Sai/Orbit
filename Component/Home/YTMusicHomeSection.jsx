@@ -1,13 +1,21 @@
-import { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
-import { View, Text, Dimensions, FlatList } from "react-native";
-import { Heading } from "../Global/Heading";
-import { EachPlaylistCard } from "../Global/EachPlaylistCard";
-import { EachAlbumCard } from "../Global/EachAlbumCard";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  forwardRef,
+  useImperativeHandle,
+} from 'react';
+import { View, Text, Dimensions, FlatList } from 'react-native';
+import { Heading } from '../Global/Heading';
+import { EachPlaylistCard } from '../Global/EachPlaylistCard';
+
+const { width } = Dimensions.get('window');
+import { EachAlbumCard } from '../Global/EachAlbumCard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Spacer } from "../Global/Spacer";
-import YouTubeMusicService from "../../Utils/YouTubeMusicService";
-import { PlaylistRowSkeleton } from "./PlaylistRowSkeleton";
-import { PaddingConatiner } from "../../Layout/PaddingConatiner";
+import { Spacer } from '../Global/Spacer';
+import YouTubeMusicService from '../../Utils/YouTubeMusicService';
+import { PlaylistRowSkeleton } from './PlaylistRowSkeleton';
+import { PaddingConatiner } from '../../Layout/PaddingConatiner';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -55,12 +63,12 @@ const isVideoSection = (section) => {
   const title = (section.title || '').toLowerCase().trim();
 
   // Check against known video category titles
-  if (VIDEO_SECTION_TITLES.some(videoTitle => title.includes(videoTitle))) {
+  if (VIDEO_SECTION_TITLES.some((videoTitle) => title.includes(videoTitle))) {
     return true;
   }
 
   // Check against explicitly excluded titles from user screenshots
-  if (EXCLUDED_SECTION_TITLES.some(exTitle => title.includes(exTitle))) {
+  if (EXCLUDED_SECTION_TITLES.some((exTitle) => title.includes(exTitle))) {
     return true;
   }
 
@@ -84,9 +92,13 @@ const isVideoSection = (section) => {
     }
 
     // Check if items don't have typical music identifiers
-    const hasNoMusicContent = contents.every(item =>
-      !item.videoId && !item.playlistId && !item.browseId?.startsWith('MPRE') &&
-      !item.browseId?.startsWith('UC') && !item.browseId?.startsWith('VL')
+    const hasNoMusicContent = contents.every(
+      (item) =>
+        !item.videoId &&
+        !item.playlistId &&
+        !item.browseId?.startsWith('MPRE') &&
+        !item.browseId?.startsWith('UC') &&
+        !item.browseId?.startsWith('VL')
     );
 
     if (hasNoMusicContent && contents.length > 2) {
@@ -99,7 +111,9 @@ const isVideoSection = (section) => {
 
 // Add a utility function to truncate text
 const truncateText = (text, limit = 30) => {
-  if (!text) return '';
+  if (!text) {
+    return '';
+  }
   return text.length > limit ? text.substring(0, limit) + '...' : text;
 };
 
@@ -115,7 +129,7 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
   useImperativeHandle(ref, () => ({
     refresh: async () => {
       await fetchYTMusicHomeData(true);
-    }
+    },
   }));
 
   // Complete cache reset function
@@ -124,10 +138,11 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
       // Clear AsyncStorage completely
       const allKeys = await AsyncStorage.getAllKeys();
       // Remove all YTMusic related keys
-      const ytMusicKeys = allKeys.filter(key =>
-        key.toLowerCase().includes('ytmusic') ||
-        key.toLowerCase().includes('homefeed') ||
-        key.toLowerCase().includes('yt_music')
+      const ytMusicKeys = allKeys.filter(
+        (key) =>
+          key.toLowerCase().includes('ytmusic') ||
+          key.toLowerCase().includes('homefeed') ||
+          key.toLowerCase().includes('yt_music')
       );
 
       if (ytMusicKeys.length > 0) {
@@ -160,7 +175,9 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
 
   const fetchYTMusicHomeData = async (forceRefresh = false) => {
     try {
-      if (!forceRefresh) setLoading(true);
+      if (!forceRefresh) {
+        setLoading(true);
+      }
 
       // Clear local cache if forcing refresh
       if (forceRefresh) {
@@ -169,7 +186,7 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
           'ytmusic_homefeed',
           'yt_music_home',
           'ytmusic_data',
-          'homefeed_data'
+          'homefeed_data',
         ];
 
         for (const key of possibleCacheKeys) {
@@ -179,7 +196,10 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
       // Fetch data using YouTube Music Service
       // Limit sections fetched for Hybrid mode performance
       const HOMEFEED_SECTION_LIMIT = 40; // Increased to ensure 'Albums for you' is found
-      const homeData = await YouTubeMusicService.getHomeFeed(HOMEFEED_SECTION_LIMIT, forceRefresh);
+      const homeData = await YouTubeMusicService.getHomeFeed(
+        HOMEFEED_SECTION_LIMIT,
+        forceRefresh
+      );
 
       let itemsArray = [];
 
@@ -189,14 +209,17 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
           const sectionTitle = section.title || 'Unknown Section';
 
           // Skip "Quick picks" section as requested
-          if (sectionTitle.toLowerCase().includes('quick pick') || isVideoSection(section)) {
+          if (
+            sectionTitle.toLowerCase().includes('quick pick') ||
+            isVideoSection(section)
+          ) {
             continue;
           }
 
           // if (section.contents && Array.isArray(section.contents)) {
           // Filter and process playlists and albums
           const sectionItems = section.contents
-            .filter(item => {
+            .filter((item) => {
               // Skip null or undefined items
               if (!item || typeof item !== 'object') {
                 return false;
@@ -205,9 +228,12 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
               // Determine if item is a playlist or album based on available IDs
               // YTMusic playlists have playlistId (starts with RDCLAK, PL, VL, etc.)
               // YTMusic albums have browseId (starts with MPREb_)
-              const hasPlaylistId = item.playlistId && typeof item.playlistId === 'string';
-              const hasBrowseId = item.browseId && typeof item.browseId === 'string';
-              const hasVideoId = item.videoId && typeof item.videoId === 'string';
+              const hasPlaylistId =
+                item.playlistId && typeof item.playlistId === 'string';
+              const hasBrowseId =
+                item.browseId && typeof item.browseId === 'string';
+              const hasVideoId =
+                item.videoId && typeof item.videoId === 'string';
 
               // Include if it has playlistId or browseId
               // Note: Some albums have videoId for "Quick Play" - we should still include them
@@ -218,11 +244,17 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
 
               return include;
             })
-            .map(item => {
+            .map((item) => {
               // Determine type based on ID patterns
-              const isPlaylist = (item.playlistId && typeof item.playlistId === 'string') || item.type === 'playlist';
+              const isPlaylist =
+                (item.playlistId && typeof item.playlistId === 'string') ||
+                item.type === 'playlist';
               // browseId starting with MPRE or OLAK is strictly an album
-              const isAlbum = (item.browseId && (item.browseId.startsWith('MPRE') || item.browseId.startsWith('OLAK'))) || item.type === 'album';
+              const isAlbum =
+                (item.browseId &&
+                  (item.browseId.startsWith('MPRE') ||
+                    item.browseId.startsWith('OLAK'))) ||
+                item.type === 'album';
 
               // Normalize the item structure
               const normalizedItem = {
@@ -234,7 +266,7 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
                 year: item.year,
                 sectionTitle: sectionTitle,
                 sectionStrapline: section.strapline,
-                downloadUrl: item.playlistId || item.browseId
+                downloadUrl: item.playlistId || item.browseId,
               };
 
               return normalizedItem;
@@ -250,7 +282,7 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
         console.error('YTMusic Home - Invalid Python response structure:', {
           isArray: Array.isArray(homeData),
           length: homeData?.length || 0,
-          type: typeof homeData
+          type: typeof homeData,
         });
       }
 
@@ -260,21 +292,26 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
         setLoading(false);
 
         // Cache the data locally
-        await AsyncStorage.setItem('ytmusic_home_section', JSON.stringify(itemsArray));
+        await AsyncStorage.setItem(
+          'ytmusic_home_section',
+          JSON.stringify(itemsArray)
+        );
       } else {
         setYtMusicItems([]);
         setHasData(false);
         setLoading(false);
       }
-
     } catch (error) {
       console.error('YTMusic homefeed error:', error);
 
       // Provide more detailed error information
-      if (error.message.includes('Python') || error.message.includes('ModuleNotFoundError')) {
+      if (
+        error.message.includes('Python') ||
+        error.message.includes('ModuleNotFoundError')
+      ) {
         console.error('Python Error Details:', {
           message: error.message,
-          suggestion: 'Check if YouTube Music Service is properly configured'
+          suggestion: 'Check if YouTube Music Service is properly configured',
         });
       }
 
@@ -294,15 +331,18 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
         const cachedData = await AsyncStorage.getItem('ytmusic_home_section');
         if (cachedData) {
           const parsedData = JSON.parse(cachedData);
-          if (parsedData && Array.isArray(parsedData) && parsedData.length > 0) {
+          if (
+            parsedData &&
+            Array.isArray(parsedData) &&
+            parsedData.length > 0
+          ) {
             setYtMusicItems(parsedData);
             setHasData(true);
             setLoading(false);
             return; // EXIT - Use cached data
           }
         }
-      } catch (cacheError) {
-      }
+      } catch (cacheError) {}
 
       // Step 2: No valid cache - initialize and fetch fresh
       const bridgeReady = await initializeInnertube();
@@ -311,7 +351,9 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
         // Fetch fresh data with higher limit to get more sections
         await fetchYTMusicHomeData(true);
       } else {
-        console.error('❌ YouTube Music Service initialization failed, cannot fetch YTMusic data');
+        console.error(
+          '❌ YouTube Music Service initialization failed, cannot fetch YTMusic data'
+        );
         setLoading(false);
       }
     };
@@ -328,47 +370,64 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
     const processed = ytMusicItems.map((item, index) => {
       // // Get the best thumbnail (largest available) safety check
       let bestThumbnail = null;
-      if (item.thumbnails && Array.isArray(item.thumbnails) && item.thumbnails.length > 0) {
-        bestThumbnail = item.thumbnails.reduce((best, current) =>
-          (current.height > (best?.height || 0)) ? current : best
-          , item.thumbnails[0]); // Provide initial value just in case
+      if (
+        item.thumbnails &&
+        Array.isArray(item.thumbnails) &&
+        item.thumbnails.length > 0
+      ) {
+        bestThumbnail = item.thumbnails.reduce(
+          (best, current) =>
+            current.height > (best?.height || 0) ? current : best,
+          item.thumbnails[0]
+        ); // Provide initial value just in case
       }
 
       // Create proper image array for the UI components
-      const imageArray = item.thumbnails?.map(thumb => ({
+      const imageArray = item.thumbnails?.map((thumb) => ({
         url: thumb.url,
         link: thumb.url, // Add link property for compatibility
-        quality: thumb.height <= 192 ? "50x50" : thumb.height <= 226 ? "150x150" : "500x500"
-      })) || [{
-        url: bestThumbnail?.url || "https://via.placeholder.com/150",
-        link: bestThumbnail?.url || "https://via.placeholder.com/150",
-        quality: "150x150"
-      }];
+        quality:
+          thumb.height <= 192
+            ? '50x50'
+            : thumb.height <= 226
+            ? '150x150'
+            : '500x500',
+      })) || [
+        {
+          url: bestThumbnail?.url || 'https://via.placeholder.com/150',
+          link: bestThumbnail?.url || 'https://via.placeholder.com/150',
+          quality: '150x150',
+        },
+      ];
 
       const processedItem = {
         id: item.id || `yt_${Math.random()}`,
-        name: item.title || "Unknown Title",
-        title: item.title || "Unknown Title",
-        subtitle: item.type === 'playlist'
-          ? `YouTube Music Playlist • ${item.sectionTitle || 'Curated'}`
-          : (item.year ? `Album • ${item.year}` : `Album • ${item.sectionTitle || 'YouTube Music'}`),
-        artist: item.artists?.[0]?.name || "YouTube Music",
-        artists: item.artists?.map(a => a.name).join(', ') || "YouTube Music",
+        name: item.title || 'Unknown Title',
+        title: item.title || 'Unknown Title',
+        subtitle:
+          item.type === 'playlist'
+            ? `YouTube Music Playlist • ${item.sectionTitle || 'Curated'}`
+            : item.year
+            ? `Album • ${item.year}`
+            : `Album • ${item.sectionTitle || 'YouTube Music'}`,
+        artist: item.artists?.[0]?.name || 'YouTube Music',
+        artists: item.artists?.map((a) => a.name).join(', ') || 'YouTube Music',
         image: imageArray,
-        artist: item.artists?.[0]?.name || "YouTube Music",
-        artists: item.artists?.[0]?.name || "YouTube Music",
-        duration: "0:00",
-        language: "unknown",
-        album: "",
+        duration: '0:00',
+        language: 'unknown',
+        album: '',
         downloadUrl: item.id,
-        primaryArtists: item.artists?.[0]?.name || "YouTube Music",
+        primaryArtists: item.artists?.[0]?.name || 'YouTube Music',
         playlists: [],
         explicit: 0,
-        views: "0",
+        views: '0',
         type: item.type, // playlist or album
-        thumbnailUrl: bestThumbnail?.url || item.thumbnails?.[0]?.url || 'https://via.placeholder.com/150',
+        thumbnailUrl:
+          bestThumbnail?.url ||
+          item.thumbnails?.[0]?.url ||
+          'https://via.placeholder.com/150',
         sectionTitle: item.sectionTitle, // Keep section info for debugging
-        sectionStrapline: item.sectionStrapline
+        sectionStrapline: item.sectionStrapline,
       };
 
       return processedItem;
@@ -380,7 +439,7 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
   // Group items by section title
   const sectionsByTitle = useMemo(() => {
     const sections = {};
-    processedItems.forEach(item => {
+    processedItems.forEach((item) => {
       const sectionTitle = item.sectionTitle || 'Other';
       if (!sections[sectionTitle]) {
         sections[sectionTitle] = [];
@@ -395,7 +454,9 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
     const allTitles = Object.keys(sectionsByTitle);
 
     // Prioritize "Albums for you" to ensure it's included in the limited sections
-    const albumsForYouIndex = allTitles.findIndex(t => t.toLowerCase().includes('albums for you'));
+    const albumsForYouIndex = allTitles.findIndex((t) =>
+      t.toLowerCase().includes('albums for you')
+    );
 
     if (albumsForYouIndex !== -1 && albumsForYouIndex >= MAX_SECTIONS) {
       // If it exists but is outside the limit, move it to the last position of the limit
@@ -424,18 +485,22 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
         })}
 
         {/* Show empty state if no content and not loading */}
-        {(!loading && sectionTitles.length === 0) && (
+        {!loading && sectionTitles.length === 0 && (
           <PaddingConatiner>
-            <View style={{
-              marginTop: 8,
-              marginBottom: 16
-            }}>
-              <Text style={{
-                color: '#666',
-                fontSize: 14,
-                textAlign: 'center',
-                marginVertical: 10
-              }}>
+            <View
+              style={{
+                marginTop: 8,
+                marginBottom: 16,
+              }}
+            >
+              <Text
+                style={{
+                  color: '#666',
+                  fontSize: 14,
+                  textAlign: 'center',
+                  marginVertical: 10,
+                }}
+              >
                 No content available from YouTube Music
               </Text>
             </View>
@@ -447,10 +512,16 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
 
   const renderSingleSection = (sectionTitle, sectionIndex) => {
     const sectionItems = sectionsByTitle[sectionTitle];
-    if (!sectionItems) return null;
+    if (!sectionItems) {
+      return null;
+    }
 
-    const playlistsInSection = sectionItems.filter(item => item.type === 'playlist');
-    const albumsInSection = sectionItems.filter(item => item.type === 'album');
+    const playlistsInSection = sectionItems.filter(
+      (item) => item.type === 'playlist'
+    );
+    const albumsInSection = sectionItems.filter(
+      (item) => item.type === 'album'
+    );
 
     return (
       <View key={`section-${sectionIndex}`}>
@@ -481,24 +552,39 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
                   gap: 2,
                 }}
                 data={playlistsInSection}
-                keyExtractor={(item, index) => `yt-playlist-${sectionTitle}-${item.id}-${index}`}
+                keyExtractor={(item, index) =>
+                  `yt-playlist-${sectionTitle}-${item.id}-${index}`
+                }
                 ListEmptyComponent={() => (
-                  <View style={{
-                    width: width - 30,
-                    height: 250,
-                    justifyContent: 'center',
-                    alignItems: 'center'
-                  }}>
-                    <Text style={{ color: 'white', fontSize: 16 }}>No playlists available</Text>
+                  <View
+                    style={{
+                      width: width - 30,
+                      height: 250,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ color: 'white', fontSize: 16 }}>
+                      No playlists available
+                    </Text>
                   </View>
                 )}
                 renderItem={({ item, index }) => {
-                  const thumbnail = item.image?.[2]?.link || item.image?.[1]?.link || item.image?.[0]?.link || item.thumbnailUrl;
+                  const thumbnail =
+                    item.image?.[2]?.link ||
+                    item.image?.[1]?.link ||
+                    item.image?.[0]?.link ||
+                    item.thumbnailUrl;
                   const itemTitle = item.title || item.name;
                   const subtitle = item.subtitle || item.artists?.[0]?.name;
-                  const isPlaylist = !!item.playlistId || item.type === 'playlist';
+                  const isPlaylist =
+                    !!item.playlistId || item.type === 'playlist';
                   const browseId = item.browseId || item.id;
-                  const isAlbum = browseId && (browseId.startsWith('MPRE') || browseId.startsWith('OLAK')) || item.type === 'album';
+                  const isAlbum =
+                    (browseId &&
+                      (browseId.startsWith('MPRE') ||
+                        browseId.startsWith('OLAK'))) ||
+                    item.type === 'album';
 
                   if (isAlbum) {
                     return (
@@ -545,21 +631,32 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
                   gap: 2,
                 }}
                 data={albumsInSection}
-                keyExtractor={(item, index) => `yt-album-${sectionTitle}-${item.id}-${index}`}
+                keyExtractor={(item, index) =>
+                  `yt-album-${sectionTitle}-${item.id}-${index}`
+                }
                 ListEmptyComponent={() => (
-                  <View style={{
-                    width: width - 30,
-                    height: 220,
-                    justifyContent: 'center',
-                    alignItems: 'center'
-                  }}>
-                    <Text style={{ color: 'white', fontSize: 16 }}>No albums available</Text>
+                  <View
+                    style={{
+                      width: width - 30,
+                      height: 220,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ color: 'white', fontSize: 16 }}>
+                      No albums available
+                    </Text>
                   </View>
                 )}
                 renderItem={({ item, index }) => (
                   <EachAlbumCard
-                    image={item.image?.[2]?.link || item.image?.[1]?.link || item.image?.[0]?.link || item.thumbnailUrl}
-                    artists={item.artists || "YouTube Music"}
+                    image={
+                      item.image?.[2]?.link ||
+                      item.image?.[1]?.link ||
+                      item.image?.[0]?.link ||
+                      item.thumbnailUrl
+                    }
+                    artists={item.artists || 'YouTube Music'}
                     key={index}
                     name={truncateText(item.name, 30)}
                     id={item.id}
@@ -572,9 +669,7 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
         )}
 
         {/* Loading state for this section */}
-        {loading && (
-          <PlaylistRowSkeleton count={3} showHeading={true} />
-        )}
+        {loading && <PlaylistRowSkeleton count={3} showHeading={true} />}
       </View>
     );
   };
@@ -589,7 +684,9 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
             // If sectionKeyword is provided, render only the matching section
             if (props.sectionKeyword) {
               const keyword = props.sectionKeyword.toLowerCase().trim();
-              const matchingTitle = sectionTitles.find(t => t.toLowerCase().includes(keyword));
+              const matchingTitle = sectionTitles.find((t) =>
+                t.toLowerCase().includes(keyword)
+              );
 
               if (matchingTitle) {
                 const sectionIndex = sectionTitles.indexOf(matchingTitle);
@@ -612,12 +709,14 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
             }
 
             // Default: render all sections (respecting startIndex and excludeKeyword)
-            const visibleSectionTitles = sectionTitles.slice(props.startIndex || 0).filter(title => {
-              if (exclude && title.toLowerCase().includes(exclude)) {
-                return false;
-              }
-              return true;
-            });
+            const visibleSectionTitles = sectionTitles
+              .slice(props.startIndex || 0)
+              .filter((title) => {
+                if (exclude && title.toLowerCase().includes(exclude)) {
+                  return false;
+                }
+                return true;
+              });
 
             return (
               <>

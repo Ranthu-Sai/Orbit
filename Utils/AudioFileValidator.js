@@ -5,7 +5,6 @@ import RNFS from 'react-native-fs';
  * Helps prevent playback errors by checking file format, size, and accessibility
  */
 export class AudioFileValidator {
-  
   // Supported audio formats with their MIME types
   static SUPPORTED_FORMATS = {
     '.mp3': 'audio/mpeg',
@@ -13,18 +12,18 @@ export class AudioFileValidator {
     '.aac': 'audio/aac',
     '.wav': 'audio/wav',
     '.ogg': 'audio/ogg',
-    '.flac': 'audio/flac'
+    '.flac': 'audio/flac',
   };
 
   // Problematic file patterns that often cause playback issues
   static PROBLEMATIC_PATTERNS = [
-    'ElevenLabs_',     // AI-generated audio files
-    '_pvc_',           // Specific pattern causing issues
-    '.tmp',            // Temporary files
-    '.part',           // Partial downloads
-    '.download',       // Incomplete downloads
-    '.crdownload',     // Chrome partial downloads
-    '.opdownload'      // Opera partial downloads
+    'ElevenLabs_', // AI-generated audio files
+    '_pvc_', // Specific pattern causing issues
+    '.tmp', // Temporary files
+    '.part', // Partial downloads
+    '.download', // Incomplete downloads
+    '.crdownload', // Chrome partial downloads
+    '.opdownload', // Opera partial downloads
   ];
 
   // Minimum file size (in bytes) for a valid audio file
@@ -43,7 +42,7 @@ export class AudioFileValidator {
       isValid: false,
       reason: '',
       file: file,
-      warnings: []
+      warnings: [],
     };
 
     try {
@@ -63,20 +62,24 @@ export class AudioFileValidator {
       const fileName = file.name || file.title || 'Unknown';
 
       // Check for problematic file patterns
-      const hasProblematicPattern = this.PROBLEMATIC_PATTERNS.some(pattern => 
-        fileName.includes(pattern) || filePath.includes(pattern)
+      const hasProblematicPattern = this.PROBLEMATIC_PATTERNS.some(
+        (pattern) => fileName.includes(pattern) || filePath.includes(pattern)
       );
 
       if (hasProblematicPattern) {
         result.reason = 'File contains problematic pattern';
-        result.warnings.push('File may cause playback issues due to naming pattern');
+        result.warnings.push(
+          'File may cause playback issues due to naming pattern'
+        );
         return result;
       }
 
       // Check file extension
       const fileExtension = this.getFileExtension(fileName);
       if (!fileExtension || !this.SUPPORTED_FORMATS[fileExtension]) {
-        result.reason = `Unsupported file format: ${fileExtension || 'unknown'}`;
+        result.reason = `Unsupported file format: ${
+          fileExtension || 'unknown'
+        }`;
         return result;
       }
 
@@ -94,9 +97,8 @@ export class AudioFileValidator {
       // If we reach here, the file passed all validations
       result.isValid = true;
       result.reason = 'File validation passed';
-      
-      return result;
 
+      return result;
     } catch (error) {
       result.reason = `Validation error: ${error.message}`;
       return result;
@@ -112,7 +114,7 @@ export class AudioFileValidator {
     const result = {
       isValid: false,
       reason: '',
-      warnings: []
+      warnings: [],
     };
 
     try {
@@ -125,7 +127,7 @@ export class AudioFileValidator {
 
       // Get file stats
       const stats = await RNFS.stat(filePath);
-      
+
       // Check file size
       if (stats.size < this.MIN_FILE_SIZE) {
         result.reason = `File too small (${stats.size} bytes)`;
@@ -133,7 +135,9 @@ export class AudioFileValidator {
       }
 
       if (stats.size > this.MAX_FILE_SIZE) {
-        result.reason = `File too large (${Math.round(stats.size / 1024 / 1024)}MB)`;
+        result.reason = `File too large (${Math.round(
+          stats.size / 1024 / 1024
+        )}MB)`;
         return result;
       }
 
@@ -146,18 +150,19 @@ export class AudioFileValidator {
       }
 
       // Add warnings for potentially problematic files
-      if (stats.size < 10 * 1024) { // Less than 10KB
+      if (stats.size < 10 * 1024) {
+        // Less than 10KB
         result.warnings.push('File is very small, may be corrupted');
       }
 
-      if (stats.size > 100 * 1024 * 1024) { // Larger than 100MB
+      if (stats.size > 100 * 1024 * 1024) {
+        // Larger than 100MB
         result.warnings.push('Large file may cause performance issues');
       }
 
       result.isValid = true;
       result.reason = 'Local file validation passed';
       return result;
-
     } catch (error) {
       result.reason = `Local file validation error: ${error.message}`;
       return result;
@@ -178,8 +183,8 @@ export class AudioFileValidator {
           total: 0,
           valid: 0,
           invalid: 0,
-          warnings: 0
-        }
+          warnings: 0,
+        },
       };
     }
 
@@ -189,11 +194,11 @@ export class AudioFileValidator {
 
     for (const file of files) {
       const validation = await this.validateFile(file);
-      
+
       if (validation.isValid) {
         validFiles.push({
           ...file,
-          validationWarnings: validation.warnings
+          validationWarnings: validation.warnings,
         });
         if (validation.warnings.length > 0) {
           warningCount++;
@@ -202,7 +207,7 @@ export class AudioFileValidator {
         invalidFiles.push({
           ...file,
           validationReason: validation.reason,
-          validationWarnings: validation.warnings
+          validationWarnings: validation.warnings,
         });
       }
     }
@@ -214,8 +219,8 @@ export class AudioFileValidator {
         total: files.length,
         valid: validFiles.length,
         invalid: invalidFiles.length,
-        warnings: warningCount
-      }
+        warnings: warningCount,
+      },
     };
   }
 
@@ -228,12 +233,12 @@ export class AudioFileValidator {
     if (!filename || typeof filename !== 'string') {
       return null;
     }
-    
+
     const lastDotIndex = filename.lastIndexOf('.');
     if (lastDotIndex === -1 || lastDotIndex === filename.length - 1) {
       return null;
     }
-    
+
     return filename.substring(lastDotIndex).toLowerCase();
   }
 
@@ -261,7 +266,7 @@ export class AudioFileValidator {
    * Log validation summary
    * @param {Object} validationResult - Result from validateFiles
    */
-  static logValidationSummary(validationResult) {
+  static logValidationSummary(_validationResult) {
     // Silent validation summary for production
   }
 }

@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 async function GetLocalMusicFavorites() {
   try {
@@ -49,4 +49,9 @@ async function IsLocalMusicFavorite(songId) {
   }
 }
 
-export { GetLocalMusicFavorites, AddLocalMusicToFavorites, RemoveLocalMusicFromFavorites, IsLocalMusicFavorite };
+export {
+  GetLocalMusicFavorites,
+  AddLocalMusicToFavorites,
+  RemoveLocalMusicFromFavorites,
+  IsLocalMusicFavorite,
+};

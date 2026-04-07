@@ -11,7 +11,6 @@ import { getIndexQuality } from '../../MusicPlayerFunctions';
  * Provides a clean interface for downloading songs with progress tracking
  */
 export class DownloadManager {
-
   /**
    * Downloads a song with progress tracking and metadata saving
    * @param {Object} songData - Song data object
@@ -20,31 +19,50 @@ export class DownloadManager {
    * @param {Function} onError - Error callback (error, songId) => void
    * @returns {Promise<boolean>} - Success status
    */
-  static async downloadSong(songData, onProgress = null, onComplete = null, onError = null) {
+  static async downloadSong(
+    songData,
+    onProgress = null,
+    onComplete = null,
+    onError = null
+  ) {
     const songId = songData?.id;
 
     try {
       // Validate input
       if (!songData || !songId) {
-        const error = new Error("Invalid song data provided - missing songData or songId");
-        console.error("DownloadManager: Invalid song data:", songData);
-        if (onError) onError(error, songId);
+        const error = new Error(
+          'Invalid song data provided - missing songData or songId'
+        );
+        console.error('DownloadManager: Invalid song data:', songData);
+        if (onError) {
+          onError(error, songId);
+        }
         return false;
       }
 
       // Get download URL using the same logic as UnifiedDownloadService
       const downloadUrl = await this.getDownloadUrl(songData);
       if (!downloadUrl) {
-        const error = new Error("No valid download URL found in song data");
-        console.error("DownloadManager: No valid URL found in song data:", songData);
-        if (onError) onError(error, songId);
+        const error = new Error('No valid download URL found in song data');
+        console.error(
+          'DownloadManager: No valid URL found in song data:',
+          songData
+        );
+        if (onError) {
+          onError(error, songId);
+        }
         return false;
       }
       // Check if already downloaded
       const isAlreadyDownloaded = await StorageManager.isSongDownloaded(songId);
       if (isAlreadyDownloaded) {
-        Alert.alert("Already Downloaded", "This song is already in your library");
-        if (onComplete) onComplete(true, songId);
+        Alert.alert(
+          'Already Downloaded',
+          'This song is already in your library'
+        );
+        if (onComplete) {
+          onComplete(true, songId);
+        }
         return true;
       }
       // Ensure directories exist
@@ -60,7 +78,7 @@ export class DownloadManager {
       );
 
       if (!downloadSuccess) {
-        throw new Error("Failed to download song file");
+        throw new Error('Failed to download song file');
       }
       // Save metadata
       await this.saveMetadata(songData, downloadPath, downloadUrl);
@@ -69,24 +87,39 @@ export class DownloadManager {
 
       // Emit completion events
       EventRegister.emit('download-complete', songId);
-      if (onComplete) onComplete(true, songId);
+      if (onComplete) {
+        onComplete(true, songId);
+      }
       return true;
-
     } catch (error) {
-      console.error("DownloadManager: Download failed for", songData?.title, ":", error);
+      console.error(
+        'DownloadManager: Download failed for',
+        songData?.title,
+        ':',
+        error
+      );
 
       // Clean up partial downloads
       try {
-        const downloadPath = await this.getDownloadPath(songId, songData?.title);
+        const downloadPath = await this.getDownloadPath(
+          songId,
+          songData?.title
+        );
         await safeUnlink(downloadPath);
       } catch (cleanupError) {
-        console.error("DownloadManager: Error cleaning up partial download:", cleanupError);
+        console.error(
+          'DownloadManager: Error cleaning up partial download:',
+          cleanupError
+        );
       }
 
       if (onError) {
         onError(error, songId);
       } else {
-        Alert.alert("Download Failed", "There was an error downloading the song. Please try again.");
+        Alert.alert(
+          'Download Failed',
+          'There was an error downloading the song. Please try again.'
+        );
       }
 
       return false;
@@ -101,7 +134,10 @@ export class DownloadManager {
       // Use StorageManager's directory structure
       await StorageManager.ensureDirectoriesExist();
     } catch (error) {
-      console.error("DownloadManager: Error in ensureDownloadDirectories:", error);
+      console.error(
+        'DownloadManager: Error in ensureDownloadDirectories:',
+        error
+      );
       // Continue - ReactNativeBlobUtil might handle this
     }
   }
@@ -117,8 +153,8 @@ export class DownloadManager {
       const path = await StorageManager.getSongPath(songId, songTitle);
       return safePath(path);
     } catch (error) {
-      console.error("DownloadManager: Error getting download path:", error);
-      throw new Error("Failed to get download path");
+      console.error('DownloadManager: Error getting download path:', error);
+      throw new Error('Failed to get download path');
     }
   }
 
@@ -135,19 +171,23 @@ export class DownloadManager {
       path: downloadPath,
       overwrite: true,
       indicator: false,
-      timeout: 60000
+      timeout: 60000,
     };
 
     try {
       const res = await ReactNativeBlobUtil.config(downloadConfig)
         .fetch('GET', url, {
-          'Accept': 'audio/mpeg, application/octet-stream',
-          'Cache-Control': 'no-store'
+          Accept: 'audio/mpeg, application/octet-stream',
+          'Cache-Control': 'no-store',
         })
         .progress((received, total) => {
-          if (total <= 0) return;
+          if (total <= 0) {
+            return;
+          }
           const percentage = Math.floor((received / total) * 100);
-          if (onProgress) onProgress(percentage);
+          if (onProgress) {
+            onProgress(percentage);
+          }
         });
 
       // Fix: Use respInfo.status instead of res.info().status
@@ -157,7 +197,10 @@ export class DownloadManager {
 
       return true;
     } catch (error) {
-      console.error('DownloadManager: ReactNativeBlobUtil.fetch failed:', error);
+      console.error(
+        'DownloadManager: ReactNativeBlobUtil.fetch failed:',
+        error
+      );
       throw error;
     }
   }
@@ -179,12 +222,12 @@ export class DownloadManager {
         artwork: songData.artwork || null,
         duration: songData.duration || 0,
         downloadedAt: new Date().toISOString(),
-        localPath: downloadPath
+        localPath: downloadPath,
       };
 
       await StorageManager.saveDownloadedSongMetadata(songData.id, metadata);
     } catch (error) {
-      console.error("DownloadManager: Error saving metadata:", error);
+      console.error('DownloadManager: Error saving metadata:', error);
       // Continue - song is still downloaded even if metadata fails
     }
   }
@@ -202,16 +245,22 @@ export class DownloadManager {
       // Ensure we're using the highest quality artwork
       let highQualityArtwork = songData.artwork;
       if (highQualityArtwork.includes('saavncdn.com')) {
-        highQualityArtwork = highQualityArtwork.replace(/50x50|150x150|500x500/g, '500x500');
+        highQualityArtwork = highQualityArtwork.replace(
+          /50x50|150x150|500x500/g,
+          '500x500'
+        );
       }
 
       // Use StorageManager for artwork download
-      const artworkPath = await StorageManager.saveArtwork(songData.id, highQualityArtwork);
+      const artworkPath = await StorageManager.saveArtwork(
+        songData.id,
+        highQualityArtwork
+      );
       if (artworkPath) {
       } else {
       }
     } catch (artworkError) {
-      console.error("DownloadManager: Error saving artwork:", artworkError);
+      console.error('DownloadManager: Error saving artwork:', artworkError);
       // Continue - song is still downloaded even if artwork fails
     }
   }
@@ -225,7 +274,7 @@ export class DownloadManager {
     try {
       return await StorageManager.isSongDownloaded(songId);
     } catch (error) {
-      console.error("DownloadManager: Error checking download status:", error);
+      console.error('DownloadManager: Error checking download status:', error);
       return false;
     }
   }
@@ -243,9 +292,15 @@ export class DownloadManager {
       // SPOTIFY SOURCE - Map to YTMusic first, then get stream URL
       // Detection: source='spotify' OR spotifyId OR _needsSpotifyMapping flag
       // ============================================================
-      if (song.source === 'spotify' || song.spotifyId || song._needsSpotifyMapping || song.url?.startsWith('spotify://')) {
+      if (
+        song.source === 'spotify' ||
+        song.spotifyId ||
+        song._needsSpotifyMapping ||
+        song.url?.startsWith('spotify://')
+      ) {
         try {
-          const YouTubeMusicService = require('../../Utils/YouTubeMusicService').default;
+          const YouTubeMusicService =
+            require('../../Utils/YouTubeMusicService').default;
           const ytMusicResult = await YouTubeMusicService.searchAndStream(
             song.title || song.name,
             song.artist || song.primaryArtists || song.artists || ''
@@ -254,10 +309,16 @@ export class DownloadManager {
           if (ytMusicResult && ytMusicResult.url && !ytMusicResult.error) {
             return ytMusicResult.url;
           }
-          console.error('❌ DownloadManager: Failed to map Spotify track:', song.title);
+          console.error(
+            '❌ DownloadManager: Failed to map Spotify track:',
+            song.title
+          );
           return null;
         } catch (spotifyError) {
-          console.error('❌ DownloadManager: Spotify mapping error:', spotifyError.message);
+          console.error(
+            '❌ DownloadManager: Spotify mapping error:',
+            spotifyError.message
+          );
           return null;
         }
       }
@@ -306,9 +367,11 @@ export class DownloadManager {
         return song.url;
       }
 
-      console.error('DownloadManager: No valid download URL found in song data:', song);
+      console.error(
+        'DownloadManager: No valid download URL found in song data:',
+        song
+      );
       return null;
-
     } catch (error) {
       console.error('DownloadManager: Error getting download URL:', error);
       return null;
@@ -326,7 +389,7 @@ export class DownloadManager {
       EventRegister.emit('download-removed', songId);
       return true;
     } catch (error) {
-      console.error("DownloadManager: Error removing downloaded song:", error);
+      console.error('DownloadManager: Error removing downloaded song:', error);
       return false;
     }
   }

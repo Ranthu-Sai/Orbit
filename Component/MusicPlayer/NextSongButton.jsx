@@ -2,7 +2,7 @@ import React, { useRef, useCallback } from 'react';
 import { Animated, Pressable } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { PlayNextSong } from "../../MusicPlayerFunctions";
+import { PlayNextSong } from '../../MusicPlayerFunctions';
 
 export const NextSongButton = ({ size = 28, color, style }) => {
   const theme = useTheme();
@@ -10,7 +10,9 @@ export const NextSongButton = ({ size = 28, color, style }) => {
   const isProcessingRef = useRef(false);
 
   const handlePress = useCallback(() => {
-    if (isProcessingRef.current) return;
+    if (isProcessingRef.current) {
+      return;
+    }
 
     isProcessingRef.current = true;
 
@@ -25,14 +27,12 @@ export const NextSongButton = ({ size = 28, color, style }) => {
         toValue: 1,
         friction: 4,
         useNativeDriver: true,
-      })
+      }),
     ]).start();
 
     // Fire and forget - SkipOperationManager handles debouncing
     PlayNextSong()
-      .catch(error => {
-
-      })
+      .catch((error) => {})
       .finally(() => {
         // Match SkipOperationManager's debounce (50ms)
         setTimeout(() => {

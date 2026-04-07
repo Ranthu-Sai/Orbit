@@ -7,22 +7,27 @@ import { runOnJS } from 'react-native-reanimated';
  * Handles tap gestures to close the fullscreen player
  */
 export const useTapToCloseGestureControl = (onClose) => {
-  
   /**
    * Creates a tap gesture handler for closing the player
    * @param {Object} gestureState - Shared values from parent gesture (isDragging, etc.)
    * @returns {Gesture} Tap gesture for closing player
    */
-  const createTapToCloseGesture = useCallback((gestureState) => {
-    return Gesture.Tap().onEnd(() => {
-      'worklet';
-      // Only process if we're not in the middle of another gesture
-      if (!gestureState.isDragging || gestureState.isDragging.value === false) {
-        // Can't directly navigate from a worklet, so we need to use runOnJS
-        runOnJS(onClose)();
-      }
-    });
-  }, [onClose]);
+  const createTapToCloseGesture = useCallback(
+    (gestureState) => {
+      return Gesture.Tap().onEnd(() => {
+        'worklet';
+        // Only process if we're not in the middle of another gesture
+        if (
+          !gestureState.isDragging ||
+          gestureState.isDragging.value === false
+        ) {
+          // Can't directly navigate from a worklet, so we need to use runOnJS
+          runOnJS(onClose)();
+        }
+      });
+    },
+    [onClose]
+  );
 
   /**
    * Creates a standalone tap gesture that doesn't depend on other gesture states
@@ -40,32 +45,38 @@ export const useTapToCloseGestureControl = (onClose) => {
    * @param {Function} shouldTrigger - Function that returns boolean to determine if tap should trigger
    * @returns {Gesture} Conditional tap gesture
    */
-  const createConditionalTapGesture = useCallback((shouldTrigger) => {
-    return Gesture.Tap().onEnd(() => {
-      'worklet';
-      if (shouldTrigger && runOnJS(shouldTrigger)()) {
-        runOnJS(onClose)();
-      }
-    });
-  }, [onClose]);
+  const createConditionalTapGesture = useCallback(
+    (shouldTrigger) => {
+      return Gesture.Tap().onEnd(() => {
+        'worklet';
+        if (shouldTrigger && runOnJS(shouldTrigger)()) {
+          runOnJS(onClose)();
+        }
+      });
+    },
+    [onClose]
+  );
 
   /**
    * Creates a tap gesture with custom validation logic
    * @param {Function} validator - Custom validation function that receives gesture event
    * @returns {Gesture} Validated tap gesture
    */
-  const createValidatedTapGesture = useCallback((validator) => {
-    return Gesture.Tap().onEnd((event) => {
-      'worklet';
-      if (validator) {
-        runOnJS(validator)(event, () => {
+  const createValidatedTapGesture = useCallback(
+    (validator) => {
+      return Gesture.Tap().onEnd((event) => {
+        'worklet';
+        if (validator) {
+          runOnJS(validator)(event, () => {
+            runOnJS(onClose)();
+          });
+        } else {
           runOnJS(onClose)();
-        });
-      } else {
-        runOnJS(onClose)();
-      }
-    });
-  }, [onClose]);
+        }
+      });
+    },
+    [onClose]
+  );
 
   /**
    * Default validation function for tap gestures
@@ -80,7 +91,10 @@ export const useTapToCloseGestureControl = (onClose) => {
     }
 
     // Don't allow tap if any other gesture is in progress
-    if (gestureState.isGestureInProgress && gestureState.isGestureInProgress.value === true) {
+    if (
+      gestureState.isGestureInProgress &&
+      gestureState.isGestureInProgress.value === true
+    ) {
       return false;
     }
 
@@ -92,18 +106,21 @@ export const useTapToCloseGestureControl = (onClose) => {
    * @param {number} debounceMs - Debounce time in milliseconds (default: 300)
    * @returns {Gesture} Debounced tap gesture
    */
-  const createDebouncedTapGesture = useCallback((debounceMs = 300) => {
-    let lastTapTime = 0;
-    
-    return Gesture.Tap().onEnd(() => {
-      'worklet';
-      const currentTime = Date.now();
-      if (currentTime - lastTapTime > debounceMs) {
-        lastTapTime = currentTime;
-        runOnJS(onClose)();
-      }
-    });
-  }, [onClose]);
+  const createDebouncedTapGesture = useCallback(
+    (debounceMs = 300) => {
+      let lastTapTime = 0;
+
+      return Gesture.Tap().onEnd(() => {
+        'worklet';
+        const currentTime = Date.now();
+        if (currentTime - lastTapTime > debounceMs) {
+          lastTapTime = currentTime;
+          runOnJS(onClose)();
+        }
+      });
+    },
+    [onClose]
+  );
 
   return {
     createTapToCloseGesture,
@@ -111,6 +128,6 @@ export const useTapToCloseGestureControl = (onClose) => {
     createConditionalTapGesture,
     createValidatedTapGesture,
     createDebouncedTapGesture,
-    defaultTapValidation
+    defaultTapValidation,
   };
 };

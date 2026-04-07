@@ -2,12 +2,14 @@
  * Shared image handling utilities to eliminate duplication across components
  */
 
+import { Image } from 'react-native';
+
 // Image quality levels
 export const ImageQuality = {
   LOW: 0,
   MEDIUM: 1,
   HIGH: 2,
-  ULTRA: 3
+  ULTRA: 3,
 };
 
 // Default image dimensions for different use cases
@@ -17,7 +19,7 @@ export const ImageDimensions = {
   MEDIUM: { width: 120, height: 120 },
   LARGE: { width: 300, height: 300 },
   SONG_CARD: { width: 50, height: 50 },
-  ALBUM_CARD: { width: 45, height: 45 }
+  ALBUM_CARD: { width: 45, height: 45 },
 };
 
 /**
@@ -28,7 +30,9 @@ export const ImageDimensions = {
  */
 export const extractImageUri = (imageData, quality = ImageQuality.HIGH) => {
   try {
-    if (!imageData) return null;
+    if (!imageData) {
+      return null;
+    }
 
     // Handle string URI
     if (typeof imageData === 'string') {
@@ -87,7 +91,9 @@ export const extractImageUri = (imageData, quality = ImageQuality.HIGH) => {
  * @returns {string|null} Artwork URI or null
  */
 export const getSongArtwork = (song, quality = ImageQuality.HIGH) => {
-  if (!song) return null;
+  if (!song) {
+    return null;
+  }
 
   // Try different possible image properties
   const possibleImageProps = ['image', 'artwork', 'albumArt', 'cover'];
@@ -109,16 +115,22 @@ export const getSongArtwork = (song, quality = ImageQuality.HIGH) => {
  * @param {number} quality - Quality level
  * @returns {Object|null} Image source object or null
  */
-export const getOptimizedImageSource = (imageData, dimensions = ImageDimensions.MEDIUM, quality = ImageQuality.HIGH) => {
+export const getOptimizedImageSource = (
+  imageData,
+  dimensions = ImageDimensions.MEDIUM,
+  quality = ImageQuality.HIGH
+) => {
   const imageUri = extractImageUri(imageData, quality);
 
-  if (!imageUri) return null;
+  if (!imageUri) {
+    return null;
+  }
 
   return {
     uri: imageUri,
     width: dimensions.width,
     height: dimensions.height,
-    cache: 'default'
+    cache: 'default',
   };
 };
 
@@ -134,10 +146,9 @@ export const preloadImage = (imageUri) => {
       return;
     }
 
-    const img = new Image();
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
-    img.src = imageUri;
+    Image.prefetch(imageUri)
+      .then(() => resolve(true))
+      .catch(() => resolve(false));
   });
 };
 
@@ -167,7 +178,9 @@ export const getPlaceholderImage = (context = 'song') => {
  * @returns {boolean} True if valid image URL
  */
 export const isValidImageUrl = (url) => {
-  if (!url || typeof url !== 'string') return false;
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
 
   try {
     const urlObj = new URL(url);
@@ -183,14 +196,21 @@ export const isValidImageUrl = (url) => {
  * @param {Object} deviceInfo - Device information
  * @returns {Object} Optimal dimensions
  */
-export const getOptimalImageDimensions = (context = 'song', deviceInfo = {}) => {
+export const getOptimalImageDimensions = (
+  context = 'song',
+  deviceInfo = {}
+) => {
   const { width: screenWidth = 375, height: screenHeight = 667 } = deviceInfo;
 
   switch (context) {
     case 'song':
-      return screenWidth < 400 ? ImageDimensions.SMALL : ImageDimensions.SONG_CARD;
+      return screenWidth < 400
+        ? ImageDimensions.SMALL
+        : ImageDimensions.SONG_CARD;
     case 'album':
-      return screenWidth < 400 ? { width: 40, height: 40 } : ImageDimensions.ALBUM_CARD;
+      return screenWidth < 400
+        ? { width: 40, height: 40 }
+        : ImageDimensions.ALBUM_CARD;
     case 'artist':
       return { width: 120, height: 120 };
     case 'background':
@@ -262,7 +282,10 @@ class ImageCacheManager {
     return {
       size: this.cache.size,
       maxSize: this.maxSize,
-      hitRate: this.accessOrder.length > 0 ? (this.accessOrder.length / (this.accessOrder.length + 1)) : 0
+      hitRate:
+        this.accessOrder.length > 0
+          ? this.accessOrder.length / (this.accessOrder.length + 1)
+          : 0,
     };
   }
 }
@@ -297,6 +320,10 @@ export const getCachedImage = async (key, imageGetter) => {
  * @param {number} quality - Quality level
  * @returns {string} Cache key
  */
-export const generateImageCacheKey = (baseId, context = 'song', quality = ImageQuality.HIGH) => {
+export const generateImageCacheKey = (
+  baseId,
+  context = 'song',
+  quality = ImageQuality.HIGH
+) => {
   return `${context}_${baseId}_${quality}`;
 };

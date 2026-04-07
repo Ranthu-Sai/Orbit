@@ -3,7 +3,7 @@ import { useQueueManager } from './useQueueManager';
 
 /**
  * QueueStateManager - Manages queue state and provides queue status information
- * 
+ *
  * This component provides queue state management including:
  * - Queue status monitoring
  * - State change callbacks
@@ -17,7 +17,7 @@ export const QueueStateManager = ({
   onQueueEmpty = null,
   onQueueError = null,
   persistQueue = false,
-  autoRestore = false
+  autoRestore = false,
 }) => {
   const {
     upcomingQueue,
@@ -27,10 +27,10 @@ export const QueueStateManager = ({
     isOffline,
     isPendingAction,
     getQueueStatus,
-    initializeQueue
+    initializeQueue,
   } = useQueueManager({
     autoInitialize: true,
-    onQueueChange: onQueueChange
+    onQueueChange: onQueueChange,
   });
 
   // Monitor queue changes
@@ -43,10 +43,17 @@ export const QueueStateManager = ({
         isDragging,
         isOffline,
         isPendingAction,
-        status: getQueueStatus()
+        status: getQueueStatus(),
       });
     }
-  }, [upcomingQueue, currentIndex, isLocalSource, isDragging, isOffline, isPendingAction]);
+  }, [
+    upcomingQueue,
+    currentIndex,
+    isLocalSource,
+    isDragging,
+    isOffline,
+    isPendingAction,
+  ]);
 
   // Monitor empty queue
   useEffect(() => {
@@ -54,10 +61,17 @@ export const QueueStateManager = ({
       onQueueEmpty({
         isOffline,
         isLocalSource,
-        currentIndex
+        currentIndex,
       });
     }
-  }, [upcomingQueue.length, isDragging, onQueueEmpty, isOffline, isLocalSource, currentIndex]);
+  }, [
+    upcomingQueue.length,
+    isDragging,
+    onQueueEmpty,
+    isOffline,
+    isLocalSource,
+    currentIndex,
+  ]);
 
   // Queue persistence (if enabled)
   useEffect(() => {
@@ -67,12 +81,12 @@ export const QueueStateManager = ({
           queue: upcomingQueue,
           currentIndex,
           isLocalSource,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
 
         // Store in AsyncStorage or similar
         // This would need to be implemented based on storage preference
-        // } catch (error) {
+      } catch (error) {
         console.error('Error persisting queue:', error);
         if (onQueueError) {
           onQueueError(error, 'persistence');

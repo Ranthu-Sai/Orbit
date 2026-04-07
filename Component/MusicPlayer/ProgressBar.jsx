@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from "react";
-import { Dimensions, View, StyleSheet } from "react-native";
+import React, { useState, useEffect } from 'react';
+import { Dimensions, View, StyleSheet } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { Text, useTheme } from "react-native-paper";
-import { useProgress, useActiveTrack, usePlaybackState } from "react-native-track-player";
-import { SetProgressSong } from "../../MusicPlayerFunctions";
+import { Text, useTheme } from 'react-native-paper';
+import {
+  useProgress,
+  useActiveTrack,
+  usePlaybackState,
+} from 'react-native-track-player';
+import { SetProgressSong } from '../../MusicPlayerFunctions';
 import TrackPlayer from 'react-native-track-player';
 
 const ProgressBar = () => {
@@ -19,7 +23,7 @@ const ProgressBar = () => {
 
   const screenWidth = Dimensions.get('window').width;
   const horizontalPadding = 14; // Reduced from 16 to make slider wider
-  const sliderWidth = screenWidth - (horizontalPadding * 2); // Full width minus padding
+  const sliderWidth = screenWidth - horizontalPadding * 2; // Full width minus padding
 
   // Update slider value when not sliding
   useEffect(() => {
@@ -35,7 +39,9 @@ const ProgressBar = () => {
   }, [currentTrack?.id]);
 
   const formatTime = (val) => {
-    if (isNaN(val) || val < 0) return "0:00";
+    if (isNaN(val) || val < 0) {
+      return '0:00';
+    }
     const time = Math.round(parseFloat(val));
     const hours = Math.floor(time / 3600);
     const minutes = Math.floor((time % 3600) / 60);
@@ -72,7 +78,7 @@ const ProgressBar = () => {
 
       // Log if there's a significant difference (more than 5 seconds)
       if (difference > 5) {
-        }
+      }
     }
   }, [currentTrack?.id, duration, currentTrack?.duration]);
 
@@ -85,7 +91,11 @@ const ProgressBar = () => {
             style={styles.slider}
             minimumValue={0}
             maximumValue={Math.max(accurateDuration, 1)}
-            value={isSliding ? sliderValue : Math.min(Math.max(position || 0, 0), accurateDuration)}
+            value={
+              isSliding
+                ? sliderValue
+                : Math.min(Math.max(position || 0, 0), accurateDuration)
+            }
             onValueChange={(value) => {
               setIsSliding(true);
               setSliderValue(value);
@@ -125,12 +135,26 @@ const ProgressBar = () => {
         {/* Time Stamps */}
         <View style={styles.timeContainer}>
           <View style={[styles.timeTextWrapper, { alignItems: 'flex-start' }]}>
-            <Text variant="bodySmall" numberOfLines={1} style={[styles.timeText, { color: theme.dark ? theme.colors.onSurface : 'white' }]}>
+            <Text
+              variant="bodySmall"
+              numberOfLines={1}
+              style={[
+                styles.timeText,
+                { color: theme.dark ? theme.colors.onSurface : 'white' },
+              ]}
+            >
               {formatTime(isSliding ? sliderValue : Math.max(position || 0, 0))}
             </Text>
           </View>
           <View style={[styles.timeTextWrapper, { alignItems: 'flex-end' }]}>
-            <Text variant="bodySmall" numberOfLines={1} style={[styles.timeText, { color: theme.dark ? theme.colors.onSurface : 'white' }]}>
+            <Text
+              variant="bodySmall"
+              numberOfLines={1}
+              style={[
+                styles.timeText,
+                { color: theme.dark ? theme.colors.onSurface : 'white' },
+              ]}
+            >
               {formatTime(accurateDuration)}
             </Text>
           </View>

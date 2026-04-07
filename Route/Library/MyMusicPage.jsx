@@ -1,27 +1,39 @@
-import React, { useState, useEffect, useContext, useCallback } from 'react';
-import { View, Text, FlatList, ActivityIndicator, StyleSheet, Button, Linking, Platform, ToastAndroid, Image, Pressable, RefreshControl } from 'react-native';
+import React, { useState, useContext, useCallback } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  ActivityIndicator,
+  StyleSheet,
+  Button,
+  Linking,
+  ToastAndroid,
+  Image,
+  Pressable,
+  RefreshControl,
+} from 'react-native';
 import { AnimatedSearchBar } from '../../Component/Global/AnimatedSearchBar';
 import { LocalMusicCard } from '../../Component/MusicPlayer/LocalMusicCard';
 import Context from '../../Context/Context';
-import { useTheme, useNavigation } from '@react-navigation/native';
-import TrackPlayer, { useActiveTrack, usePlaybackState } from 'react-native-track-player';
+import { useTheme } from '@react-navigation/native';
+import TrackPlayer, {
+  useActiveTrack,
+  usePlaybackState,
+} from 'react-native-track-player';
 import { useTrackPlayerEvents, Event } from 'react-native-track-player';
-import Ionicons from "react-native-vector-icons/Ionicons";
-import Cover from "../../Images/Music.jpeg";
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useDeviceLibrary } from '../../Component/MusicPlayer/LocalTracks/useDeviceLibrary';
 import LocalTracksMetadataManager from '../../Component/MusicPlayer/LocalTracks/LocalTracksMetadataManager';
 
 export const MyMusicPage = () => {
   const theme = useTheme();
-  const navigation = useNavigation();
-
   // Use custom hook for logic
   const { localMusic, loading, error, isOffline, refetch } = useDeviceLibrary();
 
   const [refreshing, setRefreshing] = useState(false);
   const currentPlaying = useActiveTrack();
   const playbackState = usePlaybackState();
-  const { Index, setIndex } = useContext(Context);
+  const { setIndex } = useContext(Context);
   const [searchQuery, setSearchQuery] = useState('');
 
   const styles = StyleSheet.create({
@@ -93,7 +105,7 @@ export const MyMusicPage = () => {
       fontSize: 26,
       fontWeight: 'bold',
       color: theme.colors.text,
-    }
+    },
   });
 
   const onRefresh = useCallback(async () => {
@@ -104,35 +116,44 @@ export const MyMusicPage = () => {
     setRefreshing(false);
   }, [refetch]);
 
-  const loadAndPlayTrack = async (index) => {
-    if (index < 0 || index >= localMusic.length) return;
-
-    try {
-      const song = localMusic[index];
-      if (!song.path) {
-        ToastAndroid.show('Cannot play track: Invalid file path', ToastAndroid.LONG);
+  const loadAndPlayTrack = useCallback(
+    async (index) => {
+      if (index < 0 || index >= localMusic.length) {
         return;
       }
 
-      // Use LocalMusicQueueManager for progressive loading (prevents UI lag with 200+ songs)
-      const localMusicQueueManager = require('../../Utils/LocalMusicQueueManager').default;
+      try {
+        const song = localMusic[index];
+        if (!song.path) {
+          ToastAndroid.show(
+            'Cannot play track: Invalid file path',
+            ToastAndroid.LONG
+          );
+          return;
+        }
 
-      await TrackPlayer.reset();
+        // Use LocalMusicQueueManager for progressive loading (prevents UI lag with 200+ songs)
+        const localMusicQueueManager =
+          require('../../Utils/LocalMusicQueueManager').default;
 
-      const { initialBatch, success } = await localMusicQueueManager.initialize(localMusic, index);
+        await TrackPlayer.reset();
 
-      if (success && initialBatch.length > 0) {
-        await TrackPlayer.add(initialBatch);
-        await TrackPlayer.play();
-        setIndex(1);
-      } else {
-        ToastAndroid.show('Failed to start playback', ToastAndroid.SHORT);
+        const { initialBatch, success } =
+          await localMusicQueueManager.initialize(localMusic, index);
+
+        if (success && initialBatch.length > 0) {
+          await TrackPlayer.add(initialBatch);
+          await TrackPlayer.play();
+          setIndex(1);
+        } else {
+          ToastAndroid.show('Failed to start playback', ToastAndroid.SHORT);
+        }
+      } catch (err) {
+        console.warn('Play error', err);
       }
-    } catch (error) {
-      console.warn("Play error", error);
-    }
-  };
-
+    },
+    [localMusic, setIndex]
+  );
 
   const playPreviousSong = useCallback(async () => {
     try {
@@ -141,13 +162,18 @@ export const MyMusicPage = () => {
         await loadAndPlayTrack(0);
         return;
       }
-      const currentIndex = localMusic.findIndex(track => track.id === currentTrack.id || track.path === currentTrack.url?.replace('file://', ''));
+      const currentIndex = localMusic.findIndex(
+        (track) =>
+          track.id === currentTrack.id ||
+          track.path === currentTrack.url?.replace('file://', '')
+      );
       // Fallback matching if IDs differ due to regeneration
 
-      const prevIndex = (currentIndex - 1 + localMusic.length) % localMusic.length;
+      const prevIndex =
+        (currentIndex - 1 + localMusic.length) % localMusic.length;
       await loadAndPlayTrack(prevIndex);
-    } catch (error) { }
-  }, [localMusic]);
+    } catch (err) {}
+  }, [localMusic, loadAndPlayTrack]);
 
   const playNextSong = useCallback(async () => {
     try {
@@ -156,34 +182,53 @@ export const MyMusicPage = () => {
         await loadAndPlayTrack(0);
         return;
       }
-      const currentIndex = localMusic.findIndex(track => track.id === currentTrack.id || track.path === currentTrack.url?.replace('file://', ''));
+      const currentIndex = localMusic.findIndex(
+        (track) =>
+          track.id === currentTrack.id ||
+          track.path === currentTrack.url?.replace('file://', '')
+      );
 
       const nextIndex = (currentIndex + 1) % localMusic.length;
       await loadAndPlayTrack(nextIndex);
-    } catch (error) { }
-  }, [localMusic]);
+    } catch (err) {}
+  }, [localMusic, loadAndPlayTrack]);
 
   // Event Listeners for Queue management handled largely by Global Player context in Root,
   // but we keep basic error recovery here if needed.
-  useTrackPlayerEvents([Event.PlaybackQueueEnded, Event.PlaybackError], async (event) => {
-    if (event.type === Event.PlaybackQueueEnded) {
-      const queue = await TrackPlayer.getQueue();
-      if (queue.length > 0) {
-        await TrackPlayer.skip(0);
-        await TrackPlayer.play();
+  useTrackPlayerEvents(
+    [Event.PlaybackQueueEnded, Event.PlaybackError],
+    async (event) => {
+      if (event.type === Event.PlaybackQueueEnded) {
+        const queue = await TrackPlayer.getQueue();
+        if (queue.length > 0) {
+          await TrackPlayer.skip(0);
+          await TrackPlayer.play();
+        }
       }
     }
-  });
+  );
 
   if (loading && !localMusic.length) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#1E90FF" />
-        <Text style={styles.loadingText}>{isOffline ? 'Loading cached music...' : 'Fetching your music...'}</Text>
-        <Text style={[styles.loadingText, { fontSize: 14, marginTop: 10, color: '#1E90FF' }]}>
+        <Text style={styles.loadingText}>
+          {isOffline ? 'Loading cached music...' : 'Fetching your music...'}
+        </Text>
+        <Text
+          style={[
+            styles.loadingText,
+            { fontSize: 14, marginTop: 10, color: '#1E90FF' },
+          ]}
+        >
           This may take a few seconds...
         </Text>
-        <Text style={[styles.loadingText, { fontSize: 12, marginTop: 5, color: '#666' }]}>
+        <Text
+          style={[
+            styles.loadingText,
+            { fontSize: 12, marginTop: 5, color: '#666' },
+          ]}
+        >
           Scanning music files on your device
         </Text>
       </View>
@@ -202,10 +247,7 @@ export const MyMusicPage = () => {
         )}
         {!error.includes('settings') && (
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Button
-              title="Try Again"
-              onPress={() => refetch()}
-            />
+            <Button title="Try Again" onPress={() => refetch()} />
           </View>
         )}
       </View>
@@ -235,9 +277,10 @@ export const MyMusicPage = () => {
             />
           </View>
         }
-        data={localMusic.filter(item =>
-          item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.artist?.toLowerCase().includes(searchQuery.toLowerCase())
+        data={localMusic.filter(
+          (item) =>
+            item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.artist?.toLowerCase().includes(searchQuery.toLowerCase())
         )}
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (
@@ -245,12 +288,20 @@ export const MyMusicPage = () => {
             song={item}
             index={index}
             allSongs={localMusic}
-            artist={item.artist && item.artist.length > 20 ? item.artist.substring(0, 20) + "..." : item.artist}
+            artist={
+              item.artist && item.artist.length > 20
+                ? item.artist.substring(0, 20) + '...'
+                : item.artist
+            }
             activeTrackId={currentPlaying?.id}
-            isPlaying={playbackState.state === "playing" || playbackState.state === 3}
+            isPlaying={
+              playbackState.state === 'playing' || playbackState.state === 3
+            }
           />
         )}
-        ListEmptyComponent={<Text style={styles.emptyText}>No music files available.</Text>}
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>No music files available.</Text>
+        }
         contentContainerStyle={styles.listContainer}
         refreshControl={
           <RefreshControl
@@ -261,7 +312,13 @@ export const MyMusicPage = () => {
         }
       />
 
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 10 }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          padding: 10,
+        }}
+      >
         <Pressable onPress={playPreviousSong} style={styles.controlButton}>
           <Ionicons name="play-skip-back" size={24} color="white" />
         </Pressable>

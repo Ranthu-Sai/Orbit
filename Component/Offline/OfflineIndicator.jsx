@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import useOffline from '../../hooks/useOffline';
 
@@ -7,7 +7,7 @@ import useOffline from '../../hooks/useOffline';
  * OfflineIndicator - Flexible offline mode indicator component
  * Can be used in various parts of the app to show offline status
  */
-const OfflineIndicator = ({ 
+const OfflineIndicator = ({
   variant = 'banner', // 'banner', 'badge', 'icon', 'text'
   size = 'medium', // 'small', 'medium', 'large'
   color = '#ff5252',
@@ -18,9 +18,8 @@ const OfflineIndicator = ({
   iconName = 'cloud-offline-outline',
   style,
   onPress,
-  animated = false
 }) => {
-  const { isOffline, networkType } = useOffline();
+  const { isOffline } = useOffline();
 
   if (!isOffline) {
     return null;
@@ -34,7 +33,7 @@ const OfflineIndicator = ({
           fontSize: 10,
           padding: 4,
           borderRadius: 6,
-          height: 20
+          height: 20,
         };
       case 'large':
         return {
@@ -42,7 +41,7 @@ const OfflineIndicator = ({
           fontSize: 16,
           padding: 12,
           borderRadius: 16,
-          height: 40
+          height: 40,
         };
       default: // medium
         return {
@@ -50,7 +49,7 @@ const OfflineIndicator = ({
           fontSize: 12,
           padding: 8,
           borderRadius: 12,
-          height: 28
+          height: 28,
         };
     }
   };
@@ -62,7 +61,7 @@ const OfflineIndicator = ({
       backgroundColor: color,
       alignItems: 'center',
       justifyContent: 'center',
-      ...sizeConfig
+      ...sizeConfig,
     };
 
     switch (variant) {
@@ -71,47 +70,49 @@ const OfflineIndicator = ({
           ...baseStyle,
           borderRadius: sizeConfig.height / 2,
           minWidth: sizeConfig.height,
-          paddingHorizontal: sizeConfig.padding
+          paddingHorizontal: sizeConfig.padding,
         };
       case 'icon':
         return {
           ...baseStyle,
           backgroundColor: 'transparent',
           padding: 0,
-          height: 'auto'
+          height: 'auto',
         };
       case 'text':
         return {
           ...baseStyle,
           backgroundColor: 'transparent',
           padding: 0,
-          height: 'auto'
+          height: 'auto',
         };
       default: // banner
         return {
           ...baseStyle,
           flexDirection: 'row',
-          paddingHorizontal: sizeConfig.padding * 2
+          paddingHorizontal: sizeConfig.padding * 2,
         };
     }
   };
 
   const renderContent = () => {
     const iconElement = showIcon && (
-      <Ionicons 
-        name={iconName} 
-        size={sizeConfig.iconSize} 
-        color={variant === 'icon' ? color : textColor} 
+      <Ionicons
+        name={iconName}
+        size={sizeConfig.iconSize}
+        color={variant === 'icon' ? color : textColor}
       />
     );
 
     const textElement = showText && (
-      <Text style={{ 
-        color: variant === 'text' ? color : textColor, 
-        fontSize: sizeConfig.fontSize,
-        fontWeight: 'bold',
-        marginLeft: showIcon && variant === 'banner' ? 4 : 0
-      }}>
+      <Text
+        style={{
+          color: variant === 'text' ? color : textColor,
+          fontSize: sizeConfig.fontSize,
+          fontWeight: 'bold',
+          marginLeft: showIcon && variant === 'banner' ? 4 : 0,
+        }}
+      >
         {text}
       </Text>
     );
@@ -134,7 +135,7 @@ const OfflineIndicator = ({
 
   const containerStyle = {
     ...getVariantStyle(),
-    ...style
+    ...style,
   };
 
   if (onPress) {
@@ -145,11 +146,7 @@ const OfflineIndicator = ({
     );
   }
 
-  return (
-    <View style={containerStyle}>
-      {renderContent()}
-    </View>
-  );
+  return <View style={containerStyle}>{renderContent()}</View>;
 };
 
 export default OfflineIndicator;

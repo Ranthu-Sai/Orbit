@@ -1,26 +1,23 @@
-import Animated, { useAnimatedRef } from "react-native-reanimated";
-import { LikedPagesTopHeader } from "../../Component/Library/TopHeaderLikedPages";
-import { LikedDetails } from "../../Component/Library/LikedDetails";
-import { useEffect, useState, useRef, useCallback } from "react";
-import { GetLikedPlaylist } from "../../LocalStorage/StoreLikedPlaylists";
-import { EachPlaylistCard } from "../../Component/Global/EachPlaylistCard";
-import { View, Dimensions, StyleSheet, RefreshControl } from "react-native";
-import { useTheme, useNavigation } from "@react-navigation/native";
-import { PaddingConatiner } from "../../Layout/PaddingConatiner";
-import React from "react";
+import Animated, { useAnimatedRef } from 'react-native-reanimated';
+import { LikedPagesTopHeader } from '../../Component/Library/TopHeaderLikedPages';
+import { LikedDetails } from '../../Component/Library/LikedDetails';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { GetLikedPlaylist } from '../../LocalStorage/StoreLikedPlaylists';
+import { EachPlaylistCard } from '../../Component/Global/EachPlaylistCard';
+import { View, Dimensions, StyleSheet } from 'react-native';
+import { useTheme } from '@react-navigation/native';
+import { PaddingConatiner } from '../../Layout/PaddingConatiner';
+import React from 'react';
 import { CacheManager } from '../../Utils/NavigationCacheManager';
 import { CACHE_TTL, CACHE_KEYS } from '../../Utils/CacheConfig';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export const LikedPlaylistPage = () => {
-  const theme = useTheme()
-  const AnimatedRef = useAnimatedRef()
+  const theme = useTheme();
+  const AnimatedRef = useAnimatedRef();
   const [LikedPlaylist, setLikedPlaylist] = useState([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const navigation = useNavigation();
   const isMounted = useRef(true);
-  const isInitialLoad = useRef(true);
 
   // Removed BackHandler - let RootRoute handle navigation
 
@@ -51,14 +48,6 @@ export const LikedPlaylistPage = () => {
     }
   }, []);
 
-  // Pull to refresh handler
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    CacheManager.invalidate(CACHE_KEYS.LIKED_PLAYLISTS);
-    await getAllLikedSongs(true);
-    setRefreshing(false);
-  }, [getAllLikedSongs]);
-
   // Initial load only (NO useFocusEffect - no reload on back navigation)
   useEffect(() => {
     getAllLikedSongs(false);
@@ -77,8 +66,15 @@ export const LikedPlaylistPage = () => {
         backgroundColor: theme.colors.background,
       }}
     >
-      <LikedPagesTopHeader AnimatedRef={AnimatedRef} url={require("../../Images/LikedPlaylist.png")} />
-      <LikedDetails name={"Liked Playlists"} dontShowPlayButton={true} textStyle={!theme.dark ? { color: '#FFFFFF' } : {}} />
+      <LikedPagesTopHeader
+        AnimatedRef={AnimatedRef}
+        url={require('../../Images/LikedPlaylist.png')}
+      />
+      <LikedDetails
+        name={'Liked Playlists'}
+        dontShowPlayButton={true}
+        textStyle={!theme.dark ? { color: '#FFFFFF' } : {}}
+      />
       <PaddingConatiner>
         <View style={styles.playlistContainer}>
           {LikedPlaylist.map((e, i) => {
@@ -123,5 +119,5 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: 'transparent',
-  }
+  },
 });

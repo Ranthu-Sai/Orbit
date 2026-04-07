@@ -32,43 +32,52 @@ export const useUnifiedDownload = (songData = null, isOffline = false) => {
   const songId = songData?.id;
 
   // Check if song is downloaded with caching to prevent excessive calls
-  const checkDownloadStatus = useCallback(async (id) => {
-    if (!id) {
-      setIsDownloaded(false);
-      return false;
-    }
-
-    const now = Date.now();
-    const cacheKey = `${id}_${isOffline}`;
-
-    // Check cache first
-    const cached = downloadStatusCache.get(cacheKey);
-    if (cached && (now - cached.timestamp) < cacheExpiry) {
-      setIsDownloaded(cached.status);
-      return cached.status;
-    }
-
-    try {
-      // In offline mode, if a song is playing, it must be downloaded
-      if (isOffline && songData?.isLocal) {
-        const status = true;
-        downloadStatusCache.set(cacheKey, { status, timestamp: now });
-        setIsDownloaded(status);
-        return status;
+  const checkDownloadStatus = useCallback(
+    async (id) => {
+      if (!id) {
+        setIsDownloaded(false);
+        return false;
       }
 
-      const downloaded = await StorageManager.isSongDownloaded(id);
+      const now = Date.now();
+      const cacheKey = `${id}_${isOffline}`;
 
-      // Cache the result
-      downloadStatusCache.set(cacheKey, { status: downloaded, timestamp: now });
-      setIsDownloaded(downloaded);
-      return downloaded;
-    } catch (error) {
-      console.error('useUnifiedDownload: Error checking download status:', error);
-      setIsDownloaded(false);
-      return false;
-    }
-  }, [isOffline, songData?.isLocal]);
+      // Check cache first
+      const cached = downloadStatusCache.get(cacheKey);
+      if (cached && now - cached.timestamp < cacheExpiry) {
+        setIsDownloaded(cached.status);
+        return cached.status;
+      }
+
+      try {
+        // In offline mode, if a song is playing, it must be downloaded
+        if (isOffline && songData?.isLocal) {
+          const status = true;
+          downloadStatusCache.set(cacheKey, { status, timestamp: now });
+          setIsDownloaded(status);
+          return status;
+        }
+
+        const downloaded = await StorageManager.isSongDownloaded(id);
+
+        // Cache the result
+        downloadStatusCache.set(cacheKey, {
+          status: downloaded,
+          timestamp: now,
+        });
+        setIsDownloaded(downloaded);
+        return downloaded;
+      } catch (error) {
+        console.error(
+          'useUnifiedDownload: Error checking download status:',
+          error
+        );
+        setIsDownloaded(false);
+        return false;
+      }
+    },
+    [isOffline, songData?.isLocal]
+  );
 
   // Effect to check download status when songId changes
   useEffect(() => {
@@ -117,15 +126,21 @@ export const useUnifiedDownload = (songData = null, isOffline = false) => {
     EventRegister.addEventListener('download-removed', handleDownloadRemoved);
 
     return () => {
-      EventRegister.removeEventListener('download-complete', handleDownloadComplete);
-      EventRegister.removeEventListener('download-removed', handleDownloadRemoved);
+      EventRegister.removeEventListener(
+        'download-complete',
+        handleDownloadComplete
+      );
+      EventRegister.removeEventListener(
+        'download-removed',
+        handleDownloadRemoved
+      );
     };
   }, [songId, isOffline]);
 
   // Download function with permission handling
   const startDownload = useCallback(async () => {
     if (!songData || !songId) {
-      setDownloadError(new Error("No valid song to download"));
+      setDownloadError(new Error('No valid song to download'));
       return false;
     }
 
@@ -145,7 +160,7 @@ export const useUnifiedDownload = (songData = null, isOffline = false) => {
       // Request permissions first
       const hasPermission = await requestStoragePermission();
       if (!hasPermission) {
-        setDownloadError(new Error("Storage permission denied"));
+        setDownloadError(new Error('Storage permission denied'));
         return false;
       }
 
@@ -162,9 +177,8 @@ export const useUnifiedDownload = (songData = null, isOffline = false) => {
       );
 
       return success;
-
     } catch (error) {
-      console.error("useUnifiedDownload: Download process error:", error);
+      console.error('useUnifiedDownload: Download process error:', error);
       setDownloadError(error);
       setIsDownloading(false);
       setDownloadProgress(0);
@@ -187,7 +201,7 @@ export const useUnifiedDownload = (songData = null, isOffline = false) => {
       }
       return success;
     } catch (error) {
-      console.error("useUnifiedDownload: Error removing download:", error);
+      console.error('useUnifiedDownload: Error removing download:', error);
       setDownloadError(error);
       return false;
     }
@@ -206,14 +220,14 @@ export const useUnifiedDownload = (songData = null, isOffline = false) => {
     isDownloading,
     downloadProgress,
     downloadError,
-    
+
     // Actions
     startDownload,
     removeDownload,
     refreshStatus,
-    
+
     // Computed values
     canDownload: !isOffline && !isDownloading && !isDownloaded && !!songData,
-    showProgress: isDownloading && downloadProgress > 0
+    showProgress: isDownloading && downloadProgress > 0,
   };
 };

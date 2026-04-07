@@ -14,7 +14,7 @@ const CACHE_CONFIG = {
   MEMORY: {
     MAX_SIZE: 2,
     MAX_AGE: 2 * 60 * 1000, // 2 minutes
-  }
+  },
 };
 
 // Memory cache implementation with strict limits
@@ -57,14 +57,14 @@ class MemoryCache {
   getOldestKey() {
     let oldestKey = null;
     let oldestTime = Infinity;
-    
+
     for (const [key, timestamp] of this.timestamps.entries()) {
       if (timestamp < oldestTime) {
         oldestTime = timestamp;
         oldestKey = key;
       }
     }
-    
+
     return oldestKey;
   }
 
@@ -129,7 +129,7 @@ const Compression = {
       console.warn('Decompression failed:', error);
       return null;
     }
-  }
+  },
 };
 
 // Database size management
@@ -145,10 +145,13 @@ const DB_SIZE_MANAGER = {
 
   async updateDatabaseSize(size) {
     try {
-      await AsyncStorage.setItem('db_size_info', JSON.stringify({
-        size,
-        lastCleanup: Date.now()
-      }));
+      await AsyncStorage.setItem(
+        'db_size_info',
+        JSON.stringify({
+          size,
+          lastCleanup: Date.now(),
+        })
+      );
     } catch (error) {
       console.warn('Failed to update database size:', error);
     }
@@ -160,8 +163,10 @@ const DB_SIZE_MANAGER = {
       const now = Date.now();
 
       // Force cleanup if size is too large or if it's been too long
-      if (size > CACHE_CONFIG.PERSISTENT.MAX_SIZE || 
-          now - lastCleanup > CACHE_CONFIG.PERSISTENT.MAX_AGE) {
+      if (
+        size > CACHE_CONFIG.PERSISTENT.MAX_SIZE ||
+        now - lastCleanup > CACHE_CONFIG.PERSISTENT.MAX_AGE
+      ) {
         await this.forceCleanup();
       }
     } catch (error) {
@@ -172,19 +177,19 @@ const DB_SIZE_MANAGER = {
   async forceCleanup() {
     try {
       const keys = await AsyncStorage.getAllKeys();
-      const cacheKeys = keys.filter(key => 
-        key.startsWith('playlist_') || key.startsWith('album_')
+      const cacheKeys = keys.filter(
+        (key) => key.startsWith('playlist_') || key.startsWith('album_')
       );
 
       // Remove all cache items
-      await Promise.all(cacheKeys.map(key => AsyncStorage.removeItem(key)));
-      
+      await Promise.all(cacheKeys.map((key) => AsyncStorage.removeItem(key)));
+
       // Reset size info
       await this.updateDatabaseSize(0);
     } catch (error) {
       console.warn('Force cleanup failed:', error);
     }
-  }
+  },
 };
 
 export const CacheManager = {
@@ -195,10 +200,11 @@ export const CacheManager = {
       const keys = await AsyncStorage.getAllKeys();
 
       // Filter cache keys
-      const cacheKeys = keys.filter(key =>
-        key.startsWith('playlist_') ||
-        key.startsWith('album_') ||
-        key.startsWith('api_cache_')
+      const cacheKeys = keys.filter(
+        (key) =>
+          key.startsWith('playlist_') ||
+          key.startsWith('album_') ||
+          key.startsWith('api_cache_')
       );
 
       // If we have a lot of cached items, remove the older ones
@@ -206,52 +212,67 @@ export const CacheManager = {
         const keysToRemove = cacheKeys.slice(0, cacheKeys.length - 10);
         await AsyncStorage.multiRemove(keysToRemove);
       }
-      
+
       return true;
     } catch (error) {
-      console.warn("Failed to clear old cache entries:", error);
+      console.warn('Failed to clear old cache entries:', error);
       return false;
     }
   },
-  
+
   // Save data to cache with type-specific handling
   saveToCache: async (key, data, type = 'playlist') => {
+    // For persistent storage (playlists and albums)
+    const prefix = type === 'playlist' ? 'playlist_' : 'album_';
+    const cacheKey = `${prefix}${key}`;
+
     try {
       // Handle search results differently - memory only
-      if (key.includes('api_cache_search_') || key.includes('api_cache_album_search_')) {
+      if (
+        key.includes('api_cache_search_') ||
+        key.includes('api_cache_album_search_')
+      ) {
         // Store search results in memory only, completely bypass AsyncStorage
         memoryCache.set(key, data);
         return true;
       }
 
-      // For persistent storage (playlists and albums)
-      const prefix = type === 'playlist' ? 'playlist_' : 'album_';
-      const cacheKey = `${prefix}${key}`;
-
       // Check database size and cleanup if needed
       await DB_SIZE_MANAGER.cleanupIfNeeded();
 
       // Save to persistent storage
-      await AsyncStorage.setItem(cacheKey, JSON.stringify({
-        data,
-        timestamp: Date.now()
-      }));
+      await AsyncStorage.setItem(
+        cacheKey,
+        JSON.stringify({
+          data,
+          timestamp: Date.now(),
+        })
+      );
 
       // Update database size
       const { size } = await DB_SIZE_MANAGER.getDatabaseSize();
-      await DB_SIZE_MANAGER.updateDatabaseSize(size + JSON.stringify(data).length);
+      await DB_SIZE_MANAGER.updateDatabaseSize(
+        size + JSON.stringify(data).length
+      );
 
       return true;
     } catch (error) {
       // If we get a storage full error, force cleanup and retry once
-      if (error.message?.includes('SQLITE_FULL') || error.message?.includes('storage_full')) {
+      if (
+        error.message?.includes('SQLITE_FULL') ||
+        error.message?.includes('storage_full')
+      ) {
         try {
           await DB_SIZE_MANAGER.forceCleanup();
           // Retry once after cleanup
-          await AsyncStorage.setItem(cacheKey, JSON.stringify({
-            data,
-            timestamp: Date.now()
-          }));
+          const retryCacheKey = cacheKey;
+          await AsyncStorage.setItem(
+            retryCacheKey,
+            JSON.stringify({
+              data,
+              timestamp: Date.now(),
+            })
+          );
           return true;
         } catch (retryError) {
           console.warn('Cache save failed even after cleanup:', retryError);
@@ -265,19 +286,24 @@ export const CacheManager = {
   getFromCache: async (key, type = 'playlist') => {
     try {
       // Handle search results differently - memory only
-      if (key.includes('api_cache_search_') || key.includes('api_cache_album_search_')) {
+      if (
+        key.includes('api_cache_search_') ||
+        key.includes('api_cache_album_search_')
+      ) {
         return memoryCache.get(key);
       }
 
       // For persistent storage
       const prefix = type === 'playlist' ? 'playlist_' : 'album_';
       const cacheKey = `${prefix}${key}`;
-      
+
       const cachedData = await AsyncStorage.getItem(cacheKey);
-      if (!cachedData) return null;
+      if (!cachedData) {
+        return null;
+      }
 
       const { data, timestamp } = JSON.parse(cachedData);
-      
+
       // Check if data is expired
       if (Date.now() - timestamp > CACHE_CONFIG.PERSISTENT.MAX_AGE) {
         await AsyncStorage.removeItem(cacheKey);
@@ -302,7 +328,10 @@ export const CacheManager = {
   // Remove specific item from cache
   removeFromCache: async (key) => {
     try {
-      if (key.includes('api_cache_search_') || key.includes('api_cache_album_search_')) {
+      if (
+        key.includes('api_cache_search_') ||
+        key.includes('api_cache_album_search_')
+      ) {
         memoryCache.clear();
       } else {
         await AsyncStorage.removeItem(key);
@@ -322,5 +351,5 @@ export const CacheManager = {
       console.warn('Failed to clear all cache:', error);
       return false;
     }
-  }
-}; 
+  },
+};

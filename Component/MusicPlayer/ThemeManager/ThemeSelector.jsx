@@ -6,19 +6,20 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 
 /**
  * ThemeSelector - Component for switching between light and dark themes
- * 
+ *
  * This component provides a UI element for users to toggle between themes.
  * It can be used in settings screens or as a floating button.
  */
 
-export const ThemeSelector = ({ 
-  style, 
-  size = 24, 
-  showLabel = false, 
-  variant = 'button' // 'button', 'toggle', 'icon'
+export const ThemeSelector = ({
+  style,
+  size = 24,
+  showLabel = false,
+  variant = 'button', // 'button', 'toggle', 'icon'
 }) => {
   const { toggleTheme } = useThemeContext();
-  const { themeMode, getTextColor, getPressedBackgroundColor } = useThemeManager();
+  const { themeMode, getTextColor, getPressedBackgroundColor } =
+    useThemeManager();
 
   const handleThemeToggle = () => {
     toggleTheme();
@@ -39,10 +40,10 @@ export const ThemeSelector = ({
         style={[styles.iconButton, style]}
         activeOpacity={0.7}
       >
-        <Ionicons 
-          name={getThemeIcon()} 
-          size={size} 
-          color={getTextColor('icon')} 
+        <Ionicons
+          name={getThemeIcon()}
+          size={size}
+          color={getTextColor('icon')}
         />
       </TouchableOpacity>
     );
@@ -55,20 +56,21 @@ export const ThemeSelector = ({
         style={[styles.toggleButton, style]}
         activeOpacity={0.8}
       >
-        <View style={[
-          styles.toggleContainer,
-          { backgroundColor: getPressedBackgroundColor() }
-        ]}>
-          <Ionicons 
-            name={getThemeIcon()} 
-            size={size} 
-            color={getTextColor('icon')} 
+        <View
+          style={[
+            styles.toggleContainer,
+            { backgroundColor: getPressedBackgroundColor() },
+          ]}
+        >
+          <Ionicons
+            name={getThemeIcon()}
+            size={size}
+            color={getTextColor('icon')}
           />
           {showLabel && (
-            <Text style={[
-              styles.toggleLabel,
-              { color: getTextColor('primary') }
-            ]}>
+            <Text
+              style={[styles.toggleLabel, { color: getTextColor('primary') }]}
+            >
               {getThemeLabel()}
             </Text>
           )}
@@ -84,16 +86,13 @@ export const ThemeSelector = ({
       style={[styles.button, style]}
       activeOpacity={0.8}
     >
-      <Ionicons 
-        name={getThemeIcon()} 
-        size={size} 
-        color={getTextColor('icon')} 
+      <Ionicons
+        name={getThemeIcon()}
+        size={size}
+        color={getTextColor('icon')}
       />
       {showLabel && (
-        <Text style={[
-          styles.buttonLabel,
-          { color: getTextColor('primary') }
-        ]}>
+        <Text style={[styles.buttonLabel, { color: getTextColor('primary') }]}>
           {getThemeLabel()}
         </Text>
       )}

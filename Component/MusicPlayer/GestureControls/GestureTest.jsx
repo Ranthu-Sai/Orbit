@@ -12,7 +12,14 @@ export const GestureTest = () => {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: '#000',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+    >
       <Text style={{ color: 'white', fontSize: 18, marginBottom: 20 }}>
         Gesture Controls Test
       </Text>
@@ -27,13 +34,12 @@ export const GestureTest = () => {
           borderRadius: 10,
           justifyContent: 'center',
           alignItems: 'center',
-          marginBottom: 20
+          marginBottom: 20,
         }}
       >
         <Text style={{ color: 'white', textAlign: 'center' }}>
-          Full Gesture Manager{'\n'}
-          • Horizontal swipe: Navigation{'\n'}
-          • Tap: Close
+          Full Gesture Manager{'\n'}• Horizontal swipe: Navigation{'\n'}• Tap:
+          Close
         </Text>
       </GestureManager>
 
@@ -49,13 +55,12 @@ export const GestureTest = () => {
           borderRadius: 10,
           justifyContent: 'center',
           alignItems: 'center',
-          marginBottom: 20
+          marginBottom: 20,
         }}
       >
         <Text style={{ color: 'white', textAlign: 'center' }}>
-          Navigation + Tap Only{'\n'}
-          • Horizontal swipe: Navigation{'\n'}
-          • Tap: Close
+          Navigation + Tap Only{'\n'}• Horizontal swipe: Navigation{'\n'}• Tap:
+          Close
         </Text>
       </SimpleGestureManager>
     </View>

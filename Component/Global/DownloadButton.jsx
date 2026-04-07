@@ -1,39 +1,55 @@
-import { View, TouchableOpacity, ToastAndroid, StyleSheet } from "react-native";
-import AntDesign from "react-native-vector-icons/AntDesign";
-import { useState, useEffect } from "react";
-import { useTheme } from "@react-navigation/native";
-import { SmallText } from "./SmallText";
-import { PermissionsAndroid, Platform } from "react-native";
-import DeviceInfo from "react-native-device-info";
+import { View, TouchableOpacity, ToastAndroid, StyleSheet, Alert } from 'react-native';
+import AntDesign from 'react-native-vector-icons/AntDesign';
+import { useState, useEffect } from 'react';
+import { useTheme } from '@react-navigation/native';
+import { SmallText } from './SmallText';
+import { PermissionsAndroid, Platform } from 'react-native';
+import DeviceInfo from 'react-native-device-info';
 import { StorageManager } from '../../Utils/StorageManager';
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
 import EventRegister from '../../Utils/EventRegister';
 
 // Circular progress component for download indicator
-const CircularProgress = ({ progress, size = 20, thickness = 2, color = '#1DB954' }) => {
+const CircularProgress = ({
+  progress,
+  size = 20,
+  thickness = 2,
+  color = '#1DB954',
+}) => {
   return (
-    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
-      {/* Background circle */}
-      <View style={{
+    <View
+      style={{
         width: size,
         height: size,
-        borderRadius: size / 2,
-        backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'center',
         alignItems: 'center',
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.2)'
-      }}>
+      }}
+    >
+      {/* Background circle */}
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          overflow: 'hidden',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.2)',
+        }}
+      >
         {/* Filled portion based on progress */}
-        <View style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: `${progress}%`,
-          backgroundColor: color,
-        }} />
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: `${progress}%`,
+            backgroundColor: color,
+          }}
+        />
 
         {/* Percentage text */}
         <SmallText
@@ -44,7 +60,7 @@ const CircularProgress = ({ progress, size = 20, thickness = 2, color = '#1DB954
             fontWeight: 'bold',
             textShadowColor: 'rgba(0,0,0,0.75)',
             textShadowOffset: { width: 0, height: 1 },
-            textShadowRadius: 2
+            textShadowRadius: 2,
           }}
         />
       </View>
@@ -54,10 +70,10 @@ const CircularProgress = ({ progress, size = 20, thickness = 2, color = '#1DB954
 
 export const DownloadButton = ({
   songs = [],
-  albumName = "",
-  size = "normal",
+  albumName = '',
+  size = 'normal',
   individual = false,
-  songId = null
+  songId = null,
 }) => {
   const { colors } = useTheme();
   const [downloadStatus, setDownloadStatus] = useState({});
@@ -65,9 +81,9 @@ export const DownloadButton = ({
   const [overallProgress, setOverallProgress] = useState(0);
 
   // Determine button size based on prop
-  const buttonSize = size === "large" ? 48 : size === "small" ? 36 : 44;
-  const iconSize = size === "large" ? 26 : size === "small" ? 18 : 22;
-  const progressSize = size === "large" ? 34 : size === "small" ? 26 : 30;
+  const buttonSize = size === 'large' ? 48 : size === 'small' ? 36 : 44;
+  const iconSize = size === 'large' ? 26 : size === 'small' ? 18 : 22;
+  const progressSize = size === 'large' ? 34 : size === 'small' ? 26 : 30;
 
   // Check download status on mount
   useEffect(() => {
@@ -79,8 +95,8 @@ export const DownloadButton = ({
           [songId]: {
             isDownloaded,
             progress: isDownloaded ? 100 : 0,
-            isDownloading: false
-          }
+            isDownloading: false,
+          },
         });
         setOverallProgress(isDownloaded ? 100 : 0);
       } else if (songs && songs.length > 0) {
@@ -90,13 +106,15 @@ export const DownloadButton = ({
 
         // Check each song's download status
         for (const song of songs) {
-          if (!song || !song.id) continue;
+          if (!song || !song.id) {
+            continue;
+          }
 
           const isDownloaded = await StorageManager.isSongDownloaded(song.id);
           songStatuses[song.id] = {
             isDownloaded,
             progress: isDownloaded ? 100 : 0,
-            isDownloading: false
+            isDownloading: false,
           };
 
           if (isDownloaded) {
@@ -110,7 +128,9 @@ export const DownloadButton = ({
         if (downloadedCount === songs.length) {
           setOverallProgress(100);
         } else {
-          setOverallProgress(Math.floor((downloadedCount / songs.length) * 100));
+          setOverallProgress(
+            Math.floor((downloadedCount / songs.length) * 100)
+          );
         }
       }
     };
@@ -134,10 +154,11 @@ export const DownloadButton = ({
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
           {
-            title: "Storage Permission",
-            message: "Orbit needs storage access to save music for offline playback",
-            buttonPositive: "Allow",
-            buttonNegative: "Cancel"
+            title: 'Storage Permission',
+            message:
+              'Orbit needs storage access to save music for offline playback',
+            buttonPositive: 'Allow',
+            buttonNegative: 'Cancel',
           }
         );
 
@@ -145,8 +166,8 @@ export const DownloadButton = ({
           handleDownload();
         } else {
           Alert.alert(
-            "Permission Denied",
-            "Storage permission is required to download songs. Please enable it in app settings."
+            'Permission Denied',
+            'Storage permission is required to download songs. Please enable it in app settings.'
           );
         }
       }
@@ -166,7 +187,7 @@ export const DownloadButton = ({
     try {
       // For individual songs
       if (individual && songId) {
-        const song = songs.find(s => s.id === songId);
+        const song = songs.find((s) => s.id === songId);
         if (!song) {
           ToastAndroid.show('Invalid song data', ToastAndroid.SHORT);
           return;
@@ -183,17 +204,17 @@ export const DownloadButton = ({
         const success = await UnifiedDownloadService.downloadSong({
           ...song,
           album: albumName,
-          source: song.source || 'saavn'
+          source: song.source || 'saavn',
         });
 
         if (success) {
-          setDownloadStatus(prev => ({
+          setDownloadStatus((prev) => ({
             ...prev,
             [songId]: {
               isDownloaded: true,
               progress: 100,
-              isDownloading: false
-            }
+              isDownloading: false,
+            },
           }));
           ToastAndroid.show('Download completed', ToastAndroid.SHORT);
         }
@@ -203,15 +224,17 @@ export const DownloadButton = ({
 
       // For albums/playlists
       // Check if all songs are already downloaded
-      const allDownloaded = Object.values(downloadStatus).every(status => status.isDownloaded);
+      const allDownloaded = Object.values(downloadStatus).every(
+        (status) => status.isDownloaded
+      );
       if (allDownloaded) {
         ToastAndroid.show('All songs already downloaded', ToastAndroid.SHORT);
         return;
       }
 
       setIsDownloading(true);
-      const songsToDownload = songs.filter(song =>
-        !downloadStatus[song.id]?.isDownloaded
+      const songsToDownload = songs.filter(
+        (song) => !downloadStatus[song.id]?.isDownloaded
       );
 
       if (songsToDownload.length === 0) {
@@ -220,7 +243,10 @@ export const DownloadButton = ({
         return;
       }
 
-      ToastAndroid.show(`Downloading ${songsToDownload.length} songs`, ToastAndroid.SHORT);
+      ToastAndroid.show(
+        `Downloading ${songsToDownload.length} songs`,
+        ToastAndroid.SHORT
+      );
 
       let successCount = 0;
       for (let i = 0; i < songsToDownload.length; i++) {
@@ -231,18 +257,18 @@ export const DownloadButton = ({
           const success = await UnifiedDownloadService.downloadSong({
             ...song,
             album: albumName,
-            source: song.source || 'saavn'
+            source: song.source || 'saavn',
           });
 
           if (success) {
             successCount++;
-            setDownloadStatus(prev => ({
+            setDownloadStatus((prev) => ({
               ...prev,
               [song.id]: {
                 isDownloaded: true,
                 progress: 100,
-                isDownloading: false
-              }
+                isDownloading: false,
+              },
             }));
           }
         } catch (error) {
@@ -251,9 +277,11 @@ export const DownloadButton = ({
       }
 
       if (successCount > 0) {
-        ToastAndroid.show(`Downloaded ${successCount} song${successCount > 1 ? 's' : ''}`, ToastAndroid.SHORT);
+        ToastAndroid.show(
+          `Downloaded ${successCount} song${successCount > 1 ? 's' : ''}`,
+          ToastAndroid.SHORT
+        );
       }
-
     } catch (error) {
       console.error('Download error:', error);
       ToastAndroid.show('Download failed', ToastAndroid.SHORT);
@@ -267,13 +295,19 @@ export const DownloadButton = ({
   const renderButton = () => {
     if (isDownloading) {
       return (
-        <View style={{
-          width: buttonSize,
-          height: buttonSize,
-          justifyContent: 'center',
-          alignItems: 'center'
-        }}>
-          <CircularProgress progress={overallProgress} size={progressSize} thickness={2} />
+        <View
+          style={{
+            width: buttonSize,
+            height: buttonSize,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <CircularProgress
+            progress={overallProgress}
+            size={progressSize}
+            thickness={2}
+          />
         </View>
       );
     }
@@ -290,8 +324,10 @@ export const DownloadButton = ({
     }
 
     // For albums/playlists
-    const allDownloaded = songs.length > 0 && Object.keys(downloadStatus).length > 0 &&
-      Object.values(downloadStatus).every(status => status.isDownloaded);
+    const allDownloaded =
+      songs.length > 0 &&
+      Object.keys(downloadStatus).length > 0 &&
+      Object.values(downloadStatus).every((status) => status.isDownloaded);
 
     if (allDownloaded) {
       return <AntDesign name="checkcircle" size={iconSize} color="#4CAF50" />;
@@ -305,7 +341,7 @@ export const DownloadButton = ({
       style={[
         styles.container,
         { width: buttonSize, height: buttonSize },
-        size === "small" ? styles.smallContainer : null
+        size === 'small' ? styles.smallContainer : null,
       ]}
       onPress={!isDownloading ? getPermission : undefined}
       disabled={isDownloading}
@@ -326,5 +362,5 @@ const styles = StyleSheet.create({
   },
   smallContainer: {
     backgroundColor: 'rgba(0,0,0,0.3)',
-  }
-}); 
+  },
+});

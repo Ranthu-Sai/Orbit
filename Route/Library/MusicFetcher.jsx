@@ -5,7 +5,6 @@ import RNFS from 'react-native-fs';
 const MusicFetcher = () => {
   // State variables for music files, loading status, and errors
   const [musicFiles, setMusicFiles] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // Function to request READ_EXTERNAL_STORAGE permission
@@ -31,13 +30,10 @@ const MusicFetcher = () => {
   // Effect hook to fetch music files on component mount
   useEffect(() => {
     const fetchMusic = async () => {
-      setLoading(true);
-
       // Request permission
       const hasPermission = await requestPermission();
       if (!hasPermission) {
         setError('Permission denied');
-        setLoading(false);
         return;
       }
 
@@ -72,23 +68,22 @@ const MusicFetcher = () => {
         );
 
         // Flatten the array and map to a format suitable for FlatList
-        const musicFilesList = allFiles
-          .flat()
-          .map((file) => {
-            const lastDotIndex = file.name.lastIndexOf('.');
-            const title = lastDotIndex !== -1 ? file.name.substring(0, lastDotIndex) : file.name;
-            return {
-              id: file.path,
-              title: title,
-              url: 'file://' + file.path
-            };
-          });
+        const musicFilesList = allFiles.flat().map((file) => {
+          const lastDotIndex = file.name.lastIndexOf('.');
+          const title =
+            lastDotIndex !== -1
+              ? file.name.substring(0, lastDotIndex)
+              : file.name;
+          return {
+            id: file.path,
+            title: title,
+            url: 'file://' + file.path,
+          };
+        });
         setMusicFiles(musicFilesList);
       } catch (err) {
         setError('Error reading directories');
         console.error('Fetch error:', err);
-      } finally {
-        setLoading(false);
       }
     };
 

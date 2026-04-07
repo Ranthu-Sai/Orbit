@@ -1,11 +1,11 @@
-import { Playlist } from "../Playlist";
+import { Playlist } from '../Playlist';
 import { createStackNavigator } from '@react-navigation/stack';
-import { Discover } from "./Discover";
-import { SearchPage } from "../SearchPage";
-import { LanguageDetailPage } from "../../Component/Discover/LanguageDetailPage";
-import ShowPlaylistofType from "../../Component/Discover/ShowPlaylistofType";
-import { PodcastScreen } from "./PodcastScreen";
-import { PodcastDetailScreen } from "./PodcastDetailScreen";
+import { Discover } from './Discover';
+import { SearchPage } from '../SearchPage';
+import { LanguageDetailPage } from '../../Component/Discover/LanguageDetailPage';
+import ShowPlaylistofType from '../../Component/Discover/ShowPlaylistofType';
+import { PodcastScreen } from './PodcastScreen';
+import { PodcastDetailScreen } from './PodcastDetailScreen';
 const Stack = createStackNavigator();
 
 export const DiscoverRoute = () => {
@@ -28,4 +28,3 @@ export const DiscoverRoute = () => {
     </Stack.Navigator>
   );
 };
-

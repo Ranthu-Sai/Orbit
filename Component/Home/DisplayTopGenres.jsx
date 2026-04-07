@@ -1,15 +1,26 @@
-import { memo } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
-import { useTheme, useNavigation } from "@react-navigation/native";
-import { Chip } from "react-native-paper";
+import { memo } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { useTheme, useNavigation } from '@react-navigation/native';
+import { Chip } from 'react-native-paper';
 
 export const DisplayTopGenres = memo(() => {
   const { colors, dark } = useTheme();
   const navigation = useNavigation();
-  const genres = ["Romance", "Lofi", "Hip Hop", "Classical", "Jazz", "Party", "Retro", "Sad"];
+  const genres = [
+    'Romance',
+    'Lofi',
+    'Hip Hop',
+    'Classical',
+    'Jazz',
+    'Party',
+    'Retro',
+    'Sad',
+  ];
 
   const handleGenrePress = (genre) => {
-    navigation.navigate("ShowPlaylistofType", { Searchtext: genre.toLowerCase() });
+    navigation.navigate('ShowPlaylistofType', {
+      Searchtext: genre.toLowerCase(),
+    });
   };
 
   return (
@@ -26,15 +37,16 @@ export const DisplayTopGenres = memo(() => {
             style={[
               styles.chip,
               {
-                backgroundColor: dark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
-              }
+                backgroundColor: dark
+                  ? 'rgba(255, 255, 255, 0.08)'
+                  : 'rgba(0, 0, 0, 0.04)',
+              },
             ]}
-            textStyle={[
-              styles.chipText,
-              { color: colors.text }
-            ]}
+            textStyle={[styles.chipText, { color: colors.text }]}
             onPress={() => handleGenrePress(genre)}
-            rippleColor={dark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.15)'}
+            rippleColor={
+              dark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.15)'
+            }
           >
             {genre}
           </Chip>

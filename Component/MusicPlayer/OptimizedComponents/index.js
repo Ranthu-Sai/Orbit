@@ -1,6 +1,6 @@
 /**
  * Optimized MusicPlayer Components
- * 
+ *
  * These components are performance-optimized alternatives that:
  * - Use hooks at top level only (not per-item)
  * - Minimize re-renders through aggressive memoization

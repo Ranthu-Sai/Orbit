@@ -1,23 +1,43 @@
-import Animated, { interpolate, useAnimatedStyle, useScrollViewOffset } from "react-native-reanimated";
-import { Dimensions, View, Pressable, TouchableOpacity, ToastAndroid, StyleSheet } from "react-native";
-import FastImage from "react-native-fast-image";
-import { useMemo, useState, useEffect, useContext } from "react";
-import AntDesign from "react-native-vector-icons/AntDesign";
-import { useNavigation, useTheme } from "@react-navigation/native";
-import Ionicons from "react-native-vector-icons/Ionicons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getPlaylistData } from "../../Api/Playlist";
-import { SetLikedPlaylist, DeleteALikedPlaylist } from "../../LocalStorage/StoreLikedPlaylists";
-import LinearGradient from "react-native-linear-gradient";
-import { Heading } from "../Global/Heading";
-import { SmallText } from "../Global/SmallText";
-import { PlayButton } from "./PlayButton";
-import { DownloadButton } from "../Global/DownloadButton";
-import { useThemeContext } from "../../Context/ThemeContext";
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  useScrollViewOffset,
+} from 'react-native-reanimated';
+import {
+  Dimensions,
+  View,
+  Pressable,
+  TouchableOpacity,
+  ToastAndroid,
+  StyleSheet,
+} from 'react-native';
+import FastImage from 'react-native-fast-image';
+import { useMemo, useState, useEffect, useContext } from 'react';
+import AntDesign from 'react-native-vector-icons/AntDesign';
+import { useNavigation, useTheme } from '@react-navigation/native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getPlaylistData } from '../../Api/Playlist';
+import {
+  SetLikedPlaylist,
+  DeleteALikedPlaylist,
+} from '../../LocalStorage/StoreLikedPlaylists';
+import LinearGradient from 'react-native-linear-gradient';
+import { Heading } from '../Global/Heading';
+import { SmallText } from '../Global/SmallText';
+import { PlayButton } from './PlayButton';
+import { DownloadButton } from '../Global/DownloadButton';
+import { useThemeContext } from '../../Context/ThemeContext';
 
 // Helper to validate image URL or provide default
 const getValidImageUrl = (url) => {
-  if (!url || url === 'null' || url === 'undefined' || typeof url !== 'string' || url.trim() === '') {
+  if (
+    !url ||
+    url === 'null' ||
+    url === 'undefined' ||
+    typeof url !== 'string' ||
+    url.trim() === ''
+  ) {
     // Return a default image if URL is null/undefined/empty
     return require('../../Images/default.jpg');
   }
@@ -28,20 +48,20 @@ export const PlaylistTopHeader = ({
   AnimatedRef,
   url,
   playlistId, // Original: for like button
-  name,       // Original: for like button data fetch if needed
-  follower,   // Original: for like button data fetch if needed
+  name, // Original: for like button data fetch if needed
+  follower, // Original: for like button data fetch if needed
   style,
 
   // New props for details display
-  detailsName,          // Main title for display
-  releaseYear,          // Optional: for albums "Released in YYYY"
-  songsData,            // Array of songs for PlayButton & DownloadButton
-  isAlbumScreen,        // Boolean to conditionally show elements like releaseYear
-  contentIdForPlayer,   // ID for player context (playlistId or albumId)
-  playerLoading,        // Loading state for PlayButton
-  isPlayingState,       // isPlaying state for PlayButton
-  onPlayPress,          // Function to handle play button press
-  // updateLikedPlaylist is an existing implicit prop used in toggleLike
+  detailsName, // Main title for display
+  releaseYear, // Optional: for albums "Released in YYYY"
+  songsData, // Array of songs for PlayButton & DownloadButton
+  isAlbumScreen, // Boolean to conditionally show elements like releaseYear
+  contentIdForPlayer, // ID for player context (playlistId or albumId)
+  playerLoading, // Loading state for PlayButton
+  isPlayingState, // isPlaying state for PlayButton
+  onPlayPress, // Function to handle play button press
+  updateLikedPlaylist, // Function to update liked playlists
 }) => {
   const navigation = useNavigation();
   const { colors } = useTheme(); // For styling new text elements
@@ -62,8 +82,8 @@ export const PlaylistTopHeader = ({
   }, [theme]);
 
   // Get responsive dimensions for our image
-  const width1 = Dimensions.get("window").width;
-  const height1 = Dimensions.get("window").height;
+  const width1 = Dimensions.get('window').width;
+  const height1 = Dimensions.get('window').height;
   const responsiveStyles = {
     imageSize: width1 * 0.3, // Image size set to 30% of screen width
     imageRadius: 8,
@@ -78,35 +98,42 @@ export const PlaylistTopHeader = ({
           return;
         }
 
-        const playlists = await AsyncStorage.getItem("LikedPlaylists");
+        const playlists = await AsyncStorage.getItem('LikedPlaylists');
         if (playlists) {
           try {
             const parsedPlaylists = JSON.parse(playlists);
             if (parsedPlaylists && parsedPlaylists.playlist) {
-              const isAlreadyLiked = parsedPlaylists.playlist[playlistId] !== undefined;
+              const isAlreadyLiked =
+                parsedPlaylists.playlist[playlistId] !== undefined;
               setLiked(isAlreadyLiked);
             } else {
               // If wrong format, initialize correctly
               const initialData = {
                 playlist: {},
-                count: 0
+                count: 0,
               };
-              await AsyncStorage.setItem("LikedPlaylists", JSON.stringify(initialData));
+              await AsyncStorage.setItem(
+                'LikedPlaylists',
+                JSON.stringify(initialData)
+              );
               setLiked(false);
             }
           } catch (parseError) {
-            console.error("Error parsing liked playlists:", parseError);
+            console.error('Error parsing liked playlists:', parseError);
             // If there's a parse error, reset the storage with proper structure
             const initialData = {
               playlist: {},
-              count: 0
+              count: 0,
             };
-            await AsyncStorage.setItem("LikedPlaylists", JSON.stringify(initialData));
+            await AsyncStorage.setItem(
+              'LikedPlaylists',
+              JSON.stringify(initialData)
+            );
             setLiked(false);
           }
         }
       } catch (error) {
-        console.error("Error checking liked status:", error);
+        console.error('Error checking liked status:', error);
       }
     };
     checkLiked();
@@ -134,7 +161,7 @@ export const PlaylistTopHeader = ({
             [0, 1, 0]
           ),
         },
-      ]
+      ],
     };
   });
 
@@ -158,7 +185,7 @@ export const PlaylistTopHeader = ({
             [1.05, 1.05, 1.05] // Consistent scale to ensure full coverage
           ),
         },
-      ]
+      ],
     };
   });
 
@@ -171,7 +198,7 @@ export const PlaylistTopHeader = ({
       if (liked) {
         // Remove from liked playlists
         await DeleteALikedPlaylist(playlistId);
-        ToastAndroid.show("Removed from Favorites", ToastAndroid.SHORT);
+        ToastAndroid.show('Removed from Favorites', ToastAndroid.SHORT);
         // Update state first to give immediate feedback
         setLiked(false);
         // Then trigger the playlist refresh
@@ -189,9 +216,10 @@ export const PlaylistTopHeader = ({
             playlistData = await getPlaylistData(playlistId);
           }
 
-          const displayImage = url || (playlistData?.data?.image || "");
-          const displayName = name || (playlistData?.data?.name || "Playlist");
-          const displayFollower = follower || (playlistData?.data?.follower || "");
+          const displayImage = url || playlistData?.data?.image || '';
+          const displayName = name || playlistData?.data?.name || 'Playlist';
+          const displayFollower =
+            follower || playlistData?.data?.follower || '';
 
           // Add to liked playlists
           await SetLikedPlaylist(
@@ -200,7 +228,7 @@ export const PlaylistTopHeader = ({
             displayFollower,
             playlistId
           );
-          ToastAndroid.show("Added to Favorites", ToastAndroid.SHORT);
+          ToastAndroid.show('Added to Favorites', ToastAndroid.SHORT);
           // Update state first to give immediate feedback
           setLiked(true);
           // Then trigger the playlist refresh
@@ -210,41 +238,42 @@ export const PlaylistTopHeader = ({
             }, 100);
           }
         } catch (error) {
-          console.error("Error liking playlist:", error);
-          ToastAndroid.show("Failed to add to Favorites", ToastAndroid.SHORT);
+          console.error('Error liking playlist:', error);
+          ToastAndroid.show('Failed to add to Favorites', ToastAndroid.SHORT);
         }
       }
     } catch (error) {
-      console.error("Error handling like/unlike:", error);
-      ToastAndroid.show("Error updating favorites", ToastAndroid.SHORT);
+      console.error('Error handling like/unlike:', error);
+      ToastAndroid.show('Error updating favorites', ToastAndroid.SHORT);
     }
   };
-
 
   // Check if this is a playlist (not an album)
   const isPlaylist = playlistId && !playlistId.startsWith('album_');
 
   return (
-    <View style={[
-      {
-        alignItems: "center",
-        justifyContent: "center",
-        height: responsiveStyles.containerHeight,
-        maxHeight: height1 * 0.4, // Strictly limit to 40% of screen height
-        backgroundColor: 'transparent', // Completely transparent to show the background image
-        position: "relative",
-        paddingTop: 0, // No padding to maximize space
-        marginTop: 0, // No margin to ensure exact sizing
-        marginBottom: 0, // No margin to ensure exact sizing
-        overflow: 'hidden' // Ensure content doesn't spill out
-      },
-      style // Apply any additional styles passed as props
-    ]}>
+    <View
+      style={[
+        {
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: responsiveStyles.containerHeight,
+          maxHeight: height1 * 0.4, // Strictly limit to 40% of screen height
+          backgroundColor: 'transparent', // Completely transparent to show the background image
+          position: 'relative',
+          paddingTop: 0, // No padding to maximize space
+          marginTop: 0, // No margin to ensure exact sizing
+          marginBottom: 0, // No margin to ensure exact sizing
+          overflow: 'hidden', // Ensure content doesn't spill out
+        },
+        style, // Apply any additional styles passed as props
+      ]}
+    >
       {/* Back Button - Removed */}
 
       {/* Like Button - positioned at the top right of the component - only shown for playlists
       {isPlaylist && (
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={toggleLike}
           style={{
             position: "absolute",
@@ -256,9 +285,9 @@ export const PlaylistTopHeader = ({
             padding: 8,
           }}
         >
-          <AntDesign 
-            name={liked ? "heart" : "hearto"} 
-            size={30} 
+          <AntDesign
+            name={liked ? "heart" : "hearto"}
+            size={30}
             color={liked ? 'rgb(230, 28, 28)' : "#ffffff"}
           />
         </TouchableOpacity>
@@ -268,17 +297,20 @@ export const PlaylistTopHeader = ({
       {/* Background blurred image - only show if URL is provided */}
       {url && url.trim() !== '' && (
         <Animated.View
-          style={[{
-            height: responsiveStyles.containerHeight, // Use exact height from responsive styles
-            maxHeight: height1 * 0.4, // Strictly limit to 40% of screen height
-            width: "100%",
-            position: "absolute",
-            top: 0, // Align with the top of the container
-            left: 0,
-            right: 0,
-            zIndex: -1,
-            overflow: 'hidden',
-          }, AnimatedImageStyle2]}
+          style={[
+            {
+              height: responsiveStyles.containerHeight, // Use exact height from responsive styles
+              maxHeight: height1 * 0.4, // Strictly limit to 40% of screen height
+              width: '100%',
+              position: 'absolute',
+              top: 0, // Align with the top of the container
+              left: 0,
+              right: 0,
+              zIndex: -1,
+              overflow: 'hidden',
+            },
+            AnimatedImageStyle2,
+          ]}
         >
           <FastImage
             source={getValidImageUrl(url)}
@@ -328,7 +360,7 @@ export const PlaylistTopHeader = ({
         <LinearGradient
           colors={gradientColors}
           start={{ x: 0.5, y: 0 }} // Gradient from top of its own bounds
-          end={{ x: 0.5, y: 1 }}   // to bottom of its own bounds
+          end={{ x: 0.5, y: 1 }} // to bottom of its own bounds
           style={{
             position: 'absolute',
             left: 0,
@@ -339,9 +371,18 @@ export const PlaylistTopHeader = ({
           }}
         />
         <View style={styles.detailsTextWrapper}>
-          {detailsName && <Heading text={detailsName} style={[styles.detailsTitle, { color: '#FFFFFF' }]} numberOfLines={2} />}
+          {detailsName && (
+            <Heading
+              text={detailsName}
+              style={[styles.detailsTitle, { color: '#FFFFFF' }]}
+              numberOfLines={2}
+            />
+          )}
           {isAlbumScreen && releaseYear && (
-            <SmallText text={`Released in ${releaseYear}`} style={[styles.detailsSubtitle, { color: '#FFFFFF' }]} />
+            <SmallText
+              text={`Released in ${releaseYear}`}
+              style={[styles.detailsSubtitle, { color: '#FFFFFF' }]}
+            />
           )}
         </View>
         <View style={styles.detailsControlsWrapper}>

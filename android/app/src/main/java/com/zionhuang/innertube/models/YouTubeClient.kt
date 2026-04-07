@@ -43,14 +43,14 @@ data class YouTubeClient(
 
         val WEB = YouTubeClient(
             clientName = "WEB",
-            clientVersion = "2.20250312.04.00",
+            clientVersion = "2.20260405.04.00",
             clientId = "1",
             userAgent = USER_AGENT_WEB,
         )
 
         val WEB_REMIX = YouTubeClient(
             clientName = "WEB_REMIX",
-            clientVersion = "1.20250310.01.00",
+            clientVersion = "1.20260405.01.00",
             clientId = "67",
             userAgent = USER_AGENT_WEB,
             loginSupported = true,
@@ -99,9 +99,9 @@ data class YouTubeClient(
 
         val ANDROID = YouTubeClient(
             clientName = "ANDROID",
-            clientVersion = "20.10.38",
+            clientVersion = "20.12.38",
             clientId = "3",
-            userAgent = "com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip",
+            userAgent = "com.google.android.youtube/20.12.38 (Linux; U; Android 11) gzip",
             loginSupported = true,
             useSignatureTimestamp = true
         )

@@ -1,5 +1,20 @@
-import React, { useState, useContext, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet, findNodeHandle, UIManager, Platform } from 'react-native';
+import React, {
+  useState,
+  useContext,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from 'react';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  findNodeHandle,
+  UIManager,
+  Platform,
+} from 'react-native';
 import FastImage from 'react-native-fast-image';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { PlainText } from '../Global/PlainText';
@@ -13,9 +28,21 @@ import TrackPlayer from 'react-native-track-player';
 // Default music image for local tracks
 const DEFAULT_LOCAL_MUSIC_IMAGE = require('../../Images/Music.jpeg');
 
-export const LocalMusicCard = ({ song, index, allSongs, artist, activeTrackId, isPlaying }) => {
-
-  const { updateTrack, setVisible, setIndex, setPreviousScreen, setMusicPreviousScreen } = useContext(Context);
+export const LocalMusicCard = ({
+  song,
+  index,
+  allSongs,
+  artist,
+  activeTrackId,
+  isPlaying,
+}) => {
+  const {
+    updateTrack,
+    setVisible,
+    setIndex,
+    setPreviousScreen,
+    setMusicPreviousScreen,
+  } = useContext(Context);
   const menuButtonRef = useRef(null);
   const theme = useTheme();
   const styles = getThemedStyles(theme.colors, theme.dark);
@@ -27,11 +54,16 @@ export const LocalMusicCard = ({ song, index, allSongs, artist, activeTrackId, i
     if (!fullNavPath) {
       try {
         const currentState = navigation.getState();
-        if (currentState && currentState.routes && currentState.routes.length > 0) {
+        if (
+          currentState &&
+          currentState.routes &&
+          currentState.routes.length > 0
+        ) {
           const currentTabRoute = currentState.routes[currentState.index];
 
           if (currentTabRoute.name === 'Library' && currentTabRoute.state) {
-            const libraryRoute = currentTabRoute.state.routes[currentTabRoute.state.index];
+            const libraryRoute =
+              currentTabRoute.state.routes[currentTabRoute.state.index];
             if (libraryRoute.name === 'MyMusicPage') {
               setFullNavPath('Library/MyMusicPage');
               return;
@@ -42,7 +74,8 @@ export const LocalMusicCard = ({ song, index, allSongs, artist, activeTrackId, i
           }
 
           if (currentTabRoute.state && currentTabRoute.state.routes) {
-            const activeNestedRoute = currentTabRoute.state.routes[currentTabRoute.state.index];
+            const activeNestedRoute =
+              currentTabRoute.state.routes[currentTabRoute.state.index];
             setFullNavPath(`${currentTabRoute.name}/${activeNestedRoute.name}`);
             return;
           }
@@ -77,7 +110,11 @@ export const LocalMusicCard = ({ song, index, allSongs, artist, activeTrackId, i
   const handlePress = async () => {
     try {
       const currentState = navigation.getState();
-      if (currentState && currentState.routes && currentState.routes.length > 0) {
+      if (
+        currentState &&
+        currentState.routes &&
+        currentState.routes.length > 0
+      ) {
         const navPath = getNavigationPath();
         setPreviousScreen(navPath);
         setMusicPreviousScreen(navPath);
@@ -90,13 +127,17 @@ export const LocalMusicCard = ({ song, index, allSongs, artist, activeTrackId, i
   };
 
   const formatTitle = (title) => {
-    if (!title) return "Unknown Title";
+    if (!title) {
+      return 'Unknown Title';
+    }
     // Remove file extension only - let UI handle truncation with ellipsis
     return title.replace(/\.(mp3|m4a|wav|ogg|flac)$/i, '');
   };
 
   const formatArtist = (artistName) => {
-    if (!artistName) return "Unknown Artist";
+    if (!artistName) {
+      return 'Unknown Artist';
+    }
     // Remove file extension only - let UI handle truncation with ellipsis
     return artistName.replace(/\.(mp3|m4a|wav|ogg|flac)$/i, '');
   };
@@ -114,7 +155,7 @@ export const LocalMusicCard = ({ song, index, allSongs, artist, activeTrackId, i
           artist: formatArtist(song.artist),
           artwork: getArtworkForTrack(song),
           isLocal: true,
-          sourceType: isFromMyMusic ? 'mymusic' : 'download'
+          sourceType: isFromMyMusic ? 'mymusic' : 'download',
         };
 
         if (!singleTrack.url) {
@@ -129,24 +170,28 @@ export const LocalMusicCard = ({ song, index, allSongs, artist, activeTrackId, i
         return;
       }
 
-      const songIndex = allSongs.findIndex(s => s.id === song.id);
+      const songIndex = allSongs.findIndex((s) => s.id === song.id);
       if (songIndex === -1) {
         console.error('Song not found in queue');
         return;
       }
 
       // Use LocalMusicQueueManager for progressive loading (prevents UI lag with 200+ songs)
-      const localMusicQueueManager = require('../../Utils/LocalMusicQueueManager').default;
+      const localMusicQueueManager =
+        require('../../Utils/LocalMusicQueueManager').default;
 
       await TrackPlayer.reset();
 
-      const { initialBatch, success } = await localMusicQueueManager.initialize(allSongs, songIndex);
+      const { initialBatch, success } = await localMusicQueueManager.initialize(
+        allSongs,
+        songIndex
+      );
 
       if (success && initialBatch.length > 0) {
         // Override sourceType based on navigation path
-        const tracksWithSource = initialBatch.map(track => ({
+        const tracksWithSource = initialBatch.map((track) => ({
           ...track,
-          sourceType: isFromMyMusic ? 'mymusic' : 'download'
+          sourceType: isFromMyMusic ? 'mymusic' : 'download',
         }));
 
         await TrackPlayer.add(tracksWithSource);
@@ -160,13 +205,16 @@ export const LocalMusicCard = ({ song, index, allSongs, artist, activeTrackId, i
     }
   };
 
-
   const getArtworkForTrack = (track) => {
     // Check for cached artwork first (from metadata manager)
     if (track.cover && typeof track.cover === 'object' && track.cover.uri) {
       return track.cover;
     }
-    if (track.artwork && typeof track.artwork === 'object' && track.artwork.uri) {
+    if (
+      track.artwork &&
+      typeof track.artwork === 'object' &&
+      track.artwork.uri
+    ) {
       return track.artwork;
     }
 
@@ -179,14 +227,18 @@ export const LocalMusicCard = ({ song, index, allSongs, artist, activeTrackId, i
 
   const getImageSource = () => {
     if (isCurrentlyPlaying) {
-      return require("../../Images/playing.gif");
+      return require('../../Images/playing.gif');
     } else if (isPaused) {
-      return require("../../Images/songPaused.gif");
+      return require('../../Images/songPaused.gif');
     } else {
       // Check for cached artwork from metadata manager
       if (song.cover && typeof song.cover === 'object' && song.cover.uri) {
         return song.cover;
-      } else if (song.artwork && typeof song.artwork === 'object' && song.artwork.uri) {
+      } else if (
+        song.artwork &&
+        typeof song.artwork === 'object' &&
+        song.artwork.uri
+      ) {
         return song.artwork;
       } else {
         return DEFAULT_LOCAL_MUSIC_IMAGE;
@@ -199,9 +251,15 @@ export const LocalMusicCard = ({ song, index, allSongs, artist, activeTrackId, i
       onPress={handlePress}
       style={({ pressed }) => [
         styles.container,
-        pressed && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.05)' }
+        pressed && {
+          backgroundColor: theme.dark
+            ? 'rgba(255,255,255,0.12)'
+            : 'rgba(0,0,0,0.05)',
+        },
       ]}
-      android_ripple={{ color: theme.dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)' }}
+      android_ripple={{
+        color: theme.dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)',
+      }}
     >
       <View style={styles.songInfo}>
         <View style={styles.imageContainer}>
@@ -232,57 +290,62 @@ export const LocalMusicCard = ({ song, index, allSongs, artist, activeTrackId, i
         hitSlop={8}
         style={styles.menuButton}
       >
-        <MaterialCommunityIcons name="dots-vertical" size={24} color={theme.colors.text} />
+        <MaterialCommunityIcons
+          name="dots-vertical"
+          size={24}
+          color={theme.colors.text}
+        />
       </Pressable>
     </Pressable>
   );
-}
+};
 
-const getThemedStyles = (colors, dark) => StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.border,
-    justifyContent: 'space-between',
-  },
-  songInfo: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  imageContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginRight: 12,
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  textContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 16,
-    color: colors.text,
-    marginBottom: 4,
-  },
-  artist: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  menuButton: {
-    padding: 8,
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-    borderRadius: 16,
-    marginLeft: 4,
-    elevation: 0,
-  },
-});
+const getThemedStyles = (colors, dark) =>
+  StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderBottomWidth: 0.5,
+      borderBottomColor: colors.border,
+      justifyContent: 'space-between',
+    },
+    songInfo: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    imageContainer: {
+      width: 50,
+      height: 50,
+      borderRadius: 4,
+      overflow: 'hidden',
+      marginRight: 12,
+    },
+    image: {
+      width: '100%',
+      height: '100%',
+    },
+    textContainer: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    title: {
+      fontSize: 16,
+      color: colors.text,
+      marginBottom: 4,
+    },
+    artist: {
+      fontSize: 14,
+      color: colors.textSecondary,
+    },
+    menuButton: {
+      padding: 8,
+      justifyContent: 'center',
+      backgroundColor: 'transparent',
+      borderRadius: 16,
+      marginLeft: 4,
+      elevation: 0,
+    },
+  });

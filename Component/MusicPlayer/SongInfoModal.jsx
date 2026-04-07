@@ -1,5 +1,11 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, ScrollView, useWindowDimensions, Image } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  useWindowDimensions,
+  Image,
+} from 'react-native';
 import {
   Modal,
   Portal,
@@ -10,7 +16,7 @@ import {
   Divider,
   Button,
   IconButton,
-  Surface
+  Surface,
 } from 'react-native-paper';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import useSongDetails from '../../hooks/useSongDetails';
@@ -136,7 +142,7 @@ const styles = StyleSheet.create({
     margin: 0,
     marginLeft: 8,
     alignSelf: 'flex-start',
-  }
+  },
 });
 
 const InfoSection = ({ title, icon, children }) => {
@@ -147,7 +153,12 @@ const InfoSection = ({ title, icon, children }) => {
       style={[styles.sectionSurface, { backgroundColor: theme.colors.surface }]}
       elevation={2}
     >
-      <View style={[styles.sectionHeader, { borderBottomColor: theme.colors.outlineVariant }]}>
+      <View
+        style={[
+          styles.sectionHeader,
+          { borderBottomColor: theme.colors.outlineVariant },
+        ]}
+      >
         {icon && (
           <MaterialIcons
             name={icon}
@@ -173,11 +184,22 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
   const dimensions = useWindowDimensions();
   const { songDetails, loading, error, reload } = useSongDetails(track);
 
-  const trackTitle = useMemo(() => track?.title || songDetails?.basicInfo?.[0]?.value || 'Unknown Track', [track?.title, songDetails?.basicInfo]);
-  const trackSubtitle = useMemo(() => track?.artist || songDetails?.basicInfo?.find(item => item.label === 'Artists')?.value || 'Unknown Artist', [track?.artist, songDetails?.basicInfo]);
+  const trackTitle = useMemo(
+    () => track?.title || songDetails?.basicInfo?.[0]?.value || 'Unknown Track',
+    [track?.title, songDetails?.basicInfo]
+  );
+  const trackSubtitle = useMemo(
+    () =>
+      track?.artist ||
+      songDetails?.basicInfo?.find((item) => item.label === 'Artists')?.value ||
+      'Unknown Artist',
+    [track?.artist, songDetails?.basicInfo]
+  );
 
   const renderSection = (title, icon, rows) => {
-    if (!rows || rows.length === 0) return null;
+    if (!rows || rows.length === 0) {
+      return null;
+    }
 
     return (
       <InfoSection title={title} icon={icon}>
@@ -185,7 +207,10 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
           <React.Fragment key={`${title}-${index}`}>
             <View style={styles.listItem}>
               <Text
-                style={[styles.infoLabel, { color: theme.colors.onSurfaceVariant }]}
+                style={[
+                  styles.infoLabel,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
                 numberOfLines={2}
               >
                 {row.label}
@@ -194,7 +219,9 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
                 style={[
                   styles.infoValue,
                   {
-                    color: row.highlight ? theme.colors.primary : theme.colors.onSurface,
+                    color: row.highlight
+                      ? theme.colors.primary
+                      : theme.colors.onSurface,
                   },
                 ]}
                 numberOfLines={2}
@@ -203,7 +230,12 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
               </Text>
             </View>
             {index < rows.length - 1 && (
-              <Divider style={[styles.rowDivider, { backgroundColor: theme.colors.outlineVariant }]} />
+              <Divider
+                style={[
+                  styles.rowDivider,
+                  { backgroundColor: theme.colors.outlineVariant },
+                ]}
+              />
             )}
           </React.Fragment>
         ))}
@@ -217,7 +249,9 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
   }, [track?.currentPlayingQuality]);
 
   const renderChips = (title, icon, chips) => {
-    if (!chips || chips.length === 0) return null;
+    if (!chips || chips.length === 0) {
+      return null;
+    }
 
     return (
       <InfoSection title={title} icon={icon}>
@@ -230,8 +264,17 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
               <Chip
                 key={`${title}-${chip}-${index}`}
                 mode={isCurrentlyPlaying ? 'flat' : 'outlined'}
-                style={[styles.chip, isCurrentlyPlaying && { backgroundColor: theme.colors.primary }]}
-                textStyle={{ color: isCurrentlyPlaying ? theme.colors.onPrimary : theme.colors.onSurfaceVariant }}
+                style={[
+                  styles.chip,
+                  isCurrentlyPlaying && {
+                    backgroundColor: theme.colors.primary,
+                  },
+                ]}
+                textStyle={{
+                  color: isCurrentlyPlaying
+                    ? theme.colors.onPrimary
+                    : theme.colors.onSurfaceVariant,
+                }}
               >
                 {chip.label}
               </Chip>
@@ -249,9 +292,17 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
       <Modal
         visible={visible}
         onDismiss={onDismiss}
-        contentContainerStyle={[styles.modalContainer, { maxWidth: Math.min(dimensions.width - 32, 520) }]}
+        contentContainerStyle={[
+          styles.modalContainer,
+          { maxWidth: Math.min(dimensions.width - 32, 520) },
+        ]}
       >
-        <Surface elevation={4} style={[styles.modalSurface, { backgroundColor: theme.colors.background }]}
+        <Surface
+          elevation={4}
+          style={[
+            styles.modalSurface,
+            { backgroundColor: theme.colors.background },
+          ]}
         >
           <View
             style={[
@@ -262,8 +313,14 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
               },
             ]}
           >
-            {(songDetails?.imageUrl || track?.artwork || track?.image) ? (
-              <Image source={{ uri: songDetails?.imageUrl || track?.artwork || track?.image }} style={styles.coverArt} resizeMode="cover" />
+            {songDetails?.imageUrl || track?.artwork || track?.image ? (
+              <Image
+                source={{
+                  uri: songDetails?.imageUrl || track?.artwork || track?.image,
+                }}
+                style={styles.coverArt}
+                resizeMode="cover"
+              />
             ) : (
               <View
                 style={[
@@ -272,15 +329,29 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
                   { backgroundColor: theme.colors.surfaceVariant },
                 ]}
               >
-                <MaterialIcons name="music-note" size={34} color={theme.colors.onSurfaceVariant} />
+                <MaterialIcons
+                  name="music-note"
+                  size={34}
+                  color={theme.colors.onSurfaceVariant}
+                />
               </View>
             )}
             <View style={styles.headerContent}>
-              <Text variant="titleLarge" style={[styles.trackTitle, { color: theme.colors.onSurface }]} numberOfLines={1}
+              <Text
+                variant="titleLarge"
+                style={[styles.trackTitle, { color: theme.colors.onSurface }]}
+                numberOfLines={1}
               >
                 {trackTitle}
               </Text>
-              <Text variant="bodyMedium" style={[styles.trackSubtitle, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
+              <Text
+                variant="bodyMedium"
+                style={[
+                  styles.trackSubtitle,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+                numberOfLines={1}
+              >
                 {trackSubtitle}
               </Text>
             </View>
@@ -295,13 +366,20 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
           </View>
 
           <ScrollView
-            contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 }]}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: 32 },
+            ]}
             style={{ maxHeight: modalMaxHeight - 130 }}
             showsVerticalScrollIndicator={false}
           >
             {loading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator animating size="large" color={theme.colors.primary} />
+                <ActivityIndicator
+                  animating
+                  size="large"
+                  color={theme.colors.primary}
+                />
                 <Text
                   style={{
                     marginTop: 16,
@@ -313,7 +391,11 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
               </View>
             ) : error ? (
               <View style={styles.errorContainer}>
-                <MaterialIcons name="error-outline" size={50} color={theme.colors.error} />
+                <MaterialIcons
+                  name="error-outline"
+                  size={50}
+                  color={theme.colors.error}
+                />
                 <Text
                   variant="titleMedium"
                   style={{
@@ -325,7 +407,10 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
                 </Text>
                 <Text
                   variant="bodyMedium"
-                  style={[styles.errorDescription, { color: theme.colors.onSurfaceVariant }]}
+                  style={[
+                    styles.errorDescription,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
                 >
                   {error || 'Please check your connection and try again.'}
                 </Text>
@@ -340,12 +425,26 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
               </View>
             ) : songDetails ? (
               <>
-                {renderSection('Track information', 'music-note', songDetails.basicInfo)}
-                {songDetails.featuredArtists ? renderSection('Featured artists', 'group', [
-                  { label: 'Artists', value: songDetails.featuredArtists },
-                ]) : null}
-                {renderSection('Additional details', 'info-outline', songDetails.additionalInfo)}
-                {renderSection('Media information', 'album', songDetails.mediaInfo)}
+                {renderSection(
+                  'Track information',
+                  'music-note',
+                  songDetails.basicInfo
+                )}
+                {songDetails.featuredArtists
+                  ? renderSection('Featured artists', 'group', [
+                      { label: 'Artists', value: songDetails.featuredArtists },
+                    ])
+                  : null}
+                {renderSection(
+                  'Additional details',
+                  'info-outline',
+                  songDetails.additionalInfo
+                )}
+                {renderSection(
+                  'Media information',
+                  'album',
+                  songDetails.mediaInfo
+                )}
                 {renderChips(
                   'Available qualities',
                   'high-quality',
@@ -356,7 +455,11 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
               </>
             ) : (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator animating size="small" color={theme.colors.primary} />
+                <ActivityIndicator
+                  animating
+                  size="small"
+                  color={theme.colors.primary}
+                />
               </View>
             )}
           </ScrollView>

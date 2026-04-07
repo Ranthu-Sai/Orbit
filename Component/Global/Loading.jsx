@@ -1,20 +1,22 @@
-import { View, ActivityIndicator } from "react-native"
+import { View, ActivityIndicator } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 
 export const LoadingComponent = ({ loading, height }) => {
   const { colors } = useTheme();
-  
+
   return (
     <>
       {loading && (
-        <View style={{
-          alignItems: "center",
-          justifyContent: "center",
-          height: height || "100%",
-        }}>
-          <ActivityIndicator 
-            size="large" 
-            color={colors.primary} 
+        <View
+          style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: height || '100%',
+          }}
+        >
+          <ActivityIndicator
+            size="large"
+            color={colors.primary}
             style={{
               height: 80,
               width: 80,

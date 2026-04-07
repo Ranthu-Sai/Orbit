@@ -1,24 +1,22 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-async function GetUserNameValue(){
+async function GetUserNameValue() {
   try {
     const value = await AsyncStorage.getItem('Name');
     if (value !== null) {
-      return value
+      return value;
     } else {
-      return ''
+      return '';
     }
   } catch (e) {
     // error reading value
   }
 }
 
-async function SetUserNameValue(name){
+async function SetUserNameValue(name) {
   try {
     await AsyncStorage.setItem('Name', name);
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
-
-export {GetUserNameValue, SetUserNameValue}
+export { GetUserNameValue, SetUserNameValue };

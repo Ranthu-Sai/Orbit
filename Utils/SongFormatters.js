@@ -7,7 +7,7 @@ export const TruncationOptions = {
   NONE: 'none',
   START: 'start',
   MIDDLE: 'middle',
-  END: 'end'
+  END: 'end',
 };
 
 /**
@@ -20,7 +20,7 @@ export const formatSongTitle = (title, options = {}) => {
   const {
     decodeHtml = true,
     maxLength = null,
-    truncation = TruncationOptions.END
+    truncation = TruncationOptions.END,
   } = options;
 
   if (!title || typeof title !== 'string') {
@@ -45,11 +45,15 @@ export const formatSongTitle = (title, options = {}) => {
   if (maxLength && formatted.length > maxLength) {
     switch (truncation) {
       case TruncationOptions.START:
-        formatted = '...' + formatted.substring(formatted.length - maxLength + 3);
+        formatted =
+          '...' + formatted.substring(formatted.length - maxLength + 3);
         break;
       case TruncationOptions.MIDDLE:
         const halfLength = Math.floor((maxLength - 3) / 2);
-        formatted = formatted.substring(0, halfLength) + '...' + formatted.substring(formatted.length - halfLength);
+        formatted =
+          formatted.substring(0, halfLength) +
+          '...' +
+          formatted.substring(formatted.length - halfLength);
         break;
       case TruncationOptions.END:
       default:
@@ -71,10 +75,12 @@ export const formatArtist = (artist, options = {}) => {
   const {
     separator = ', ',
     maxArtists = 3,
-    fallback = 'Unknown Artist'
+    fallback = 'Unknown Artist',
   } = options;
 
-  if (!artist) return fallback;
+  if (!artist) {
+    return fallback;
+  }
 
   // Handle string artist
   if (typeof artist === 'string') {
@@ -83,20 +89,30 @@ export const formatArtist = (artist, options = {}) => {
 
   // Handle array of artists
   if (Array.isArray(artist)) {
-    if (artist.length === 0) return fallback;
+    if (artist.length === 0) {
+      return fallback;
+    }
 
     const artists = artist
       .slice(0, maxArtists)
-      .map(a => {
-        if (typeof a === 'string') return formatSongTitle(a);
-        if (typeof a === 'object' && a.name) return formatSongTitle(a.name);
+      .map((a) => {
+        if (typeof a === 'string') {
+          return formatSongTitle(a);
+        }
+        if (typeof a === 'object' && a.name) {
+          return formatSongTitle(a.name);
+        }
         return fallback;
       })
-      .filter(a => a !== fallback);
+      .filter((a) => a !== fallback);
 
-    if (artists.length === 0) return fallback;
+    if (artists.length === 0) {
+      return fallback;
+    }
 
-    if (artists.length === 1) return artists[0];
+    if (artists.length === 1) {
+      return artists[0];
+    }
 
     return artists.join(separator);
   }
@@ -136,7 +152,9 @@ export const formatDuration = (seconds, showHours = false) => {
   const secs = totalSeconds % 60;
 
   if (showHours && hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs
+      .toString()
+      .padStart(2, '0')}`;
   } else {
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
   }
@@ -171,10 +189,7 @@ export const formatFileSize = (bytes) => {
  * @returns {Object} Formatted song object
  */
 export const formatSongForPlayer = (song, options = {}) => {
-  const {
-    includeMetadata = true,
-    validateData = true
-  } = options;
+  const { includeMetadata = true, validateData = true } = options;
 
   if (!song) {
     throw new Error('Song data is required');
@@ -196,9 +211,17 @@ export const formatSongForPlayer = (song, options = {}) => {
 
   let songUrl = null;
   if (song.url) {
-    if (Array.isArray(song.url) && song.url.length > quality && song.url[quality]?.url) {
+    if (
+      Array.isArray(song.url) &&
+      song.url.length > quality &&
+      song.url[quality]?.url
+    ) {
       songUrl = song.url[quality].url;
-    } else if (Array.isArray(song.url) && song.url.length > 0 && song.url[0]?.url) {
+    } else if (
+      Array.isArray(song.url) &&
+      song.url.length > 0 &&
+      song.url[0]?.url
+    ) {
       songUrl = song.url[0].url;
     } else if (typeof song.url === 'string') {
       songUrl = song.url;
@@ -206,26 +229,43 @@ export const formatSongForPlayer = (song, options = {}) => {
   }
 
   if (!songUrl && song.downloadUrl) {
-    if (Array.isArray(song.downloadUrl) && song.downloadUrl.length > quality && song.downloadUrl[quality]?.url) {
+    if (
+      Array.isArray(song.downloadUrl) &&
+      song.downloadUrl.length > quality &&
+      song.downloadUrl[quality]?.url
+    ) {
       songUrl = song.downloadUrl[quality].url;
-    } else if (Array.isArray(song.downloadUrl) && song.downloadUrl.length > 0 && song.downloadUrl[0]?.url) {
+    } else if (
+      Array.isArray(song.downloadUrl) &&
+      song.downloadUrl.length > 0 &&
+      song.downloadUrl[0]?.url
+    ) {
       songUrl = song.downloadUrl[0].url;
     }
   }
 
   if (!songUrl && song.download_url) {
-    if (Array.isArray(song.download_url) && song.download_url.length > quality && song.download_url[quality]?.url) {
+    if (
+      Array.isArray(song.download_url) &&
+      song.download_url.length > quality &&
+      song.download_url[quality]?.url
+    ) {
       songUrl = song.download_url[quality].url;
-    } else if (Array.isArray(song.download_url) && song.download_url.length > 0 && song.download_url[0]?.url) {
+    } else if (
+      Array.isArray(song.download_url) &&
+      song.download_url.length > 0 &&
+      song.download_url[0]?.url
+    ) {
       songUrl = song.download_url[0].url;
     }
   }
 
   // Extract artwork using shared utilities
   const { extractImageUri } = require('./ImageUtils');
-  const artwork = extractImageUri(song.image) ||
-                  extractImageUri(song.artwork) ||
-                  extractImageUri(song.albumArt);
+  const artwork =
+    extractImageUri(song.image) ||
+    extractImageUri(song.artwork) ||
+    extractImageUri(song.albumArt);
 
   const formattedSong = {
     id: song.id,
@@ -236,7 +276,7 @@ export const formatSongForPlayer = (song, options = {}) => {
     duration: song.duration || 0,
     language: song.language || 'en',
     source: song.source || song.api || 'unknown',
-    sourceType: song.sourceType || song.source || 'online'
+    sourceType: song.sourceType || song.source || 'online',
   };
 
   // Include additional metadata if requested
@@ -253,7 +293,7 @@ export const formatSongForPlayer = (song, options = {}) => {
       explicitContent: song.explicitContent,
       artists: song.artists,
       downloadUrl: song.downloadUrl || song.download_url,
-      originalData: song
+      originalData: song,
     };
   }
 
@@ -275,7 +315,7 @@ export const formatSongsForPlaylist = async (songs, options = {}) => {
     batchSize = 5,
     includeMetadata = true,
     validateData = true,
-    onProgress = null
+    onProgress = null,
   } = options;
 
   const formattedSongs = [];
@@ -288,13 +328,16 @@ export const formatSongsForPlaylist = async (songs, options = {}) => {
       try {
         return formatSongForPlayer(song, { includeMetadata, validateData });
       } catch (error) {
-        console.error(`Error formatting song ${song?.title || 'unknown'}:`, error);
+        console.error(
+          `Error formatting song ${song?.title || 'unknown'}:`,
+          error
+        );
         return null; // Skip invalid songs
       }
     });
 
     const batchResults = await Promise.all(batchPromises);
-    formattedSongs.push(...batchResults.filter(song => song !== null));
+    formattedSongs.push(...batchResults.filter((song) => song !== null));
 
     // Report progress if callback provided
     if (onProgress) {
@@ -304,7 +347,7 @@ export const formatSongsForPlaylist = async (songs, options = {}) => {
 
     // Small delay between batches to prevent blocking
     if (i + batchSize < songs.length) {
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
     }
   }
 
@@ -318,7 +361,11 @@ export const formatSongsForPlaylist = async (songs, options = {}) => {
  * @param {string} truncation - Truncation method
  * @returns {string} Formatted text
  */
-export const formatTextWithTruncation = (text, maxLength = 20, truncation = TruncationOptions.END) => {
+export const formatTextWithTruncation = (
+  text,
+  maxLength = 20,
+  truncation = TruncationOptions.END
+) => {
   if (!text || typeof text !== 'string') {
     return '';
   }
@@ -332,7 +379,11 @@ export const formatTextWithTruncation = (text, maxLength = 20, truncation = Trun
       return '...' + text.substring(text.length - maxLength + 3);
     case TruncationOptions.MIDDLE:
       const halfLength = Math.floor((maxLength - 3) / 2);
-      return text.substring(0, halfLength) + '...' + text.substring(text.length - halfLength);
+      return (
+        text.substring(0, halfLength) +
+        '...' +
+        text.substring(text.length - halfLength)
+      );
     case TruncationOptions.END:
     default:
       return text.substring(0, maxLength - 3) + '...';
@@ -397,7 +448,9 @@ export const formatPlaylistDuration = (songs) => {
  * @returns {Object} Formatted metadata
  */
 export const formatSongMetadata = (song, fields = []) => {
-  if (!song) return {};
+  if (!song) {
+    return {};
+  }
 
   const metadata = {};
 
@@ -409,19 +462,19 @@ export const formatSongMetadata = (song, fields = []) => {
     releaseDate: song.releaseDate,
     playCount: song.playCount,
     hasLyrics: song.hasLyrics,
-    explicitContent: song.explicitContent
+    explicitContent: song.explicitContent,
   };
 
   if (fields.length === 0) {
     // Include all available fields
-    Object.keys(fieldMap).forEach(field => {
+    Object.keys(fieldMap).forEach((field) => {
       if (fieldMap[field] !== undefined && fieldMap[field] !== null) {
         metadata[field] = fieldMap[field];
       }
     });
   } else {
     // Include only specified fields
-    fields.forEach(field => {
+    fields.forEach((field) => {
       if (fieldMap[field] !== undefined && fieldMap[field] !== null) {
         metadata[field] = fieldMap[field];
       }
@@ -438,16 +491,16 @@ export const formatSongMetadata = (song, fields = []) => {
  * @returns {string} Display name
  */
 export const createSongDisplayName = (song, options = {}) => {
-  const {
-    separator = ' - ',
-    maxLength = 50,
-    includeArtist = true
-  } = options;
+  const { separator = ' - ', maxLength = 50, includeArtist = true } = options;
 
-  if (!song) return 'Unknown Song';
+  if (!song) {
+    return 'Unknown Song';
+  }
 
   const title = formatSongTitle(song.name || song.title);
-  const artist = includeArtist ? formatArtist(song.artist || song.artists?.primary) : '';
+  const artist = includeArtist
+    ? formatArtist(song.artist || song.artists?.primary)
+    : '';
 
   let displayName = title;
   if (artist && artist !== 'Unknown Artist') {
@@ -463,7 +516,9 @@ export const createSongDisplayName = (song, options = {}) => {
  * @returns {string} Formatted quality
  */
 export const formatSongQuality = (quality) => {
-  if (!quality) return 'Unknown';
+  if (!quality) {
+    return 'Unknown';
+  }
 
   switch (quality.toUpperCase()) {
     case 'LOSSLESS':
@@ -485,7 +540,9 @@ export const formatSongQuality = (quality) => {
  * @returns {string} Formatted source
  */
 export const formatSourceType = (source) => {
-  if (!source) return 'Unknown';
+  if (!source) {
+    return 'Unknown';
+  }
 
   switch (source.toLowerCase()) {
     case 'saavn':
@@ -508,9 +565,11 @@ export const formatSourceType = (source) => {
  * @returns {Array<string>} Array of formatted texts
  */
 export const batchFormatText = (texts, maxLength = 20) => {
-  if (!Array.isArray(texts)) return [];
+  if (!Array.isArray(texts)) {
+    return [];
+  }
 
-  return texts.map(text => formatTextWithTruncation(text, maxLength));
+  return texts.map((text) => formatTextWithTruncation(text, maxLength));
 };
 
 /**
@@ -519,10 +578,14 @@ export const batchFormatText = (texts, maxLength = 20) => {
  * @returns {string} Song hash
  */
 export const createSongHash = (song) => {
-  if (!song || !song.id) return '';
+  if (!song || !song.id) {
+    return '';
+  }
 
   const title = formatSongTitle(song.name || song.title).toLowerCase();
-  const artist = formatArtist(song.artist || song.artists?.primary).toLowerCase();
+  const artist = formatArtist(
+    song.artist || song.artists?.primary
+  ).toLowerCase();
 
   return `${song.id}_${title}_${artist}`.replace(/\s+/g, '_');
 };
@@ -534,8 +597,12 @@ export const createSongHash = (song) => {
  * @returns {boolean} True if songs are equal
  */
 export const areSongsEqual = (song1, song2) => {
-  if (!song1 || !song2) return false;
-  if (song1 === song2) return true;
+  if (!song1 || !song2) {
+    return false;
+  }
+  if (song1 === song2) {
+    return true;
+  }
 
   return createSongHash(song1) === createSongHash(song2);
 };
@@ -546,10 +613,12 @@ export const areSongsEqual = (song1, song2) => {
  * @returns {Array} Array without duplicates
  */
 export const removeDuplicateSongs = (songs) => {
-  if (!Array.isArray(songs)) return [];
+  if (!Array.isArray(songs)) {
+    return [];
+  }
 
   const seen = new Set();
-  return songs.filter(song => {
+  return songs.filter((song) => {
     const hash = createSongHash(song);
     if (seen.has(hash)) {
       return false;

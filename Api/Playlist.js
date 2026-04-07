@@ -1,165 +1,96 @@
-import axios from "axios";
+import axios from 'axios';
 import { getCachedData, CACHE_GROUPS, isOfflineMode } from './CacheManager';
 import { getYTMusicPlaylistData } from './YTMusic';
+import { requestWithFallback } from './apiUtils';
 
 async function getPlaylistData(id) {
   // Create a cache key for the playlist
-  const cacheKey = `playlist_${id}`;
+  const cacheKey = `playlist_v4_${id}`;
 
-  // Check if this is a YouTube Music playlist ID (various YouTube playlist ID patterns)
-  const isYouTubePlaylist = id && (
-    id.startsWith('PL') || // Standard playlist
-    id.startsWith('RD') || // Mix/Recommended playlist
-    id.startsWith('VL') || // Video list
-    id.includes('youtube') ||
-    id.includes('youtu.be') ||
-    id.length > 20 // YouTube IDs are typically long
-  );
+  // Check if this is a YouTube Music playlist ID
+  const isYouTubePlaylist =
+    id &&
+    (id.startsWith('PL') ||
+      id.startsWith('RD') ||
+      id.startsWith('VL') ||
+      id.includes('youtube') ||
+      id.includes('youtu.be') ||
+      id.length > 20);
 
-  // If it's a YouTube Music playlist, use the YTMusic API
   if (isYouTubePlaylist) {
     try {
       const ytResult = await getYTMusicPlaylistData(id);
       if (ytResult && ytResult.success && ytResult.data) {
-        // Transform YTMusic response to match expected format
         return {
-          status: "SUCCESS",
-          message: ytResult.message || "Playlist loaded successfully",
+          status: 'SUCCESS',
+          message: ytResult.message || 'Playlist loaded successfully',
           data: ytResult.data,
-          success: true
+          success: true,
         };
-      } else {
-        // Fall through to JioSaavn API as fallback
       }
     } catch (ytError) {
-      // Fall through to JioSaavn API as fallback
+      // Fall through to JioSaavn API
     }
   }
 
-  // Check if we're offline before doing anything
-  if (isOfflineMode()) {
-    try {
-      // Try to get the cached data directly (getCachedData handles this but just to be safe)
-      const result = await getCachedData(cacheKey, null, 30, CACHE_GROUPS.PLAYLISTS);
-      if (result && !result.error) {
-        return result;
-      }
-
-      // Return a standardized offline response without error
-      return {
-        success: false,
-        offlineMode: true,
-        message: 'Playlist not available offline'
-      };
-    } catch (cacheError) {
-      return {
-        success: false,
-        offlineMode: true,
-        message: 'Playlist not available offline'
-      };
-    }
-  }
-
-  // Define the fetch function that will be called if cache miss (JioSaavn API)
+  // Define the fetch function for JioSaavn API with fallback
   const fetchFunction = async () => {
-    let config = {
+    const primaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/playlists?id=${id}`;
+    const secondaryUrl = `https://saavn.dev/api/playlists?id=${id}`;
+    const config = {
       method: 'get',
       maxBodyLength: Infinity,
-      url: `https://jiosavan-api-with-playlist.vercel.app/api/playlists?id=${id}&limit=100000`,
-      headers: { },
-      timeout: 10000 // Add timeout to prevent hanging requests
+      headers: {},
+      timeout: 10000,
     };
-
-    try {
-      const response = await axios.request(config);
-      return response.data;
-    }
-    catch (error) {
-      // Don't throw error, return error object
-      return {
-        success: false,
-        error: error.message || 'Network error',
-        message: 'Failed to load playlist'
-      };
-    }
+    return requestWithFallback(primaryUrl, secondaryUrl, config);
   };
 
-  // Use cache manager with 30 minute expiration for playlist data
+  // Use cache manager
   try {
-    return await getCachedData(cacheKey, fetchFunction, 30, CACHE_GROUPS.PLAYLISTS);
+    return await getCachedData(
+      cacheKey,
+      fetchFunction,
+      30,
+      CACHE_GROUPS.PLAYLISTS
+    );
   } catch (error) {
-    // Don't throw error, return error object
-    return {
-      success: false,
-      error: error.message || 'Unknown error',
-      message: 'Failed to load playlist'
-    };
+    console.error(`Error getting playlist data for ID ${id}:`, error);
+    throw error;
   }
 }
 
 async function getSearchPlaylistData(searchText, page, limit) {
   // Create a cache key based on the search parameters
-  const cacheKey = `playlist_search_${searchText}_page${page}_limit${limit}`;
-  
-  // Check if we're offline before doing anything
-  if (isOfflineMode()) {
-    try {
-      // Try to get the cached data directly
-      const result = await getCachedData(cacheKey, null, 5, CACHE_GROUPS.SEARCH);
-      if (result && !result.error) {
-        return result;
-      }
-      
-      // Return a standardized offline response without error
-      return {
-        success: false,
-        offlineMode: true,
-        message: 'Search not available offline'
-      };
-    } catch (cacheError) {
-      return {
-        success: false,
-        offlineMode: true,
-        message: 'Search not available offline'
-      };
-    }
-  }
-  
-  // Define the fetch function that will be called if cache miss
+  const cacheKey = `playlist_search_v3_${searchText}_page${page}_limit${limit}`;
+
+  // Define the fetch function with fallback
   const fetchFunction = async () => {
-    let config = {
+    const primaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/search/playlists?query=${searchText}&page=${page}&limit=${limit}`;
+    const secondaryUrl = `https://saavn.dev/api/search/playlists?query=${searchText}&page=${page}&limit=${limit}`;
+    const config = {
       method: 'get',
       maxBodyLength: Infinity,
-      url: `https://jio-savan-api-sigma.vercel.app/search/playlists?query=${searchText}&page=${page}&limit=${limit}`,
-      headers: { },
-      timeout: 8000 // Add timeout to prevent hanging requests
+      headers: {},
     };
-    
-    try {
-      const response = await axios.request(config);
-      return response.data;
-    }
-    catch (error) {
-      // Don't throw error, return error object
-      return {
-        success: false,
-        error: error.message || 'Network error',
-        message: 'Failed to search playlists'
-      };
-    }
+    return requestWithFallback(primaryUrl, secondaryUrl, config);
   };
-  
-  // Use cache manager with 5 minute expiration for playlist search results
+
+  // Use cache manager
   try {
-    return await getCachedData(cacheKey, fetchFunction, 5, CACHE_GROUPS.SEARCH);
+    return await getCachedData(
+      cacheKey,
+      fetchFunction,
+      1440, // 24-hour cache for search results
+      CACHE_GROUPS.SEARCH
+    );
   } catch (error) {
-    // Don't throw error, return error object
-    return {
-      success: false,
-      error: error.message || 'Unknown error',
-      message: 'Failed to search playlists'
-    };
+    console.error(
+      `Error getting playlist search data for query "${searchText}":`,
+      error
+    );
+    throw error;
   }
 }
 
-export {getPlaylistData, getSearchPlaylistData}
+export { getPlaylistData, getSearchPlaylistData };

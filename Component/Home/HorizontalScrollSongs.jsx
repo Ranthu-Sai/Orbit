@@ -7,11 +7,11 @@ export const HorizontalScrollSongs = ({ songs }) => {
   }
 
   return (
-    <View style={{flexDirection: 'row'}}>
+    <View style={{ flexDirection: 'row' }}>
       {songs.map((song, index) => (
-        <View 
+        <View
           key={`song-${song.id || index}-${index}`}
-          style={{marginRight: 10}}
+          style={{ marginRight: 10 }}
         >
           {/* rest of your song rendering */}
         </View>

@@ -1,33 +1,43 @@
-import { MainWrapper } from "../Layout/MainWrapper";
-import Tabs from "../Component/Global/Tabs/Tabs";
-import { useEffect, useState, useCallback, useRef } from "react";
-import { getSearchSongData } from "../Api/Songs";
+import { MainWrapper } from '../Layout/MainWrapper';
+import Tabs from '../Component/Global/Tabs/Tabs';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { getSearchSongData } from '../Api/Songs';
 import {
   getYTMusicSearchSongData,
   getYTMusicSearchPlaylistData,
   getYTMusicSearchAlbumData,
   getYTMusicSearchArtistData,
-  getYTMusicSearchSuggestions
-} from "../Api/YTMusic";
-import dabMusicService from "../Utils/DabMusicService";
-import { SpotifyService } from "../Utils/SpotifyService";
-import { View, TouchableOpacity, TextInput, Pressable, Dimensions, FlatList, StyleSheet, Text, Modal, Alert, BackHandler } from "react-native";
-import SongDisplay from "../Component/SearchPage/SongDisplay";
-import { SearchPageSkeleton } from "../Component/Search/SearchSkeletonLoader";
-import { getSearchPlaylistData } from "../Api/Playlist";
-import PlaylistDisplay from "../Component/SearchPage/PlaylistDisplay";
-import { getSearchAlbumData } from "../Api/Album";
-import AlbumsDisplay from "../Component/SearchPage/AlbumDisplay";
-import ArtistDisplay from "../Component/SearchPage/ArtistDisplay";
-import SearchSuggestions from "../Component/SearchPage/SearchSuggestions";
-import { Spacer } from "../Component/Global/Spacer";
-import { useTheme, useFocusEffect } from "@react-navigation/native";
+  getYTMusicSearchSuggestions,
+} from '../Api/YTMusic';
+import dabMusicService from '../Utils/DabMusicService';
+import { SpotifyService } from '../Utils/SpotifyService';
+import {
+  View,
+  TouchableOpacity,
+  TextInput,
+  Pressable,
+  Dimensions,
+  FlatList,
+  StyleSheet,
+  Text,
+  Modal,
+  Alert,
+  BackHandler,
+} from 'react-native';
+import SongDisplay from '../Component/SearchPage/SongDisplay';
+import { SearchPageSkeleton } from '../Component/Search/SearchSkeletonLoader';
+import { getSearchPlaylistData } from '../Api/Playlist';
+import PlaylistDisplay from '../Component/SearchPage/PlaylistDisplay';
+import { getSearchAlbumData } from '../Api/Album';
+import AlbumsDisplay from '../Component/SearchPage/AlbumDisplay';
+import ArtistDisplay from '../Component/SearchPage/ArtistDisplay';
+import SearchSuggestions from '../Component/SearchPage/SearchSuggestions';
+import { Spacer } from '../Component/Global/Spacer';
+import { useTheme, useFocusEffect } from '@react-navigation/native';
 import { GitFork } from 'lucide-react-native';
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Divider } from 'react-native-paper';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import SwipeableHistoryItem from '../Component/SearchPage/SwipeableHistoryItem';
 import { CacheManager } from '../Utils/NavigationCacheManager';
-import { AddSongToPlayer } from '../MusicPlayerFunctions';
 
 const SEARCH_HISTORY_KEY = '@search_history';
 const MAX_HISTORY_ITEMS = 20;
@@ -35,10 +45,9 @@ const SELECTED_SOURCE_KEY = '@selected_search_source';
 
 export const SearchPage = ({ navigation }) => {
   const { colors } = useTheme();
-  const width = Dimensions.get("window").width;
   const [ActiveTab, setActiveTab] = useState(0);
-  const [query, setQuery] = useState("");
-  const [SearchText, setSearchText] = useState("");
+  const [query, setQuery] = useState('');
+  const [SearchText, setSearchText] = useState('');
   const [Loading, setLoading] = useState(false);
   const [Data, setData] = useState({ data: { results: [] } });
   const [searchHistory, setSearchHistory] = useState([]);
@@ -58,11 +67,21 @@ export const SearchPage = ({ navigation }) => {
   useEffect(() => {
     const savedState = CacheManager.getSearchState();
     if (savedState && isInitialMount.current) {
-      if (savedState.query) setQuery(savedState.query);
-      if (savedState.searchText) setSearchText(savedState.searchText);
-      if (savedState.activeTab !== undefined) setActiveTab(savedState.activeTab);
-      if (savedState.selectedSource) setSelectedSource(savedState.selectedSource);
-      if (savedState.data) setData(savedState.data);
+      if (savedState.query) {
+        setQuery(savedState.query);
+      }
+      if (savedState.searchText) {
+        setSearchText(savedState.searchText);
+      }
+      if (savedState.activeTab !== undefined) {
+        setActiveTab(savedState.activeTab);
+      }
+      if (savedState.selectedSource) {
+        setSelectedSource(savedState.selectedSource);
+      }
+      if (savedState.data) {
+        setData(savedState.data);
+      }
     }
     isInitialMount.current = false;
 
@@ -97,7 +116,10 @@ export const SearchPage = ({ navigation }) => {
         return true; // Prevent default back behavior
       };
 
-      const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      const backHandler = BackHandler.addEventListener(
+        'hardwareBackPress',
+        onBackPress
+      );
       return () => backHandler.remove();
     }, [navigation, showSuggestions])
   );
@@ -156,8 +178,7 @@ export const SearchPage = ({ navigation }) => {
     return () => clearTimeout(timeoutId);
   }, [query, showSuggestions, selectedSource]);
 
-
-  async function fetchSearchData(text) {
+  const fetchSearchData = useCallback(async (text) => {
     if (!text) {
       setData({ data: { results: [] } });
       return;
@@ -183,8 +204,8 @@ export const SearchPage = ({ navigation }) => {
             success: results.length > 0,
             data: {
               results: results,
-              total: results.length
-            }
+              total: results.length,
+            },
           };
         } catch (error) {
           if (error.message === 'AUTH_REQUIRED') {
@@ -196,8 +217,8 @@ export const SearchPage = ({ navigation }) => {
                 { text: 'Cancel', style: 'cancel' },
                 {
                   text: 'Login',
-                  onPress: () => navigation.navigate('Settings')
-                }
+                  onPress: () => navigation.navigate('Settings'),
+                },
               ]
             );
             setData({ data: { results: [] } });
@@ -259,7 +280,7 @@ export const SearchPage = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
-  }
+  }, [selectedSource, ActiveTab, navigation]);
 
   useEffect(() => {
     if (SearchText) {
@@ -268,7 +289,7 @@ export const SearchPage = ({ navigation }) => {
       // Clear data when no search text, regardless of tab/source switch
       setData({ data: { results: [] } });
     }
-  }, [SearchText, ActiveTab, selectedSource]);
+  }, [SearchText, ActiveTab, selectedSource, fetchSearchData]);
 
   // Load search history on mount
   useEffect(() => {
@@ -314,18 +335,26 @@ export const SearchPage = ({ navigation }) => {
 
   // Save search query to history
   const saveToHistory = useCallback(async (queryText) => {
-    if (!queryText || queryText.trim().length < 2) return; // Don't save very short queries
+    if (!queryText || queryText.trim().length < 2) {
+      return;
+    } // Don't save very short queries
 
     try {
-      setSearchHistory(prevHistory => {
+      setSearchHistory((prevHistory) => {
         const updatedHistory = [
           queryText,
-          ...prevHistory.filter(item => item.toLowerCase() !== queryText.toLowerCase())
+          ...prevHistory.filter(
+            (item) => item.toLowerCase() !== queryText.toLowerCase()
+          ),
         ].slice(0, MAX_HISTORY_ITEMS);
 
         // Update AsyncStorage (fire and forget)
-        AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(updatedHistory))
-          .catch(error => console.error('Error saving search history to storage:', error));
+        AsyncStorage.setItem(
+          SEARCH_HISTORY_KEY,
+          JSON.stringify(updatedHistory)
+        ).catch((error) =>
+          console.error('Error saving search history to storage:', error)
+        );
 
         return updatedHistory;
       });
@@ -358,19 +387,10 @@ export const SearchPage = ({ navigation }) => {
     // If fillOnly, just update the input text
   };
 
-  // Clear search history
-  const clearHistory = async () => {
-    try {
-      await AsyncStorage.removeItem(SEARCH_HISTORY_KEY);
-      setSearchHistory([]);
-    } catch (error) {
-      console.error('Error clearing search history:', error);
-    }
-  };
-
   const handleManualSearch = () => {
     const trimmedQuery = query.trim();
-    if (trimmedQuery.length > 1) { // Only save if query has more than 1 character
+    if (trimmedQuery.length > 1) {
+      // Only save if query has more than 1 character
       saveToHistory(trimmedQuery);
       setSearchText(trimmedQuery);
       setShowSuggestions(false);
@@ -385,8 +405,13 @@ export const SearchPage = ({ navigation }) => {
   // Handle delete history item
   const handleDeleteHistoryItem = async (itemToDelete) => {
     try {
-      const updatedHistory = searchHistory.filter(item => item !== itemToDelete);
-      await AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(updatedHistory));
+      const updatedHistory = searchHistory.filter(
+        (item) => item !== itemToDelete
+      );
+      await AsyncStorage.setItem(
+        SEARCH_HISTORY_KEY,
+        JSON.stringify(updatedHistory)
+      );
       setSearchHistory(updatedHistory);
     } catch (error) {
       console.error('Error deleting history item:', error);
@@ -410,7 +435,9 @@ export const SearchPage = ({ navigation }) => {
   // Render search history list
   const renderSearchHistory = () => (
     <View style={{ flex: 1, marginTop: 10 }}>
-      <View style={[styles.historyHeader, { borderBottomColor: colors.border }]}>
+      <View
+        style={[styles.historyHeader, { borderBottomColor: colors.border }]}
+      >
         <Text style={[styles.historyTitle, { color: colors.text }]}>
           Recent Searches
         </Text>
@@ -424,7 +451,9 @@ export const SearchPage = ({ navigation }) => {
               opacity: pressed ? 0.6 : 1,
             })}
           >
-            <Text style={{ color: colors.primary, fontWeight: '600' }}>Clear All</Text>
+            <Text style={{ color: colors.primary, fontWeight: '600' }}>
+              Clear All
+            </Text>
           </Pressable>
         )}
       </View>
@@ -469,25 +498,35 @@ export const SearchPage = ({ navigation }) => {
           onPress={() => setModalVisible(true)}
           style={[styles.clearButton, { backgroundColor: colors.card }]}
         >
-          <GitFork
-            size={20}
-            color={colors.text}
-          />
+          <GitFork size={20} color={colors.text} />
         </Pressable>
       </View>
 
       <View style={{ zIndex: 10 }}>
         {selectedSource === 'dab' ? (
-          <Tabs tabs={["Songs", "Albums"]} setState={setActiveTab} state={ActiveTab} />
-        ) : (selectedSource === 'saavn' || selectedSource === 'ytmusic' || selectedSource === 'spotify') && (
-          <Tabs tabs={["Songs", "Playlists", "Albums", "Artists"]} setState={setActiveTab} state={ActiveTab} />
+          <Tabs
+            tabs={['Songs', 'Albums']}
+            setState={setActiveTab}
+            state={ActiveTab}
+          />
+        ) : (
+          (selectedSource === 'saavn' ||
+            selectedSource === 'ytmusic' ||
+            selectedSource === 'spotify') && (
+            <Tabs
+              tabs={['Songs', 'Playlists', 'Albums', 'Artists']}
+              setState={setActiveTab}
+              state={ActiveTab}
+            />
+          )
         )}
       </View>
 
       <Spacer height={15} />
 
       {/* Logic to show Suggestions OR History OR Results */}
-      {showSuggestions && (suggestions.length > 0 || quickResults.length > 0) ? (
+      {showSuggestions &&
+      (suggestions.length > 0 || quickResults.length > 0) ? (
         <SearchSuggestions
           suggestions={suggestions}
           quickResults={quickResults}
@@ -503,16 +542,58 @@ export const SearchPage = ({ navigation }) => {
           {selectedSource === 'dab' ? (
             // DAB supports Songs and Albums
             <>
-              {ActiveTab === 0 && <SongDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />}
-              {ActiveTab === 1 && <AlbumsDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />}
+              {ActiveTab === 0 && (
+                <SongDisplay
+                  data={Data}
+                  limit={limit}
+                  Searchtext={SearchText}
+                  source={selectedSource}
+                />
+              )}
+              {ActiveTab === 1 && (
+                <AlbumsDisplay
+                  data={Data}
+                  limit={limit}
+                  Searchtext={SearchText}
+                  source={selectedSource}
+                />
+              )}
             </>
           ) : (
             // Saavn, YTMusic, and Spotify support all categories
             <>
-              {ActiveTab === 0 && <SongDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />}
-              {ActiveTab === 1 && <PlaylistDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />}
-              {ActiveTab === 2 && <AlbumsDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />}
-              {ActiveTab === 3 && <ArtistDisplay data={Data} limit={limit} Searchtext={SearchText} source={selectedSource} />}
+              {ActiveTab === 0 && (
+                <SongDisplay
+                  data={Data}
+                  limit={limit}
+                  Searchtext={SearchText}
+                  source={selectedSource}
+                />
+              )}
+              {ActiveTab === 1 && (
+                <PlaylistDisplay
+                  data={Data}
+                  limit={limit}
+                  Searchtext={SearchText}
+                  source={selectedSource}
+                />
+              )}
+              {ActiveTab === 2 && (
+                <AlbumsDisplay
+                  data={Data}
+                  limit={limit}
+                  Searchtext={SearchText}
+                  source={selectedSource}
+                />
+              )}
+              {ActiveTab === 3 && (
+                <ArtistDisplay
+                  data={Data}
+                  limit={limit}
+                  Searchtext={SearchText}
+                  source={selectedSource}
+                />
+              )}
             </>
           )}
         </View>
@@ -530,50 +611,88 @@ export const SearchPage = ({ navigation }) => {
           onPress={() => setModalVisible(false)}
         >
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Select Music Source</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Select Music Source
+            </Text>
 
             <TouchableOpacity
-              style={[styles.sourceOption, selectedSource === 'saavn' && styles.selectedOption]}
+              style={[
+                styles.sourceOption,
+                selectedSource === 'saavn' && styles.selectedOption,
+              ]}
               onPress={() => {
                 saveSelectedSource('saavn');
                 setModalVisible(false);
               }}
             >
-              <Text style={[styles.sourceText, { color: colors.text }]}>JioSaavn</Text>
-              {selectedSource === 'saavn' && <Text style={[styles.checkmark, { color: colors.primary }]}>✓</Text>}
+              <Text style={[styles.sourceText, { color: colors.text }]}>
+                JioSaavn
+              </Text>
+              {selectedSource === 'saavn' && (
+                <Text style={[styles.checkmark, { color: colors.primary }]}>
+                  ✓
+                </Text>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.sourceOption, selectedSource === 'ytmusic' && styles.selectedOption]}
+              style={[
+                styles.sourceOption,
+                selectedSource === 'ytmusic' && styles.selectedOption,
+              ]}
               onPress={() => {
                 saveSelectedSource('ytmusic');
                 setModalVisible(false);
               }}
             >
-              <Text style={[styles.sourceText, { color: colors.text }]}>YTMusic</Text>
-              {selectedSource === 'ytmusic' && <Text style={[styles.checkmark, { color: colors.primary }]}>✓</Text>}
+              <Text style={[styles.sourceText, { color: colors.text }]}>
+                YTMusic
+              </Text>
+              {selectedSource === 'ytmusic' && (
+                <Text style={[styles.checkmark, { color: colors.primary }]}>
+                  ✓
+                </Text>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.sourceOption, selectedSource === 'dab' && styles.selectedOption]}
+              style={[
+                styles.sourceOption,
+                selectedSource === 'dab' && styles.selectedOption,
+              ]}
               onPress={() => {
                 saveSelectedSource('dab');
                 setModalVisible(false);
               }}
             >
-              <Text style={[styles.sourceText, { color: colors.text }]}>Qobuz</Text>
-              {selectedSource === 'dab' && <Text style={[styles.checkmark, { color: colors.primary }]}>✓</Text>}
+              <Text style={[styles.sourceText, { color: colors.text }]}>
+                Qobuz
+              </Text>
+              {selectedSource === 'dab' && (
+                <Text style={[styles.checkmark, { color: colors.primary }]}>
+                  ✓
+                </Text>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.sourceOption, selectedSource === 'spotify' && styles.selectedOption]}
+              style={[
+                styles.sourceOption,
+                selectedSource === 'spotify' && styles.selectedOption,
+              ]}
               onPress={() => {
                 saveSelectedSource('spotify');
                 setModalVisible(false);
               }}
             >
-              <Text style={[styles.sourceText, { color: colors.text }]}>Spotify</Text>
-              {selectedSource === 'spotify' && <Text style={[styles.checkmark, { color: colors.primary }]}>✓</Text>}
+              <Text style={[styles.sourceText, { color: colors.text }]}>
+                Spotify
+              </Text>
+              {selectedSource === 'spotify' && (
+                <Text style={[styles.checkmark, { color: colors.primary }]}>
+                  ✓
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </Pressable>

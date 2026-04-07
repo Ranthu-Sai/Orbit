@@ -1,5 +1,9 @@
 import { StorageManager } from './StorageManager';
-import { downloadFileWithAnalytics, detectAudioFormat, renameToCorrectExtension } from './FileUtils';
+import {
+  downloadFileWithAnalytics,
+  detectAudioFormat,
+  renameToCorrectExtension,
+} from './FileUtils';
 import { ToastAndroid } from 'react-native';
 import EventRegister from './EventRegister';
 import { getIndexQuality } from '../MusicPlayerFunctions';
@@ -12,7 +16,6 @@ import RNFS from 'react-native-fs';
  */
 
 export class UnifiedDownloadService {
-
   /**
    * Downloads a song with proper metadata saving and analytics tracking
    * @param {Object} song - Song object with id, title, artist, url, artwork, etc.
@@ -28,7 +31,9 @@ export class UnifiedDownloadService {
       }
 
       // Check if already downloaded
-      const isAlreadyDownloaded = await StorageManager.isSongDownloaded(song.id);
+      const isAlreadyDownloaded = await StorageManager.isSongDownloaded(
+        song.id
+      );
       if (isAlreadyDownloaded) {
         ToastAndroid.show('Song already downloaded', ToastAndroid.SHORT);
         return true;
@@ -60,8 +65,13 @@ export class UnifiedDownloadService {
 
       // Get file paths (pass source for correct file extension)
       // Use isDabTrack as fallback for source detection
-      const isYTMusic = song.source === 'ytmusic' ||
-        (song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isDabTrack && !song.isLocalMusic);
+      const isYTMusic =
+        song.source === 'ytmusic' ||
+        (song.id &&
+          typeof song.id === 'string' &&
+          song.id.length === 11 &&
+          !song.isDabTrack &&
+          !song.isLocalMusic);
 
       // For YTMusic, use the actual format from the stream, or default format
       // Pass the format as the source so StorageManager uses correct extension
@@ -74,7 +84,11 @@ export class UnifiedDownloadService {
       } else {
         effectiveSource = song.source || (song.isDabTrack ? 'dab' : null);
       }
-      const songPath = await StorageManager.getSongPath(song.id, song.title, effectiveSource);
+      const songPath = await StorageManager.getSongPath(
+        song.id,
+        song.title,
+        effectiveSource
+      );
       const artworkPath = await StorageManager.getArtworkPath(song.id);
 
       // Download song file (with headers for YTMusic and progress tracking)
@@ -84,13 +98,16 @@ export class UnifiedDownloadService {
         {
           id: String(song.id),
           name: String(song.title || 'Unknown'),
-          type: 'song'
+          type: 'song',
         },
         downloadHeaders, // Pass headers (null for non-YTMusic sources)
         // Progress callback - emit global events AND call provided callback
         (progress) => {
           // Emit global event so all components can update
-          EventRegister.emit('download-progress', { songId: song.id, progress });
+          EventRegister.emit('download-progress', {
+            songId: song.id,
+            progress,
+          });
           // Also call the direct callback if provided
           if (typeof onProgress === 'function') {
             onProgress(progress);
@@ -113,7 +130,7 @@ export class UnifiedDownloadService {
             {
               id: String(song.id),
               name: String(song.title || 'Unknown') + ' - Artwork',
-              type: 'artwork'
+              type: 'artwork',
             }
           );
 
@@ -124,19 +141,26 @@ export class UnifiedDownloadService {
               const fileInfo = await RNFS.stat(artworkPath);
               // Ensure file has actual content (at least 100 bytes for a valid image)
               if (fileInfo.size < 100) {
-                console.warn(`🎨 [Artwork] Downloaded file too small (${fileInfo.size} bytes), likely invalid`);
+                console.warn(
+                  `🎨 [Artwork] Downloaded file too small (${fileInfo.size} bytes), likely invalid`
+                );
                 artworkDownloadSuccess = false;
-                await RNFS.unlink(artworkPath).catch(() => { });
+                await RNFS.unlink(artworkPath).catch(() => {});
               }
             } else {
-              console.warn(`🎨 [Artwork] Download reported success but file not found`);
+              console.warn(
+                '🎨 [Artwork] Download reported success but file not found'
+              );
               artworkDownloadSuccess = false;
             }
           } else {
             console.warn(`🎨 [Artwork] Download FAILED for: ${song.title}`);
           }
         } catch (artworkError) {
-          console.error(`🎨 [Artwork] Error downloading artwork:`, artworkError.message);
+          console.error(
+            '🎨 [Artwork] Error downloading artwork:',
+            artworkError.message
+          );
           artworkDownloadSuccess = false;
         }
       }
@@ -146,8 +170,14 @@ export class UnifiedDownloadService {
       const formatInfo = await detectAudioFormat(songPath);
       // If file has wrong extension, rename it
       let finalSongPath = songPath;
-      if (formatInfo.actualExtension && !songPath.toLowerCase().endsWith(formatInfo.actualExtension)) {
-        const renamedPath = await renameToCorrectExtension(songPath, formatInfo.actualExtension);
+      if (
+        formatInfo.actualExtension &&
+        !songPath.toLowerCase().endsWith(formatInfo.actualExtension)
+      ) {
+        const renamedPath = await renameToCorrectExtension(
+          songPath,
+          formatInfo.actualExtension
+        );
         if (renamedPath) {
           finalSongPath = renamedPath;
         }
@@ -157,21 +187,25 @@ export class UnifiedDownloadService {
       let metadataEmbedded = false;
       if (formatInfo.canEmbedMetadata) {
         try {
-          const artworkPathToEmbed = artworkDownloadSuccess ? artworkPath : null;
+          const artworkPathToEmbed = artworkDownloadSuccess
+            ? artworkPath
+            : null;
           metadataEmbedded = await embedMetadataInFile(
             finalSongPath,
             {
               title: String(song.title || 'Unknown'),
-              artist: String(this.formatArtist(song.artist) || 'Unknown Artist'),
+              artist: String(
+                this.formatArtist(song.artist) || 'Unknown Artist'
+              ),
               album: String(song.album || 'Unknown Album'),
-              year: String(song.year || new Date().getFullYear().toString())
+              year: String(song.year || new Date().getFullYear().toString()),
             },
             artworkPathToEmbed
           );
 
           if (metadataEmbedded) {
             // Clean up separate artwork file since it's now embedded
-            if (artworkDownloadSuccess && await RNFS.exists(artworkPath)) {
+            if (artworkDownloadSuccess && (await RNFS.exists(artworkPath))) {
               try {
                 await RNFS.unlink(artworkPath);
               } catch (cleanupErr) {
@@ -180,7 +214,10 @@ export class UnifiedDownloadService {
             }
           }
         } catch (embedError) {
-          console.warn(`Failed to embed metadata for ${song.title}:`, embedError);
+          console.warn(
+            `Failed to embed metadata for ${song.title}:`,
+            embedError
+          );
           // Continue without embedded metadata - file is still playable
         }
       } else {
@@ -195,14 +232,15 @@ export class UnifiedDownloadService {
         url: downloadUrl,
         artwork: artworkUrl,
         localSongPath: finalSongPath,
-        localArtworkPath: (artworkDownloadSuccess && !metadataEmbedded) ? artworkPath : null,
+        localArtworkPath:
+          artworkDownloadSuccess && !metadataEmbedded ? artworkPath : null,
         duration: song.duration || 0,
         language: song.language || '',
         artistID: song.artistID || '',
         source: effectiveSource || 'saavn', // Store source for correct file extension on delete
         isDownloaded: true,
         metadataEmbedded: metadataEmbedded,
-        downloadedAt: new Date().toISOString()
+        downloadedAt: new Date().toISOString(),
       };
 
       // Save metadata to AsyncStorage for Orbit's internal use
@@ -215,7 +253,6 @@ export class UnifiedDownloadService {
       ToastAndroid.show(`${song.title} Downloaded`, ToastAndroid.SHORT);
 
       return true;
-
     } catch (error) {
       console.error(`Download failed for ${song.title}:`, error);
       ToastAndroid.show(`Download failed: ${error.message}`, ToastAndroid.LONG);
@@ -224,7 +261,10 @@ export class UnifiedDownloadService {
       try {
         await StorageManager.removeDownloadedSongMetadata(song.id);
       } catch (cleanupError) {
-        console.error('Error cleaning up failed download metadata:', cleanupError);
+        console.error(
+          'Error cleaning up failed download metadata:',
+          cleanupError
+        );
       }
 
       return false;
@@ -246,30 +286,42 @@ export class UnifiedDownloadService {
       // YTMUSIC SOURCE - Fetch stream URL with required headers
       // Detection: source='ytmusic' OR 11-character ID (YouTube video ID format)
       // ============================================================
-      const isYTMusic = song.source === 'ytmusic' ||
-        (song.id && typeof song.id === 'string' && song.id.length === 11 && !song.isDabTrack && !song.isLocalMusic);
+      const isYTMusic =
+        song.source === 'ytmusic' ||
+        (song.id &&
+          typeof song.id === 'string' &&
+          song.id.length === 11 &&
+          !song.isDabTrack &&
+          !song.isLocalMusic);
 
       if (isYTMusic) {
         try {
-          const youtubeStreamingService = require('./YouTubeStreamingService').default;
+          const youtubeStreamingService =
+            require('./YouTubeStreamingService').default;
           // Pass preferM4A=true for downloads to get M4A format (supports metadata embedding)
-          const streamData = await youtubeStreamingService.getStreamUrl(song.id, true);
+          const streamData = await youtubeStreamingService.getStreamUrl(
+            song.id,
+            true
+          );
 
           if (streamData && streamData.url) {
             // Return object with URL, headers, and format metadata
             return {
               url: streamData.url,
               headers: streamData.headers || {
-                'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 12; en_IN)',
-                'Range': 'bytes=0-'
+                'User-Agent':
+                  'com.google.android.youtube/19.09.37 (Linux; U; Android 12; en_IN)',
+                Range: 'bytes=0-',
               },
               thumbnail: streamData.thumbnail,
               format: streamData.format || null,
               mimeType: streamData.mimeType || null,
-              source: 'ytmusic'
+              source: 'ytmusic',
             };
           }
-          console.error('❌ Failed to get YTMusic download URL - no URL returned');
+          console.error(
+            '❌ Failed to get YTMusic download URL - no URL returned'
+          );
           return null;
         } catch (ytError) {
           console.error('❌ YTMusic stream URL fetch error:', ytError.message);
@@ -282,7 +334,12 @@ export class UnifiedDownloadService {
       // Detection: source='spotify' OR spotifyId OR _needsSpotifyMapping flag
       // Uses same logic as SmartPrefetchManager for playback
       // ============================================================
-      if (song.source === 'spotify' || song.spotifyId || song._needsSpotifyMapping || (typeof song.url === 'string' && song.url?.startsWith('spotify://'))) {
+      if (
+        song.source === 'spotify' ||
+        song.spotifyId ||
+        song._needsSpotifyMapping ||
+        (typeof song.url === 'string' && song.url?.startsWith('spotify://'))
+      ) {
         try {
           const YouTubeMusicService = require('./YouTubeMusicService').default;
           const ytMusicResult = await YouTubeMusicService.searchAndStream(
@@ -294,17 +351,24 @@ export class UnifiedDownloadService {
             return {
               url: ytMusicResult.url,
               headers: ytMusicResult.headers || {
-                'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 12; en_IN)',
-                'Range': 'bytes=0-'
+                'User-Agent':
+                  'com.google.android.youtube/19.09.37 (Linux; U; Android 12; en_IN)',
+                Range: 'bytes=0-',
               },
               format: ytMusicResult.format || null,
-              source: 'ytmusic' // Mark as ytmusic since we're downloading from YTMusic
+              source: 'ytmusic', // Mark as ytmusic since we're downloading from YTMusic
             };
           }
-          console.error('❌ Failed to map Spotify track to YTMusic for download:', song.title);
+          console.error(
+            '❌ Failed to map Spotify track to YTMusic for download:',
+            song.title
+          );
           return null;
         } catch (spotifyError) {
-          console.error('❌ Spotify mapping error for download:', spotifyError.message);
+          console.error(
+            '❌ Spotify mapping error for download:',
+            spotifyError.message
+          );
           return null;
         }
       }
@@ -379,13 +443,11 @@ export class UnifiedDownloadService {
 
       console.error('No valid download URL found in song data:', song);
       return null;
-
     } catch (error) {
       console.error('Error getting download URL:', error);
       return null;
     }
   }
-
 
   /**
    * Gets the artwork URL from song data
@@ -395,10 +457,16 @@ export class UnifiedDownloadService {
   static getArtworkUrl(song) {
     // Helper to check if URL is valid (not a placeholder)
     const isValidUrl = (url) => {
-      if (!url || typeof url !== 'string') return false;
-      if (!url.startsWith('http')) return false;
+      if (!url || typeof url !== 'string') {
+        return false;
+      }
+      if (!url.startsWith('http')) {
+        return false;
+      }
       // Filter out common placeholder URLs
-      if (url.includes('placeholder') || url.includes('htmlcolorcodes.com')) return false;
+      if (url.includes('placeholder') || url.includes('htmlcolorcodes.com')) {
+        return false;
+      }
       return true;
     };
 
@@ -408,7 +476,11 @@ export class UnifiedDownloadService {
     }
 
     // Method 2: artwork as object with uri (React Native Image format)
-    if (song.artwork && typeof song.artwork === 'object' && isValidUrl(song.artwork.uri)) {
+    if (
+      song.artwork &&
+      typeof song.artwork === 'object' &&
+      isValidUrl(song.artwork.uri)
+    ) {
       return song.artwork.uri;
     }
 
@@ -418,7 +490,12 @@ export class UnifiedDownloadService {
     }
 
     // Method 4: image as object with uri
-    if (song.image && typeof song.image === 'object' && !Array.isArray(song.image) && isValidUrl(song.image.uri)) {
+    if (
+      song.image &&
+      typeof song.image === 'object' &&
+      !Array.isArray(song.image) &&
+      isValidUrl(song.image.uri)
+    ) {
       return song.image.uri;
     }
 
@@ -473,14 +550,16 @@ export class UnifiedDownloadService {
    * @returns {string} - Formatted artist string
    */
   static formatArtist(artist) {
-    if (!artist) return 'Unknown Artist';
+    if (!artist) {
+      return 'Unknown Artist';
+    }
 
     if (typeof artist === 'string') {
       return artist;
     }
 
     if (Array.isArray(artist)) {
-      return artist.map(a => typeof a === 'object' ? a.name : a).join(', ');
+      return artist.map((a) => (typeof a === 'object' ? a.name : a)).join(', ');
     }
 
     if (typeof artist === 'object' && artist.name) {

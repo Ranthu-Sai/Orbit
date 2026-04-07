@@ -1,42 +1,43 @@
-import axios from "axios";
+import axios from 'axios';
 import { getCachedData, CACHE_GROUPS } from './CacheManager';
+import { requestWithFallback } from './apiUtils';
 
 async function getHomePageData(languages, forceRefresh = false) {
   // Create a cache key based on the languages
-  const cacheKey = `home_${languages}`;
+  const cacheKey = `home_v4_${languages}`;
 
   // Define the fetch function that will be called if cache miss
   const fetchFunction = async () => {
-    let apiUrl = 'https://jio-savan-api-sigma.vercel.app/modules?language=' + languages;
+    const primaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/modules?language=${languages}${
+      forceRefresh ? `&_t=${Date.now()}` : ''
+    }`;
+    const secondaryUrl = `https://saavn.dev/api/modules?language=${languages}`;
 
-    // Append timestamp to bypass Vercel/CDN cache if forcing refresh
-    if (forceRefresh) {
-      apiUrl += `&_t=${Date.now()}`;
-      }
-
-    let config = {
+    const config = {
       method: 'get',
       maxBodyLength: Infinity,
-      url: apiUrl,
       headers: {},
     };
 
-    try {
-      const response = await axios.request(config);
-      return response.data;
-    }
-    catch (error) {
-      throw error;
-    }
+    return requestWithFallback(primaryUrl, secondaryUrl, config);
   };
 
   // Use cache manager with 60 minute expiration for homepage data
   try {
-    return await getCachedData(cacheKey, fetchFunction, 60, CACHE_GROUPS.HOME, forceRefresh);
+    return await getCachedData(
+      cacheKey,
+      fetchFunction,
+      60,
+      CACHE_GROUPS.HOME,
+      forceRefresh
+    );
   } catch (error) {
-    console.error(`Error getting homepage data for languages ${languages}:`, error);
+    console.error(
+      `Error getting homepage data for languages ${languages}:`,
+      error
+    );
     throw error;
   }
 }
 
-export { getHomePageData }
+export { getHomePageData };

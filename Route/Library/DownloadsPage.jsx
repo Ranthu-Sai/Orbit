@@ -1,11 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, RefreshControl, ToastAndroid, AppState, TouchableOpacity } from 'react-native';
-import { MainWrapper } from "../../Layout/MainWrapper";
-import { EachSongCard } from "../../Component/Global/EachSongCard";
-import { Heading } from "../../Component/Global/Heading";
-import { Spacer } from "../../Component/Global/Spacer";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  RefreshControl,
+  ToastAndroid,
+  AppState,
+  TouchableOpacity,
+} from 'react-native';
+import { useActiveTrack, usePlaybackState } from 'react-native-track-player';
+import { MainWrapper } from '../../Layout/MainWrapper';
+import { EachSongCard } from '../../Component/Global/EachSongCard';
+import { Heading } from '../../Component/Global/Heading';
+import { Spacer } from '../../Component/Global/Spacer';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import TrackPlayer, { useActiveTrack, usePlaybackState } from 'react-native-track-player';
 import EventRegister from '../../Utils/EventRegister';
 
 export const DownloadsPage = () => {
@@ -19,7 +28,8 @@ export const DownloadsPage = () => {
     setLoading(true);
     try {
       // Use SimpleOrbitScanner (no native module required)
-      const SimpleOrbitScanner = require('../../Utils/SimpleOrbitScanner').default;
+      const SimpleOrbitScanner =
+        require('../../Utils/SimpleOrbitScanner').default;
       const songs = await SimpleOrbitScanner.scanOrbitSongs();
       setDownloads(songs);
       setDebugInfo(`Found ${songs.length} songs`);
@@ -47,15 +57,18 @@ export const DownloadsPage = () => {
   useEffect(() => {
     loadDownloadedSongs();
 
-    const subscription = AppState.addEventListener('change', nextAppState => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
         loadDownloadedSongs();
       }
     });
 
-    const downloadListener = EventRegister.addEventListener('download-complete', () => {
-      loadDownloadedSongs();
-    });
+    const downloadListener = EventRegister.addEventListener(
+      'download-complete',
+      () => {
+        loadDownloadedSongs();
+      }
+    );
 
     return () => {
       subscription.remove();
@@ -109,7 +122,9 @@ export const DownloadsPage = () => {
               localSongPath={item.localSongPath}
               onDeleteComplete={() => loadDownloadedSongs()}
               activeTrackId={activeTrack?.id}
-              isPlaying={playbackState.state === "playing" || playbackState.state === 3}
+              isPlaying={
+                playbackState.state === 'playing' || playbackState.state === 3
+              }
             />
           )}
           refreshControl={

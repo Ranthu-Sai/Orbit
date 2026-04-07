@@ -13,14 +13,14 @@ const config = {
   resolver: {
     assetExts: require('@react-native/metro-config')
       .getDefaultConfig(__dirname)
-      .resolver.assetExts.filter(ext => ext !== 'svg'),
+      .resolver.assetExts.filter((ext) => ext !== 'svg'),
     sourceExts: [
       ...require('@react-native/metro-config').getDefaultConfig(__dirname)
         .resolver.sourceExts,
       'svg',
     ],
     alias: {
-      'crypto': 'crypto-js',
+      crypto: 'crypto-js',
     },
   },
 };

@@ -1,12 +1,19 @@
-import { useTheme } from "@react-navigation/native";
-import AntDesign from "react-native-vector-icons/AntDesign";
-import { memo, useEffect, useState, useRef, useCallback } from "react";
-import { DeleteALikedSong, GetLikedSongs, SetLikedSongs } from "../../LocalStorage/StoreLikedSongs";
-import { Animated, ToastAndroid, DeviceEventEmitter } from "react-native";
-import { IconButton } from "react-native-paper";
-import { useActiveTrack } from "react-native-track-player";
+import { useTheme } from '@react-navigation/native';
+import AntDesign from 'react-native-vector-icons/AntDesign';
+import { memo, useEffect, useState, useRef, useCallback } from 'react';
+import {
+  DeleteALikedSong,
+  GetLikedSongs,
+  SetLikedSongs,
+} from '../../LocalStorage/StoreLikedSongs';
+import { Animated, ToastAndroid, DeviceEventEmitter } from 'react-native';
+import { IconButton } from 'react-native-paper';
+import { useActiveTrack } from 'react-native-track-player';
 
-export const LikeSongButton = memo(function LikeSongButton({ size = 24, color }) {
+export const LikeSongButton = memo(function LikeSongButton({
+  size = 24,
+  color,
+}) {
   // Use useActiveTrack for reliable, real-time track info
   const currentPlaying = useActiveTrack();
   const theme = useTheme();
@@ -30,7 +37,9 @@ export const LikeSongButton = memo(function LikeSongButton({ size = 24, color })
   }, []);
 
   const handlePress = useCallback(async () => {
-    if (isProcessingRef.current || !currentPlaying?.id) return;
+    if (isProcessingRef.current || !currentPlaying?.id) {
+      return;
+    }
 
     // Button press animation
     Animated.sequence([
@@ -43,7 +52,7 @@ export const LikeSongButton = memo(function LikeSongButton({ size = 24, color })
         toValue: 1,
         friction: 3,
         useNativeDriver: true,
-      })
+      }),
     ]).start();
 
     isProcessingRef.current = true;
@@ -52,17 +61,23 @@ export const LikeSongButton = memo(function LikeSongButton({ size = 24, color })
       const LikedSongs = await GetLikedSongs();
       if (!LikedSongs.songs[currentPlaying.id]) {
         // Get the URL - handle both direct url and array format
-        const songUrl = typeof currentPlaying.url === 'string'
-          ? currentPlaying.url
-          : (Array.isArray(currentPlaying.url) && currentPlaying.url.length > 0)
-            ? (currentPlaying.url[0]?.url || currentPlaying.url[0])
+        const songUrl =
+          typeof currentPlaying.url === 'string'
+            ? currentPlaying.url
+            : Array.isArray(currentPlaying.url) && currentPlaying.url.length > 0
+            ? currentPlaying.url[0]?.url || currentPlaying.url[0]
             : '';
 
         // Get the image - handle both direct image and artwork property
         const songImage = currentPlaying.image || currentPlaying.artwork || '';
 
         // Only require essential fields: title, artist, id, and url
-        if (currentPlaying.title && currentPlaying.artist && currentPlaying.id && songUrl) {
+        if (
+          currentPlaying.title &&
+          currentPlaying.artist &&
+          currentPlaying.id &&
+          songUrl
+        ) {
           await SetLikedSongs(
             currentPlaying.title,
             currentPlaying.artist,
@@ -74,7 +89,10 @@ export const LikeSongButton = memo(function LikeSongButton({ size = 24, color })
           );
           setLiked(true);
           // Show success toast
-          ToastAndroid.show(`Added "${currentPlaying.title}" to favorites`, ToastAndroid.SHORT);
+          ToastAndroid.show(
+            `Added "${currentPlaying.title}" to favorites`,
+            ToastAndroid.SHORT
+          );
           // Emit event to refresh favorites screen
           DeviceEventEmitter.emit('favorites-updated');
         } else {
@@ -82,15 +100,21 @@ export const LikeSongButton = memo(function LikeSongButton({ size = 24, color })
             hasTitle: !!currentPlaying.title,
             hasArtist: !!currentPlaying.artist,
             hasId: !!currentPlaying.id,
-            hasUrl: !!songUrl
+            hasUrl: !!songUrl,
           });
-          ToastAndroid.show('Unable to add song to favorites', ToastAndroid.SHORT);
+          ToastAndroid.show(
+            'Unable to add song to favorites',
+            ToastAndroid.SHORT
+          );
         }
       } else {
         await DeleteALikedSong(currentPlaying.id);
         setLiked(false);
         // Show removed toast
-        ToastAndroid.show(`Removed "${currentPlaying.title}" from favorites`, ToastAndroid.SHORT);
+        ToastAndroid.show(
+          `Removed "${currentPlaying.title}" from favorites`,
+          ToastAndroid.SHORT
+        );
         // Emit event to refresh favorites screen
         DeviceEventEmitter.emit('favorites-updated');
       }
@@ -128,9 +152,9 @@ export const LikeSongButton = memo(function LikeSongButton({ size = 24, color })
       <IconButton
         icon={() => (
           <AntDesign
-            name={Liked ? "heart" : "hearto"}
+            name={Liked ? 'heart' : 'hearto'}
             size={iconSize}
-            color={Liked ? 'rgb(230, 28, 28)' : (color || theme.colors.text)}
+            color={Liked ? 'rgb(230, 28, 28)' : color || theme.colors.text}
           />
         )}
         size={32}

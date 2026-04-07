@@ -1,5 +1,5 @@
 // service.js
-import TrackPlayer, { Capability, Event } from "react-native-track-player";
+import TrackPlayer, { Capability, Event } from 'react-native-track-player';
 import historyManager from './Utils/HistoryManager';
 import autoRecommendations from './Utils/AutoRecommendations';
 import DownloadQueueService from './Utils/DownloadQueueService';
@@ -43,7 +43,9 @@ export const PlaybackService = async function () {
         // Silently fail if at start of queue
       }
     });
-    TrackPlayer.addEventListener(Event.RemoteSeek, (e) => TrackPlayer.seekTo(e.position));
+    TrackPlayer.addEventListener(Event.RemoteSeek, (e) =>
+      TrackPlayer.seekTo(e.position)
+    );
 
     // History tracking is handled by ContextState.jsx to avoid duplicate calls
     // and ensure non-blocking UI updates. Removed from here to prevent blocking.
@@ -74,7 +76,12 @@ export const PlaybackService = async function () {
         Capability.SkipToPrevious,
         Capability.SeekTo,
       ],
-      compactCapabilities: [Capability.Play, Capability.Pause, Capability.SkipToNext, Capability.SkipToPrevious],
+      compactCapabilities: [
+        Capability.Play,
+        Capability.Pause,
+        Capability.SkipToNext,
+        Capability.SkipToPrevious,
+      ],
     });
 
     // Initialize history manager (now lightweight)
@@ -83,7 +90,10 @@ export const PlaybackService = async function () {
     // Initialize listening history service for personalized Quick Picks
     await listeningHistoryService.initialize();
   } catch (error) {
-    if (error.message && error.message.includes('player has already been initialized')) {
+    if (
+      error.message &&
+      error.message.includes('player has already been initialized')
+    ) {
       isPlayerInitialized = true;
     } else {
       console.error('Error initializing player in service.js:', error);

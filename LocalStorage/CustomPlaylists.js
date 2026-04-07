@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Check that this function is using the same key
 async function GetCustomPlaylists() {
@@ -21,14 +21,15 @@ async function CreateCustomPlaylist(playlistName) {
     try {
       const jsonValue = JSON.stringify(customPlaylists);
       await AsyncStorage.setItem('CustomPlaylists', jsonValue);
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 }
 
 // Helper function to extract valid image URL from various formats
 const extractImageUrl = (imageData) => {
-  if (!imageData) return null;
+  if (!imageData) {
+    return null;
+  }
 
   // If it's already a string URL, return it
   if (typeof imageData === 'string' && imageData.trim() !== '') {
@@ -38,15 +39,27 @@ const extractImageUrl = (imageData) => {
   // If it's an array, try to extract URL from objects
   if (Array.isArray(imageData)) {
     for (const img of imageData) {
-      if (typeof img === 'string' && img.trim() !== '') return img;
-      if (img && typeof img === 'object' && img.url && typeof img.url === 'string') {
+      if (typeof img === 'string' && img.trim() !== '') {
+        return img;
+      }
+      if (
+        img &&
+        typeof img === 'object' &&
+        img.url &&
+        typeof img.url === 'string'
+      ) {
         return img.url;
       }
     }
   }
 
   // If it's an object with url property
-  if (imageData && typeof imageData === 'object' && imageData.url && typeof imageData.url === 'string') {
+  if (
+    imageData &&
+    typeof imageData === 'object' &&
+    imageData.url &&
+    typeof imageData.url === 'string'
+  ) {
     return imageData.url;
   }
 
@@ -58,7 +71,10 @@ async function AddSongToCustomPlaylist(playlistName, song) {
   const customPlaylists = await GetCustomPlaylists();
   if (customPlaylists[playlistName]) {
     // Check if this is a local song
-    const isLocalFile = song.isLocalMusic || song.path || (song.url && song.url.startsWith('file://'));
+    const isLocalFile =
+      song.isLocalMusic ||
+      song.path ||
+      (song.url && song.url.startsWith('file://'));
 
     // Clean up the song object to ensure it's properly formatted
     const sanitizedSong = {
@@ -69,7 +85,10 @@ async function AddSongToCustomPlaylist(playlistName, song) {
       image: extractImageUrl(song.image),
       artwork: extractImageUrl(song.artwork || song.image),
       // Ensure duration is a number if possible
-      duration: typeof song.duration === 'string' ? parseFloat(song.duration) || 0 : song.duration || 0,
+      duration:
+        typeof song.duration === 'string'
+          ? parseFloat(song.duration) || 0
+          : song.duration || 0,
       language: song.language || '',
       // For local files
       isLocalMusic: isLocalFile,
@@ -81,14 +100,15 @@ async function AddSongToCustomPlaylist(playlistName, song) {
     };
 
     // Check if song already exists in the playlist to avoid duplicates
-    const existsInPlaylist = customPlaylists[playlistName].some(s => s.id === sanitizedSong.id);
+    const existsInPlaylist = customPlaylists[playlistName].some(
+      (s) => s.id === sanitizedSong.id
+    );
     if (!existsInPlaylist) {
       customPlaylists[playlistName].push(sanitizedSong);
       try {
         const jsonValue = JSON.stringify(customPlaylists);
         await AsyncStorage.setItem('CustomPlaylists', jsonValue);
-      } catch (e) {
-      }
+      } catch (e) {}
     } else {
     }
   } else {

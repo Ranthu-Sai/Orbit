@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import TrackPlayer, { useActiveTrack, useTrackPlayerEvents, Event, State } from 'react-native-track-player';
+import TrackPlayer, {
+  useActiveTrack,
+  useTrackPlayerEvents,
+  Event,
+  State,
+} from 'react-native-track-player';
 import { ToastAndroid, Platform, DeviceEventEmitter } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import {
@@ -11,12 +16,12 @@ import {
   ensureCurrentTrackFirst,
   queueOperationManager,
   QueueOperationStates,
-  TrackSourceTypes
+  TrackSourceTypes,
 } from '../../../Utils/QueueUtils';
 
 /**
  * useQueueManager - Custom hook for queue management
- * 
+ *
  * This hook provides queue management capabilities including:
  * - Queue state management
  * - Track filtering and reordering
@@ -28,7 +33,7 @@ export const useQueueManager = (options = {}) => {
   const {
     autoInitialize = true,
     onQueueChange = null,
-    onTrackSelect = null
+    onTrackSelect = null,
   } = options;
 
   const [upcomingQueue, setUpcomingQueue] = useState([]);
@@ -46,7 +51,9 @@ export const useQueueManager = (options = {}) => {
     const checkNetworkStatus = async () => {
       try {
         const networkState = await NetInfo.fetch();
-        setIsOffline(!(networkState.isConnected && networkState.isInternetReachable));
+        setIsOffline(
+          !(networkState.isConnected && networkState.isInternetReachable)
+        );
       } catch (error) {
         console.error('Error checking network status:', error);
         setIsOffline(false);
@@ -55,7 +62,7 @@ export const useQueueManager = (options = {}) => {
 
     checkNetworkStatus();
 
-    const unsubscribe = NetInfo.addEventListener(state => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
       setIsOffline(!(state.isConnected && state.isInternetReachable));
     });
 
@@ -64,62 +71,83 @@ export const useQueueManager = (options = {}) => {
 
   // Listen for queue-updated events to refresh queue when songs are added progressively
   useEffect(() => {
-    const subscription = DeviceEventEmitter.addListener('queue-updated', async (data) => {
-      // Small delay to ensure TrackPlayer has finished adding tracks
-      setTimeout(async () => {
-        try {
-          // Get ALL tracks from TrackPlayer without filtering
-          const queue = await TrackPlayer.getQueue();
-          if (queue.length > 0) {
-            // Remove duplicates only
-            const uniqueQueue = removeDuplicateTracks(queue);
-            setUpcomingQueue(uniqueQueue);
+    const subscription = DeviceEventEmitter.addListener(
+      'queue-updated',
+      async (data) => {
+        // Small delay to ensure TrackPlayer has finished adding tracks
+        setTimeout(async () => {
+          try {
+            // Get ALL tracks from TrackPlayer without filtering
+            const queue = await TrackPlayer.getQueue();
+            if (queue.length > 0) {
+              // Remove duplicates only
+              const uniqueQueue = removeDuplicateTracks(queue);
+              setUpcomingQueue(uniqueQueue);
+            }
+          } catch (error) {
+            console.error('Error refreshing queue on update:', error);
           }
-        } catch (error) {
-          console.error('Error refreshing queue on update:', error);
-        }
-      }, 100);
-    });
+        }, 100);
+      }
+    );
 
     return () => subscription.remove();
   }, []);
 
   // Use shared utilities instead of duplicated code
   const sharedIsLocalTrack = useCallback((track) => isLocalTrack(track), []);
-  const sharedGetDownloadedTracks = useCallback(() => getDownloadedTracks(), []);
-  const sharedFilterQueueBySource = useCallback((currentTrack) => filterQueueBySource(currentTrack, isOffline), [isOffline]);
+  const sharedGetDownloadedTracks = useCallback(
+    () => getDownloadedTracks(),
+    []
+  );
+  const sharedFilterQueueBySource = useCallback(
+    (currentTrack) => filterQueueBySource(currentTrack, isOffline),
+    [isOffline]
+  );
 
   // Initialize queue using shared utilities and operation manager
   const initializeQueue = useCallback(async () => {
-    if (isDragging || operationInProgressRef.current) return;
+    if (isDragging || operationInProgressRef.current) {
+      return;
+    }
 
     try {
-      await queueOperationManager.executeOperation(QueueOperationStates.INITIALIZING, async () => {
-        if (currentPlaying) {
-          const sourceType = getTrackSourceType(currentPlaying);
-          setIsLocalSource([TrackSourceTypes.MYMUSIC, TrackSourceTypes.DOWNLOAD].includes(sourceType));
+      await queueOperationManager.executeOperation(
+        QueueOperationStates.INITIALIZING,
+        async () => {
+          if (currentPlaying) {
+            const sourceType = getTrackSourceType(currentPlaying);
+            setIsLocalSource(
+              [TrackSourceTypes.MYMUSIC, TrackSourceTypes.DOWNLOAD].includes(
+                sourceType
+              )
+            );
 
-          const filtered = await sharedFilterQueueBySource(currentPlaying);
+            const filtered = await sharedFilterQueueBySource(currentPlaying);
 
-          // Remove duplicates and ensure current track is first using shared utilities
-          const uniqueFiltered = removeDuplicateTracks(filtered);
-          const finalQueue = ensureCurrentTrackFirst(uniqueFiltered, currentPlaying);
+            // Remove duplicates and ensure current track is first using shared utilities
+            const uniqueFiltered = removeDuplicateTracks(filtered);
+            const finalQueue = ensureCurrentTrackFirst(
+              uniqueFiltered,
+              currentPlaying
+            );
 
-          setUpcomingQueue(finalQueue);
+            setUpcomingQueue(finalQueue);
 
-          if (onQueueChange) {
-            onQueueChange(finalQueue);
-          }
+            if (onQueueChange) {
+              onQueueChange(finalQueue);
+            }
 
-          const index = await TrackPlayer.getCurrentTrack();
-          setCurrentIndex(index || 0);
-        } else {
-          setUpcomingQueue([]);
-          if (onQueueChange) {
-            onQueueChange([]);
+            const index = await TrackPlayer.getCurrentTrack();
+            setCurrentIndex(index || 0);
+          } else {
+            setUpcomingQueue([]);
+            if (onQueueChange) {
+              onQueueChange([]);
+            }
           }
         }
-      });
+      );
     } catch (error) {
       console.error('Error initializing queue:', error);
       if (currentPlaying) {
@@ -150,7 +178,7 @@ export const useQueueManager = (options = {}) => {
     isLocalSource,
     isDragging,
     isOffline,
-    isPendingAction
+    isPendingAction,
   });
 
   // Clear queue
@@ -220,6 +248,6 @@ export const useQueueManager = (options = {}) => {
     operationInProgressRef,
 
     // Queue operation manager
-    queueOperationManager
+    queueOperationManager,
   };
 };

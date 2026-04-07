@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext } from 'react';
 import { useThemeContext } from '../../../Context/ThemeContext';
 
 /**
  * ThemeManager - Manages theme-related functionality for music player components
- * 
+ *
  * This component provides theme management capabilities including:
  * - Theme mode detection (light/dark)
  * - Dynamic styling based on theme
@@ -15,18 +15,27 @@ const ThemeManagerContext = createContext();
 
 export const ThemeManager = ({ children }) => {
   const { theme, themeMode } = useThemeContext();
-  
+
   // Theme-aware styling functions
   const getBackgroundOverlay = () => {
-    return themeMode === 'light' 
-      ? 'rgba(255,255,255,0.1)' 
-      : 'rgba(0,0,0,0.44)';
+    return themeMode === 'light' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.44)';
   };
 
   const getGradientColors = () => {
-    return themeMode === 'light' 
-      ? ['rgba(255,255,255,0.80)', 'rgba(255,255,255,0.9)', 'rgba(255,255,255,1)']
-      : ['rgba(4,4,4,0.23)', 'rgba(9,9,9,0.47)', 'rgba(0,0,0,0.65)', 'rgba(0,0,0,0.89)', 'rgba(0,0,0,0.9)', 'rgba(0,0,0,1)'];
+    return themeMode === 'light'
+      ? [
+          'rgba(255,255,255,0.80)',
+          'rgba(255,255,255,0.9)',
+          'rgba(255,255,255,1)',
+        ]
+      : [
+          'rgba(4,4,4,0.23)',
+          'rgba(9,9,9,0.47)',
+          'rgba(0,0,0,0.65)',
+          'rgba(0,0,0,0.89)',
+          'rgba(0,0,0,0.9)',
+          'rgba(0,0,0,1)',
+        ];
   };
 
   const getTextColor = (type = 'primary') => {
@@ -43,8 +52,8 @@ export const ThemeManager = ({ children }) => {
   };
 
   const getPressedBackgroundColor = () => {
-    return themeMode === 'light' 
-      ? 'rgba(0, 0, 0, 0.1)' 
+    return themeMode === 'light'
+      ? 'rgba(0, 0, 0, 0.1)'
       : 'rgba(255, 255, 255, 0.1)';
   };
 
@@ -63,15 +72,15 @@ export const ThemeManager = ({ children }) => {
     textColors: {
       primary: getTextColor('primary'),
       secondary: getTextColor('secondary'),
-      icon: getTextColor('icon')
+      icon: getTextColor('icon'),
     },
     buttonColors: {
       pressed: getPressedBackgroundColor(),
       background: getButtonBackgroundColor(),
-      border: getBorderColor()
+      border: getBorderColor(),
     },
     isLight: themeMode === 'light',
-    isDark: themeMode === 'dark'
+    isDark: themeMode === 'dark',
   });
 
   const contextValue = {
@@ -83,7 +92,7 @@ export const ThemeManager = ({ children }) => {
     getPressedBackgroundColor,
     getButtonBackgroundColor,
     getBorderColor,
-    getThemeStyles
+    getThemeStyles,
   };
 
   return (

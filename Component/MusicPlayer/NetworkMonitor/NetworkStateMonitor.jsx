@@ -4,7 +4,7 @@ import { ToastAndroid } from 'react-native';
 
 /**
  * NetworkStateMonitor - Manages network state monitoring for music player components
- * 
+ *
  * This component provides network monitoring capabilities including:
  * - Real-time network status detection
  * - Offline/online transition handling
@@ -34,7 +34,7 @@ export const NetworkStateMonitor = ({ children, showToasts = true }) => {
     setIsOffline(newIsOffline);
     setConnectionType(state.type || 'unknown');
     setIsInternetReachable(state.isInternetReachable);
-    
+
     // Set connection quality based on connection type
     if (state.type === 'wifi') {
       setConnectionQuality('high');
@@ -49,9 +49,15 @@ export const NetworkStateMonitor = ({ children, showToasts = true }) => {
     // Show toast notifications for connection changes
     if (showToasts && previousConnectionState !== null) {
       if (wasOffline && newIsConnected) {
-        ToastAndroid.show('Back online! Music streaming available.', ToastAndroid.SHORT);
+        ToastAndroid.show(
+          'Back online! Music streaming available.',
+          ToastAndroid.SHORT
+        );
       } else if (!wasOffline && newIsOffline) {
-        ToastAndroid.show('You are offline. Playing downloaded music only.', ToastAndroid.SHORT);
+        ToastAndroid.show(
+          'You are offline. Playing downloaded music only.',
+          ToastAndroid.SHORT
+        );
       }
     }
 
@@ -102,7 +108,7 @@ export const NetworkStateMonitor = ({ children, showToasts = true }) => {
     isOffline,
     connectionType,
     connectionQuality,
-    isInternetReachable
+    isInternetReachable,
   });
 
   const isHighQualityConnection = () => {
@@ -118,9 +124,13 @@ export const NetworkStateMonitor = ({ children, showToasts = true }) => {
   };
 
   const getConnectionDescription = () => {
-    if (isOffline) return 'Offline';
-    if (!isInternetReachable) return 'No Internet';
-    
+    if (isOffline) {
+      return 'Offline';
+    }
+    if (!isInternetReachable) {
+      return 'No Internet';
+    }
+
     switch (connectionType) {
       case 'wifi':
         return 'WiFi';
@@ -140,13 +150,13 @@ export const NetworkStateMonitor = ({ children, showToasts = true }) => {
     connectionType,
     connectionQuality,
     isInternetReachable,
-    
+
     // Utility functions
     getNetworkStatus,
     isHighQualityConnection,
     canStreamMusic,
     shouldUseOfflineMode,
-    getConnectionDescription
+    getConnectionDescription,
   };
 
   return (
@@ -160,7 +170,9 @@ export const NetworkStateMonitor = ({ children, showToasts = true }) => {
 export const useNetworkMonitor = () => {
   const context = useContext(NetworkMonitorContext);
   if (!context) {
-    throw new Error('useNetworkMonitor must be used within a NetworkStateMonitor');
+    throw new Error(
+      'useNetworkMonitor must be used within a NetworkStateMonitor'
+    );
   }
   return context;
 };

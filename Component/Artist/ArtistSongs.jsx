@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Pressable } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useActiveTrack, usePlaybackState } from "react-native-track-player";
+import { useActiveTrack, usePlaybackState } from 'react-native-track-player';
 import { Heading } from '../Global/Heading';
 import { SmallText } from '../Global/SmallText';
 import { PlainText } from '../Global/PlainText';
@@ -27,7 +27,7 @@ const ArtistSongs = ({
   songLoading,
   hasMoreSongs,
   onLoadMore,
-  source = 'saavn'
+  source = 'saavn',
 }) => {
   const theme = useTheme();
   const activeTrack = useActiveTrack();
@@ -36,41 +36,72 @@ const ArtistSongs = ({
   if (!visibleSongs || visibleSongs.length === 0) {
     return (
       <View style={{ padding: 40, alignItems: 'center' }}>
-        <Ionicons name="musical-notes-outline" size={48} color={theme.colors.text} style={{ opacity: 0.3, marginBottom: 16 }} />
-        <PlainText text="No songs available" style={{ color: theme.colors.text, opacity: 0.6, fontSize: 16 }} />
+        <Ionicons
+          name="musical-notes-outline"
+          size={48}
+          color={theme.colors.text}
+          style={{ opacity: 0.3, marginBottom: 16 }}
+        />
+        <PlainText
+          text="No songs available"
+          style={{ color: theme.colors.text, opacity: 0.6, fontSize: 16 }}
+        />
       </View>
     );
   }
 
   return (
     <View style={{ paddingHorizontal: 10 }}>
-      <View style={{
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 15,
-        paddingHorizontal: 2 // Change this from 10 to 0
-      }}>
-        <Heading text="Top Songs" style={{ color: theme.colors.text, fontSize: 20, marginRight: 30 }} />
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 15,
+          paddingHorizontal: 2, // Change this from 10 to 0
+        }}
+      >
+        <Heading
+          text="Top Songs"
+          style={{ color: theme.colors.text, fontSize: 20, marginRight: 30 }}
+        />
         <SmallText
-          text={safeString(totalSongs > 0 ? `${totalSongs} songs` : `${visibleSongs.length} songs`)}
-          style={{ color: theme.colors.text, opacity: 0.6, marginRight: 10, fontSize: 14 }}
+          text={safeString(
+            totalSongs > 0
+              ? `${totalSongs} songs`
+              : `${visibleSongs.length} songs`
+          )}
+          style={{
+            color: theme.colors.text,
+            opacity: 0.6,
+            marginRight: 10,
+            fontSize: 14,
+          }}
         />
       </View>
 
       <View>
         {visibleSongs.map((song, index) => {
           // Safety checks to prevent undefined values
-          if (!song || !song.id) return <View key={index} />;
+          if (!song || !song.id) {
+            return <View key={index} />;
+          }
 
           return (
             <EachSongCard
               key={`${song.id}-${index}`}
-              title={safeString(song.name, "Unknown Title")}
-              artist={safeString(FormatArtist(song.artists?.primary), "Unknown Artist")}
+              title={safeString(song.name, 'Unknown Title')}
+              artist={safeString(
+                FormatArtist(song.artists?.primary),
+                'Unknown Artist'
+              )}
               image={getValidImageUrl(song.image)}
               id={song.id}
-              url={song.downloadUrl?.[2]?.url || song.downloadUrl?.[1]?.url || song.downloadUrl?.[0]?.url}
+              url={
+                song.downloadUrl?.[2]?.url ||
+                song.downloadUrl?.[1]?.url ||
+                song.downloadUrl?.[0]?.url
+              }
               duration={song.duration}
               language={song.language}
               artistID={song.artists?.primary?.[0]?.id}
@@ -86,7 +117,9 @@ const ArtistSongs = ({
                 borderRadius: 12,
               }}
               activeTrackId={activeTrack?.id}
-              isPlaying={playbackState.state === "playing" || playbackState.state === 3}
+              isPlaying={
+                playbackState.state === 'playing' || playbackState.state === 3
+              }
             />
           );
         })}
@@ -114,9 +147,18 @@ const ArtistSongs = ({
               <LoadingComponent loading={true} height={20} />
             ) : (
               <>
-                <Ionicons name="add-circle-outline" size={20} color={theme.colors.text} style={{ marginRight: 8 }} />
+                <Ionicons
+                  name="add-circle-outline"
+                  size={20}
+                  color={theme.colors.text}
+                  style={{ marginRight: 8 }}
+                />
                 <PlainText
-                  text={safeString(`Load More (${(totalSongs || 0) - (visibleSongs.length || 0)} remaining)`)}
+                  text={safeString(
+                    `Load More (${
+                      (totalSongs || 0) - (visibleSongs.length || 0)
+                    } remaining)`
+                  )}
                   style={{ color: theme.colors.text, fontWeight: 'bold' }}
                 />
               </>

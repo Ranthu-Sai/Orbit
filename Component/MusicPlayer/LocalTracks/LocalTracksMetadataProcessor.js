@@ -2,7 +2,7 @@ import { StorageManager } from '../../../Utils/StorageManager';
 
 /**
  * LocalTracksMetadataProcessor - Utility for processing local tracks metadata
- * 
+ *
  * This utility provides metadata processing capabilities including:
  * - Converting metadata to track objects
  * - Validating track data
@@ -11,7 +11,6 @@ import { StorageManager } from '../../../Utils/StorageManager';
  */
 
 export class LocalTracksMetadataProcessor {
-  
   /**
    * Process metadata entries into track objects
    * @param {Object} allMetadata - Object containing all metadata entries
@@ -27,12 +26,18 @@ export class LocalTracksMetadataProcessor {
     const entries = Object.entries(allMetadata);
     for (const [songId, metadata] of entries) {
       try {
-        const processedTrack = await this.processIndividualTrack(songId, metadata);
+        const processedTrack = await this.processIndividualTrack(
+          songId,
+          metadata
+        );
         if (processedTrack) {
           tracks.push(processedTrack);
         }
       } catch (error) {
-        console.error(`LocalTracksMetadataProcessor: Error processing track ${songId}:`, error);
+        console.error(
+          `LocalTracksMetadataProcessor: Error processing track ${songId}:`,
+          error
+        );
         // Continue processing other tracks even if one fails
       }
     }
@@ -55,23 +60,29 @@ export class LocalTracksMetadataProcessor {
       // Get file paths
       const filePaths = await this.resolveFilePaths(songId);
       if (!filePaths.songPath) {
-        console.warn(`LocalTracksMetadataProcessor: Song file not found for ${songId}`);
+        console.warn(
+          `LocalTracksMetadataProcessor: Song file not found for ${songId}`
+        );
         return null;
       }
 
       // Verify file exists
       const songExists = await StorageManager.isSongDownloaded(songId);
       if (!songExists) {
-        console.warn(`LocalTracksMetadataProcessor: Song file does not exist for ${songId}`);
+        console.warn(
+          `LocalTracksMetadataProcessor: Song file does not exist for ${songId}`
+        );
         return null;
       }
 
       // Create track object
       const track = this.createTrackObject(songId, metadata, filePaths);
       return track;
-
     } catch (error) {
-      console.error(`LocalTracksMetadataProcessor: Error processing individual track ${songId}:`, error);
+      console.error(
+        `LocalTracksMetadataProcessor: Error processing individual track ${songId}:`,
+        error
+      );
       return null;
     }
   }
@@ -89,7 +100,9 @@ export class LocalTracksMetadataProcessor {
     }
 
     if (!metadata || typeof metadata !== 'object') {
-      console.warn(`LocalTracksMetadataProcessor: Invalid metadata for ${songId}`);
+      console.warn(
+        `LocalTracksMetadataProcessor: Invalid metadata for ${songId}`
+      );
       return false;
     }
 
@@ -97,7 +110,9 @@ export class LocalTracksMetadataProcessor {
     const requiredFields = ['title'];
     for (const field of requiredFields) {
       if (!metadata[field]) {
-        console.warn(`LocalTracksMetadataProcessor: Missing required field '${field}' for ${songId}`);
+        console.warn(
+          `LocalTracksMetadataProcessor: Missing required field '${field}' for ${songId}`
+        );
         return false;
       }
     }
@@ -117,13 +132,16 @@ export class LocalTracksMetadataProcessor {
 
       return {
         songPath,
-        artworkPath
+        artworkPath,
       };
     } catch (error) {
-      console.error(`LocalTracksMetadataProcessor: Error resolving file paths for ${songId}:`, error);
+      console.error(
+        `LocalTracksMetadataProcessor: Error resolving file paths for ${songId}:`,
+        error
+      );
       return {
         songPath: null,
-        artworkPath: null
+        artworkPath: null,
       };
     }
   }
@@ -149,7 +167,7 @@ export class LocalTracksMetadataProcessor {
       localArtworkPath: artworkPath,
       isLocal: true,
       isDownloaded: true,
-  sourceType: 'download',
+      sourceType: 'download',
       downloadTime: metadata.downloadTime,
       fileSize: metadata.fileSize,
       quality: metadata.quality,
@@ -162,7 +180,7 @@ export class LocalTracksMetadataProcessor {
       artwork: artworkPath ? `file://${artworkPath}` : null,
       isLocal: true,
       isDownloaded: true,
-  sourceType: 'download'
+      sourceType: 'download',
     };
   }
 
@@ -177,19 +195,28 @@ export class LocalTracksMetadataProcessor {
       return [];
     }
 
-    return tracks.filter(track => {
+    return tracks.filter((track) => {
       // Filter by artist
-      if (criteria.artist && !track.artist.toLowerCase().includes(criteria.artist.toLowerCase())) {
+      if (
+        criteria.artist &&
+        !track.artist.toLowerCase().includes(criteria.artist.toLowerCase())
+      ) {
         return false;
       }
 
       // Filter by album
-      if (criteria.album && !track.album.toLowerCase().includes(criteria.album.toLowerCase())) {
+      if (
+        criteria.album &&
+        !track.album.toLowerCase().includes(criteria.album.toLowerCase())
+      ) {
         return false;
       }
 
       // Filter by title
-      if (criteria.title && !track.title.toLowerCase().includes(criteria.title.toLowerCase())) {
+      if (
+        criteria.title &&
+        !track.title.toLowerCase().includes(criteria.title.toLowerCase())
+      ) {
         return false;
       }
 
@@ -271,7 +298,7 @@ export class LocalTracksMetadataProcessor {
         totalDuration: 0,
         totalSize: 0,
         artists: 0,
-        albums: 0
+        albums: 0,
       };
     }
 
@@ -280,9 +307,13 @@ export class LocalTracksMetadataProcessor {
     let totalDuration = 0;
     let totalSize = 0;
 
-    tracks.forEach(track => {
-      if (track.artist) uniqueArtists.add(track.artist.toLowerCase());
-      if (track.album) uniqueAlbums.add(track.album.toLowerCase());
+    tracks.forEach((track) => {
+      if (track.artist) {
+        uniqueArtists.add(track.artist.toLowerCase());
+      }
+      if (track.album) {
+        uniqueAlbums.add(track.album.toLowerCase());
+      }
       totalDuration += track.duration || 0;
       totalSize += track.fileSize || 0;
     });
@@ -293,7 +324,7 @@ export class LocalTracksMetadataProcessor {
       totalSize,
       artists: uniqueArtists.size,
       albums: uniqueAlbums.size,
-      averageDuration: tracks.length > 0 ? totalDuration / tracks.length : 0
+      averageDuration: tracks.length > 0 ? totalDuration / tracks.length : 0,
     };
   }
 }

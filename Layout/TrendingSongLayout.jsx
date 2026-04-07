@@ -1,7 +1,5 @@
-import { View } from "react-native";
+import { View } from 'react-native';
 
-export const TrendingSongLayout = ({children}) => {
-  return (
-    <View>{children}</View>
-  );
+export const TrendingSongLayout = ({ children }) => {
+  return <View>{children}</View>;
 };

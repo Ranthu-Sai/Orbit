@@ -4,34 +4,36 @@ import { useTheme } from '@react-navigation/native';
 
 export const LanguageTag = ({ language, style }) => {
   const theme = useTheme();
-  
+
   // Skip rendering if no language provided
-  if (!language) return null;
-  
+  if (!language) {
+    return null;
+  }
+
   // Determine background color based on language
   const getBackgroundColor = (lang) => {
     const colors = {
-      'English': '#3498db', // Blue
-      'Hindi': '#e74c3c',   // Red
-      'Telugu': '#f39c12',  // Orange
-      'Tamil': '#9b59b6',   // Purple
-      'Malayalam': '#2ecc71', // Green
-      'Punjabi': '#e67e22',  // Dark Orange
-      'Marathi': '#1abc9c',  // Turquoise
-      'Gujarati': '#d35400', // Pumpkin
-      'Bengali': '#c0392b',  // Dark Red
-      'Kannada': '#16a085',  // Green Sea
+      English: '#3498db', // Blue
+      Hindi: '#e74c3c', // Red
+      Telugu: '#f39c12', // Orange
+      Tamil: '#9b59b6', // Purple
+      Malayalam: '#2ecc71', // Green
+      Punjabi: '#e67e22', // Dark Orange
+      Marathi: '#1abc9c', // Turquoise
+      Gujarati: '#d35400', // Pumpkin
+      Bengali: '#c0392b', // Dark Red
+      Kannada: '#16a085', // Green Sea
     };
-    
+
     return colors[lang] || theme.colors.primary;
   };
-  
+
   return (
-    <View 
+    <View
       style={[
-        styles.container, 
+        styles.container,
         { backgroundColor: getBackgroundColor(language) },
-        style
+        style,
       ]}
     >
       <Text style={styles.text}>{language}</Text>
@@ -62,4 +64,4 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-}); 
+});

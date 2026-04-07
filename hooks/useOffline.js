@@ -16,8 +16,9 @@ const useOffline = () => {
   const checkInitialConnection = useCallback(async () => {
     try {
       const networkState = await NetInfo.fetch();
-      const connected = networkState.isConnected && networkState.isInternetReachable;
-      
+      const connected =
+        networkState.isConnected && networkState.isInternetReachable;
+
       // Update both local and global offline state
       setOfflineMode(!connected);
       setIsOffline(!connected);
@@ -35,32 +36,39 @@ const useOffline = () => {
   }, []);
 
   // Handle network state changes
-  const handleNetworkChange = useCallback((state) => {
-    try {
-      const connected = state.isConnected && state.isInternetReachable;
-      const previousOfflineState = isOffline;
-      
-      // Update both local and global offline state
-      setOfflineMode(!connected);
-      setIsOffline(!connected);
-      setIsConnected(connected);
-      setNetworkType(state.type);
-      // Emit events for other components to listen to
-      DeviceEventEmitter.emit('networkStateChanged', {
-        isOffline: !connected,
-        isConnected: connected,
-        networkType: state.type,
-        previousOfflineState,
-        transitionType: !connected && !previousOfflineState ? 'online-to-offline' : 
-                       connected && previousOfflineState ? 'offline-to-online' : 'no-change'
-      });
-      
-      return connected;
-    } catch (error) {
-      console.error('Error handling network change:', error);
-      return false;
-    }
-  }, [isOffline]);
+  const handleNetworkChange = useCallback(
+    (state) => {
+      try {
+        const connected = state.isConnected && state.isInternetReachable;
+        const previousOfflineState = isOffline;
+
+        // Update both local and global offline state
+        setOfflineMode(!connected);
+        setIsOffline(!connected);
+        setIsConnected(connected);
+        setNetworkType(state.type);
+        // Emit events for other components to listen to
+        DeviceEventEmitter.emit('networkStateChanged', {
+          isOffline: !connected,
+          isConnected: connected,
+          networkType: state.type,
+          previousOfflineState,
+          transitionType:
+            !connected && !previousOfflineState
+              ? 'online-to-offline'
+              : connected && previousOfflineState
+              ? 'offline-to-online'
+              : 'no-change',
+        });
+
+        return connected;
+      } catch (error) {
+        console.error('Error handling network change:', error);
+        return false;
+      }
+    },
+    [isOffline]
+  );
 
   // Force refresh network state
   const refreshNetworkState = useCallback(async () => {
@@ -79,20 +87,23 @@ const useOffline = () => {
   }, []);
 
   // Manually set offline mode (useful for testing or forced offline mode)
-  const setManualOfflineMode = useCallback((offline) => {
-    setOfflineMode(offline);
-    setIsOffline(offline);
-    setIsConnected(!offline);
-    
-    // Emit event for other components
-    DeviceEventEmitter.emit('networkStateChanged', {
-      isOffline: offline,
-      isConnected: !offline,
-      networkType: offline ? null : networkType,
-      previousOfflineState: !offline,
-      transitionType: 'manual'
-    });
-  }, [networkType]);
+  const setManualOfflineMode = useCallback(
+    (offline) => {
+      setOfflineMode(offline);
+      setIsOffline(offline);
+      setIsConnected(!offline);
+
+      // Emit event for other components
+      DeviceEventEmitter.emit('networkStateChanged', {
+        isOffline: offline,
+        isConnected: !offline,
+        networkType: offline ? null : networkType,
+        previousOfflineState: !offline,
+        transitionType: 'manual',
+      });
+    },
+    [networkType]
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -129,7 +140,7 @@ const useOffline = () => {
       unsubscribe();
       offlineStateListener.remove();
     };
-  }, []); // Remove dependencies to prevent re-initialization
+  }, [checkInitialConnection, handleNetworkChange]);
 
   return {
     isOffline,
@@ -138,7 +149,7 @@ const useOffline = () => {
     refreshNetworkState,
     getCurrentOfflineMode,
     setManualOfflineMode,
-    checkInitialConnection
+    checkInitialConnection,
   };
 };
 

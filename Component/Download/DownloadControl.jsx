@@ -22,10 +22,17 @@ export const DownloadControl = ({
 }) => {
   const { theme, themeMode } = useThemeContext();
 
-  const pressedBackgroundColor = themeMode === 'light' ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)';
-  const resolvedDownloadColor = iconColor ?? (themeMode === 'light' ?
-    (isOffline ? "#888888" : theme.colors.text) :
-    (isOffline ? "#888888" : "#ffffff"));
+  const pressedBackgroundColor =
+    themeMode === 'light' ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+  const resolvedDownloadColor =
+    iconColor ??
+    (themeMode === 'light'
+      ? isOffline
+        ? '#888888'
+        : theme.colors.text
+      : isOffline
+      ? '#888888'
+      : '#ffffff');
 
   const controlIconStyle = {
     padding: 0,
@@ -33,18 +40,23 @@ export const DownloadControl = ({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    ...style
+    ...style,
   };
 
   // Always show checkmark in offline mode or if downloaded
   if (isOffline || isDownloaded) {
     return (
-      <View style={[controlIconStyle, {
-        width: size + 16,
-        height: size + 16,
-        justifyContent: 'center',
-        alignItems: 'center'
-      }]}>
+      <View
+        style={[
+          controlIconStyle,
+          {
+            width: size + 16,
+            height: size + 16,
+            justifyContent: 'center',
+            alignItems: 'center',
+          },
+        ]}
+      >
         <MaterialIcons
           name="check-circle"
           size={size}
@@ -55,7 +67,7 @@ export const DownloadControl = ({
             textAlign: 'center',
             lineHeight: size,
             includeFontPadding: false,
-            textAlignVertical: 'center'
+            textAlignVertical: 'center',
           }}
         />
       </View>
@@ -104,7 +116,7 @@ export const CompactDownloadControl = ({
   downloadProgress = 0,
   onDownloadPress = null,
   isOffline = false,
-  disabled = false
+  disabled = false,
 }) => {
   return (
     <DownloadControl
@@ -129,7 +141,7 @@ export const LargeDownloadControl = ({
   downloadProgress = 0,
   onDownloadPress = null,
   isOffline = false,
-  disabled = false
+  disabled = false,
 }) => {
   return (
     <DownloadControl
@@ -155,7 +167,7 @@ export const SmartDownloadControl = ({
   songData,
   isOffline = false,
   size = 28,
-  iconColor
+  iconColor,
 }) => {
   const {
     isDownloaded,

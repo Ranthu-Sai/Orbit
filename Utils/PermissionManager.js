@@ -1,4 +1,9 @@
-import { PermissionsAndroid, Platform, Linking, NativeModules } from 'react-native';
+import {
+  PermissionsAndroid,
+  Platform,
+  Linking,
+  NativeModules,
+} from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 
 const { StoragePermissionModule } = NativeModules;
@@ -26,10 +31,11 @@ export const requestStoragePermission = async () => {
       PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
       {
         title: 'Storage Permission Required',
-        message: 'This app needs access to your storage to download songs for offline playback.',
+        message:
+          'This app needs access to your storage to download songs for offline playback.',
         buttonPositive: 'Allow',
         buttonNegative: 'Cancel',
-      },
+      }
     );
 
     return granted === PermissionsAndroid.RESULTS.GRANTED;
@@ -57,7 +63,10 @@ export const checkAllFilesAccessPermission = async () => {
     }
 
     // Use native module to check permission
-    if (StoragePermissionModule && StoragePermissionModule.isAllFilesAccessGranted) {
+    if (
+      StoragePermissionModule &&
+      StoragePermissionModule.isAllFilesAccessGranted
+    ) {
       const isGranted = await StoragePermissionModule.isAllFilesAccessGranted();
       return isGranted;
     }
@@ -89,7 +98,10 @@ export const requestAllFilesAccessPermission = async () => {
     }
 
     // Use native module to open the specific permission page
-    if (StoragePermissionModule && StoragePermissionModule.openAllFilesAccessSettings) {
+    if (
+      StoragePermissionModule &&
+      StoragePermissionModule.openAllFilesAccessSettings
+    ) {
       await StoragePermissionModule.openAllFilesAccessSettings();
       return true;
     }

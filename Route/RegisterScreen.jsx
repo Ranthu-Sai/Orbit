@@ -1,78 +1,86 @@
-import { MainWrapper } from "../Layout/MainWrapper";
-import { PaddingConatiner } from "../Layout/PaddingConatiner";
-import { View, Alert, ToastAndroid } from "react-native";
-import { Text, TextInput, Button, HelperText } from "react-native-paper";
-import { useState } from "react";
-import { useTheme } from "@react-navigation/native";
-import { dabRegister } from "../Api/DabAPI";
+import { MainWrapper } from '../Layout/MainWrapper';
+import { PaddingConatiner } from '../Layout/PaddingConatiner';
+import { View, Alert, ToastAndroid } from 'react-native';
+import { Text, TextInput, Button, HelperText } from 'react-native-paper';
+import { useState } from 'react';
+import { useTheme } from '@react-navigation/native';
+import { dabRegister } from '../Api/DabAPI';
 
 export const RegisterScreen = ({ navigation }) => {
   const { colors } = useTheme();
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
 
   const handleSubmit = async () => {
     // Validation
     if (!username.trim()) {
-      setError("Please enter a username");
+      setError('Please enter a username');
       return;
     }
 
     if (!email.trim()) {
-      setError("Please enter an email");
+      setError('Please enter an email');
       return;
     }
 
     if (!password) {
-      setError("Please enter a password");
+      setError('Please enter a password');
       return;
     }
 
     if (!confirmPassword) {
-      setError("Please confirm your password");
+      setError('Please confirm your password');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError('Passwords do not match');
       return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+      setError('Password must be at least 6 characters');
       return;
     }
 
-    setError("");
+    setError('');
     setLoading(true);
 
     try {
-      const result = await dabRegister(username, email, password, inviteCode || null);
+      const result = await dabRegister(
+        username,
+        email,
+        password,
+        inviteCode || null
+      );
       if (result.success) {
         // Show success message and navigate
         if (typeof ToastAndroid !== 'undefined') {
-          ToastAndroid.show("Registration successful! Please login.", ToastAndroid.SHORT);
+          ToastAndroid.show(
+            'Registration successful! Please login.',
+            ToastAndroid.SHORT
+          );
         } else {
-          Alert.alert("Success", "Registration successful! Please login.");
+          Alert.alert('Success', 'Registration successful! Please login.');
         }
 
         // Auto-navigate to login
-        navigation.replace("Login");
+        navigation.replace('Login');
       } else {
-        const errorMessage = result.message || "Registration failed";
+        const errorMessage = result.message || 'Registration failed';
         setError(errorMessage);
-        Alert.alert("Registration Failed", errorMessage);
+        Alert.alert('Registration Failed', errorMessage);
       }
-    } catch (error) {
-      console.error("Register error:", error);
-      const errorMsg = error.message || "An unexpected error occurred";
+    } catch (err) {
+      console.error('Register error:', err);
+      const errorMsg = err.message || 'An unexpected error occurred';
       setError(errorMsg);
-      Alert.alert("Error", errorMsg);
+      Alert.alert('Error', errorMsg);
     } finally {
       setLoading(false);
     }
@@ -84,11 +92,11 @@ export const RegisterScreen = ({ navigation }) => {
         <Text
           variant="headlineMedium"
           style={{
-            textAlign: "left",
+            textAlign: 'left',
             marginBottom: 20,
             marginLeft: 16,
             color: colors.text,
-            fontWeight: "bold",
+            fontWeight: 'bold',
           }}
         >
           DAB Music Register
@@ -99,7 +107,7 @@ export const RegisterScreen = ({ navigation }) => {
             value={username}
             onChangeText={(text) => {
               setUsername(text);
-              setError("");
+              setError('');
             }}
             mode="outlined"
             autoCapitalize="none"
@@ -112,7 +120,7 @@ export const RegisterScreen = ({ navigation }) => {
             value={email}
             onChangeText={(text) => {
               setEmail(text);
-              setError("");
+              setError('');
             }}
             mode="outlined"
             keyboardType="email-address"
@@ -126,7 +134,7 @@ export const RegisterScreen = ({ navigation }) => {
             value={password}
             onChangeText={(text) => {
               setPassword(text);
-              setError("");
+              setError('');
             }}
             mode="outlined"
             secureTextEntry
@@ -139,7 +147,7 @@ export const RegisterScreen = ({ navigation }) => {
             value={confirmPassword}
             onChangeText={(text) => {
               setConfirmPassword(text);
-              setError("");
+              setError('');
             }}
             mode="outlined"
             secureTextEntry
@@ -152,7 +160,7 @@ export const RegisterScreen = ({ navigation }) => {
             value={inviteCode}
             onChangeText={(text) => {
               setInviteCode(text);
-              setError("");
+              setError('');
             }}
             mode="outlined"
             autoCapitalize="characters"
@@ -161,7 +169,11 @@ export const RegisterScreen = ({ navigation }) => {
           />
 
           {error ? (
-            <HelperText type="error" visible={!!error} style={{ marginBottom: 8 }}>
+            <HelperText
+              type="error"
+              visible={!!error}
+              style={{ marginBottom: 8 }}
+            >
               {error}
             </HelperText>
           ) : null}
@@ -174,12 +186,12 @@ export const RegisterScreen = ({ navigation }) => {
             loading={loading}
             disabled={loading}
           >
-            {loading ? "Registering..." : "Register"}
+            {loading ? 'Registering...' : 'Register'}
           </Button>
 
           <Button
             mode="text"
-            onPress={() => navigation.navigate("Login")}
+            onPress={() => navigation.navigate('Login')}
             style={{ marginTop: 8 }}
             disabled={loading}
           >

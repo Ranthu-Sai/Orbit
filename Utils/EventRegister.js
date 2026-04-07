@@ -97,4 +97,4 @@ class EventRegister {
 // Create a singleton instance
 const eventRegister = new EventRegister();
 
-export default eventRegister; 
+export default eventRegister;

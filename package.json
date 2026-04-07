@@ -7,7 +7,7 @@
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
-    "test": "jest"
+    "test": "jest --passWithNoTests"
   },
   "dependencies": {
     "@gorhom/bottom-sheet": "^4",
@@ -70,11 +70,12 @@
     "@babel/runtime": "^7.20.0",
     "@react-native/babel-preset": "0.73.21",
     "@react-native/eslint-config": "0.73.2",
-    "@react-native/metro-config": "^0.82.1",
+    "@react-native/metro-config": "0.73.4",
     "@react-native/typescript-config": "0.73.1",
     "@types/react": "^18.2.6",
     "@types/react-test-renderer": "^18.0.0",
     "babel-jest": "^29.6.3",
+    "baseline-browser-mapping": "^2.10.14",
     "eslint": "^8.19.0",
     "jest": "^29.6.3",
     "react-native-dotenv": "^3.4.11",

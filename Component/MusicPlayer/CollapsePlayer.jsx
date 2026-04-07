@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, Image, DeviceEventEmitter, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  Image,
+  DeviceEventEmitter,
+  ActivityIndicator,
+} from 'react-native';
 import FastImage from 'react-native-fast-image';
 import { useActiveTrack } from 'react-native-track-player';
 import { PlayPauseButton } from './PlayPauseButton';
@@ -23,9 +30,12 @@ export const CollapsePlayer = ({ setIndex }) => {
 
   // Listen for early metadata event from PlayOneSong
   useEffect(() => {
-    const loadingListener = DeviceEventEmitter.addListener('song-loading-started', (songData) => {
-      setLoadingSong(songData);
-    });
+    const loadingListener = DeviceEventEmitter.addListener(
+      'song-loading-started',
+      (songData) => {
+        setLoadingSong(songData);
+      }
+    );
 
     return () => {
       loadingListener.remove();
@@ -50,10 +60,15 @@ export const CollapsePlayer = ({ setIndex }) => {
   const isLoadingStream = loadingSong !== null;
 
   // If no song is playing or loading, don't show the player
-  if (!displaySong) return null;
+  if (!displaySong) {
+    return null;
+  }
 
   return (
-    <Pressable onPress={handlePress} style={[styles.container, { backgroundColor: theme.colors.card }]}>
+    <Pressable
+      onPress={handlePress}
+      style={[styles.container, { backgroundColor: theme.colors.card }]}
+    >
       {/* Show default artwork when playing local music */}
       {isLocal && !isLoadingStream ? (
         <Image
@@ -68,10 +83,18 @@ export const CollapsePlayer = ({ setIndex }) => {
       )}
 
       <View style={styles.songInfo}>
-        <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1} ellipsizeMode="tail">
+        <Text
+          style={[styles.title, { color: theme.colors.text }]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
           {displaySong.title}
         </Text>
-        <Text style={[styles.artist, { color: theme.colors.textSecondary }]} numberOfLines={1} ellipsizeMode="tail">
+        <Text
+          style={[styles.artist, { color: theme.colors.textSecondary }]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
           {displaySong.artist}
         </Text>
       </View>

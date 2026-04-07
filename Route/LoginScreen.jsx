@@ -1,53 +1,52 @@
-import { MainWrapper } from "../Layout/MainWrapper";
-import { PaddingConatiner } from "../Layout/PaddingConatiner";
-import { View, Alert } from "react-native";
-import { Text, TextInput, Button, HelperText } from "react-native-paper";
-import { useState } from "react";
-import { useTheme } from "@react-navigation/native";
-import { dabLogin } from "../Api/DabAPI";
-import DabAuthService from "../Utils/DabAuthService";
+import { MainWrapper } from '../Layout/MainWrapper';
+import { PaddingConatiner } from '../Layout/PaddingConatiner';
+import { View, Alert } from 'react-native';
+import { Text, TextInput, Button, HelperText } from 'react-native-paper';
+import { useState } from 'react';
+import { useTheme } from '@react-navigation/native';
+import { dabLogin } from '../Api/DabAPI';
 
 export const LoginScreen = ({ navigation }) => {
   const { colors } = useTheme();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
 
   const handleSubmit = async () => {
     // Validation
     if (!email || !password) {
-      setError("Please enter both email and password");
+      setError('Please enter both email and password');
       return;
     }
 
-    if (!email.includes("@")) {
-      setError("Please enter a valid email address");
+    if (!email.includes('@')) {
+      setError('Please enter a valid email address');
       return;
     }
 
     setLoading(true);
-    setError("");
+    setError('');
 
     try {
       const response = await dabLogin(email, password);
 
       if (response.success) {
         // Show success message
-        Alert.alert("Success", "Logged in successfully!");
+        Alert.alert('Success', 'Logged in successfully!');
 
         // Navigate back or to home
         if (navigation.canGoBack()) {
           navigation.goBack();
         } else {
-          navigation.navigate("Home");
+          navigation.navigate('Home');
         }
       } else {
-        setError(response.message || "Login failed. Please try again.");
+        setError(response.message || 'Login failed. Please try again.');
       }
-    } catch (error) {
-      console.error("Login error:", error);
-      setError("An unexpected error occurred. Please try again.");
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -59,11 +58,11 @@ export const LoginScreen = ({ navigation }) => {
         <Text
           variant="headlineMedium"
           style={{
-            textAlign: "left",
+            textAlign: 'left',
             marginBottom: 20,
             marginLeft: 16,
             color: colors.text,
-            fontWeight: "bold",
+            fontWeight: 'bold',
           }}
         >
           DAB Music Login
@@ -74,7 +73,7 @@ export const LoginScreen = ({ navigation }) => {
             value={email}
             onChangeText={(text) => {
               setEmail(text);
-              setError("");
+              setError('');
             }}
             mode="outlined"
             keyboardType="email-address"
@@ -88,7 +87,7 @@ export const LoginScreen = ({ navigation }) => {
             value={password}
             onChangeText={(text) => {
               setPassword(text);
-              setError("");
+              setError('');
             }}
             mode="outlined"
             secureTextEntry
@@ -98,7 +97,11 @@ export const LoginScreen = ({ navigation }) => {
           />
 
           {error ? (
-            <HelperText type="error" visible={!!error} style={{ marginBottom: 8 }}>
+            <HelperText
+              type="error"
+              visible={!!error}
+              style={{ marginBottom: 8 }}
+            >
               {error}
             </HelperText>
           ) : null}
@@ -111,12 +114,12 @@ export const LoginScreen = ({ navigation }) => {
             loading={loading}
             disabled={loading}
           >
-            {loading ? "Logging in..." : "Login"}
+            {loading ? 'Logging in...' : 'Login'}
           </Button>
 
           <Button
             mode="text"
-            onPress={() => navigation.navigate("Register")}
+            onPress={() => navigation.navigate('Register')}
             style={{ marginTop: 8 }}
             disabled={loading}
           >

@@ -1,9 +1,27 @@
-import { MainWrapper } from "../../Layout/MainWrapper";
-import { PaddingConatiner } from "../../Layout/PaddingConatiner";
-import { ScrollView, ToastAndroid, View, TouchableOpacity, Alert, Image, TextInput } from "react-native";
-import { List, Card, Text, Switch, TouchableRipple, Portal, Modal, Avatar, Button } from "react-native-paper";
-import { useRef } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { MainWrapper } from '../../Layout/MainWrapper';
+import { PaddingConatiner } from '../../Layout/PaddingConatiner';
+import {
+  ScrollView,
+  ToastAndroid,
+  View,
+  TouchableOpacity,
+  Alert,
+  Image,
+  TextInput,
+} from 'react-native';
+import {
+  List,
+  Card,
+  Text,
+  Switch,
+  TouchableRipple,
+  Portal,
+  Modal,
+  Avatar,
+  Button,
+} from 'react-native-paper';
+import { useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   GetDownloadPath,
@@ -26,34 +44,52 @@ import {
   SetHomeFeedSource,
   GetYtMusicQuality,
   SetYtMusicQuality,
-} from "../../LocalStorage/AppSettings";
-import { useEffect, useState } from "react";
-import { useTheme } from "@react-navigation/native";
-import { getColorSchemeOptions } from "../../Theme/colorSchemes";
-import { settingsConfig } from "../../config/settingsConfig";
-import { useThemeContext } from "../../Context/ThemeContext";
-import { StorageManager } from "../../Utils/StorageManager";
-import dabAuthService from "../../Utils/DabAuthService";
-import { dabLogout, dabGetCurrentUser } from "../../Api/DabAPI";
-import ytAuthService from "../../Utils/YouTubeAuthService";
-import YouTubeAccountModal from "../../Component/Modals/YouTubeAccountModal";
-import lastFMService from "../../Utils/LastFMService";
-import metadataResolver from "../../Utils/MetadataResolver";
+} from '../../LocalStorage/AppSettings';
+import { useEffect, useState } from 'react';
+import { useTheme } from '@react-navigation/native';
+import { getColorSchemeOptions } from '../../Theme/colorSchemes';
+import { settingsConfig } from '../../config/settingsConfig';
+import { useThemeContext } from '../../Context/ThemeContext';
+import { StorageManager } from '../../Utils/StorageManager';
+import dabAuthService from '../../Utils/DabAuthService';
+import { dabLogout, dabGetCurrentUser } from '../../Api/DabAPI';
+import ytAuthService from '../../Utils/YouTubeAuthService';
+import YouTubeAccountModal from '../../Component/Modals/YouTubeAccountModal';
+import lastFMService from '../../Utils/LastFMService';
+import metadataResolver from '../../Utils/MetadataResolver';
 
 export const SettingsPage = ({ navigation }) => {
   const theme = useTheme();
   const { colors } = theme;
   const { changeFontSize, changeColorScheme, toggleTheme } = useThemeContext();
   const [font, setFont] = useState(settingsConfig.defaults.fontSize);
-  const [playback, setPlayback] = useState(settingsConfig.defaults.playbackQuality);
-  const [download, setDownload] = useState(settingsConfig.defaults.downloadPath);
-  const [themePreference, setThemePreference] = useState(settingsConfig.defaults.themePreference);
-  const [colorScheme, setColorScheme] = useState(settingsConfig.defaults.colorScheme);
-  const [musicSource, setMusicSource] = useState(settingsConfig.defaults.musicSource);
-  const [homeFeedSource, setHomeFeedSource] = useState(settingsConfig.defaults.homeFeedSource);
-  const [lyricsProvider, setLyricsProvider] = useState(settingsConfig.defaults.lyricsProvider);
-  const [lyricsAnimationStyle, setLyricsAnimationStyle] = useState(settingsConfig.defaults.lyricsAnimationStyle);
-  const [ytmQuality, setYtmQuality] = useState(settingsConfig.defaults.ytmQuality);
+  const [playback, setPlayback] = useState(
+    settingsConfig.defaults.playbackQuality
+  );
+  const [download, setDownload] = useState(
+    settingsConfig.defaults.downloadPath
+  );
+  const [themePreference, setThemePreference] = useState(
+    settingsConfig.defaults.themePreference
+  );
+  const [colorScheme, setColorScheme] = useState(
+    settingsConfig.defaults.colorScheme
+  );
+  const [musicSource, setMusicSource] = useState(
+    settingsConfig.defaults.musicSource
+  );
+  const [homeFeedSource, setHomeFeedSource] = useState(
+    settingsConfig.defaults.homeFeedSource
+  );
+  const [lyricsProvider, setLyricsProvider] = useState(
+    settingsConfig.defaults.lyricsProvider
+  );
+  const [lyricsAnimationStyle, setLyricsAnimationStyle] = useState(
+    settingsConfig.defaults.lyricsAnimationStyle
+  );
+  const [ytmQuality, setYtmQuality] = useState(
+    settingsConfig.defaults.ytmQuality
+  );
   const [ytMusicLanguage, setYtMusicLanguage] = useState('en');
   const [ytMusicCountry, setYtMusicCountry] = useState('IN');
   const [downloadPathInfo, setDownloadPathInfo] = useState(null);
@@ -81,14 +117,22 @@ export const SettingsPage = ({ navigation }) => {
 
   async function loadSettings() {
     try {
-      const [fontSize, playbackQuality, downloadPath, themePref, colorSchemePref, musicSourcePref, lyricsProviderPref] = await Promise.all([
+      const [
+        fontSize,
+        playbackQuality,
+        downloadPath,
+        themePref,
+        colorSchemePref,
+        musicSourcePref,
+        lyricsProviderPref,
+      ] = await Promise.all([
         GetFontSizeValue(),
         GetPlaybackQuality(),
         GetDownloadPath(),
         GetThemePreference(),
         GetColorScheme(),
         GetMusicSource(),
-        GetLyricsProvider()
+        GetLyricsProvider(),
       ]);
 
       setFont(fontSize || settingsConfig.defaults.fontSize);
@@ -97,27 +141,37 @@ export const SettingsPage = ({ navigation }) => {
       setThemePreference(themePref || settingsConfig.defaults.themePreference);
       setColorScheme(colorSchemePref || settingsConfig.defaults.colorScheme);
       setMusicSource(musicSourcePref || settingsConfig.defaults.musicSource);
-      setLyricsProvider(lyricsProviderPref || settingsConfig.defaults.lyricsProvider);
+      setLyricsProvider(
+        lyricsProviderPref || settingsConfig.defaults.lyricsProvider
+      );
 
       const loadedHomeFeedSource = await GetHomeFeedSource();
-      setHomeFeedSource(loadedHomeFeedSource || settingsConfig.defaults.homeFeedSource);
+      setHomeFeedSource(
+        loadedHomeFeedSource || settingsConfig.defaults.homeFeedSource
+      );
 
       const loadedLyricsAnimationStyle = await GetLyricsAnimationStyle();
-      setLyricsAnimationStyle(loadedLyricsAnimationStyle || settingsConfig.defaults.lyricsAnimationStyle);
+      setLyricsAnimationStyle(
+        loadedLyricsAnimationStyle ||
+          settingsConfig.defaults.lyricsAnimationStyle
+      );
 
       const loadedYtmQuality = await GetYtMusicQuality();
       setYtmQuality(loadedYtmQuality || settingsConfig.defaults.ytmQuality);
 
-      if (fontSize && fontSize !== undefined) setFont(fontSize);
-      if (playbackQuality && playbackQuality !== undefined) setPlayback(playbackQuality);
+      if (fontSize && fontSize !== undefined) {
+        setFont(fontSize);
+      }
+      if (playbackQuality && playbackQuality !== undefined) {
+        setPlayback(playbackQuality);
+      }
       // Simplified loaded logic for new params:
-      // The array destructuring above maps the resolved promises. 
+      // The array destructuring above maps the resolved promises.
       // The last element (added) corresponds to GetLyricsProvider().
       // Let's correct the index access or just use the destructured variables properly.
       // Wait, let's fix the destructuring in line 41 first.
 
       // Let's rewrite the loadSettings simpler to match the structure.
-
 
       // Load download path information
       const pathInfo = await StorageManager.getDownloadPathInfo();
@@ -126,8 +180,12 @@ export const SettingsPage = ({ navigation }) => {
       // Load YTMusic language and country preference
       const savedYtLang = await AsyncStorage.getItem('ytmusic_language');
       const savedYtCountry = await AsyncStorage.getItem('ytmusic_country');
-      if (savedYtLang) setYtMusicLanguage(savedYtLang);
-      if (savedYtCountry) setYtMusicCountry(savedYtCountry);
+      if (savedYtLang) {
+        setYtMusicLanguage(savedYtLang);
+      }
+      if (savedYtCountry) {
+        setYtMusicCountry(savedYtCountry);
+      }
     } catch (error) {
       console.error('Error loading settings:', error);
       // Set default values if there's an error
@@ -139,7 +197,6 @@ export const SettingsPage = ({ navigation }) => {
       setMusicSource(settingsConfig.defaults.musicSource);
     }
   }
-
 
   async function handleDownloadPathChange(value) {
     try {
@@ -153,14 +210,14 @@ export const SettingsPage = ({ navigation }) => {
       ToastAndroid.showWithGravity(
         `Download path changed to ${value}`,
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     } catch (error) {
       console.error('Error updating download path:', error);
       ToastAndroid.showWithGravity(
         'Failed to update download path',
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     }
   }
@@ -172,14 +229,14 @@ export const SettingsPage = ({ navigation }) => {
       ToastAndroid.showWithGravity(
         `Playback quality changed to ${value}`,
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     } catch (error) {
       console.error('Error updating playback quality:', error);
       ToastAndroid.showWithGravity(
         'Failed to update playback quality',
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     }
   }
@@ -191,14 +248,14 @@ export const SettingsPage = ({ navigation }) => {
       ToastAndroid.showWithGravity(
         `YTMusic quality changed to ${value}`,
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     } catch (error) {
       console.error('Error updating YTMusic quality:', error);
       ToastAndroid.showWithGravity(
         'Failed to update YTMusic quality',
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     }
   }
@@ -210,14 +267,14 @@ export const SettingsPage = ({ navigation }) => {
       ToastAndroid.showWithGravity(
         `Font size changed to ${value}`,
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     } catch (error) {
       console.error('Error updating font size:', error);
       ToastAndroid.showWithGravity(
         'Failed to update font size',
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     }
   }
@@ -230,14 +287,14 @@ export const SettingsPage = ({ navigation }) => {
       ToastAndroid.showWithGravity(
         `Theme changed to ${newTheme} mode`,
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     } catch (error) {
       console.error('Error updating theme preference:', error);
       ToastAndroid.showWithGravity(
         'Failed to update theme preference',
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     }
   }
@@ -249,14 +306,14 @@ export const SettingsPage = ({ navigation }) => {
       ToastAndroid.showWithGravity(
         `Color scheme changed to ${value}`,
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     } catch (error) {
       console.error('Error updating color scheme:', error);
       ToastAndroid.showWithGravity(
         'Failed to update color scheme',
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     }
   }
@@ -268,14 +325,14 @@ export const SettingsPage = ({ navigation }) => {
       ToastAndroid.showWithGravity(
         `Music source changed to ${value}`,
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     } catch (error) {
       console.error('Error updating music source:', error);
       ToastAndroid.showWithGravity(
         'Failed to update music source',
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     }
   }
@@ -287,14 +344,14 @@ export const SettingsPage = ({ navigation }) => {
       ToastAndroid.showWithGravity(
         `Home feed source changed to ${value}`,
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     } catch (error) {
       console.error('Error updating home feed source:', error);
       ToastAndroid.showWithGravity(
         'Failed to update home feed source',
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     }
   }
@@ -306,7 +363,7 @@ export const SettingsPage = ({ navigation }) => {
       ToastAndroid.showWithGravity(
         `YTMusic UI language changed to ${value}`,
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     } catch (error) {
       console.error('Error updating YTMusic language:', error);
@@ -320,7 +377,7 @@ export const SettingsPage = ({ navigation }) => {
       ToastAndroid.showWithGravity(
         `YTMusic region changed to ${value}. Pull to refresh home feed.`,
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     } catch (error) {
       console.error('Error updating YTMusic country:', error);
@@ -334,14 +391,14 @@ export const SettingsPage = ({ navigation }) => {
       ToastAndroid.showWithGravity(
         `Lyrics provider changed to ${value}`,
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     } catch (error) {
       console.error('Error updating lyrics provider:', error);
       ToastAndroid.showWithGravity(
         'Failed to update lyrics provider',
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     }
   }
@@ -353,23 +410,24 @@ export const SettingsPage = ({ navigation }) => {
       ToastAndroid.showWithGravity(
         `Lyrics animation style changed to ${value}`,
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     } catch (error) {
       console.error('Error updating lyrics animation style:', error);
       ToastAndroid.showWithGravity(
         'Failed to update lyrics animation style',
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     }
   }
 
-
   useEffect(() => {
     loadSettings();
     // Verify DAB session on load
-    dabGetCurrentUser().catch(err => console.error("Error verifying DAB session:", err));
+    dabGetCurrentUser().catch((err) =>
+      console.error('Error verifying DAB session:', err)
+    );
 
     // Initialize YouTube auth service and set initial state
     ytAuthService.init().then(() => {
@@ -435,10 +493,10 @@ export const SettingsPage = ({ navigation }) => {
     try {
       const result = await dabLogout();
       if (result.success) {
-        ToastAndroid.show("Logged out from DAB Music", ToastAndroid.SHORT);
+        ToastAndroid.show('Logged out from DAB Music', ToastAndroid.SHORT);
       }
     } catch (error) {
-      console.error("DAB Logout error:", error);
+      console.error('DAB Logout error:', error);
     }
   }
 
@@ -446,17 +504,17 @@ export const SettingsPage = ({ navigation }) => {
     try {
       const result = await ytAuthService.logout();
       if (result.success) {
-        ToastAndroid.show("Logged out from YouTube Music", ToastAndroid.SHORT);
+        ToastAndroid.show('Logged out from YouTube Music', ToastAndroid.SHORT);
       }
     } catch (error) {
-      console.error("YouTube Logout error:", error);
+      console.error('YouTube Logout error:', error);
     }
   }
 
   // Last.fm handlers
   async function handleLastFmLogin() {
     if (!lastFmUsername.trim() || !lastFmPassword.trim()) {
-      setLastFmError("Please enter username and password");
+      setLastFmError('Please enter username and password');
       return;
     }
 
@@ -469,12 +527,15 @@ export const SettingsPage = ({ navigation }) => {
         setShowLastFmLoginDialog(false);
         setLastFmUsername('');
         setLastFmPassword('');
-        ToastAndroid.show(`Logged in as ${result.username}`, ToastAndroid.SHORT);
+        ToastAndroid.show(
+          `Logged in as ${result.username}`,
+          ToastAndroid.SHORT
+        );
       } else {
-        setLastFmError(result.error || "Login failed");
+        setLastFmError(result.error || 'Login failed');
       }
     } catch (error) {
-      setLastFmError(error.message || "Login failed");
+      setLastFmError(error.message || 'Login failed');
     } finally {
       setLastFmLoggingIn(false);
     }
@@ -484,10 +545,10 @@ export const SettingsPage = ({ navigation }) => {
     try {
       const result = await lastFMService.logout();
       if (result.success) {
-        ToastAndroid.show("Logged out from Last.fm", ToastAndroid.SHORT);
+        ToastAndroid.show('Logged out from Last.fm', ToastAndroid.SHORT);
       }
     } catch (error) {
-      console.error("Last.fm Logout error:", error);
+      console.error('Last.fm Logout error:', error);
     }
   }
 
@@ -495,7 +556,7 @@ export const SettingsPage = ({ navigation }) => {
     setStrictFlacMode(enabled);
     await metadataResolver.setStrictFlacMode(enabled);
     ToastAndroid.show(
-      enabled ? "Strict FLAC mode enabled" : "Quality fallback enabled",
+      enabled ? 'Strict FLAC mode enabled' : 'Quality fallback enabled',
       ToastAndroid.SHORT
     );
   }
@@ -511,17 +572,26 @@ export const SettingsPage = ({ navigation }) => {
       const currentUser = ytAuthService.getUser() || {};
       await ytAuthService.setUser({
         ...currentUser,
-        name: editingName.trim()
+        name: editingName.trim(),
       });
-      ToastAndroid.show("Display name updated", ToastAndroid.SHORT);
+      ToastAndroid.show('Display name updated', ToastAndroid.SHORT);
     }
     setShowNameEditDialog(false);
   }
 
-
   return (
     <MainWrapper>
-      <Text variant="headlineMedium" style={{ textAlign: 'left', marginTop: 20, marginBottom: 20, marginLeft: 16, color: colors.text, fontWeight: 'bold' }}>
+      <Text
+        variant="headlineMedium"
+        style={{
+          textAlign: 'left',
+          marginTop: 20,
+          marginBottom: 20,
+          marginLeft: 16,
+          color: colors.text,
+          fontWeight: 'bold',
+        }}
+      >
         Settings
       </Text>
       <ScrollView
@@ -529,22 +599,28 @@ export const SettingsPage = ({ navigation }) => {
         contentInsetAdjustmentBehavior="automatic"
       >
         <TouchableRipple
-          onPress={() => navigation.navigate("ChangeName")}
-          rippleColor={theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'}
+          onPress={() => navigation.navigate('ChangeName')}
+          rippleColor={
+            theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'
+          }
           style={{ paddingHorizontal: 16, paddingVertical: 4 }}
         >
           <List.Item
             title="Change Name"
             titleStyle={{ color: colors.text, fontWeight: 'bold' }}
-            left={() => <List.Icon icon="account-edit" color={colors.primary} />}
+            left={() => (
+              <List.Icon icon="account-edit" color={colors.primary} />
+            )}
             right={() => <List.Icon icon="chevron-right" color={colors.text} />}
             style={{ paddingHorizontal: 0, paddingVertical: 0 }}
           />
         </TouchableRipple>
 
         <TouchableRipple
-          onPress={() => navigation.navigate("SelectLanguages")}
-          rippleColor={theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'}
+          onPress={() => navigation.navigate('SelectLanguages')}
+          rippleColor={
+            theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'
+          }
           style={{ paddingHorizontal: 16, paddingVertical: 4 }}
         >
           <List.Item
@@ -558,29 +634,59 @@ export const SettingsPage = ({ navigation }) => {
 
         {/* YouTube Music Authentication */}
         <View style={{ marginTop: 8, marginBottom: 8 }}>
-          <Text variant="titleMedium" style={{ paddingHorizontal: 16, paddingBottom: 8, color: colors.text, opacity: 0.7 }}>
+          <Text
+            variant="titleMedium"
+            style={{
+              paddingHorizontal: 16,
+              paddingBottom: 8,
+              color: colors.text,
+              opacity: 0.7,
+            }}
+          >
             YouTube Music
           </Text>
         </View>
 
         <TouchableRipple
           onPress={() => setShowYtAccountModal(true)}
-          rippleColor={theme.dark ? 'rgba(255, 0, 0, 0.15)' : 'rgba(255, 0, 0, 0.05)'}
+          rippleColor={
+            theme.dark ? 'rgba(255, 0, 0, 0.15)' : 'rgba(255, 0, 0, 0.05)'
+          }
           style={{ paddingHorizontal: 16, paddingVertical: 4 }}
         >
           <List.Item
-            title={isYtAuth ? (ytUser?.name || 'YouTube User') : "Login to YouTube Music"}
-            description={isYtAuth
-              ? (ytUser?.handle ? ytUser.handle + ' • Signed in' : 'Signed in • Tap to manage account')
-              : "Login to access personalized content and bypass restrictions"
+            title={
+              isYtAuth
+                ? ytUser?.name || 'YouTube User'
+                : 'Login to YouTube Music'
+            }
+            description={
+              isYtAuth
+                ? ytUser?.handle
+                  ? ytUser.handle + ' • Signed in'
+                  : 'Signed in • Tap to manage account'
+                : 'Login to access personalized content and bypass restrictions'
             }
             titleStyle={{ color: colors.text, fontWeight: 'bold' }}
-            descriptionStyle={{ color: colors.text, opacity: 0.7, fontSize: 12 }}
-            left={() => (
-              isYtAuth && ytUser?.avatarUrl
-                ? <Avatar.Image size={40} source={{ uri: ytUser.avatarUrl }} style={{ marginLeft: 0 }} />
-                : <List.Icon icon={isYtAuth ? "account-circle" : "youtube"} color={isYtAuth ? colors.primary : "#FF0000"} />
-            )}
+            descriptionStyle={{
+              color: colors.text,
+              opacity: 0.7,
+              fontSize: 12,
+            }}
+            left={() =>
+              isYtAuth && ytUser?.avatarUrl ? (
+                <Avatar.Image
+                  size={40}
+                  source={{ uri: ytUser.avatarUrl }}
+                  style={{ marginLeft: 0 }}
+                />
+              ) : (
+                <List.Icon
+                  icon={isYtAuth ? 'account-circle' : 'youtube'}
+                  color={isYtAuth ? colors.primary : '#FF0000'}
+                />
+              )
+            }
             right={() => <List.Icon icon="chevron-right" color={colors.text} />}
             style={{ paddingHorizontal: 0, paddingVertical: 0 }}
           />
@@ -592,8 +698,8 @@ export const SettingsPage = ({ navigation }) => {
           onDismiss={() => setShowYtAccountModal(false)}
           user={ytUser}
           onLogout={handleYtLogout}
-          onLogin={() => navigation.navigate("LoginScreen")}
-          onRefresh={() => navigation.navigate("LoginScreen")}
+          onLogin={() => navigation.navigate('LoginScreen')}
+          onRefresh={() => navigation.navigate('LoginScreen')}
           onEditName={handleYtEditName}
         />
 
@@ -606,10 +712,17 @@ export const SettingsPage = ({ navigation }) => {
               backgroundColor: colors.card,
               padding: 20,
               margin: 20,
-              borderRadius: 12
+              borderRadius: 12,
             }}
           >
-            <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
+            <Text
+              style={{
+                color: colors.text,
+                fontSize: 18,
+                fontWeight: 'bold',
+                marginBottom: 16,
+              }}
+            >
               Edit Display Name
             </Text>
             <TextInput
@@ -623,11 +736,17 @@ export const SettingsPage = ({ navigation }) => {
                 padding: 12,
                 borderRadius: 8,
                 fontSize: 16,
-                marginBottom: 16
+                marginBottom: 16,
               }}
               autoFocus
             />
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'flex-end',
+                gap: 12,
+              }}
+            >
               <Button
                 mode="text"
                 onPress={() => setShowNameEditDialog(false)}
@@ -648,7 +767,15 @@ export const SettingsPage = ({ navigation }) => {
 
         {/* DAB Music Authentication */}
         <View style={{ marginTop: 8, marginBottom: 8 }}>
-          <Text variant="titleMedium" style={{ paddingHorizontal: 16, paddingBottom: 8, color: colors.text, opacity: 0.7 }}>
+          <Text
+            variant="titleMedium"
+            style={{
+              paddingHorizontal: 16,
+              paddingBottom: 8,
+              color: colors.text,
+              opacity: 0.7,
+            }}
+          >
             Qobuz
           </Text>
         </View>
@@ -657,26 +784,49 @@ export const SettingsPage = ({ navigation }) => {
           onPress={() => {
             if (isDabAuth) {
               Alert.alert(
-                "DAB Music Account",
-                `Logged in as ${dabUser?.username || dabUser?.email}\n\nDo you want to logout?`,
+                'DAB Music Account',
+                `Logged in as ${
+                  dabUser?.username || dabUser?.email
+                }\n\nDo you want to logout?`,
                 [
-                  { text: "Cancel", style: "cancel" },
-                  { text: "Logout", onPress: handleDabLogout, style: "destructive" }
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Logout',
+                    onPress: handleDabLogout,
+                    style: 'destructive',
+                  },
                 ]
               );
             } else {
-              navigation.navigate("Login");
+              navigation.navigate('Login');
             }
           }}
-          rippleColor={theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'}
+          rippleColor={
+            theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'
+          }
           style={{ paddingHorizontal: 16, paddingVertical: 4 }}
         >
           <List.Item
-            title={isDabAuth ? (dabUser?.username || dabUser?.email) : "DAB Login"}
-            description={isDabAuth ? "Tap to manage account" : "Login to access DAB Music features"}
+            title={
+              isDabAuth ? dabUser?.username || dabUser?.email : 'DAB Login'
+            }
+            description={
+              isDabAuth
+                ? 'Tap to manage account'
+                : 'Login to access DAB Music features'
+            }
             titleStyle={{ color: colors.text, fontWeight: 'bold' }}
-            descriptionStyle={{ color: colors.text, opacity: 0.7, fontSize: 12 }}
-            left={() => <List.Icon icon={isDabAuth ? "account" : "login"} color={colors.primary} />}
+            descriptionStyle={{
+              color: colors.text,
+              opacity: 0.7,
+              fontSize: 12,
+            }}
+            left={() => (
+              <List.Icon
+                icon={isDabAuth ? 'account' : 'login'}
+                color={colors.primary}
+              />
+            )}
             right={() => <List.Icon icon="chevron-right" color={colors.text} />}
             style={{ paddingHorizontal: 0, paddingVertical: 0 }}
           />
@@ -690,36 +840,63 @@ export const SettingsPage = ({ navigation }) => {
               onPress={() => {
                 if (isLastFmAuth) {
                   Alert.alert(
-                    "Last.fm Account",
+                    'Last.fm Account',
                     `Logged in as ${lastFmUser?.username}\n\nLast.fm powers smart recommendations for DAB songs.`,
                     [
-                      { text: "Cancel", style: "cancel" },
-                      { text: "Logout", onPress: handleLastFmLogout, style: "destructive" }
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Logout',
+                        onPress: handleLastFmLogout,
+                        style: 'destructive',
+                      },
                     ]
                   );
                 } else {
                   setShowLastFmLoginDialog(true);
                 }
               }}
-              rippleColor={theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'}
+              rippleColor={
+                theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'
+              }
               style={{ paddingHorizontal: 16, paddingVertical: 4 }}
             >
               <List.Item
-                title={isLastFmAuth ? (lastFmUser?.realname || lastFmUser?.username) : "Last.fm Login"}
-                description={isLastFmAuth ? `Scrobbling as ${lastFmUser?.username}` : "Login for personalized Qobuz recommendations"}
+                title={
+                  isLastFmAuth
+                    ? lastFmUser?.realname || lastFmUser?.username
+                    : 'Last.fm Login'
+                }
+                description={
+                  isLastFmAuth
+                    ? `Scrobbling as ${lastFmUser?.username}`
+                    : 'Login for personalized Qobuz recommendations'
+                }
                 titleStyle={{ color: colors.text, fontWeight: 'bold' }}
-                descriptionStyle={{ color: colors.text, opacity: 0.7, fontSize: 12 }}
+                descriptionStyle={{
+                  color: colors.text,
+                  opacity: 0.7,
+                  fontSize: 12,
+                }}
                 left={() => {
                   if (isLastFmAuth) {
                     return lastFmUser?.avatarUrl ? (
-                      <Avatar.Image size={40} source={{ uri: lastFmUser.avatarUrl }} style={{ backgroundColor: 'transparent', marginLeft: -4 }} />
+                      <Avatar.Image
+                        size={40}
+                        source={{ uri: lastFmUser.avatarUrl }}
+                        style={{
+                          backgroundColor: 'transparent',
+                          marginLeft: -4,
+                        }}
+                      />
                     ) : (
                       <List.Icon icon="account" color={colors.primary} />
                     );
                   }
                   return <List.Icon icon="login" color={colors.primary} />;
                 }}
-                right={() => <List.Icon icon="chevron-right" color={colors.text} />}
+                right={() => (
+                  <List.Icon icon="chevron-right" color={colors.text} />
+                )}
                 style={{ paddingHorizontal: 0, paddingVertical: 0 }}
               />
             </TouchableRipple>
@@ -727,16 +904,33 @@ export const SettingsPage = ({ navigation }) => {
             {/* Strict FLAC Mode Toggle */}
             <TouchableRipple
               onPress={() => handleStrictFlacModeChange(!strictFlacMode)}
-              rippleColor={theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'}
+              rippleColor={
+                theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'
+              }
               style={{ paddingHorizontal: 16, paddingVertical: 4 }}
             >
               <List.Item
                 title="Skip non-FLAC Recommendations"
-                description={strictFlacMode ? "Only plays songs available on DAB (FLAC)" : "Falls back to Saavn/YTMusic if DAB unavailable"}
+                description={
+                  strictFlacMode
+                    ? 'Only plays songs available on DAB (FLAC)'
+                    : 'Falls back to Saavn/YTMusic if DAB unavailable'
+                }
                 titleStyle={{ color: colors.text, fontWeight: 'bold' }}
-                descriptionStyle={{ color: colors.text, opacity: 0.7, fontSize: 12 }}
-                left={() => <List.Icon icon="quality-high" color={colors.primary} />}
-                right={() => <Switch value={strictFlacMode} onValueChange={handleStrictFlacModeChange} />}
+                descriptionStyle={{
+                  color: colors.text,
+                  opacity: 0.7,
+                  fontSize: 12,
+                }}
+                left={() => (
+                  <List.Icon icon="quality-high" color={colors.primary} />
+                )}
+                right={() => (
+                  <Switch
+                    value={strictFlacMode}
+                    onValueChange={handleStrictFlacModeChange}
+                  />
+                )}
                 style={{ paddingHorizontal: 0, paddingVertical: 0 }}
               />
             </TouchableRipple>
@@ -758,14 +952,29 @@ export const SettingsPage = ({ navigation }) => {
               backgroundColor: colors.card,
               padding: 20,
               margin: 20,
-              borderRadius: 12
+              borderRadius: 12,
             }}
           >
-            <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold', marginBottom: 8 }}>
+            <Text
+              style={{
+                color: colors.text,
+                fontSize: 18,
+                fontWeight: 'bold',
+                marginBottom: 8,
+              }}
+            >
               Last.fm Login
             </Text>
-            <Text style={{ color: colors.text, opacity: 0.7, fontSize: 13, marginBottom: 16 }}>
-              Connect Last.fm to enable personalized recommendations for your DAB songs.
+            <Text
+              style={{
+                color: colors.text,
+                opacity: 0.7,
+                fontSize: 13,
+                marginBottom: 16,
+              }}
+            >
+              Connect Last.fm to enable personalized recommendations for your
+              DAB songs.
             </Text>
             <TextInput
               value={lastFmUsername}
@@ -782,7 +991,7 @@ export const SettingsPage = ({ navigation }) => {
                 padding: 12,
                 borderRadius: 8,
                 fontSize: 16,
-                marginBottom: 12
+                marginBottom: 12,
               }}
               autoCapitalize="none"
             />
@@ -802,15 +1011,23 @@ export const SettingsPage = ({ navigation }) => {
                 padding: 12,
                 borderRadius: 8,
                 fontSize: 16,
-                marginBottom: 12
+                marginBottom: 12,
               }}
             />
             {lastFmError ? (
-              <Text style={{ color: '#ff6b6b', fontSize: 13, marginBottom: 12 }}>
+              <Text
+                style={{ color: '#ff6b6b', fontSize: 13, marginBottom: 12 }}
+              >
                 {lastFmError}
               </Text>
             ) : null}
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'flex-end',
+                gap: 12,
+              }}
+            >
               <Button
                 mode="text"
                 onPress={() => {
@@ -828,7 +1045,11 @@ export const SettingsPage = ({ navigation }) => {
                 onPress={handleLastFmLogin}
                 buttonColor={colors.primary}
                 loading={lastFmLoggingIn}
-                disabled={lastFmLoggingIn || !lastFmUsername.trim() || !lastFmPassword.trim()}
+                disabled={
+                  lastFmLoggingIn ||
+                  !lastFmUsername.trim() ||
+                  !lastFmPassword.trim()
+                }
               >
                 Login
               </Button>
@@ -838,7 +1059,15 @@ export const SettingsPage = ({ navigation }) => {
 
         {/* App Settings */}
         <View style={{ marginTop: 8, marginBottom: 8 }}>
-          <Text variant="titleMedium" style={{ paddingHorizontal: 16, paddingBottom: 8, color: colors.text, opacity: 0.7 }}>
+          <Text
+            variant="titleMedium"
+            style={{
+              paddingHorizontal: 16,
+              paddingBottom: 8,
+              color: colors.text,
+              opacity: 0.7,
+            }}
+          >
             App Settings
           </Text>
         </View>
@@ -950,13 +1179,24 @@ export const SettingsPage = ({ navigation }) => {
 
         <TouchableRipple
           onPress={handleThemeToggle}
-          rippleColor={theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'}
+          rippleColor={
+            theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'
+          }
           style={{ paddingHorizontal: 16, paddingVertical: 4 }}
         >
           <List.Item
             title="Dark Mode"
             titleStyle={{ color: colors.text, fontWeight: 'bold' }}
-            left={() => <List.Icon icon={themePreference === 'dark' ? 'moon-waning-crescent' : 'white-balance-sunny'} color={colors.primary} />}
+            left={() => (
+              <List.Icon
+                icon={
+                  themePreference === 'dark'
+                    ? 'moon-waning-crescent'
+                    : 'white-balance-sunny'
+                }
+                color={colors.primary}
+              />
+            )}
             right={() => (
               <View pointerEvents="none">
                 <Switch
@@ -972,27 +1212,38 @@ export const SettingsPage = ({ navigation }) => {
 
         {downloadPathInfo && (
           <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
-            <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.7, fontSize: 12 }}>
+            <Text
+              variant="bodySmall"
+              style={{ color: colors.text, opacity: 0.7, fontSize: 12 }}
+            >
               Files saved to: {downloadPathInfo.songsPath}
             </Text>
             {downloadPathInfo.requestedPath !== download && (
-              <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.5, fontSize: 11 }}>
+              <Text
+                variant="bodySmall"
+                style={{ color: colors.text, opacity: 0.5, fontSize: 11 }}
+              >
                 Note: Using fallback path due to device restrictions
               </Text>
             )}
           </View>
         )}
 
-        <View style={{ marginTop: 16, paddingHorizontal: 16, marginBottom: 16 }}>
-          <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.7 }}>
-            *Note: If you change name or select languages, please restart the app to see all changes. All other settings take effect immediately.
+        <View
+          style={{ marginTop: 16, paddingHorizontal: 16, marginBottom: 16 }}
+        >
+          <Text
+            variant="bodySmall"
+            style={{ color: colors.text, opacity: 0.7 }}
+          >
+            *Note: If you change name or select languages, please restart the
+            app to see all changes. All other settings take effect immediately.
           </Text>
         </View>
       </ScrollView>
     </MainWrapper>
   );
-}
-
+};
 
 function DropDownMenu({ title, icon, data, selectedValue, onSelect }) {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -1001,7 +1252,8 @@ function DropDownMenu({ title, icon, data, selectedValue, onSelect }) {
   const dropdownRef = useRef(null);
 
   // Find the selected option to display its label
-  const selectedOption = data.find(item => item.value === selectedValue) || {};
+  const selectedOption =
+    data.find((item) => item.value === selectedValue) || {};
   const displayValue = selectedOption.label || selectedValue;
 
   // Handle item selection
@@ -1014,17 +1266,29 @@ function DropDownMenu({ title, icon, data, selectedValue, onSelect }) {
     <View>
       <TouchableRipple
         onPress={() => setShowDropdown(!showDropdown)}
-        rippleColor={theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'}
+        rippleColor={
+          theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)'
+        }
         style={{ paddingHorizontal: 16, paddingVertical: 12 }}
       >
-        <View style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <List.Icon icon={icon} color={colors.primary} style={{ margin: 0, marginRight: 16 }} />
-            <Text style={{ color: colors.text, fontSize: 16, fontWeight: 'bold' }}>{title}</Text>
+            <List.Icon
+              icon={icon}
+              color={colors.primary}
+              style={{ margin: 0, marginRight: 16 }}
+            />
+            <Text
+              style={{ color: colors.text, fontSize: 16, fontWeight: 'bold' }}
+            >
+              {title}
+            </Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={{ color: colors.text, marginRight: 8, opacity: 0.7 }}>
@@ -1058,8 +1322,10 @@ function DropDownMenu({ title, icon, data, selectedValue, onSelect }) {
                 key={item.value}
                 style={{
                   padding: 12,
-                  backgroundColor: item.value === selectedValue ?
-                    colors.primary + '20' : 'transparent',
+                  backgroundColor:
+                    item.value === selectedValue
+                      ? colors.primary + '20'
+                      : 'transparent',
                   borderRadius: 4,
                   marginVertical: 2,
                 }}
@@ -1074,8 +1340,10 @@ function DropDownMenu({ title, icon, data, selectedValue, onSelect }) {
                 >
                   <Text
                     style={{
-                      color: item.value === selectedValue ?
-                        colors.primary : colors.text,
+                      color:
+                        item.value === selectedValue
+                          ? colors.primary
+                          : colors.text,
                       fontSize: 16,
                       fontWeight: item.value === selectedValue ? '600' : '400',
                     }}

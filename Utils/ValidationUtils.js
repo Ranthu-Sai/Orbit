@@ -2,11 +2,13 @@
  * Shared validation utilities to eliminate duplication across components
  */
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 // Validation result structure
 export const ValidationResult = {
   SUCCESS: 'success',
   ERROR: 'error',
-  WARNING: 'warning'
+  WARNING: 'warning',
 };
 
 /**
@@ -20,7 +22,7 @@ export const createValidationResult = (status, message = '', data = null) => ({
   status,
   message,
   data,
-  timestamp: Date.now()
+  timestamp: Date.now(),
 });
 
 /**
@@ -30,11 +32,17 @@ export const createValidationResult = (status, message = '', data = null) => ({
  */
 export const validateSong = (song) => {
   if (!song) {
-    return createValidationResult(ValidationResult.ERROR, 'Song object is null or undefined');
+    return createValidationResult(
+      ValidationResult.ERROR,
+      'Song object is null or undefined'
+    );
   }
 
   if (typeof song !== 'object') {
-    return createValidationResult(ValidationResult.ERROR, 'Song must be an object');
+    return createValidationResult(
+      ValidationResult.ERROR,
+      'Song must be an object'
+    );
   }
 
   // Check required fields
@@ -70,7 +78,10 @@ export const validateSong = (song) => {
     warnings.push('Song artist should be string');
   }
 
-  if (song.duration && (typeof song.duration !== 'number' || song.duration < 0)) {
+  if (
+    song.duration &&
+    (typeof song.duration !== 'number' || song.duration < 0)
+  ) {
     warnings.push('Song duration should be positive number');
   }
 
@@ -78,11 +89,16 @@ export const validateSong = (song) => {
     warnings.push('Song URL should be string');
   }
 
-  const result = createValidationResult(ValidationResult.SUCCESS, 'Song validation passed');
+  const result = createValidationResult(
+    ValidationResult.SUCCESS,
+    'Song validation passed'
+  );
   if (warnings.length > 0) {
     result.warnings = warnings;
     result.status = ValidationResult.WARNING;
-    result.message = `Song validation passed with warnings: ${warnings.join(', ')}`;
+    result.message = `Song validation passed with warnings: ${warnings.join(
+      ', '
+    )}`;
   }
 
   return result;
@@ -95,11 +111,17 @@ export const validateSong = (song) => {
  */
 export const validatePlaylist = (playlist) => {
   if (!playlist) {
-    return createValidationResult(ValidationResult.ERROR, 'Playlist object is null or undefined');
+    return createValidationResult(
+      ValidationResult.ERROR,
+      'Playlist object is null or undefined'
+    );
   }
 
   if (typeof playlist !== 'object') {
-    return createValidationResult(ValidationResult.ERROR, 'Playlist must be an object');
+    return createValidationResult(
+      ValidationResult.ERROR,
+      'Playlist must be an object'
+    );
   }
 
   // Check required fields
@@ -107,7 +129,11 @@ export const validatePlaylist = (playlist) => {
   const missingFields = [];
 
   for (const field of requiredFields) {
-    if (!(field in playlist) || playlist[field] === null || playlist[field] === undefined) {
+    if (
+      !(field in playlist) ||
+      playlist[field] === null ||
+      playlist[field] === undefined
+    ) {
       missingFields.push(field);
     }
   }
@@ -122,13 +148,20 @@ export const validatePlaylist = (playlist) => {
 
   // Validate songs array if present
   if (playlist.songs && !Array.isArray(playlist.songs)) {
-    return createValidationResult(ValidationResult.ERROR, 'Playlist songs must be an array');
+    return createValidationResult(
+      ValidationResult.ERROR,
+      'Playlist songs must be an array'
+    );
   }
 
   // Validate individual songs if present
   if (playlist.songs && playlist.songs.length > 0) {
-    const songValidationResults = playlist.songs.map(song => validateSong(song));
-    const invalidSongs = songValidationResults.filter(result => result.status === ValidationResult.ERROR);
+    const songValidationResults = playlist.songs.map((song) =>
+      validateSong(song)
+    );
+    const invalidSongs = songValidationResults.filter(
+      (result) => result.status === ValidationResult.ERROR
+    );
 
     if (invalidSongs.length > 0) {
       return createValidationResult(
@@ -139,7 +172,10 @@ export const validatePlaylist = (playlist) => {
     }
   }
 
-  return createValidationResult(ValidationResult.SUCCESS, 'Playlist validation passed');
+  return createValidationResult(
+    ValidationResult.SUCCESS,
+    'Playlist validation passed'
+  );
 };
 
 /**
@@ -153,15 +189,21 @@ export const validateUserInput = (input, options = {}) => {
     minLength = 1,
     maxLength = 100,
     allowEmpty = false,
-    allowedChars = null
+    allowedChars = null,
   } = options;
 
   if (!input && !allowEmpty) {
-    return createValidationResult(ValidationResult.ERROR, 'Input cannot be empty');
+    return createValidationResult(
+      ValidationResult.ERROR,
+      'Input cannot be empty'
+    );
   }
 
   if (input && typeof input !== 'string') {
-    return createValidationResult(ValidationResult.ERROR, 'Input must be a string');
+    return createValidationResult(
+      ValidationResult.ERROR,
+      'Input must be a string'
+    );
   }
 
   if (input && input.length < minLength) {
@@ -185,7 +227,10 @@ export const validateUserInput = (input, options = {}) => {
     );
   }
 
-  return createValidationResult(ValidationResult.SUCCESS, 'Input validation passed');
+  return createValidationResult(
+    ValidationResult.SUCCESS,
+    'Input validation passed'
+  );
 };
 
 /**
@@ -199,7 +244,10 @@ export const validateUrl = (url) => {
   }
 
   if (typeof url !== 'string') {
-    return createValidationResult(ValidationResult.ERROR, 'URL must be a string');
+    return createValidationResult(
+      ValidationResult.ERROR,
+      'URL must be a string'
+    );
   }
 
   try {
@@ -221,7 +269,7 @@ export const validateUrl = (url) => {
       /vbscript:/i,
       /<script/i,
       /onload=/i,
-      /onerror=/i
+      /onerror=/i,
     ];
 
     for (const pattern of suspiciousPatterns) {
@@ -233,7 +281,10 @@ export const validateUrl = (url) => {
       }
     }
 
-    return createValidationResult(ValidationResult.SUCCESS, 'URL validation passed');
+    return createValidationResult(
+      ValidationResult.SUCCESS,
+      'URL validation passed'
+    );
   } catch (error) {
     return createValidationResult(ValidationResult.ERROR, 'Invalid URL format');
   }
@@ -246,19 +297,21 @@ export const validateUrl = (url) => {
  */
 export const validateFilePath = (filePath) => {
   if (!filePath) {
-    return createValidationResult(ValidationResult.ERROR, 'File path is required');
+    return createValidationResult(
+      ValidationResult.ERROR,
+      'File path is required'
+    );
   }
 
   if (typeof filePath !== 'string') {
-    return createValidationResult(ValidationResult.ERROR, 'File path must be a string');
+    return createValidationResult(
+      ValidationResult.ERROR,
+      'File path must be a string'
+    );
   }
 
   // Check for path traversal attempts
-  const traversalPatterns = [
-    /\.\.\//g,
-    /\.\.\\/g,
-    /\.\./g
-  ];
+  const traversalPatterns = [/\.\.\//g, /\.\.\\/g, /\.\./g];
 
   for (const pattern of traversalPatterns) {
     if (pattern.test(filePath)) {
@@ -270,7 +323,11 @@ export const validateFilePath = (filePath) => {
   }
 
   // Check for absolute paths that shouldn't be allowed
-  if (filePath.startsWith('/') || filePath.startsWith('\\') || filePath.includes(':')) {
+  if (
+    filePath.startsWith('/') ||
+    filePath.startsWith('\\') ||
+    filePath.includes(':')
+  ) {
     return createValidationResult(
       ValidationResult.ERROR,
       'Absolute file paths are not allowed'
@@ -286,7 +343,10 @@ export const validateFilePath = (filePath) => {
     );
   }
 
-  return createValidationResult(ValidationResult.SUCCESS, 'File path validation passed');
+  return createValidationResult(
+    ValidationResult.SUCCESS,
+    'File path validation passed'
+  );
 };
 
 /**
@@ -296,11 +356,17 @@ export const validateFilePath = (filePath) => {
  */
 export const validateNetworkConfig = (config) => {
   if (!config) {
-    return createValidationResult(ValidationResult.ERROR, 'Network config is required');
+    return createValidationResult(
+      ValidationResult.ERROR,
+      'Network config is required'
+    );
   }
 
   if (typeof config !== 'object') {
-    return createValidationResult(ValidationResult.ERROR, 'Network config must be an object');
+    return createValidationResult(
+      ValidationResult.ERROR,
+      'Network config must be an object'
+    );
   }
 
   const warnings = [];
@@ -308,7 +374,10 @@ export const validateNetworkConfig = (config) => {
   // Validate timeout
   if (config.timeout !== undefined) {
     if (typeof config.timeout !== 'number' || config.timeout < 0) {
-      return createValidationResult(ValidationResult.ERROR, 'Timeout must be a positive number');
+      return createValidationResult(
+        ValidationResult.ERROR,
+        'Timeout must be a positive number'
+      );
     }
 
     if (config.timeout > 60000) {
@@ -319,7 +388,10 @@ export const validateNetworkConfig = (config) => {
   // Validate retry attempts
   if (config.retryAttempts !== undefined) {
     if (typeof config.retryAttempts !== 'number' || config.retryAttempts < 0) {
-      return createValidationResult(ValidationResult.ERROR, 'Retry attempts must be a non-negative number');
+      return createValidationResult(
+        ValidationResult.ERROR,
+        'Retry attempts must be a non-negative number'
+      );
     }
   }
 
@@ -340,7 +412,10 @@ export const validateNetworkConfig = (config) => {
     }
   }
 
-  const result = createValidationResult(ValidationResult.SUCCESS, 'Network config validation passed');
+  const result = createValidationResult(
+    ValidationResult.SUCCESS,
+    'Network config validation passed'
+  );
   if (warnings.length > 0) {
     result.warnings = warnings;
     result.status = ValidationResult.WARNING;
@@ -355,10 +430,7 @@ export const validateNetworkConfig = (config) => {
  * @returns {Promise<Object>} Validation result
  */
 export const validateStorageAvailability = async (options = {}) => {
-  const {
-    requiredSpace = 0,
-    checkWriteAccess = true
-  } = options;
+  const { requiredSpace = 0, _checkWriteAccess = true } = options;
 
   try {
     // Check if AsyncStorage is available
@@ -391,7 +463,10 @@ export const validateStorageAvailability = async (options = {}) => {
       }
     }
 
-    return createValidationResult(ValidationResult.SUCCESS, 'Storage validation passed');
+    return createValidationResult(
+      ValidationResult.SUCCESS,
+      'Storage validation passed'
+    );
   } catch (error) {
     return createValidationResult(
       ValidationResult.ERROR,
@@ -409,17 +484,26 @@ export const validateStorageAvailability = async (options = {}) => {
  */
 export const validateBatch = (items, validator) => {
   if (!Array.isArray(items)) {
-    return createValidationResult(ValidationResult.ERROR, 'Items must be an array');
+    return createValidationResult(
+      ValidationResult.ERROR,
+      'Items must be an array'
+    );
   }
 
   const results = items.map((item, index) => ({
     index,
-    result: validator(item)
+    result: validator(item),
   }));
 
-  const errors = results.filter(r => r.result.status === ValidationResult.ERROR);
-  const warnings = results.filter(r => r.result.status === ValidationResult.WARNING);
-  const successes = results.filter(r => r.result.status === ValidationResult.SUCCESS);
+  const errors = results.filter(
+    (r) => r.result.status === ValidationResult.ERROR
+  );
+  const warnings = results.filter(
+    (r) => r.result.status === ValidationResult.WARNING
+  );
+  const successes = results.filter(
+    (r) => r.result.status === ValidationResult.SUCCESS
+  );
 
   return {
     total: items.length,
@@ -427,7 +511,12 @@ export const validateBatch = (items, validator) => {
     warnings: warnings.length,
     successes: successes.length,
     results,
-    status: errors.length > 0 ? ValidationResult.ERROR : warnings.length > 0 ? ValidationResult.WARNING : ValidationResult.SUCCESS
+    status:
+      errors.length > 0
+        ? ValidationResult.ERROR
+        : warnings.length > 0
+        ? ValidationResult.WARNING
+        : ValidationResult.SUCCESS,
   };
 };
 
@@ -442,7 +531,7 @@ export const sanitizeString = (input, options = {}) => {
     maxLength = 255,
     removeHtml = true,
     removeSpecialChars = false,
-    allowedChars = null
+    allowedChars = null,
   } = options;
 
   if (!input || typeof input !== 'string') {
@@ -463,7 +552,10 @@ export const sanitizeString = (input, options = {}) => {
 
   // Apply character filter if provided
   if (allowedChars && allowedChars instanceof RegExp) {
-    sanitized = sanitized.replace(new RegExp(`[^${allowedChars.source}]`, 'g'), '');
+    sanitized = sanitized.replace(
+      new RegExp(`[^${allowedChars.source}]`, 'g'),
+      ''
+    );
   }
 
   // Trim and limit length
@@ -484,7 +576,7 @@ export const validateAndSanitizeFilename = (filename) => {
     return {
       validation,
       sanitized: 'invalid_filename',
-      safe: false
+      safe: false,
     };
   }
 
@@ -514,8 +606,11 @@ export const validateAndSanitizeFilename = (filename) => {
   }
 
   return {
-    validation: createValidationResult(ValidationResult.SUCCESS, 'Filename is valid'),
+    validation: createValidationResult(
+      ValidationResult.SUCCESS,
+      'Filename is valid'
+    ),
     sanitized,
-    safe: true
+    safe: true,
   };
 };

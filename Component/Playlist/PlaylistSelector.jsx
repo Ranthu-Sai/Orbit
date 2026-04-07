@@ -1,7 +1,22 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTheme } from '@react-navigation/native';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, ToastAndroid, BackHandler, Dimensions, ScrollView } from 'react-native';
-import { getUserPlaylists, addSongToPlaylist, createPlaylist } from '../../Utils/PlaylistManager';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+  ToastAndroid,
+  BackHandler,
+  Dimensions,
+  ScrollView,
+} from 'react-native';
+import {
+  getUserPlaylists,
+  addSongToPlaylist,
+  createPlaylist,
+} from '../../Utils/PlaylistManager';
 import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
 import FastImage from 'react-native-fast-image';
@@ -65,107 +80,108 @@ const staticStyles = StyleSheet.create({
   },
 });
 
-const getDynamicStyles = theme => StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: theme.dark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  centeredModalOverlay: {
-    flex: 1,
-    backgroundColor: theme.dark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  container: {
-    width: '100%',
-    maxHeight: MAX_MODAL_HEIGHT,
-    backgroundColor: theme.colors.card,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-  },
-  createNewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: theme.colors.card, 
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  createNewText: {
-    marginLeft: 12,
-    fontSize: 16,
-    color: theme.colors.primary,
-  },
-  playlistItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: theme.colors.background,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  playlistCover: {
-    width: 50,
-    height: 50,
-    borderRadius: 4,
-    backgroundColor: theme.colors.border,
-    overflow: 'hidden',
-  },
-  playlistName: {
-    fontSize: 16,
-    marginBottom: 4,
-    color: theme.colors.text,
-  },
-  songCount: {
-    color: theme.colors.textSecondary,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: theme.colors.textSecondary,
-    marginTop: 16,
-  },
-  emptySubtext: {
-    color: theme.colors.textSecondary,
-    opacity: 0.7,
-    marginTop: 8,
-  },
-  createPlaylistModalContent: {
-    width: '85%',
-    maxWidth: 400,
-    backgroundColor: theme.colors.card,
-    borderRadius: 12,
-    padding: 20,
-    elevation: 5,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
-    color: theme.colors.text,
-  },
-  cancelButton: {
-    backgroundColor: theme.colors.border,
-  },
-  createButton: {
-    backgroundColor: theme.colors.primary,
-  },
-});
+const getDynamicStyles = (theme) =>
+  StyleSheet.create({
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: theme.dark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)',
+      justifyContent: 'flex-end',
+    },
+    centeredModalOverlay: {
+      flex: 1,
+      backgroundColor: theme.dark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    container: {
+      width: '100%',
+      maxHeight: MAX_MODAL_HEIGHT,
+      backgroundColor: theme.colors.card,
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      overflow: 'hidden',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+    },
+    createNewButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      backgroundColor: theme.colors.card,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    createNewText: {
+      marginLeft: 12,
+      fontSize: 16,
+      color: theme.colors.primary,
+    },
+    playlistItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 12,
+      backgroundColor: theme.colors.background,
+      borderRadius: 8,
+      marginBottom: 8,
+    },
+    playlistCover: {
+      width: 50,
+      height: 50,
+      borderRadius: 4,
+      backgroundColor: theme.colors.border,
+      overflow: 'hidden',
+    },
+    playlistName: {
+      fontSize: 16,
+      marginBottom: 4,
+      color: theme.colors.text,
+    },
+    songCount: {
+      color: theme.colors.textSecondary,
+    },
+    emptyText: {
+      fontSize: 16,
+      color: theme.colors.textSecondary,
+      marginTop: 16,
+    },
+    emptySubtext: {
+      color: theme.colors.textSecondary,
+      opacity: 0.7,
+      marginTop: 8,
+    },
+    createPlaylistModalContent: {
+      width: '85%',
+      maxWidth: 400,
+      backgroundColor: theme.colors.card,
+      borderRadius: 12,
+      padding: 20,
+      elevation: 5,
+    },
+    modalTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      marginBottom: 16,
+      textAlign: 'center',
+      color: theme.colors.text,
+    },
+    cancelButton: {
+      backgroundColor: theme.colors.border,
+    },
+    createButton: {
+      backgroundColor: theme.colors.primary,
+    },
+  });
 
 export const PlaylistSelector = ({ visible, onClose, song }) => {
   const theme = useTheme();
@@ -176,16 +192,25 @@ export const PlaylistSelector = ({ visible, onClose, song }) => {
 
   const styles = useMemo(() => getDynamicStyles(theme), [theme]);
 
-  const getContrastingTextColor = useCallback((hexColor) => {
-    if (!hexColor || typeof hexColor !== 'string' || !/^#[0-9A-F]{6}$/i.test(hexColor)) {
-      return theme.colors.text; 
-    }
-    const r = parseInt(hexColor.slice(1, 3), 16);
-    const g = parseInt(hexColor.slice(3, 5), 16);
-    const b = parseInt(hexColor.slice(5, 7), 16);
-    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-    return (yiq >= 128) ? (theme.colors.black || '#000000') : (theme.colors.white || '#FFFFFF');
-  }, [theme]);
+  const getContrastingTextColor = useCallback(
+    (hexColor) => {
+      if (
+        !hexColor ||
+        typeof hexColor !== 'string' ||
+        !/^#[0-9A-F]{6}$/i.test(hexColor)
+      ) {
+        return theme.colors.text;
+      }
+      const r = parseInt(hexColor.slice(1, 3), 16);
+      const g = parseInt(hexColor.slice(3, 5), 16);
+      const b = parseInt(hexColor.slice(5, 7), 16);
+      const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+      return yiq >= 128
+        ? theme.colors.black || '#000000'
+        : theme.colors.white || '#FFFFFF';
+    },
+    [theme]
+  );
 
   const loadPlaylists = useCallback(async () => {
     try {
@@ -210,32 +235,38 @@ export const PlaylistSelector = ({ visible, onClose, song }) => {
     const backAction = () => {
       if (showNewPlaylistModal) {
         setShowNewPlaylistModal(false);
-        return true; 
+        return true;
       }
       // If main modal is open (visible=true), but not the new playlist modal, then onClose will close it.
       // The BackHandler should consume the event if the main modal is visible.
       if (visible) {
-          onClose();
-          return true;
+        onClose();
+        return true;
       }
-      return false; 
+      return false;
     };
 
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
     return () => backHandler.remove();
   }, [visible, showNewPlaylistModal, onClose, setShowNewPlaylistModal]);
 
-  const handleAddToPlaylist = useCallback(async (playlistId) => {
-    try {
-      const success = await addSongToPlaylist(playlistId, song);
-      if (success) {
-        onClose(); 
+  const handleAddToPlaylist = useCallback(
+    async (playlistId) => {
+      try {
+        const success = await addSongToPlaylist(playlistId, song);
+        if (success) {
+          onClose();
+        }
+      } catch (error) {
+        console.error('Error adding song to playlist:', error);
+        ToastAndroid.show('Failed to add to playlist', ToastAndroid.SHORT);
       }
-    } catch (error) {
-      console.error('Error adding song to playlist:', error);
-      ToastAndroid.show('Failed to add to playlist', ToastAndroid.SHORT);
-    }
-  }, [song, onClose]); // Dependencies: addSongToPlaylist, ToastAndroid.show, console.error are stable
+    },
+    [song, onClose]
+  ); // Dependencies: addSongToPlaylist, ToastAndroid.show, console.error are stable
 
   const handleCreateNewPlaylist = useCallback(async () => {
     if (!newPlaylistName.trim()) {
@@ -257,36 +288,48 @@ export const PlaylistSelector = ({ visible, onClose, song }) => {
     }
   }, [newPlaylistName, song, loadPlaylists, onClose]); // Dependencies: createPlaylist, setShowNewPlaylistModal, setNewPlaylistName, ToastAndroid.show, console.error are stable
 
-  const renderPlaylistItem = useCallback((item) => (
-    <TouchableOpacity 
-      style={styles.playlistItem}
-      onPress={() => handleAddToPlaylist(item.id)}
-      key={item.id}
-    >
-      {item.coverImage ? (
-        <FastImage 
-          source={{ uri: item.coverImage }}
-          style={styles.playlistCover}
-          defaultSource={DEFAULT_WAVE_IMAGE} // Keep defaultSource for FastImage if desired
-        />
-      ) : (
-        <View style={[styles.playlistCover, staticStyles.fallbackCover]}>
-          <FastImage 
-            source={DEFAULT_WAVE_IMAGE}
-            style={staticStyles.waveImage}
-            resizeMode={FastImage.resizeMode.cover}
+  const renderPlaylistItem = useCallback(
+    (item) => (
+      <TouchableOpacity
+        style={styles.playlistItem}
+        onPress={() => handleAddToPlaylist(item.id)}
+        key={item.id}
+      >
+        {item.coverImage ? (
+          <FastImage
+            source={{ uri: item.coverImage }}
+            style={styles.playlistCover}
+            defaultSource={DEFAULT_WAVE_IMAGE} // Keep defaultSource for FastImage if desired
+          />
+        ) : (
+          <View style={[styles.playlistCover, staticStyles.fallbackCover]}>
+            <FastImage
+              source={DEFAULT_WAVE_IMAGE}
+              style={staticStyles.waveImage}
+              resizeMode={FastImage.resizeMode.cover}
+            />
+          </View>
+        )}
+        <View style={staticStyles.playlistInfo}>
+          <PlainText text={item.name} style={styles.playlistName} />
+          <SmallText
+            text={`${item.songs ? item.songs.length : 0} songs`}
+            style={styles.songCount}
           />
         </View>
-      )}
-      <View style={staticStyles.playlistInfo}>
-        <PlainText text={item.name} style={styles.playlistName} />
-        <SmallText text={`${item.songs ? item.songs.length : 0} songs`} style={styles.songCount} />
-      </View>
-      <MaterialCommunityIcons name="plus-circle" size={24} color={theme.colors.primary} />
-    </TouchableOpacity>
-  ), [styles, handleAddToPlaylist, theme.colors.primary]); // Dependencies: staticStyles, DEFAULT_WAVE_IMAGE are constants
+        <MaterialCommunityIcons
+          name="plus-circle"
+          size={24}
+          color={theme.colors.primary}
+        />
+      </TouchableOpacity>
+    ),
+    [styles, handleAddToPlaylist, theme.colors.primary]
+  ); // Dependencies: staticStyles, DEFAULT_WAVE_IMAGE are constants
 
-  if (!visible) return null;
+  if (!visible) {
+    return null;
+  }
 
   return (
     <Modal
@@ -299,41 +342,65 @@ export const PlaylistSelector = ({ visible, onClose, song }) => {
         <View style={styles.container}>
           <View style={styles.header}>
             <PlainText text="Add to Playlist" style={styles.title} />
-            <TouchableOpacity onPress={onClose} style={staticStyles.closeButton}>
-              <MaterialCommunityIcons name="close" size={24} color={theme.colors.text} />
+            <TouchableOpacity
+              onPress={onClose}
+              style={staticStyles.closeButton}
+            >
+              <MaterialCommunityIcons
+                name="close"
+                size={24}
+                color={theme.colors.text}
+              />
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.createNewButton}
             onPress={() => setShowNewPlaylistModal(true)}
           >
-            <MaterialCommunityIcons name="playlist-plus" size={24} color={theme.colors.primary} />
-            <PlainText text="Create New Playlist" style={styles.createNewText} />
+            <MaterialCommunityIcons
+              name="playlist-plus"
+              size={24}
+              color={theme.colors.primary}
+            />
+            <PlainText
+              text="Create New Playlist"
+              style={styles.createNewText}
+            />
           </TouchableOpacity>
 
-          <ScrollView 
+          <ScrollView
             style={staticStyles.playlistListContainer}
             contentContainerStyle={staticStyles.playlistList}
             showsVerticalScrollIndicator={true}
           >
             {isLoading ? (
               <View style={staticStyles.emptyState}>
-                <PlainText text="Loading playlists..." style={styles.emptyText} />
+                <PlainText
+                  text="Loading playlists..."
+                  style={styles.emptyText}
+                />
               </View>
             ) : playlists.length > 0 ? (
               playlists.map(renderPlaylistItem) // Use the memoized renderPlaylistItem
             ) : (
               <View style={staticStyles.emptyState}>
-                <MaterialCommunityIcons name="playlist-music" size={48} color={theme.colors.textSecondary} />
+                <MaterialCommunityIcons
+                  name="playlist-music"
+                  size={48}
+                  color={theme.colors.textSecondary}
+                />
                 <PlainText text="No playlists yet" style={styles.emptyText} />
-                <SmallText text="Create a new playlist to add this song" style={styles.emptySubtext} />
+                <SmallText
+                  text="Create a new playlist to add this song"
+                  style={styles.emptySubtext}
+                />
               </View>
             )}
           </ScrollView>
         </View>
       </View>
-      
+
       {/* New Playlist Modal */}
       <Modal
         visible={showNewPlaylistModal}
@@ -344,33 +411,50 @@ export const PlaylistSelector = ({ visible, onClose, song }) => {
         <View style={styles.centeredModalOverlay}>
           <View style={styles.createPlaylistModalContent}>
             <PlainText text="Create New Playlist" style={styles.modalTitle} />
-            
+
             <TextInput
-              style={[staticStyles.input, {
-                borderColor: theme.colors.border, 
-                color: theme.colors.text, 
-                backgroundColor: theme.colors.background
-              }]}
+              style={[
+                staticStyles.input,
+                {
+                  borderColor: theme.colors.border,
+                  color: theme.colors.text,
+                  backgroundColor: theme.colors.background,
+                },
+              ]}
               placeholder="Playlist Name"
               placeholderTextColor={theme.colors.textSecondary}
               value={newPlaylistName}
               onChangeText={setNewPlaylistName}
               autoFocus
             />
-            
+
             <View style={staticStyles.modalButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[staticStyles.modalButton, styles.cancelButton]}
                 onPress={() => setShowNewPlaylistModal(false)}
               >
-                <Text style={[staticStyles.buttonText, { color: theme.colors.text }]}>Cancel</Text>
+                <Text
+                  style={[
+                    staticStyles.buttonText,
+                    { color: theme.colors.text },
+                  ]}
+                >
+                  Cancel
+                </Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={[staticStyles.modalButton, styles.createButton]}
                 onPress={handleCreateNewPlaylist}
               >
-                <Text style={[staticStyles.buttonText, { color: getContrastingTextColor(theme.colors.primary) }]}>Create</Text>
+                <Text
+                  style={[
+                    staticStyles.buttonText,
+                    { color: getContrastingTextColor(theme.colors.primary) },
+                  ]}
+                >
+                  Create
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

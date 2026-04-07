@@ -1,58 +1,58 @@
-import React, { useState, useContext, useMemo, useCallback } from "react";
-import { Dimensions, View, StyleSheet, StatusBar } from "react-native";
-import LinearGradient from "react-native-linear-gradient";
-import Animated from "react-native-reanimated";
-import { useActiveTrack } from "react-native-track-player";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTheme } from "react-native-paper";
-import { GestureDetector } from "react-native-gesture-handler";
+import React, { useState, useContext, useMemo, useCallback } from 'react';
+import { Dimensions, View, StyleSheet, StatusBar } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import Animated from 'react-native-reanimated';
+import { useActiveTrack } from 'react-native-track-player';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from 'react-native-paper';
+import { GestureDetector } from 'react-native-gesture-handler';
 import SongInfoModal from './SongInfoModal';
 
-import { Spacer } from "../Global/Spacer";
-import ProgressBar from "./ProgressBar";
-import { LikeSongButton } from "./LikeSongButton";
-import QueueBottomSheet from "./QueueBottomSheet";
-import { SleepTimerButton } from "./SleepTimer";
-import { LyricsHandler } from "./LyricsHandler";
-import { AlbumArtworkDisplay } from "./AlbumArtworkDisplay";
-import { SongInfoDisplay } from "./SongInfoDisplay";
-import { PlaybackControls } from "./PlaybackControls";
-import { OfflineBanner, LocalTracksList, useOffline } from "../Offline";
-import { useThemeManager } from "./ThemeManager";
-import { BlurredBackground } from "./Background";
-import { useNavigationHandler, BackButtonHandler } from "./NavigationHandler";
-import { useDragToCloseGestureControl } from "./GestureControls";
+import { Spacer } from '../Global/Spacer';
+import ProgressBar from './ProgressBar';
+import { LikeSongButton } from './LikeSongButton';
+import QueueBottomSheet from './QueueBottomSheet';
+import { SleepTimerButton } from './SleepTimer';
+import { LyricsHandler } from './LyricsHandler';
+import { AlbumArtworkDisplay } from './AlbumArtworkDisplay';
+import { SongInfoDisplay } from './SongInfoDisplay';
+import { PlaybackControls } from './PlaybackControls';
+import { OfflineBanner, LocalTracksList, useOffline } from '../Offline';
+import { useThemeManager } from './ThemeManager';
+import { BlurredBackground } from './Background';
+import { useNavigationHandler, BackButtonHandler } from './NavigationHandler';
+import { useDragToCloseGestureControl } from './GestureControls';
 
-import { useLocalTracks, LocalTracksErrorBoundary } from "./LocalTracks";
+import { useLocalTracks, LocalTracksErrorBoundary } from './LocalTracks';
 import {
   FullScreenMusicMenuButton,
   FullScreenMusicMenuModal,
   useFullScreenMusicMenu,
-} from "./FullScreenMusicMenu";
+} from './FullScreenMusicMenu';
 
-import Context from "../../Context/Context";
-import useDynamicArtwork from "../../hooks/useDynamicArtwork.js";
-import { SmartDownloadControl } from "../Download/DownloadControl";
-import { Surface, IconButton } from "react-native-paper";
+import Context from '../../Context/Context';
+import useDynamicArtwork from '../../hooks/useDynamicArtwork.js';
+import { SmartDownloadControl } from '../Download/DownloadControl';
+import { Surface, IconButton } from 'react-native-paper';
 
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    alignItems: "center",
+    alignItems: 'center',
   },
   gradientContainer: {
     flex: 1,
-    alignItems: "center",
-    width: "100%",
+    alignItems: 'center',
+    width: '100%',
     justifyContent: 'space-between',
     paddingBottom: 0,
   },
   bottomGradientWrapper: {
-    position: "absolute",
+    position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: Dimensions.get("window").height * 0.35,
+    height: Dimensions.get('window').height * 0.35,
     zIndex: 0,
   },
   bottomGradient: {
@@ -83,42 +83,42 @@ const styles = StyleSheet.create({
     transform: [{ translateY: 1 }],
   },
   headerContainer: {
-    width: "100%",
+    width: '100%',
     padding: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     zIndex: 2,
   },
   closeButton: {
     margin: 0,
-    backgroundColor: "transparent",
+    backgroundColor: 'transparent',
   },
   headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     zIndex: 2,
   },
   albumSurface: {
     elevation: 4,
     borderRadius: 12,
-    overflow: "hidden",
+    overflow: 'hidden',
     marginVertical: 16,
-    backgroundColor: "transparent",
+    backgroundColor: 'transparent',
     zIndex: 2,
   },
   contentContainer: {
-    width: "100%",
+    width: '100%',
     paddingHorizontal: 16,
     flex: 1,
-    justifyContent: "flex-start",
+    justifyContent: 'flex-start',
     paddingTop: 8,
     zIndex: 2,
   },
   bottomControls: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 24,
     paddingVertical: 8,
     marginTop: 16,
@@ -154,14 +154,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   draggableArea: {
-    width: "100%",
-    alignItems: "center",
+    width: '100%',
+    alignItems: 'center',
     zIndex: 3,
   },
 });
 
 export const FullScreenMusic = ({ Index, setIndex }) => {
-  const width = Dimensions.get("window").width;
+  const width = Dimensions.get('window').width;
   const currentPlaying = useActiveTrack();
   const { musicPreviousScreen } = useContext(Context);
   const { getArtworkSourceFromHook } = useDynamicArtwork();
@@ -190,15 +190,10 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
   } = useThemeManager();
   const { isOffline } = useOffline();
   const { handlePlayerClose } = useNavigationHandler({ musicPreviousScreen });
-  const iconColor = getTextColor("icon");
+  const iconColor = getTextColor('icon');
 
-  const {
-    menuVisible,
-    menuPosition,
-    showMenu,
-    closeMenu,
-    getMenuOptions,
-  } = useFullScreenMusicMenu(currentPlaying, isOffline);
+  const { menuVisible, menuPosition, showMenu, closeMenu, getMenuOptions } =
+    useFullScreenMusicMenu(currentPlaying, isOffline);
 
   const {
     localTracks,
@@ -221,14 +216,18 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
     setIndex(0); // Minimize the player
   }, [setIndex]);
 
-  const { createDragToCloseGesture } = useDragToCloseGestureControl(handleDragToClose);
-  const dragToCloseGesture = useMemo(() => createDragToCloseGesture(), [createDragToCloseGesture]);
+  const { createDragToCloseGesture } =
+    useDragToCloseGestureControl(handleDragToClose);
+  const dragToCloseGesture = useMemo(
+    () => createDragToCloseGesture(),
+    [createDragToCloseGesture]
+  );
 
   // Optimized handlers for instant button response
   const handleQueueToggle = useCallback(() => {
     // Open to 20% height (index 1), user can manually pull to 80% (index 2)
     requestAnimationFrame(() => {
-      setQueueIndex(prev => prev === -1 ? 1 : -1);
+      setQueueIndex((prev) => (prev === -1 ? 1 : -1));
     });
   }, []);
 
@@ -248,20 +247,16 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
     if (!currentArtworkSource) {
       return false;
     }
-    if (typeof currentArtworkSource === "number") {
+    if (typeof currentArtworkSource === 'number') {
       return true;
     }
     return Boolean(currentArtworkSource?.uri);
   }, [currentArtworkSource]);
 
   const renderPlayerContent = () => (
-    <View
-      style={[styles.overlay, { backgroundColor: getBackgroundOverlay() }]}
-    >
+    <View style={[styles.overlay, { backgroundColor: getBackgroundOverlay() }]}>
       {/* Show offline banner */}
-      {isOffline && (
-        <OfflineBanner top={insets.top + 25} />
-      )}
+      {isOffline && <OfflineBanner top={insets.top + 25} />}
       <LinearGradient
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
@@ -293,7 +288,11 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
               iconColor={iconColor}
             />
             <View style={{ width: 2 }} />
-            <FullScreenMusicMenuButton onPress={showMenu} size={25} color={iconColor} />
+            <FullScreenMusicMenuButton
+              onPress={showMenu}
+              size={25}
+              color={iconColor}
+            />
           </View>
         </View>
 
@@ -302,7 +301,10 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
           <View style={styles.draggableArea}>
             <Spacer height={5} />
             <Surface
-              style={[styles.albumSurface, { width: width * 0.9, height: width * 0.9 }]}
+              style={[
+                styles.albumSurface,
+                { width: width * 0.9, height: width * 0.9 },
+              ]}
             >
               <AlbumArtworkDisplay
                 currentPlaying={currentPlaying}
@@ -314,8 +316,22 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
         </GestureDetector>
 
         {/* Song info and icons - outside GestureDetector for proper touch handling */}
-        <View style={{ width: "100%", paddingHorizontal: 16, marginTop: 8, marginBottom: 8, zIndex: 5 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+        <View
+          style={{
+            width: '100%',
+            paddingHorizontal: 16,
+            marginTop: 8,
+            marginBottom: 8,
+            zIndex: 5,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              width: '100%',
+            }}
+          >
             <View style={{ flex: 1 }}>
               <SongInfoDisplay
                 currentPlaying={currentPlaying}
@@ -324,17 +340,26 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
               />
             </View>
             <View style={styles.iconContainer}>
-              <View style={[styles.iconWrapper, { transform: [{ translateY: 1 }] }]}>
+              <View
+                style={[styles.iconWrapper, { transform: [{ translateY: 1 }] }]}
+              >
                 <View style={styles.iconButton}>
                   <LikeSongButton size={24} color={iconColor} />
                 </View>
               </View>
-              <View style={[styles.iconWrapper, { transform: [{ translateY: 1 }] }]}>
+              <View
+                style={[styles.iconWrapper, { transform: [{ translateY: 1 }] }]}
+              >
                 <View style={styles.iconButton}>
                   <SleepTimerButton size={24} iconColor={iconColor} />
                 </View>
               </View>
-              <View style={[styles.iconWrapper, { marginRight: 0, transform: [{ translateY: 1 }] }]}>
+              <View
+                style={[
+                  styles.iconWrapper,
+                  { marginRight: 0, transform: [{ translateY: 1 }] },
+                ]}
+              >
                 <View style={styles.iconButton}>
                   <SmartDownloadControl
                     songData={currentPlaying}
@@ -352,10 +377,9 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
         <View
           style={[
             styles.contentContainer,
-            { minHeight: Dimensions.get("window").height * 0.55 },
+            { minHeight: Dimensions.get('window').height * 0.55 },
           ]}
         >
-
           <View style={{ marginBottom: 12 }}>
             <ProgressBar />
           </View>
@@ -428,7 +452,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
         <StatusBar
           translucent
           backgroundColor="transparent"
-          barStyle={paperTheme.dark ? "light-content" : "dark-content"}
+          barStyle={paperTheme.dark ? 'light-content' : 'dark-content'}
         />
         <View style={{ flex: 1 }}>
           <LocalTracksErrorBoundary>
@@ -440,7 +464,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
               isLoading={localTracksLoading}
               error={localTracksError}
               style={{
-                position: "absolute",
+                position: 'absolute',
                 top: 0,
                 left: 0,
                 right: 0,
@@ -464,7 +488,10 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
             </View>
           ) : (
             <View
-              style={[styles.fallbackBackground, { backgroundColor: paperTheme.colors.surface }]}
+              style={[
+                styles.fallbackBackground,
+                { backgroundColor: paperTheme.colors.surface },
+              ]}
             >
               {renderPlayerContent()}
             </View>

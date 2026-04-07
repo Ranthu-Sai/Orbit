@@ -1,7 +1,11 @@
-import { useState } from "react";
-import { View, TextInput, Button, FlatList, Text } from "react-native";
-import { GetCustomPlaylists, CreateCustomPlaylist, AddSongToCustomPlaylist } from "../../LocalStorage/CustomPlaylists";
-import { useTheme } from "@react-navigation/native";
+import { useState } from 'react';
+import { View, TextInput, Button, FlatList, Text } from 'react-native';
+import {
+  GetCustomPlaylists,
+  CreateCustomPlaylist,
+  AddSongToCustomPlaylist,
+} from '../../LocalStorage/CustomPlaylists';
+import { useTheme } from '@react-navigation/native';
 
 export const CustomPlaylistManager = () => {
   const theme = useTheme();
@@ -32,7 +36,12 @@ export const CustomPlaylistManager = () => {
         placeholder="Enter playlist name"
         value={playlistName}
         onChangeText={setPlaylistName}
-        style={{ borderColor: theme.colors.text, borderWidth: 1, marginVertical: 10, padding: 5 }}
+        style={{
+          borderColor: theme.colors.text,
+          borderWidth: 1,
+          marginVertical: 10,
+          padding: 5,
+        }}
       />
       <Button title="Create Playlist" onPress={handleCreatePlaylist} />
       <FlatList
@@ -41,7 +50,14 @@ export const CustomPlaylistManager = () => {
         renderItem={({ item }) => (
           <View style={{ marginVertical: 10 }}>
             <Text style={{ color: theme.colors.text }}>{item}</Text>
-            <Button title="Add Song" onPress={() => handleAddSongToPlaylist(item, { /* song details */ })} />
+            <Button
+              title="Add Song"
+              onPress={() =>
+                handleAddSongToPlaylist(item, {
+                  /* song details */
+                })
+              }
+            />
           </View>
         )}
       />

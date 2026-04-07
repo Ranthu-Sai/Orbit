@@ -8,7 +8,11 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { Heading } from '../Global/Heading';
 import { SmallText } from '../Global/SmallText';
 import { PlainText } from '../Global/PlainText';
-import { getValidImageUrl, formatFollowerCount, safeString } from '../../Utils/ArtistUtils';
+import {
+  getValidImageUrl,
+  formatFollowerCount,
+  safeString,
+} from '../../Utils/ArtistUtils';
 
 /**
  * ArtistHeader component - displays artist image, name, followers, and play button
@@ -21,7 +25,10 @@ import { getValidImageUrl, formatFollowerCount, safeString } from '../../Utils/A
 const ArtistHeader = ({ artistData, artistName, onPlayAll }) => {
   const theme = useTheme();
 
-  const displayName = safeString(artistData?.data?.name || artistName, 'Unknown Artist');
+  const displayName = safeString(
+    artistData?.data?.name || artistName,
+    'Unknown Artist'
+  );
   const followerCount = formatFollowerCount(artistData?.data?.followerCount);
   const isVerified = artistData?.data?.isVerified;
   const artistImage = getValidImageUrl(artistData?.data?.image);
@@ -44,7 +51,7 @@ const ArtistHeader = ({ artistData, artistName, onPlayAll }) => {
             'transparent',
             'rgba(0,0,0,0.3)',
             'rgba(0,0,0,0.6)',
-            'rgba(0,0,0,0.8)'
+            'rgba(0,0,0,0.8)',
           ]}
           style={{
             position: 'absolute',
@@ -54,12 +61,14 @@ const ArtistHeader = ({ artistData, artistName, onPlayAll }) => {
             height: '100%',
           }}
         />
-        <View style={{
-          position: 'absolute',
-          bottom: 20,
-          left: 20,
-          right: 20,
-        }}>
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 20,
+            left: 20,
+            right: 20,
+          }}
+        >
           <Heading
             text={displayName}
             style={{
@@ -69,16 +78,27 @@ const ArtistHeader = ({ artistData, artistName, onPlayAll }) => {
               marginBottom: 2,
             }}
           />
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 10,
+            }}
+          >
             {isVerified && (
-              <MaterialIcons name="verified" size={20} color="#1DB954" style={{ marginRight: 8 }} />
+              <MaterialIcons
+                name="verified"
+                size={20}
+                color="#1DB954"
+                style={{ marginRight: 8 }}
+              />
             )}
             <SmallText
               text={`${followerCount} followers`}
               style={{ color: 'white', opacity: 0.9, fontSize: 14 }}
             />
           </View>
-          
+
           <Pressable
             onPress={onPlayAll}
             style={{
@@ -92,8 +112,16 @@ const ArtistHeader = ({ artistData, artistName, onPlayAll }) => {
               marginTop: 10,
             }}
           >
-            <Ionicons name="play" size={20} color="white" style={{ marginRight: 8 }} />
-            <PlainText text="Play All" style={{ color: 'white', fontWeight: 'bold' }} />
+            <Ionicons
+              name="play"
+              size={20}
+              color="white"
+              style={{ marginRight: 8 }}
+            />
+            <PlainText
+              text="Play All"
+              style={{ color: 'white', fontWeight: 'bold' }}
+            />
           </Pressable>
         </View>
       </View>

@@ -1,11 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
-import { apiCache, playlistCache, albumCache } from '../Utils/LRUCache';
-
+import { apiCache, playlistCache, albumCache, chartCache } from '../Utils/LRUCache';
 
 /**
  * CacheManager - A utility for managing API response caching
- * 
+ *
  * Features:
  * - Cache API responses with configurable expiration
  * - Check for cached data before making API calls
@@ -24,9 +23,10 @@ const CACHE_GROUPS = {
   SONGS: 'songs',
   PLAYLISTS: 'playlists',
   ALBUMS: 'albums',
+  CHARTS: 'charts',
   LYRICS: 'lyrics',
   RECOMMENDATIONS: 'recommendations',
-  PODCASTS: 'podcasts'
+  PODCASTS: 'podcasts',
 };
 
 // Memory cache for search results and playlists/albums
@@ -38,7 +38,7 @@ const albumMemoryCache = new Map();
 const MAX_MEMORY_ITEMS = {
   SEARCH: 5,
   PLAYLISTS: 10,
-  ALBUMS: 10
+  ALBUMS: 10,
 };
 
 // Add a global offline mode flag that can be checked anywhere
@@ -90,7 +90,9 @@ const isOfflineMode = () => {
  * @param {number} maxItems Maximum number of items to keep
  */
 const cleanMemoryCache = (cache, maxItems) => {
-  if (cache.size <= maxItems) return;
+  if (cache.size <= maxItems) {
+    return;
+  }
 
   // Find the oldest entries and delete them
   const entries = [...cache.entries()];
@@ -113,9 +115,11 @@ const getCacheContext = (key) => {
   if (key.startsWith('album_') && !key.includes('album_search_')) {
     return { manager: albumCache, rawKey: key.replace(/^album_/, '') };
   }
+  if (key.startsWith('chart_')) {
+    return { manager: chartCache, rawKey: key.replace(/^chart_/, '') };
+  }
   return { manager: apiCache, rawKey: key };
 };
-
 
 /**
  * Get data from cache
@@ -183,14 +187,24 @@ const getFromCache = async (key) => {
       const { manager, rawKey } = getCacheContext(key);
       const data = await manager.get(rawKey);
 
-      if (!data) return null;
+      if (!data) {
+        return null;
+      }
 
       // Store in memory for faster access next time
       if (key.includes('playlist_')) {
-        playlistMemoryCache.set(key, { data, timestamp: Date.now(), expiration: DEFAULT_CACHE_EXPIRATION });
+        playlistMemoryCache.set(key, {
+          data,
+          timestamp: Date.now(),
+          expiration: DEFAULT_CACHE_EXPIRATION,
+        });
         cleanMemoryCache(playlistMemoryCache, MAX_MEMORY_ITEMS.PLAYLISTS);
       } else if (key.includes('album_') && !key.includes('album_search_')) {
-        albumMemoryCache.set(key, { data, timestamp: Date.now(), expiration: DEFAULT_CACHE_EXPIRATION });
+        albumMemoryCache.set(key, {
+          data,
+          timestamp: Date.now(),
+          expiration: DEFAULT_CACHE_EXPIRATION,
+        });
         cleanMemoryCache(albumMemoryCache, MAX_MEMORY_ITEMS.ALBUMS);
       }
 
@@ -199,7 +213,6 @@ const getFromCache = async (key) => {
       console.warn('Cache access failed:', storageError);
       return null;
     }
-
   } catch (error) {
     console.error(`Error retrieving from cache for key ${key}:`, error);
     return null;
@@ -214,13 +227,18 @@ const getFromCache = async (key) => {
  * @param {string|null} group Cache group for batch invalidation
  * @returns {Promise<void>}
  */
-const saveToCache = async (key, data, expiration = DEFAULT_CACHE_EXPIRATION, group = null) => {
+const saveToCache = async (
+  key,
+  data,
+  expiration = DEFAULT_CACHE_EXPIRATION,
+  group = null
+) => {
   try {
     const cacheItem = {
       data,
       timestamp: new Date().getTime(),
       expiration,
-      group
+      group,
     };
 
     // Store search results in memory only
@@ -238,8 +256,10 @@ const saveToCache = async (key, data, expiration = DEFAULT_CACHE_EXPIRATION, gro
     }
 
     // Store albums in memory first
-    if ((key.includes('album_') && !key.includes('album_search_')) ||
-      (group === CACHE_GROUPS.ALBUMS && !key.includes('search_'))) {
+    if (
+      (key.includes('album_') && !key.includes('album_search_')) ||
+      (group === CACHE_GROUPS.ALBUMS && !key.includes('search_'))
+    ) {
       cleanMemoryCache(albumMemoryCache, MAX_MEMORY_ITEMS.ALBUMS);
       albumMemoryCache.set(key, cacheItem);
     }
@@ -251,7 +271,7 @@ const saveToCache = async (key, data, expiration = DEFAULT_CACHE_EXPIRATION, gro
     if (success && group && group !== CACHE_GROUPS.SEARCH) {
       try {
         const groupKey = `cache_group_${group}`;
-        const groupItems = await AsyncStorage.getItem(groupKey) || '[]';
+        const groupItems = (await AsyncStorage.getItem(groupKey)) || '[]';
         const items = JSON.parse(groupItems);
 
         if (!items.includes(key)) {
@@ -265,7 +285,6 @@ const saveToCache = async (key, data, expiration = DEFAULT_CACHE_EXPIRATION, gro
         console.warn('Failed to update cache group index:', groupError.message);
       }
     }
-
   } catch (error) {
     console.error(`Error saving to cache for key ${key}:`, error);
   }
@@ -296,7 +315,7 @@ const clearCache = async (group = null) => {
       if (group) {
         // Clear specific group
         const groupKey = `cache_group_${group}`;
-        const groupItems = await AsyncStorage.getItem(groupKey) || '[]';
+        const groupItems = (await AsyncStorage.getItem(groupKey)) || '[]';
         const items = JSON.parse(groupItems);
 
         // Remove all items in the group
@@ -311,8 +330,9 @@ const clearCache = async (group = null) => {
         const keys = await AsyncStorage.getAllKeys();
 
         // Filter only cache keys (ignore other app settings)
-        const cacheKeys = keys.filter(key =>
-          key.startsWith('api_cache_') || key.startsWith('cache_group_')
+        const cacheKeys = keys.filter(
+          (key) =>
+            key.startsWith('api_cache_') || key.startsWith('cache_group_')
         );
 
         // Clear all cache keys
@@ -324,7 +344,10 @@ const clearCache = async (group = null) => {
       console.warn('AsyncStorage clear failed:', storageError);
     }
   } catch (error) {
-    console.error(`Error clearing cache${group ? ` for group ${group}` : ''}:`, error);
+    console.error(
+      `Error clearing cache${group ? ` for group ${group}` : ''}:`,
+      error
+    );
   }
 };
 
@@ -337,7 +360,13 @@ const clearCache = async (group = null) => {
  * @param {boolean} forceRefresh Force refresh from API
  * @returns {Promise<Object>} Data from cache or API
  */
-const getCachedData = async (key, fetchFunction, expiration = DEFAULT_CACHE_EXPIRATION, group = null, forceRefresh = false) => {
+const getCachedData = async (
+  key,
+  fetchFunction,
+  expiration = DEFAULT_CACHE_EXPIRATION,
+  group = null,
+  forceRefresh = false
+) => {
   try {
     // First check if we're in offline mode
     const networkAvailable = await isNetworkAvailable();
@@ -356,7 +385,7 @@ const getCachedData = async (key, fetchFunction, expiration = DEFAULT_CACHE_EXPI
       return {
         success: false,
         error: 'Offline mode - data not available',
-        offlineMode: true
+        offlineMode: true,
       };
     }
 
@@ -376,7 +405,8 @@ const getCachedData = async (key, fetchFunction, expiration = DEFAULT_CACHE_EXPI
 
       // CRITICAL: Only cache successful responses - NEVER cache errors
       // Check for explicit success=true, or absence of error/success=false
-      const isValidResponse = data &&
+      const isValidResponse =
+        data &&
         !data.error &&
         data.success !== false &&
         !(data.status === 'FAILED');
@@ -405,7 +435,7 @@ const getCachedData = async (key, fetchFunction, expiration = DEFAULT_CACHE_EXPI
       return {
         success: false,
         error: fetchError.message || 'Network error occurred',
-        offlineMode: !stillOnline
+        offlineMode: !stillOnline,
       };
     }
   } catch (error) {
@@ -415,7 +445,7 @@ const getCachedData = async (key, fetchFunction, expiration = DEFAULT_CACHE_EXPI
     return {
       success: false,
       error: 'Cache operation failed',
-      offlineMode: _isOfflineMode
+      offlineMode: _isOfflineMode,
     };
   }
 };
@@ -427,5 +457,5 @@ export {
   isOfflineMode,
   setOfflineMode,
   CACHE_GROUPS,
-  DEFAULT_CACHE_EXPIRATION
-}; 
+  DEFAULT_CACHE_EXPIRATION,
+};

@@ -1,12 +1,12 @@
 /**
  * useSmartRefresh Hook
- * 
+ *
  * Provides pull-to-refresh functionality with smart refresh logic.
  * Only refreshes when user explicitly pulls, never on back navigation.
- * 
+ *
  * Usage:
  * const { refreshing, onRefresh, refreshControl } = useSmartRefresh(fetchFn);
- * 
+ *
  * <ScrollView refreshControl={refreshControl}>
  *   ...
  * </ScrollView>
@@ -28,73 +28,85 @@ import { CacheManager } from '../Utils/NavigationCacheManager';
  * @returns {object} - { refreshing, onRefresh, refreshControl }
  */
 export function useSmartRefresh(refreshFn, options = {}) {
-    const {
-        cacheKey = null,
-        cacheKeysToInvalidate = [],
-        tintColor = '#1DB954',
-        onRefreshStart = null,
-        onRefreshComplete = null,
-    } = options;
+  const {
+    cacheKey = null,
+    cacheKeysToInvalidate = [],
+    tintColor = '#1DB954',
+    onRefreshStart = null,
+    onRefreshComplete = null,
+  } = options;
 
-    const [refreshing, setRefreshing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-    /**
-     * Handle refresh action
-     */
-    const onRefresh = useCallback(async () => {
-        if (refreshing) return;
+  /**
+   * Handle refresh action
+   */
+  const onRefresh = useCallback(async () => {
+    if (refreshing) {
+      return;
+    }
 
-        setRefreshing(true);
+    setRefreshing(true);
 
-        // Callback: refresh started
-        if (onRefreshStart) {
-            onRefreshStart();
-        }
+    // Callback: refresh started
+    if (onRefreshStart) {
+      onRefreshStart();
+    }
 
-        try {
-            // Invalidate cache(s) before refresh
-            if (cacheKey) {
-                CacheManager.invalidate(cacheKey);
-            }
+    try {
+      // Invalidate cache(s) before refresh
+      if (cacheKey) {
+        CacheManager.invalidate(cacheKey);
+      }
 
-            if (cacheKeysToInvalidate.length > 0) {
-                cacheKeysToInvalidate.forEach(key => {
-                    CacheManager.invalidate(key);
-                });
-                }
+      if (cacheKeysToInvalidate.length > 0) {
+        cacheKeysToInvalidate.forEach((key) => {
+          CacheManager.invalidate(key);
+        });
+      }
 
-            // Execute refresh function
-            await refreshFn();
-        } catch (error) {
-            console.error('[SmartRefresh] Refresh failed:', error);
-        } finally {
-            setRefreshing(false);
+      // Execute refresh function
+      await refreshFn();
+    } catch (error) {
+      console.error('[SmartRefresh] Refresh failed:', error);
+    } finally {
+      setRefreshing(false);
 
-            // Callback: refresh complete
-            if (onRefreshComplete) {
-                onRefreshComplete();
-            }
-        }
-    }, [refreshing, refreshFn, cacheKey, cacheKeysToInvalidate, onRefreshStart, onRefreshComplete]);
+      // Callback: refresh complete
+      if (onRefreshComplete) {
+        onRefreshComplete();
+      }
+    }
+  }, [
+    refreshing,
+    refreshFn,
+    cacheKey,
+    cacheKeysToInvalidate,
+    onRefreshStart,
+    onRefreshComplete,
+  ]);
 
-    /**
-     * Pre-configured RefreshControl component
-     */
-    const refreshControl = useMemo(() => (
-        <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={tintColor}
-            colors={[tintColor]}
-            progressBackgroundColor="#1E1E1E"
-        />
-    ), [refreshing, onRefresh, tintColor]);
+  /**
+   * Pre-configured RefreshControl component
+   */
+  const refreshControl = useMemo(
+    () => (
+      <RefreshControl
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        tintColor={tintColor}
+        colors={[tintColor]}
+        progressBackgroundColor="#1E1E1E"
+      />
+    ),
+    [refreshing, onRefresh, tintColor]
+  );
 
-    return {
-        refreshing,
-        onRefresh,
-        refreshControl,
-    };
+  return {
+    refreshing,
+    onRefresh,
+    refreshControl,
+  };
 }
 
 /**
@@ -102,32 +114,29 @@ export function useSmartRefresh(refreshFn, options = {}) {
  * Silently refreshes data without showing loading state
  */
 export function useBackgroundRefresh(refreshFn, options = {}) {
-    const {
-        cacheKey = null,
-        onComplete = null,
-    } = options;
+  const { cacheKey = null, onComplete = null } = options;
 
-    const refreshInBackground = useCallback(async () => {
-        try {
-            const newData = await refreshFn();
+  const refreshInBackground = useCallback(async () => {
+    try {
+      const newData = await refreshFn();
 
-            // Update cache with fresh data
-            if (cacheKey && newData) {
-                CacheManager.set(cacheKey, newData);
-            }
+      // Update cache with fresh data
+      if (cacheKey && newData) {
+        CacheManager.set(cacheKey, newData);
+      }
 
-            if (onComplete) {
-                onComplete(newData);
-            }
+      if (onComplete) {
+        onComplete(newData);
+      }
 
-            return newData;
-        } catch (error) {
-            console.error('[BackgroundRefresh] Failed:', error);
-            return null;
-        }
-    }, [refreshFn, cacheKey, onComplete]);
+      return newData;
+    } catch (error) {
+      console.error('[BackgroundRefresh] Failed:', error);
+      return null;
+    }
+  }, [refreshFn, cacheKey, onComplete]);
 
-    return { refreshInBackground };
+  return { refreshInBackground };
 }
 
 export default useSmartRefresh;

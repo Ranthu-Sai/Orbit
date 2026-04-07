@@ -1,6 +1,6 @@
-import React from "react";
-import { View } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import React from 'react';
+import { View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 // Import gesture control hooks
 import { useNavigationGestureControl } from './NavigationGestureControl';
@@ -40,10 +40,10 @@ export const SimpleGestureManager = ({
   onClose,
   style,
   enableNavigation = true,
-  enableTapToClose = true
+  enableTapToClose = true,
 }) => {
-  const navigationControl = enableNavigation ? useNavigationGestureControl() : null;
-  const tapControl = enableTapToClose ? useTapToCloseGestureControl(onClose) : null;
+  const navigationControl = useNavigationGestureControl();
+  const tapControl = useTapToCloseGestureControl(onClose);
 
   // Build gesture array based on enabled features
   const gestures = [];

@@ -1,7 +1,7 @@
-import React from "react";
-import { StyleSheet, View } from "react-native";
-import { Text, useTheme } from 'react-native-paper';
-import { Spacer } from "../Global/Spacer";
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Text } from 'react-native-paper';
+import { Spacer } from '../Global/Spacer';
 
 const styles = StyleSheet.create({
   container: {
@@ -37,24 +37,22 @@ const styles = StyleSheet.create({
   },
 });
 
-export const SongInfoDisplay = ({ 
-  currentPlaying, 
-  isOffline, 
+export const SongInfoDisplay = ({
+  currentPlaying,
+  isOffline,
   getTextColor,
-  style 
+  style,
 }) => {
-  const theme = useTheme();
-
   const getTitleText = () => {
     if (!currentPlaying?.title) {
-      return isOffline ? "Offline Mode" : "No music :(";
+      return isOffline ? 'Offline Mode' : 'No music :(';
     }
     return currentPlaying.title;
   };
 
   const getArtistText = () => {
     if (!currentPlaying?.artist) {
-      return isOffline ? "Local Music Available" : "Explore now!";
+      return isOffline ? 'Local Music Available' : 'Explore now!';
     }
     return currentPlaying.artist;
   };
@@ -69,10 +67,10 @@ export const SongInfoDisplay = ({
           variant="headlineSmall"
           style={[
             styles.title,
-            { 
+            {
               color: getTextColor('primary'),
-              ...style?.title
-            }
+              ...style?.title,
+            },
           ]}
           numberOfLines={1}
           ellipsizeMode="tail"
@@ -84,10 +82,10 @@ export const SongInfoDisplay = ({
           variant="bodyMedium"
           style={[
             styles.artist,
-            { 
+            {
               color: getTextColor('secondary'),
-              ...style?.artist
-            }
+              ...style?.artist,
+            },
           ]}
           numberOfLines={1}
           ellipsizeMode="tail"

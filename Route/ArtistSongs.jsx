@@ -8,7 +8,11 @@ import {
 } from 'react-native';
 import { MainWrapper } from '../Layout/MainWrapper';
 import { Text, IconButton, Appbar } from 'react-native-paper';
-import { useTheme as useNavigationTheme, useRoute, useNavigation } from '@react-navigation/native';
+import {
+  useTheme as useNavigationTheme,
+  useRoute,
+  useNavigation,
+} from '@react-navigation/native';
 import { useActiveTrack, usePlaybackState } from 'react-native-track-player';
 
 import { LoadingComponent } from '../Component/Global/Loading';
@@ -17,7 +21,11 @@ import { AddPlaylist } from '../MusicPlayerFunctions';
 import FormatArtist from '../Utils/FormatArtists';
 
 import { useArtistSongs } from '../hooks/useArtistData';
-import { formatSongsForPlaylist, getValidImageUrl, safeString } from '../Utils/ArtistUtils';
+import {
+  formatSongsForPlaylist,
+  getValidImageUrl,
+  safeString,
+} from '../Utils/ArtistUtils';
 
 const { height: screenHeight } = Dimensions.get('window');
 
@@ -30,13 +38,8 @@ const ArtistSongs = () => {
 
   const { artistId, artistName, source, preloadedSongs } = route.params || {};
 
-  const {
-    visibleSongs,
-    songLoading,
-    hasMoreSongs,
-    totalSongs,
-    loadMoreSongs,
-  } = useArtistSongs(artistId, 20, source, preloadedSongs);
+  const { visibleSongs, songLoading, hasMoreSongs, totalSongs, loadMoreSongs } =
+    useArtistSongs(artistId, 20, source, preloadedSongs);
 
   const shufflePlay = useCallback(async () => {
     if (!visibleSongs || visibleSongs.length === 0) {
@@ -47,53 +50,79 @@ const ArtistSongs = () => {
       const formattedSongs = formatSongsForPlaylist(visibleSongs);
       const shuffled = [...formattedSongs].sort(() => Math.random() - 0.5);
       await AddPlaylist(shuffled);
-      ToastAndroid.show(`Shuffling ${formattedSongs.length} songs`, ToastAndroid.SHORT);
+      ToastAndroid.show(
+        `Shuffling ${formattedSongs.length} songs`,
+        ToastAndroid.SHORT
+      );
     } catch (error) {
       console.error('Error shuffling:', error);
       ToastAndroid.show('Failed to shuffle', ToastAndroid.SHORT);
     }
   }, [visibleSongs]);
 
-  const renderItem = useCallback(({ item: song, index }) => {
-    if (!song || !song.id) return null;
-    return (
-      <EachSongCard
-        title={safeString(song.name, "Unknown Title")}
-        artist={safeString(FormatArtist(song.artists?.primary), "Unknown Artist")}
-        image={getValidImageUrl(song.image)}
-        id={song.id}
-        url={song.downloadUrl?.[2]?.url || song.downloadUrl?.[1]?.url || song.downloadUrl?.[0]?.url}
-        duration={song.duration}
-        language={song.language}
-        artistID={song.artists?.primary?.[0]?.id}
-        width="100%"
-        isFromPlaylist={true}
-        source={source}
-        Data={{ data: { songs: visibleSongs } }}
-        index={index}
-        showNumber={true}
-        truncateTitle={true}
-        activeTrackId={activeTrack?.id}
-        isPlaying={playbackState.state === "playing" || playbackState.state === 3}
-      />
-    );
-  }, [visibleSongs, activeTrack?.id, playbackState.state]);
+  const renderItem = useCallback(
+    ({ item: song, index }) => {
+      if (!song || !song.id) {
+        return null;
+      }
+      return (
+        <EachSongCard
+          title={safeString(song.name, 'Unknown Title')}
+          artist={safeString(
+            FormatArtist(song.artists?.primary),
+            'Unknown Artist'
+          )}
+          image={getValidImageUrl(song.image)}
+          id={song.id}
+          url={
+            song.downloadUrl?.[2]?.url ||
+            song.downloadUrl?.[1]?.url ||
+            song.downloadUrl?.[0]?.url
+          }
+          duration={song.duration}
+          language={song.language}
+          artistID={song.artists?.primary?.[0]?.id}
+          width="100%"
+          isFromPlaylist={true}
+          source={source}
+          Data={{ data: { songs: visibleSongs } }}
+          index={index}
+          showNumber={true}
+          truncateTitle={true}
+          activeTrackId={activeTrack?.id}
+          isPlaying={
+            playbackState.state === 'playing' || playbackState.state === 3
+          }
+        />
+      );
+    },
+    [visibleSongs, activeTrack?.id, playbackState.state]
+  );
 
-  const keyExtractor = useCallback((item, index) => `${item?.id || index}-${index}`, []);
+  const keyExtractor = useCallback(
+    (item, index) => `${item?.id || index}-${index}`,
+    []
+  );
 
-  const ListHeader = useMemo(() => (
-    <View style={styles.headerInfo}>
-      <Text style={[styles.songCount, { color: theme.colors.text }]}>
-        {totalSongs > 0 ? totalSongs : visibleSongs.length} songs
-      </Text>
-    </View>
-  ), [totalSongs, visibleSongs.length, theme.colors.text]);
+  const ListHeader = useMemo(
+    () => (
+      <View style={styles.headerInfo}>
+        <Text style={[styles.songCount, { color: theme.colors.text }]}>
+          {totalSongs > 0 ? totalSongs : visibleSongs.length} songs
+        </Text>
+      </View>
+    ),
+    [totalSongs, visibleSongs.length, theme.colors.text]
+  );
 
-  const ListFooter = useMemo(() => (
-    <View style={styles.footer}>
-      {songLoading && <LoadingComponent loading={true} height={50} />}
-    </View>
-  ), [songLoading]);
+  const ListFooter = useMemo(
+    () => (
+      <View style={styles.footer}>
+        {songLoading && <LoadingComponent loading={true} height={50} />}
+      </View>
+    ),
+    [songLoading]
+  );
 
   const onEndReached = useCallback(() => {
     if (hasMoreSongs && !songLoading) {

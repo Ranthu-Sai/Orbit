@@ -16,7 +16,7 @@ export const useQueueManager = () => {
   }, []);
 
   const toggleQueue = useCallback(() => {
-    setIsQueueVisible(prev => !prev);
+    setIsQueueVisible((prev) => !prev);
   }, []);
 
   return {

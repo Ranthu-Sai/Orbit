@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import RNFS from 'react-native-fs';
 import { safePath, safeExists } from '../Utils/FileUtils';
 
@@ -16,7 +16,9 @@ const useDynamicArtwork = () => {
    * @returns {Promise<boolean>} - Whether file exists
    */
   const checkFileExists = async (filePath) => {
-    if (!filePath) return false;
+    if (!filePath) {
+      return false;
+    }
 
     // Check cache first
     if (fileCheckCache[filePath] !== undefined) {
@@ -26,11 +28,11 @@ const useDynamicArtwork = () => {
     try {
       const exists = await safeExists(filePath);
       // Cache the result
-      setFileCheckCache(prev => ({ ...prev, [filePath]: exists }));
+      setFileCheckCache((prev) => ({ ...prev, [filePath]: exists }));
       return exists;
     } catch (error) {
       console.error('Error checking file existence:', error);
-      setFileCheckCache(prev => ({ ...prev, [filePath]: false }));
+      setFileCheckCache((prev) => ({ ...prev, [filePath]: false }));
       return false;
     }
   };
@@ -47,8 +49,16 @@ const useDynamicArtwork = () => {
 
     try {
       // For local music files, prioritize track's artwork property first
-      const st = track?.sourceType ? String(track.sourceType).toLowerCase() : null;
-      if (track.isLocal || st === 'mymusic' || st === 'download' || st === 'downloaded' || track.path) {
+      const st = track?.sourceType
+        ? String(track.sourceType).toLowerCase()
+        : null;
+      if (
+        track.isLocal ||
+        st === 'mymusic' ||
+        st === 'download' ||
+        st === 'downloaded' ||
+        track.path
+      ) {
         // First, check if track already has artwork property (from downloaded songs)
         if (track.artwork) {
           // Handle require() result (number)
@@ -83,24 +93,30 @@ const useDynamicArtwork = () => {
 
           // For synchronous return, we'll use the cached file check results
           // The actual file checking will be done asynchronously
-          const gifPath = safePath(`${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${trackId}.gif`);
-          const jpgPath = safePath(`${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${trackId}.jpg`);
-          const pngPath = safePath(`${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${trackId}.png`);
+          const gifPath = safePath(
+            `${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${trackId}.gif`
+          );
+          const jpgPath = safePath(
+            `${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${trackId}.jpg`
+          );
+          const pngPath = safePath(
+            `${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${trackId}.png`
+          );
 
           // Check cached results
           if (fileCheckCache[gifPath] === true) {
             const source = { uri: `file://${gifPath}` };
-            setArtworkCache(prev => ({ ...prev, [trackId]: source }));
+            setArtworkCache((prev) => ({ ...prev, [trackId]: source }));
             return source;
           }
           if (fileCheckCache[jpgPath] === true) {
             const source = { uri: `file://${jpgPath}` };
-            setArtworkCache(prev => ({ ...prev, [trackId]: source }));
+            setArtworkCache((prev) => ({ ...prev, [trackId]: source }));
             return source;
           }
           if (fileCheckCache[pngPath] === true) {
             const source = { uri: `file://${pngPath}` };
-            setArtworkCache(prev => ({ ...prev, [trackId]: source }));
+            setArtworkCache((prev) => ({ ...prev, [trackId]: source }));
             return source;
           }
 
@@ -134,14 +150,21 @@ const useDynamicArtwork = () => {
       if (track.isLocal || track.sourceType === 'mymusic' || track.path) {
         return require('../Images/Music.jpeg');
       }
-      return { uri: 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png' };
+      return {
+        uri: 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+      };
     } catch (error) {
       console.error('Error getting artwork source:', error);
       // Use Music.jpeg for error fallback when dealing with local tracks
-      if (track && (track.isLocal || track.sourceType === 'mymusic' || track.path)) {
+      if (
+        track &&
+        (track.isLocal || track.sourceType === 'mymusic' || track.path)
+      ) {
         return require('../Images/Music.jpeg');
       }
-      return { uri: 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png' };
+      return {
+        uri: 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+      };
     }
   };
 
@@ -150,23 +173,39 @@ const useDynamicArtwork = () => {
    * @param {object} track - Track object
    */
   const preloadArtwork = async (track) => {
-    if (!track) return;
+    if (!track) {
+      return;
+    }
 
     try {
       // For local tracks, preload file existence checks
-      const st2 = track?.sourceType ? String(track.sourceType).toLowerCase() : null;
-      if (track.isLocal || st2 === 'mymusic' || st2 === 'download' || st2 === 'downloaded' || track.path) {
+      const st2 = track?.sourceType
+        ? String(track.sourceType).toLowerCase()
+        : null;
+      if (
+        track.isLocal ||
+        st2 === 'mymusic' ||
+        st2 === 'download' ||
+        st2 === 'downloaded' ||
+        track.path
+      ) {
         const trackId = track.id || track.songId;
         if (trackId) {
-          const gifPath = safePath(`${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${trackId}.gif`);
-          const jpgPath = safePath(`${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${trackId}.jpg`);
-          const pngPath = safePath(`${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${trackId}.png`);
+          const gifPath = safePath(
+            `${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${trackId}.gif`
+          );
+          const jpgPath = safePath(
+            `${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${trackId}.jpg`
+          );
+          const pngPath = safePath(
+            `${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${trackId}.png`
+          );
 
           // Preload file existence checks
           await Promise.all([
             checkFileExists(gifPath),
             checkFileExists(jpgPath),
-            checkFileExists(pngPath)
+            checkFileExists(pngPath),
           ]);
         }
       }
@@ -192,21 +231,20 @@ const useDynamicArtwork = () => {
    */
   const getMemoizedArtworkSource = useMemo(() => {
     return (track) => {
-      if (!track) return require('../Images/Music.jpeg');
-
-      // Create a stable key for memoization
-      const trackKey = `${track.id || track.songId}-${track.artwork}-${track.isLocal}-${track.sourceType}`;
+      if (!track) {
+        return require('../Images/Music.jpeg');
+      }
 
       return getArtworkSourceFromHook(track);
     };
-  }, [artworkCache, fileCheckCache]);
+  }, [getArtworkSourceFromHook]);
 
   return {
     getArtworkSourceFromHook: getMemoizedArtworkSource,
     preloadArtwork,
     clearArtworkCache,
     artworkCache,
-    fileCheckCache
+    fileCheckCache,
   };
 };
 

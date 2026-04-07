@@ -11,7 +11,11 @@ export const getValidImageUrl = (imageArray) => {
   if (!imageArray || !Array.isArray(imageArray) || imageArray.length === 0) {
     return 'https://via.placeholder.com/500x500/cccccc/666666?text=Artist';
   }
-  return imageArray[imageArray.length - 1]?.url || imageArray[0]?.url || 'https://via.placeholder.com/500x500/cccccc/666666?text=Artist';
+  return (
+    imageArray[imageArray.length - 1]?.url ||
+    imageArray[0]?.url ||
+    'https://via.placeholder.com/500x500/cccccc/666666?text=Artist'
+  );
 };
 
 /**
@@ -20,7 +24,9 @@ export const getValidImageUrl = (imageArray) => {
  * @returns {string} - Formatted count string
  */
 export const formatFollowerCount = (count) => {
-  if (!count) return '0';
+  if (!count) {
+    return '0';
+  }
   if (count >= 1000000) {
     return `${(count / 1000000).toFixed(1)}M`;
   }
@@ -37,11 +43,11 @@ export const formatFollowerCount = (count) => {
  */
 export const validateRouteParams = (routeParams = {}) => {
   const { artistId, artistName, initialTab } = routeParams;
-  
+
   return {
     safeArtistId: String(artistId || '').trim(),
     safeArtistName: String(artistName || 'Unknown Artist').trim(),
-    safeInitialTab: String(initialTab || 'songs').trim()
+    safeInitialTab: String(initialTab || 'songs').trim(),
   };
 };
 
@@ -51,20 +57,25 @@ export const validateRouteParams = (routeParams = {}) => {
  * @returns {Array} - Formatted songs array
  */
 export const formatSongsForPlaylist = (songs) => {
-  if (!songs || !Array.isArray(songs)) return [];
-  
+  if (!songs || !Array.isArray(songs)) {
+    return [];
+  }
+
   return songs.map((song, index) => ({
     id: song.id,
-    url: song.downloadUrl?.[2]?.url || song.downloadUrl?.[1]?.url || song.downloadUrl?.[0]?.url,
+    url:
+      song.downloadUrl?.[2]?.url ||
+      song.downloadUrl?.[1]?.url ||
+      song.downloadUrl?.[0]?.url,
     title: song.name,
-    artist: song.artists?.primary ? 
-      song.artists.primary.map(artist => artist.name).join(', ') : 
-      'Unknown Artist',
+    artist: song.artists?.primary
+      ? song.artists.primary.map((artist) => artist.name).join(', ')
+      : 'Unknown Artist',
     artwork: getValidImageUrl(song.image),
     duration: song.duration,
     language: song.language,
     primary_artists_id: song.artists?.primary?.[0]?.id,
-    index: index
+    index: index,
   }));
 };
 
@@ -75,7 +86,9 @@ export const formatSongsForPlaylist = (songs) => {
  */
 export const processBioData = (bioData) => {
   try {
-    if (!bioData) return [];
+    if (!bioData) {
+      return [];
+    }
 
     // If bioData is a string, convert it to array format
     if (typeof bioData === 'string') {
@@ -89,7 +102,7 @@ export const processBioData = (bioData) => {
     else if (typeof bioData === 'object') {
       return [bioData];
     }
-    
+
     return [];
   } catch (error) {
     console.error('Error processing bio data:', error);
@@ -123,8 +136,12 @@ export const safeString = (value, fallback = '') => {
  */
 export const detectNavigationLoop = (navigationState) => {
   const routes = navigationState?.routes || [];
-  const artistPageCount = routes.filter(route => route.name === 'ArtistPage').length;
-  const albumPageCount = routes.filter(route => route.name === 'Album').length;
-  
+  const artistPageCount = routes.filter(
+    (route) => route.name === 'ArtistPage'
+  ).length;
+  const albumPageCount = routes.filter(
+    (route) => route.name === 'Album'
+  ).length;
+
   return artistPageCount >= 3 || (artistPageCount >= 2 && albumPageCount >= 2);
 };

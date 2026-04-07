@@ -1,5 +1,8 @@
 import { getApp } from '@react-native-firebase/app';
-import { getAnalytics, FirebaseAnalyticsTypes } from '@react-native-firebase/analytics';
+import {
+  getAnalytics,
+  FirebaseAnalyticsTypes,
+} from '@react-native-firebase/analytics';
 
 const analyticsInstance: FirebaseAnalyticsTypes.Module = getAnalytics(getApp());
 
@@ -100,7 +103,11 @@ class AnalyticsService {
    * @param contentType The type of content ('song' or 'album')
    * @param contentName The name of the content
    */
-  logDownloadStart = (contentId: string, contentType: 'song' | 'album', contentName: string) => {
+  logDownloadStart = (
+    contentId: string,
+    contentType: 'song' | 'album',
+    contentName: string
+  ) => {
     this.logEvent(AnalyticsEvents.DOWNLOAD_START, {
       content_id: contentId,
       content_type: contentType,
@@ -117,8 +124,8 @@ class AnalyticsService {
    * @param success Whether the download was successful
    */
   logDownloadComplete = (
-    contentId: string, 
-    contentType: 'song' | 'album', 
+    contentId: string,
+    contentType: 'song' | 'album',
     contentName: string,
     success: boolean
   ) => {
@@ -151,7 +158,7 @@ class AnalyticsService {
   trackDownloadCount = (count: number) => {
     this.logEvent('download_count', {
       count,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   };
 
@@ -161,10 +168,10 @@ class AnalyticsService {
    */
   trackActiveUser = () => {
     this.logEvent('active_user', {
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   };
 }
 
 // Export a singleton instance
-export const analyticsService = new AnalyticsService(); 
+export const analyticsService = new AnalyticsService();

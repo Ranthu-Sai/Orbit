@@ -7,7 +7,7 @@ import useOffline from '../../hooks/useOffline';
  * OfflineBanner - Displays offline mode indicator
  * Compact banner that shows when the app is in offline mode
  */
-const OfflineBanner = ({ 
+const OfflineBanner = ({
   style,
   position = 'absolute',
   top = 20,
@@ -21,7 +21,7 @@ const OfflineBanner = ({
   borderRadius = 12,
   showIcon = true,
   text = 'OFFLINE MODE',
-  zIndex = 10
+  zIndex = 10,
 }) => {
   const { isOffline } = useOffline();
 
@@ -42,24 +42,26 @@ const OfflineBanner = ({
     flexDirection: 'row',
     borderRadius,
     height,
-    ...style
+    ...style,
   };
 
   return (
     <View style={bannerStyle} pointerEvents="none">
       {showIcon && (
-        <Ionicons 
-          name="cloud-offline-outline" 
-          size={iconSize} 
-          color={textColor} 
+        <Ionicons
+          name="cloud-offline-outline"
+          size={iconSize}
+          color={textColor}
         />
       )}
-      <Text style={{ 
-        color: textColor, 
-        marginLeft: showIcon ? 3 : 0, 
-        fontWeight: 'bold', 
-        fontSize 
-      }}>
+      <Text
+        style={{
+          color: textColor,
+          marginLeft: showIcon ? 3 : 0,
+          fontWeight: 'bold',
+          fontSize,
+        }}
+      >
         {text}
       </Text>
     </View>

@@ -35,9 +35,12 @@ export const OPTIMIZED_IMAGES = {
 
 // Default fallback URLs for remote images
 export const FALLBACK_URLS = {
-  ARTIST_PLACEHOLDER: 'https://via.placeholder.com/500x500/cccccc/666666?text=Artist',
-  ALBUM_PLACEHOLDER: 'https://via.placeholder.com/500x500/cccccc/666666?text=Album',
-  GENERIC_PLACEHOLDER: 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+  ARTIST_PLACEHOLDER:
+    'https://via.placeholder.com/500x500/cccccc/666666?text=Artist',
+  ALBUM_PLACEHOLDER:
+    'https://via.placeholder.com/500x500/cccccc/666666?text=Album',
+  GENERIC_PLACEHOLDER:
+    'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
 };
 
 /**
@@ -46,16 +49,24 @@ export const FALLBACK_URLS = {
 export const getOptimizedImageSource = (type, customSource = null) => {
   switch (type) {
     case 'album':
-      return customSource ? { uri: customSource } : OPTIMIZED_IMAGES.DEFAULT_ALBUM;
+      return customSource
+        ? { uri: customSource }
+        : OPTIMIZED_IMAGES.DEFAULT_ALBUM;
 
     case 'music':
-      return customSource ? { uri: customSource } : OPTIMIZED_IMAGES.DEFAULT_MUSIC;
+      return customSource
+        ? { uri: customSource }
+        : OPTIMIZED_IMAGES.DEFAULT_MUSIC;
 
     case 'local-music':
-      return customSource ? { uri: customSource } : OPTIMIZED_IMAGES.LOCAL_MUSIC;
+      return customSource
+        ? { uri: customSource }
+        : OPTIMIZED_IMAGES.LOCAL_MUSIC;
 
     case 'playlist':
-      return customSource ? { uri: customSource } : OPTIMIZED_IMAGES.DEFAULT_PLAYLIST;
+      return customSource
+        ? { uri: customSource }
+        : OPTIMIZED_IMAGES.DEFAULT_PLAYLIST;
 
     case 'playing':
       return OPTIMIZED_IMAGES.PLAYING_ANIMATION;
@@ -63,13 +74,13 @@ export const getOptimizedImageSource = (type, customSource = null) => {
     case 'paused':
       return OPTIMIZED_IMAGES.PAUSED_ANIMATION;
 
-
-
     case 'local-collapsed':
       return OPTIMIZED_IMAGES.DEFAULT_MUSIC;
 
     case 'artist':
-      return customSource ? { uri: customSource } : { uri: FALLBACK_URLS.ARTIST_PLACEHOLDER };
+      return customSource
+        ? { uri: customSource }
+        : { uri: FALLBACK_URLS.ARTIST_PLACEHOLDER };
 
     default:
       return OPTIMIZED_IMAGES.DEFAULT_MUSIC;
@@ -93,12 +104,15 @@ export const getOptimizedArtworkUrl = (artworkUrl, quality = 'high') => {
     // Special handling for JioSaavn CDN
     if (artworkUrl.includes('saavncdn.com')) {
       const qualityMap = {
-        'low': '150x150',
-        'medium': '500x500',
-        'high': '500x500'
+        low: '150x150',
+        medium: '500x500',
+        high: '500x500',
       };
 
-      return artworkUrl.replace(/50x50|150x150|500x500/g, qualityMap[quality] || '500x500');
+      return artworkUrl.replace(
+        /50x50|150x150|500x500/g,
+        qualityMap[quality] || '500x500'
+      );
     }
 
     // For other URLs, try to add quality parameter
@@ -130,7 +144,9 @@ export const resolveImageSource = (imageData, fallbackType = 'music') => {
   // Handle string URLs
   if (typeof imageData === 'string') {
     const optimizedUrl = getOptimizedArtworkUrl(imageData);
-    return optimizedUrl ? { uri: optimizedUrl } : getOptimizedImageSource(fallbackType);
+    return optimizedUrl
+      ? { uri: optimizedUrl }
+      : getOptimizedImageSource(fallbackType);
   }
 
   // Handle require() results (numbers)
@@ -141,7 +157,9 @@ export const resolveImageSource = (imageData, fallbackType = 'music') => {
   // Handle objects with uri property
   if (imageData && typeof imageData === 'object' && imageData.uri) {
     const optimizedUrl = getOptimizedArtworkUrl(imageData.uri);
-    return optimizedUrl ? { uri: optimizedUrl } : getOptimizedImageSource(fallbackType);
+    return optimizedUrl
+      ? { uri: optimizedUrl }
+      : getOptimizedImageSource(fallbackType);
   }
 
   // Handle arrays (try to get best quality)
@@ -149,12 +167,16 @@ export const resolveImageSource = (imageData, fallbackType = 'music') => {
     for (const item of imageData) {
       if (typeof item === 'string' && item.trim() !== '') {
         const optimizedUrl = getOptimizedArtworkUrl(item);
-        return optimizedUrl ? { uri: optimizedUrl } : getOptimizedImageSource(fallbackType);
+        return optimizedUrl
+          ? { uri: optimizedUrl }
+          : getOptimizedImageSource(fallbackType);
       }
       if (item && typeof item === 'object' && (item.url || item.link)) {
         const url = item.url || item.link;
         const optimizedUrl = getOptimizedArtworkUrl(url);
-        return optimizedUrl ? { uri: optimizedUrl } : getOptimizedImageSource(fallbackType);
+        return optimizedUrl
+          ? { uri: optimizedUrl }
+          : getOptimizedImageSource(fallbackType);
       }
     }
   }
@@ -164,7 +186,9 @@ export const resolveImageSource = (imageData, fallbackType = 'music') => {
     const url = imageData.url || imageData.link;
     if (url) {
       const optimizedUrl = getOptimizedArtworkUrl(url);
-      return optimizedUrl ? { uri: optimizedUrl } : getOptimizedImageSource(fallbackType);
+      return optimizedUrl
+        ? { uri: optimizedUrl }
+        : getOptimizedImageSource(fallbackType);
     }
   }
 
@@ -184,7 +208,7 @@ export const preloadCriticalImages = () => {
     OPTIMIZED_IMAGES.DEFAULT_ALBUM,
   ];
 
-  FastImage.preload(criticalImages.map(source => ({ uri: source })));
+  FastImage.preload(criticalImages.map((source) => ({ uri: source })));
 };
 
 /**

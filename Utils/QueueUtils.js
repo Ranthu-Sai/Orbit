@@ -12,7 +12,7 @@ export const QueueOperationStates = {
   FILTERING: 'filtering',
   ADDING: 'adding',
   REMOVING: 'removing',
-  CLEARING: 'clearing'
+  CLEARING: 'clearing',
 };
 
 // Track source types
@@ -20,7 +20,7 @@ export const TrackSourceTypes = {
   ONLINE: 'online',
   DOWNLOAD: 'download',
   MYMUSIC: 'mymusic',
-  LOCAL: 'local'
+  LOCAL: 'local',
 };
 
 /**
@@ -29,17 +29,18 @@ export const TrackSourceTypes = {
  * @returns {boolean} True if track is local
  */
 export const isLocalTrack = (track) => {
-  if (!track) return false;
+  if (!track) {
+    return false;
+  }
   return Boolean(
     track.isLocalMusic ||
-    track.isLocal ||
-    track.isDownloaded ||
-    track.path ||
-    (track.url && (
-      track.url.startsWith('file://') ||
-      track.url.includes('content://') ||
-      track.url.includes('/storage/')
-    ))
+      track.isLocal ||
+      track.isDownloaded ||
+      track.path ||
+      (track.url &&
+        (track.url.startsWith('file://') ||
+          track.url.includes('content://') ||
+          track.url.includes('/storage/')))
   );
 };
 
@@ -49,14 +50,22 @@ export const isLocalTrack = (track) => {
  * @returns {string} Source type
  */
 export const getTrackSourceType = (track) => {
-  if (!track) return TrackSourceTypes.ONLINE;
+  if (!track) {
+    return TrackSourceTypes.ONLINE;
+  }
 
   if (track.sourceType) {
     // Normalize some legacy/alternate sourceType values to our canonical set
     const st = String(track.sourceType).toLowerCase();
-    if (st === 'downloaded' || st === 'local') return TrackSourceTypes.DOWNLOAD;
-    if (st === 'mymusic' || st === 'my_music' || st === 'my-music') return TrackSourceTypes.MYMUSIC;
-    if (st === 'download') return TrackSourceTypes.DOWNLOAD;
+    if (st === 'downloaded' || st === 'local') {
+      return TrackSourceTypes.DOWNLOAD;
+    }
+    if (st === 'mymusic' || st === 'my_music' || st === 'my-music') {
+      return TrackSourceTypes.MYMUSIC;
+    }
+    if (st === 'download') {
+      return TrackSourceTypes.DOWNLOAD;
+    }
     // Fall back to the value provided if it's already one of our canonical values
     return st;
   }
@@ -80,7 +89,7 @@ export const getDownloadedTracks = async () => {
       return [];
     }
 
-    return Object.values(allMetadata).map(metadata => {
+    return Object.values(allMetadata).map((metadata) => {
       const artworkPath = StorageManager.getArtworkPath(metadata.id);
       const songPath = StorageManager.getSongPath(metadata.id);
 
@@ -94,7 +103,7 @@ export const getDownloadedTracks = async () => {
         duration: metadata.duration || 0,
         isLocal: true,
         isDownloaded: true,
-        sourceType: TrackSourceTypes.DOWNLOAD
+        sourceType: TrackSourceTypes.DOWNLOAD,
       };
     });
   } catch (error) {
@@ -111,13 +120,17 @@ export const getDownloadedTracks = async () => {
  */
 export const filterQueueBySource = async (currentTrack, isOffline = false) => {
   try {
-    if (!currentTrack) return [];
+    if (!currentTrack) {
+      return [];
+    }
 
     const downloadedTracks = await getDownloadedTracks();
     const sourceType = getTrackSourceType(currentTrack);
     if (sourceType === TrackSourceTypes.MYMUSIC) {
       const fullQueue = await TrackPlayer.getQueue();
-      const myMusicTracks = fullQueue.filter(track => getTrackSourceType(track) === TrackSourceTypes.MYMUSIC);
+      const myMusicTracks = fullQueue.filter(
+        (track) => getTrackSourceType(track) === TrackSourceTypes.MYMUSIC
+      );
 
       if (myMusicTracks.length === 0) {
         return [currentTrack];
@@ -125,31 +138,43 @@ export const filterQueueBySource = async (currentTrack, isOffline = false) => {
 
       return [
         currentTrack,
-        ...myMusicTracks.filter(track => track.id !== currentTrack.id)
+        ...myMusicTracks.filter((track) => track.id !== currentTrack.id),
       ];
     }
 
-    if (sourceType === TrackSourceTypes.DOWNLOAD || (isLocalTrack(currentTrack) && !currentTrack.sourceType)) {
+    if (
+      sourceType === TrackSourceTypes.DOWNLOAD ||
+      (isLocalTrack(currentTrack) && !currentTrack.sourceType)
+    ) {
       const fullQueue = await TrackPlayer.getQueue();
-      const downloadSourceTracks = fullQueue.filter(track =>
-        getTrackSourceType(track) === TrackSourceTypes.DOWNLOAD ||
-        (isLocalTrack(track) && !track.sourceType)
+      const downloadSourceTracks = fullQueue.filter(
+        (track) =>
+          getTrackSourceType(track) === TrackSourceTypes.DOWNLOAD ||
+          (isLocalTrack(track) && !track.sourceType)
       );
 
-      let combinedTracks = downloadSourceTracks.length > 0 ? downloadSourceTracks : [];
+      let combinedTracks =
+        downloadSourceTracks.length > 0 ? downloadSourceTracks : [];
 
       if (downloadedTracks.length > 0) {
-        const existingIds = new Set(combinedTracks.map(t => t.id));
-        const additionalDownloads = downloadedTracks.filter(t => !existingIds.has(t.id));
+        const existingIds = new Set(combinedTracks.map((t) => t.id));
+        const additionalDownloads = downloadedTracks.filter(
+          (t) => !existingIds.has(t.id)
+        );
         combinedTracks = [...combinedTracks, ...additionalDownloads];
       }
 
       if (combinedTracks.length === 0) {
         combinedTracks = [currentTrack];
       } else {
-        const currentTrackIndex = combinedTracks.findIndex(t => t.id === currentTrack.id);
+        const currentTrackIndex = combinedTracks.findIndex(
+          (t) => t.id === currentTrack.id
+        );
         if (currentTrackIndex > 0) {
-          const currentTrackItem = combinedTracks.splice(currentTrackIndex, 1)[0];
+          const currentTrackItem = combinedTracks.splice(
+            currentTrackIndex,
+            1
+          )[0];
           combinedTracks = [currentTrackItem, ...combinedTracks];
         } else if (currentTrackIndex === -1) {
           combinedTracks = [currentTrack, ...combinedTracks];
@@ -167,12 +192,14 @@ export const filterQueueBySource = async (currentTrack, isOffline = false) => {
         return [currentTrack];
       }
 
-      const onlineTracks = fullQueue.filter(track =>
-        !track.sourceType && !isLocalTrack(track)
+      const onlineTracks = fullQueue.filter(
+        (track) => !track.sourceType && !isLocalTrack(track)
       );
 
       if (onlineTracks.length > 0) {
-        const currentTrackIndex = onlineTracks.findIndex(t => t.id === currentTrack.id);
+        const currentTrackIndex = onlineTracks.findIndex(
+          (t) => t.id === currentTrack.id
+        );
         if (currentTrackIndex > 0) {
           const currentTrackItem = onlineTracks.splice(currentTrackIndex, 1)[0];
           return [currentTrackItem, ...onlineTracks];
@@ -188,7 +215,10 @@ export const filterQueueBySource = async (currentTrack, isOffline = false) => {
     } else {
       // Offline mode fallback
       if (downloadedTracks.length > 0) {
-        return [currentTrack, ...downloadedTracks.filter(t => t.id !== currentTrack.id)];
+        return [
+          currentTrack,
+          ...downloadedTracks.filter((t) => t.id !== currentTrack.id),
+        ];
       }
 
       return [currentTrack];
@@ -205,11 +235,15 @@ export const filterQueueBySource = async (currentTrack, isOffline = false) => {
  * @returns {Array} Array with duplicates removed
  */
 export const removeDuplicateTracks = (tracks) => {
-  if (!Array.isArray(tracks)) return [];
+  if (!Array.isArray(tracks)) {
+    return [];
+  }
 
   const uniqueIds = new Set();
-  return tracks.filter(track => {
-    if (!track || !track.id || uniqueIds.has(track.id)) return false;
+  return tracks.filter((track) => {
+    if (!track || !track.id || uniqueIds.has(track.id)) {
+      return false;
+    }
     uniqueIds.add(track.id);
     return true;
   });
@@ -222,9 +256,11 @@ export const removeDuplicateTracks = (tracks) => {
  * @returns {Array} Queue with current track first
  */
 export const ensureCurrentTrackFirst = (tracks, currentTrack) => {
-  if (!Array.isArray(tracks) || !currentTrack || !currentTrack.id) return tracks;
+  if (!Array.isArray(tracks) || !currentTrack || !currentTrack.id) {
+    return tracks;
+  }
 
-  const currentTrackIndex = tracks.findIndex(t => t.id === currentTrack.id);
+  const currentTrackIndex = tracks.findIndex((t) => t.id === currentTrack.id);
 
   if (currentTrackIndex > 0) {
     const currentTrackItem = tracks.splice(currentTrackIndex, 1)[0];
@@ -255,7 +291,11 @@ export class QueueOperationManager {
     return new Promise((resolve, reject) => {
       this.operationQueue.push(async () => {
         if (this.currentOperation !== QueueOperationStates.IDLE) {
-          reject(new Error(`Queue operation already in progress: ${this.currentOperation}`));
+          reject(
+            new Error(
+              `Queue operation already in progress: ${this.currentOperation}`
+            )
+          );
           return;
         }
 
@@ -280,7 +320,10 @@ export class QueueOperationManager {
    * Process next operation in queue
    */
   async processNextOperation() {
-    if (this.operationQueue.length > 0 && this.currentOperation === QueueOperationStates.IDLE) {
+    if (
+      this.operationQueue.length > 0 &&
+      this.currentOperation === QueueOperationStates.IDLE
+    ) {
       const nextOperation = this.operationQueue.shift();
       nextOperation();
     }
@@ -292,7 +335,7 @@ export class QueueOperationManager {
   getCurrentState() {
     return {
       currentOperation: this.currentOperation,
-      queueLength: this.operationQueue.length
+      queueLength: this.operationQueue.length,
     };
   }
 }

@@ -1,23 +1,30 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ToastAndroid, Alert, Dimensions, RefreshControl } from "react-native";
+import React, { useState, useEffect, useCallback, useMemo, useContext } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ToastAndroid, Alert, Dimensions, RefreshControl, Platform, PermissionsAndroid } from "react-native";
 import FastImage from "react-native-fast-image";
 import { useTheme, useNavigation, useRoute } from "@react-navigation/native";
 import LinearGradient from "react-native-linear-gradient";
 import AntDesign from "react-native-vector-icons/AntDesign";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import TrackPlayer, { State } from 'react-native-track-player';
+import DeviceInfo from 'react-native-device-info';
+import RNFS from 'react-native-fs';
 import { getAlbumData } from "../../Api/Album";
 import { PlainText } from "../Global/PlainText";
 import { SmallText } from "../Global/SmallText";
 import { Heading } from "../Global/Heading";
 import { EachSongCard } from "../Global/EachSongCard";
 import { DownloadButton } from "../Global/DownloadButton";
-import { AddPlaylist, PlayOneSong } from "../../MusicPlayerFunctions";
-import { truncateText } from "../../Utils/FormatTitleAndArtist";
+import { AddPlaylist, PlayOneSong, PauseSong, PlaySong, getIndexQuality } from "../../MusicPlayerFunctions";
+import { truncateText, FormatTitleAndArtist } from "../../Utils/FormatTitleAndArtist";
 import FormatArtist from "../../Utils/FormatArtists";
 import { StorageManager } from '../../Utils/StorageManager';
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
+import { ensureDirectoryExists } from '../../Utils/FileUtils';
 import EventRegister from '../../Utils/EventRegister';
+import Context from '../../Context/Context';
+import { useThemeContext } from '../../Context/ThemeContext';
+import { PlayButton } from './PlayButton';
 
 // Circular progress component for download indicator
 const CircularProgress = ({ progress, size = 20, thickness = 2, color }) => {
@@ -63,10 +70,10 @@ const CircularProgress = ({ progress, size = 20, thickness = 2, color }) => {
 };
 
 // Function to truncate text
-const truncateText = (text, limit = 20) => {
-  if (!text) return '';
-  return text.length > limit ? text.substring(0, limit) + '...' : text;
-};
+// const truncateText = (text, limit = 20) => {
+//   if (!text) return '';
+//   return text.length > limit ? text.substring(0, limit) + '...' : text;
+// };
 
 export const AlbumDetails = ({ name, releaseData, liked, Data }) => {
   const { updateTrack, currentPlaying } = useContext(Context);
@@ -169,16 +176,16 @@ export const AlbumDetails = ({ name, releaseData, liked, Data }) => {
       const quality = await getIndexQuality();
       const ForMusicPlayer = Data?.data?.songs?.map((e, i) => {
         return {
-          url: e?.downloadUrl[quality].url,
+          url: e?.downloadUrl?.[quality]?.url || e?.downloadUrl?.[quality]?.link || e?.downloadUrl?.find?.(item => item?.url || item?.link)?.url || e?.downloadUrl?.find?.(item => item?.url || item?.link)?.link || '',
           title: FormatTitleAndArtist(e?.name),
-          artist: FormatTitleAndArtist(FormatArtist(e?.artists?.primary)),
-          artwork: e?.image?.[2]?.url || e?.images?.[2]?.url || '',
-          image: e?.image?.[2]?.url || e?.images?.[2]?.url || '',
+          artist: FormatTitleAndArtist(e?.primaryArtists || FormatArtist(e?.artists?.primary)),
+          artwork: e?.image?.[2]?.link || e?.image?.[2]?.url || e?.images?.[2]?.link || e?.images?.[2]?.url || '',
+          image: e?.image?.[2]?.link || e?.image?.[2]?.url || e?.images?.[2]?.link || e?.images?.[2]?.url || '',
           duration: e?.duration,
           id: e?.id,
           albumId: Data?.data?.id,
           language: e?.language,
-          artistID: e?.primary_artists_id,
+          artistID: e?.primaryArtistsId || e?.primary_artists_id,
           // Preserve additional metadata for song info display
           year: e?.year || Data?.data?.year,
           playCount: e?.playCount,

@@ -1,31 +1,31 @@
-import { MainWrapper } from "../Layout/MainWrapper";
-import { AlbumHeader } from "../Component/Album/AlbumHeader";
-import { View, BackHandler, Text, FlatList, StyleSheet } from "react-native";
-import { EachSongCard } from "../Component/Global/EachSongCard";
-import { useEffect, useState, useCallback, useContext } from "react";
-import { DetailSkeletonLoader } from "../Component/Global/DetailSkeletonLoader";
-import { useTheme, useNavigation, useFocusEffect } from "@react-navigation/native";
-import { PlainText } from "../Component/Global/PlainText";
-import { SmallText } from "../Component/Global/SmallText";
-import { getAlbumData } from "../Api/Album";
-import { getYTMusicAlbumData } from "../Api/YTMusic";
-import { SpotifyService } from "../Utils/SpotifyService";
-import dabMusicService from "../Utils/DabMusicService";
+import { MainWrapper } from '../Layout/MainWrapper';
+import { AlbumHeader } from '../Component/Album/AlbumHeader';
+import { View, BackHandler, Text, FlatList, StyleSheet } from 'react-native';
+import { EachSongCard } from '../Component/Global/EachSongCard';
+import { useEffect, useState, useCallback, useContext } from 'react';
+import { DetailSkeletonLoader } from '../Component/Global/DetailSkeletonLoader';
+import {
+  useTheme,
+  useNavigation,
+  useFocusEffect,
+} from '@react-navigation/native';
+import { PlainText } from '../Component/Global/PlainText';
+import { SmallText } from '../Component/Global/SmallText';
+import { getAlbumData } from '../Api/Album';
+import { getYTMusicAlbumData } from '../Api/YTMusic';
+import { SpotifyService } from '../Utils/SpotifyService';
+import dabMusicService from '../Utils/DabMusicService';
 
-import FormatArtist from "../Utils/FormatArtists";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useActiveTrack, usePlaybackState } from "react-native-track-player";
-import Context from "../Context/Context";
-
-
+import FormatArtist from '../Utils/FormatArtists';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useActiveTrack, usePlaybackState } from 'react-native-track-player';
+import Context from '../Context/Context';
 
 // AsyncStorage keys
-const CURRENT_ALBUM_ID_KEY = "orbit_current_album_id";
-const CURRENT_ALBUM_DATA_KEY = "orbit_current_album_data";
-const CURRENT_PLAYLIST_ID_KEY = "orbit_current_playlist_id";
-const CURRENT_PLAYLIST_DATA_KEY = "orbit_current_playlist_data";
-
-
+const CURRENT_ALBUM_ID_KEY = 'orbit_current_album_id';
+const CURRENT_ALBUM_DATA_KEY = 'orbit_current_album_data';
+const CURRENT_PLAYLIST_ID_KEY = 'orbit_current_playlist_id';
+const CURRENT_PLAYLIST_DATA_KEY = 'orbit_current_playlist_data';
 
 // Utility function to validate image URLs
 const getValidImageUrl = (url) => {
@@ -46,7 +46,11 @@ export const Album = ({ route }) => {
   const playbackState = usePlaybackState();
 
   // Get context for FullScreen navigation handling
-  const { fullScreenNavigationTarget, setFullScreenNavigationTarget, setIndex } = useContext(Context);
+  const {
+    fullScreenNavigationTarget,
+    setFullScreenNavigationTarget,
+    setIndex,
+  } = useContext(Context);
 
   // Safely destructure route.params with default values
   const routeId = route?.params?.id;
@@ -87,12 +91,20 @@ export const Album = ({ route }) => {
         return false; // Let default back behavior happen
       };
 
-      const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      const backHandler = BackHandler.addEventListener(
+        'hardwareBackPress',
+        onBackPress
+      );
       return () => backHandler.remove();
-    }, [returnToFullScreen, fullScreenNavigationTarget, setFullScreenNavigationTarget, setIndex, navigation, source])
+    }, [
+      returnToFullScreen,
+      fullScreenNavigationTarget,
+      setFullScreenNavigationTarget,
+      setIndex,
+      navigation,
+      source,
+    ])
   );
-
-
 
   // When component mounts, check if we have a route ID - if not, try to recover from AsyncStorage
   useEffect(() => {
@@ -109,9 +121,12 @@ export const Album = ({ route }) => {
             id: routeId,
             source: route?.params?.source || null,
             language: route?.params?.language || null,
-            searchText: route?.params?.searchText || null
+            searchText: route?.params?.searchText || null,
           };
-          await AsyncStorage.setItem(CURRENT_ALBUM_DATA_KEY, JSON.stringify(albumData));
+          await AsyncStorage.setItem(
+            CURRENT_ALBUM_DATA_KEY,
+            JSON.stringify(albumData)
+          );
         } else {
           // Try to get stored album ID as fallback
           const storedId = await AsyncStorage.getItem(CURRENT_ALBUM_ID_KEY);
@@ -120,7 +135,9 @@ export const Album = ({ route }) => {
             setId(storedId);
 
             // Try to get the full album data
-            const storedDataStr = await AsyncStorage.getItem(CURRENT_ALBUM_DATA_KEY);
+            const storedDataStr = await AsyncStorage.getItem(
+              CURRENT_ALBUM_DATA_KEY
+            );
             if (storedDataStr) {
               try {
                 const storedData = JSON.parse(storedDataStr);
@@ -140,9 +157,13 @@ export const Album = ({ route }) => {
     };
 
     recoverAlbumData();
-  }, [routeId, route?.params?.source, route?.params?.language, route?.params?.searchText, navigation]);
-
-
+  }, [
+    routeId,
+    route?.params?.source,
+    route?.params?.language,
+    route?.params?.searchText,
+    navigation,
+  ]);
 
   // Clean up AsyncStorage when leaving album
   const cleanupAlbumData = async () => {
@@ -151,7 +172,7 @@ export const Album = ({ route }) => {
         AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY),
         AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY),
         AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
-        AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY)
+        AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY),
       ]);
     } catch (error) {
       console.error('Error clearing navigation data:', error);
@@ -160,7 +181,7 @@ export const Album = ({ route }) => {
 
   const fetchAlbumData = async (albumId) => {
     if (!albumId) {
-      console.error("Album ID is missing from route params");
+      console.error('Album ID is missing from route params');
       // Navigate back to prevent errors with fallback
       if (navigation.canGoBack()) {
         navigation.goBack();
@@ -192,8 +213,12 @@ export const Album = ({ route }) => {
             id: spotifyData.id,
             name: spotifyData.name,
             year: spotifyData.year,
-            image: [{ url: spotifyData.image }, { url: spotifyData.image }, { url: spotifyData.image }],
-            songs: spotifyData.tracks.map(track => ({
+            image: [
+              { url: spotifyData.image },
+              { url: spotifyData.image },
+              { url: spotifyData.image },
+            ],
+            songs: spotifyData.tracks.map((track) => ({
               id: track.spotifyId,
               spotifyId: track.spotifyId,
               name: track.title,
@@ -203,11 +228,15 @@ export const Album = ({ route }) => {
               artist: track.artist, // String format for playback/search
               artists: { primary: [{ name: track.artist }] }, // Display format
               primaryArtists: track.artist, // For FormatArtist compatibility
-              image: [{ url: track.artwork }, { url: track.artwork }, { url: track.artwork }],
+              image: [
+                { url: track.artwork },
+                { url: track.artwork },
+                { url: track.artwork },
+              ],
               artwork: track.artwork, // Direct artwork URL
-              source: 'spotify'
-            }))
-          }
+              source: 'spotify',
+            })),
+          },
         };
       } else {
         response = await getAlbumData(albumId);
@@ -220,16 +249,18 @@ export const Album = ({ route }) => {
           id: albumId,
           source: route?.params?.source || null,
           language: route?.params?.language || null,
-          searchText: route?.params?.searchText || null
+          searchText: route?.params?.searchText || null,
         };
         await AsyncStorage.setItem(CURRENT_ALBUM_ID_KEY, albumId);
-        await AsyncStorage.setItem(CURRENT_ALBUM_DATA_KEY, JSON.stringify(albumDataToStore));
+        await AsyncStorage.setItem(
+          CURRENT_ALBUM_DATA_KEY,
+          JSON.stringify(albumDataToStore)
+        );
       } catch (storageError) {
-        console.error("Failed to save album data to storage:", storageError);
+        console.error('Failed to save album data to storage:', storageError);
       }
-
     } catch (error) {
-      console.error("Error fetching album data:", error);
+      console.error('Error fetching album data:', error);
     } finally {
       setLoading(false);
       setDataFetchAttempted(true);
@@ -254,116 +285,151 @@ export const Album = ({ route }) => {
   const songsArray = Data?.data?.songs || Data?.data?.tracks || [];
 
   // Render item for FlatList
-  const renderSongItem = useCallback(({ item: e, index: i }) => {
-    // Get proper image URL - handle both array and direct URL formats
-    let imageUrl = '';
-    if (e?.image) {
-      if (Array.isArray(e.image)) {
-        const imageItem = e.image[2] || e.image[e.image.length - 1] || e.image[0];
-        imageUrl = imageItem?.url || imageItem?.link || '';
-      } else if (typeof e.image === 'string') {
-        imageUrl = e.image;
+  const renderSongItem = useCallback(
+    ({ item: e, index: i }) => {
+      // Get proper image URL - handle both array and direct URL formats
+      let imageUrl = '';
+      if (e?.image) {
+        if (Array.isArray(e.image)) {
+          const imageItem =
+            e.image[2] || e.image[e.image.length - 1] || e.image[0];
+          imageUrl = imageItem?.url || imageItem?.link || '';
+        } else if (typeof e.image === 'string') {
+          imageUrl = e.image;
+        }
       }
-    }
 
-    // Fallback to images property if image is not available
-    if (!imageUrl && e?.images && Array.isArray(e.images)) {
-      const imageItem = e.images[2] || e.images[e.images.length - 1] || e.images[0];
-      imageUrl = imageItem?.url || imageItem?.link || '';
-    }
+      // Fallback to images property if image is not available
+      if (!imageUrl && e?.images && Array.isArray(e.images)) {
+        const imageItem =
+          e.images[2] || e.images[e.images.length - 1] || e.images[0];
+        imageUrl = imageItem?.url || imageItem?.link || '';
+      }
 
-    // Final validation
-    imageUrl = getValidImageUrl(imageUrl);
+      // Final validation
+      imageUrl = getValidImageUrl(imageUrl);
 
-    return (
-      <EachSongCard
-        isFromPlaylist={true}
-        isFromAlbum={true}
-        Data={Data}
-        index={i}
-        artist={FormatArtist(e?.artists?.primary)}
-        language={e?.language}
-        playlist={true}
-        artistID={e?.primary_artists_id}
-        duration={e?.duration}
-        image={imageUrl}
-        id={e?.id}
-        width={"100%"}
-        title={e?.name}
-        url={e?.downloadUrl}
-        source={e?.source || 'saavn'}
-        style={styles.songCard}
-        showNumber={true}
-        activeTrackId={activeTrack?.id}
-        isPlaying={playbackState.state === "playing" || playbackState.state === 3}
-      />
-    );
-  }, [Data, activeTrack?.id, playbackState.state]);
+      return (
+        <EachSongCard
+          isFromPlaylist={true}
+          isFromAlbum={true}
+          Data={Data}
+          index={i}
+          artist={FormatArtist(e?.artists?.primary)}
+          language={e?.language}
+          playlist={true}
+          artistID={e?.primary_artists_id}
+          duration={e?.duration}
+          image={imageUrl}
+          id={e?.id}
+          width={'100%'}
+          title={e?.name}
+          url={e?.downloadUrl}
+          source={e?.source || 'saavn'}
+          style={styles.songCard}
+          showNumber={true}
+          activeTrackId={activeTrack?.id}
+          isPlaying={
+            playbackState.state === 'playing' || playbackState.state === 3
+          }
+        />
+      );
+    },
+    [Data, activeTrack?.id, playbackState.state]
+  );
 
   // Key extractor for FlatList
-  const keyExtractor = useCallback((item, index) => `album-song-${item?.id || index}-${index}`, []);
+  const keyExtractor = useCallback(
+    (item, index) => `album-song-${item?.id || index}-${index}`,
+    []
+  );
 
   // Header component for FlatList
-  const renderHeader = useCallback(() => (
-    <AlbumHeader
-      imageUrl={Data?.data?.image?.[2]?.url || Data?.data?.image?.[0]?.url || ''}
-      title={Data?.data?.name || "Album"}
-      songCount={songsArray.length}
-      albumId={Data?.data?.id || route?.params?.id}
-      year={Data?.data?.year || ""}
-      songsData={songsArray}
-      albumData={Data}
-      // DAB-specific props
-      artistName={Data?.data?.artistName || Data?.data?.artist || null}
-      qualityLabel={Data?.data?.qualityLabel || null}
-      totalDuration={Data?.data?.totalDuration || null}
-      isHiRes={Data?.data?.isHiRes || false}
-    />
-  ), [Data, songsArray, route?.params?.id]);
+  const renderHeader = useCallback(
+    () => (
+      <AlbumHeader
+        imageUrl={
+          Data?.data?.image?.[2]?.url || Data?.data?.image?.[0]?.url || ''
+        }
+        title={Data?.data?.name || 'Album'}
+        songCount={songsArray.length}
+        albumId={Data?.data?.id || route?.params?.id}
+        year={Data?.data?.year || ''}
+        songsData={songsArray}
+        albumData={Data}
+        // DAB-specific props
+        artistName={Data?.data?.artistName || Data?.data?.artist || null}
+        qualityLabel={Data?.data?.qualityLabel || null}
+        totalDuration={Data?.data?.totalDuration || null}
+        isHiRes={Data?.data?.isHiRes || false}
+      />
+    ),
+    [Data, songsArray, route?.params?.id]
+  );
 
   // Footer component for FlatList
-  const renderFooter = useCallback(() => (
-    <View style={styles.bottomSpacer} />
-  ), []);
+  const renderFooter = useCallback(
+    () => <View style={styles.bottomSpacer} />,
+    []
+  );
 
   return (
     <MainWrapper>
-      {Loading &&
-        <DetailSkeletonLoader type="album" />}
-      {!Loading && dataFetchAttempted && !(Data?.data?.songs?.length || Data?.data?.tracks?.length) && (
-        <View style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          paddingHorizontal: 20
-        }}>
-          <PlainText text="Album not found or no songs available" style={{ textAlign: 'center' }} />
-          <SmallText text="Please check your connection and try again" style={{ textAlign: 'center' }} />
-        </View>
-      )}
-      {!Loading && (Data?.data?.songs?.length > 0 || Data?.data?.tracks?.length > 0) &&
-        <View style={{ flex: 1, backgroundColor: theme.dark ? theme.colors.background : '#FFFFFF' }}>
-          <FlatList
-            data={Data?.data?.songs || Data?.data?.tracks}
-            renderItem={renderSongItem}
-            keyExtractor={keyExtractor}
-            ListHeaderComponent={renderHeader}
-            ListFooterComponent={renderFooter}
-            contentContainerStyle={{
-              paddingBottom: 120,
-              backgroundColor: theme.dark ? theme.colors.background : "#FFFFFF",
-            }}
+      {Loading && <DetailSkeletonLoader type="album" />}
+      {!Loading &&
+        dataFetchAttempted &&
+        !(Data?.data?.songs?.length || Data?.data?.tracks?.length) && (
+          <View
             style={{
+              flex: 1,
+              justifyContent: 'center',
+              alignItems: 'center',
+              paddingHorizontal: 20,
+            }}
+          >
+            <PlainText
+              text="Album not found or no songs available"
+              style={{ textAlign: 'center' }}
+            />
+            <SmallText
+              text="Please check your connection and try again"
+              style={{ textAlign: 'center' }}
+            />
+          </View>
+        )}
+      {!Loading &&
+        (Data?.data?.songs?.length > 0 || Data?.data?.tracks?.length > 0) && (
+          <View
+            style={{
+              flex: 1,
               backgroundColor: theme.dark ? theme.colors.background : '#FFFFFF',
             }}
-            initialNumToRender={10}
-            maxToRenderPerBatch={10}
-            windowSize={5}
-            removeClippedSubviews={true}
-            showsVerticalScrollIndicator={true}
-          />
-        </View>
-      }
+          >
+            <FlatList
+              data={Data?.data?.songs || Data?.data?.tracks}
+              renderItem={renderSongItem}
+              keyExtractor={keyExtractor}
+              ListHeaderComponent={renderHeader}
+              ListFooterComponent={renderFooter}
+              contentContainerStyle={{
+                paddingBottom: 120,
+                backgroundColor: theme.dark
+                  ? theme.colors.background
+                  : '#FFFFFF',
+              }}
+              style={{
+                backgroundColor: theme.dark
+                  ? theme.colors.background
+                  : '#FFFFFF',
+              }}
+              initialNumToRender={10}
+              maxToRenderPerBatch={10}
+              windowSize={5}
+              removeClippedSubviews={true}
+              showsVerticalScrollIndicator={true}
+            />
+          </View>
+        )}
     </MainWrapper>
   );
 };
@@ -377,10 +443,10 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 65,
-    backgroundColor: "transparent",
+    backgroundColor: 'transparent',
   },
   footerText: {
     padding: 20,
-    alignItems: 'center'
-  }
+    alignItems: 'center',
+  },
 });

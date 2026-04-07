@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react';
 import { ToastAndroid } from 'react-native';
-import { getArtistDetails, getArtistSongsPaginated, getArtistAlbumsPaginated } from '../Api/Songs';
-import { getYTMusicArtistDetails, getYTMusicArtistSongsPaginated, getYTMusicArtistAlbumsPaginated } from '../Api/YTMusic';
+import {
+  getArtistDetails,
+  getArtistSongsPaginated,
+  getArtistAlbumsPaginated,
+} from '../Api/Songs';
+import {
+  getYTMusicArtistDetails,
+  getYTMusicArtistSongsPaginated,
+  getYTMusicArtistAlbumsPaginated,
+} from '../Api/YTMusic';
 
 /**
  * Custom hook for managing artist data fetching and state
@@ -26,7 +34,6 @@ export const useArtistData = (artistId, source = 'saavn') => {
       }
 
       setArtistData(detailsResponse);
-
     } catch (error) {
       console.error('Error fetching artist data:', error);
       ToastAndroid.show('Failed to load artist data', ToastAndroid.SHORT);
@@ -45,14 +52,14 @@ export const useArtistData = (artistId, source = 'saavn') => {
     if (artistId) {
       fetchArtistData();
     }
-  }, [artistId, source]);
+  }, [artistId, source, fetchArtistData]);
 
   return {
     artistData,
     loading,
     refreshing,
     fetchArtistData,
-    onRefresh
+    onRefresh,
   };
 };
 
@@ -63,7 +70,12 @@ export const useArtistData = (artistId, source = 'saavn') => {
  * @param {string} source - Source (saavn or ytmusic)
  * @returns {object} - Songs state and functions
  */
-export const useArtistSongs = (artistId, songsPerPage = 10, source = 'saavn', preloadedSongs = null) => {
+export const useArtistSongs = (
+  artistId,
+  songsPerPage = 10,
+  source = 'saavn',
+  preloadedSongs = null
+) => {
   const [visibleSongs, setVisibleSongs] = useState([]);
   const [currentSongPage, setCurrentSongPage] = useState(1);
   const [songLoading, setSongLoading] = useState(false);
@@ -84,11 +96,15 @@ export const useArtistSongs = (artistId, songsPerPage = 10, source = 'saavn', pr
       setSongLoading(true);
       let response;
       if (source === 'ytmusic') {
-        response = await getYTMusicArtistSongsPaginated(artistId, 1, songsPerPage);
+        response = await getYTMusicArtistSongsPaginated(
+          artistId,
+          1,
+          songsPerPage
+        );
 
         // Fallback to Saavn song search if YouTube Music returns no songs
         if (!response?.data?.songs || response.data.songs.length === 0) {
-          const { getSearchSongData } = require('../Api/Songs');
+          // const { getSearchSongData } = require('../Api/Songs');
 
           // Try to extract artist name from artistId or use it directly
           // Since we don't have artist name here, we'll need to get it from somewhere
@@ -102,7 +118,10 @@ export const useArtistSongs = (artistId, songsPerPage = 10, source = 'saavn', pr
         setVisibleSongs(response.data.songs);
         setTotalSongs(response.data.total || 0);
         setCurrentSongPage(1);
-        setHasMoreSongs(response.data.songs.length >= songsPerPage && response.data.songs.length < response.data.total);
+        setHasMoreSongs(
+          response.data.songs.length >= songsPerPage &&
+            response.data.songs.length < response.data.total
+        );
       }
     } catch (error) {
       console.error('Error loading initial songs:', error);
@@ -113,20 +132,30 @@ export const useArtistSongs = (artistId, songsPerPage = 10, source = 'saavn', pr
   };
 
   const loadMoreSongs = async () => {
-    if (songLoading || !hasMoreSongs) return;
+    if (songLoading || !hasMoreSongs) {
+      return;
+    }
 
     try {
       setSongLoading(true);
       const nextPage = currentSongPage + 1;
       let response;
       if (source === 'ytmusic') {
-        response = await getYTMusicArtistSongsPaginated(artistId, nextPage, songsPerPage);
+        response = await getYTMusicArtistSongsPaginated(
+          artistId,
+          nextPage,
+          songsPerPage
+        );
       } else {
-        response = await getArtistSongsPaginated(artistId, nextPage, songsPerPage);
+        response = await getArtistSongsPaginated(
+          artistId,
+          nextPage,
+          songsPerPage
+        );
       }
 
       if (response?.data?.songs && response.data.songs.length > 0) {
-        setVisibleSongs(prev => [...prev, ...response.data.songs]);
+        setVisibleSongs((prev) => [...prev, ...response.data.songs]);
         setCurrentSongPage(nextPage);
 
         // Check if there are more songs to load
@@ -154,7 +183,7 @@ export const useArtistSongs = (artistId, songsPerPage = 10, source = 'saavn', pr
     if (artistId) {
       loadInitialSongs();
     }
-  }, [artistId, source, preloadedSongs]);
+  }, [artistId, source, preloadedSongs, loadInitialSongs]);
 
   return {
     visibleSongs,
@@ -163,7 +192,7 @@ export const useArtistSongs = (artistId, songsPerPage = 10, source = 'saavn', pr
     totalSongs,
     loadMoreSongs,
     resetSongs,
-    loadInitialSongs
+    loadInitialSongs,
   };
 };
 
@@ -174,7 +203,11 @@ export const useArtistSongs = (artistId, songsPerPage = 10, source = 'saavn', pr
  * @param {string} source - Source (saavn or ytmusic)
  * @returns {object} - Albums state and functions
  */
-export const useArtistAlbums = (artistId, albumsPerPage = 10, source = 'saavn') => {
+export const useArtistAlbums = (
+  artistId,
+  albumsPerPage = 10,
+  source = 'saavn'
+) => {
   const [visibleAlbums, setVisibleAlbums] = useState([]);
   const [currentAlbumPage, setCurrentAlbumPage] = useState(1);
   const [albumLoading, setAlbumLoading] = useState(false);
@@ -186,7 +219,11 @@ export const useArtistAlbums = (artistId, albumsPerPage = 10, source = 'saavn') 
       setAlbumLoading(true);
       let response;
       if (source === 'ytmusic') {
-        response = await getYTMusicArtistAlbumsPaginated(artistId, 1, albumsPerPage);
+        response = await getYTMusicArtistAlbumsPaginated(
+          artistId,
+          1,
+          albumsPerPage
+        );
       } else {
         response = await getArtistAlbumsPaginated(artistId, 1, albumsPerPage);
       }
@@ -195,7 +232,10 @@ export const useArtistAlbums = (artistId, albumsPerPage = 10, source = 'saavn') 
         setVisibleAlbums(response.data.albums);
         setTotalAlbums(response.data.total || 0);
         setCurrentAlbumPage(1);
-        setHasMoreAlbums(response.data.albums.length >= albumsPerPage && response.data.albums.length < response.data.total);
+        setHasMoreAlbums(
+          response.data.albums.length >= albumsPerPage &&
+            response.data.albums.length < response.data.total
+        );
       }
     } catch (error) {
       console.error('Error loading initial albums:', error);
@@ -206,20 +246,30 @@ export const useArtistAlbums = (artistId, albumsPerPage = 10, source = 'saavn') 
   };
 
   const loadMoreAlbums = async () => {
-    if (albumLoading || !hasMoreAlbums) return;
+    if (albumLoading || !hasMoreAlbums) {
+      return;
+    }
 
     try {
       setAlbumLoading(true);
       const nextPage = currentAlbumPage + 1;
       let response;
       if (source === 'ytmusic') {
-        response = await getYTMusicArtistAlbumsPaginated(artistId, nextPage, albumsPerPage);
+        response = await getYTMusicArtistAlbumsPaginated(
+          artistId,
+          nextPage,
+          albumsPerPage
+        );
       } else {
-        response = await getArtistAlbumsPaginated(artistId, nextPage, albumsPerPage);
+        response = await getArtistAlbumsPaginated(
+          artistId,
+          nextPage,
+          albumsPerPage
+        );
       }
 
       if (response?.data?.albums && response.data.albums.length > 0) {
-        setVisibleAlbums(prev => [...prev, ...response.data.albums]);
+        setVisibleAlbums((prev) => [...prev, ...response.data.albums]);
         setCurrentAlbumPage(nextPage);
 
         // Check if there are more albums to load
@@ -247,7 +297,7 @@ export const useArtistAlbums = (artistId, albumsPerPage = 10, source = 'saavn') 
     if (artistId) {
       loadInitialAlbums();
     }
-  }, [artistId, source]);
+  }, [artistId, source, loadInitialAlbums]);
 
   return {
     visibleAlbums,
@@ -256,6 +306,6 @@ export const useArtistAlbums = (artistId, albumsPerPage = 10, source = 'saavn') 
     totalAlbums,
     loadMoreAlbums,
     resetAlbums,
-    loadInitialAlbums
+    loadInitialAlbums,
   };
 };

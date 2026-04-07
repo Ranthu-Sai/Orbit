@@ -1,13 +1,16 @@
 import 'react-native-get-random-values'; // Must be imported before any crypto operations
-import { NavigationContainer, CommonActions, NavigationContainerRef } from "@react-navigation/native";
-import { RootRoute } from "./Route/RootRoute.jsx";
-import { createStackNavigator } from "@react-navigation/stack";
-import { ToastAndroid, BackHandler, Linking } from "react-native";
-import ContextState from "./Context/ContextState";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { BottomSheetModalProvider } from '@gorhom/bottom-sheet'
-import { RouteOnboarding } from "./Route/OnboardingScreen/RouteOnboarding";
-import { InitialScreen } from "./Route/InitialScreen";
+import {
+  NavigationContainer,
+  NavigationContainerRef,
+} from '@react-navigation/native';
+import { RootRoute } from './Route/RootRoute.jsx';
+import { createStackNavigator } from '@react-navigation/stack';
+import { ToastAndroid, BackHandler, Linking } from 'react-native';
+import ContextState from './Context/ContextState';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { RouteOnboarding } from './Route/OnboardingScreen/RouteOnboarding';
+import { InitialScreen } from './Route/InitialScreen';
 import { Album } from './Route/Album';
 import ArtistPage from './Route/ArtistPage';
 import ArtistSongs from './Route/ArtistSongs';
@@ -17,8 +20,8 @@ import LoginScreen from './Component/Auth/LoginScreen';
 import { ChangeName } from './Route/Home/ChangeName';
 import { SelectLanguages } from './Route/Home/SelectLanguages';
 // CodePush removed - using Firebase Remote Config for updates
-import { useEffect, useRef, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // Firebase Analytics is initialized within AnalyticsUtils using the modular API
 // Import analytics service
 import { analyticsService, AnalyticsEvents } from './Utils/AnalyticsUtils';
@@ -47,11 +50,13 @@ type ThemeContextType = {
   isThemeLoaded: boolean;
 };
 
-const Stack = createStackNavigator()
+const Stack = createStackNavigator();
 
 // Update modal state (managed at top level for force updates)
-let globalSetUpdateModalVisible: ((visible: boolean) => void) | null = null;
-let globalSetUpdateInfo: ((info: any) => void) | null = null;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let _globalSetUpdateModalVisible: ((visible: boolean) => void) | null = null;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let _globalSetUpdateInfo: ((info: any) => void) | null = null;
 
 function App() {
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
@@ -62,11 +67,11 @@ function App() {
 
   // Register global setters for force updates
   useEffect(() => {
-    globalSetUpdateModalVisible = setUpdateModalVisible;
-    globalSetUpdateInfo = setUpdateInfo;
+    _globalSetUpdateModalVisible = setUpdateModalVisible;
+    _globalSetUpdateInfo = setUpdateInfo;
     return () => {
-      globalSetUpdateModalVisible = null;
-      globalSetUpdateInfo = null;
+      _globalSetUpdateModalVisible = null;
+      _globalSetUpdateInfo = null;
     };
   }, []);
 
@@ -79,8 +84,7 @@ function App() {
           setUpdateInfo(result.updateInfo);
           setUpdateModalVisible(true);
         }
-      } catch (error) {
-      }
+      } catch (error) {}
     };
 
     // Delay update check to not block app startup
@@ -137,12 +141,13 @@ function App() {
     dabRecommendationService.initialize();
   }, []);
 
-
-
   useEffect(() => {
     // Ensure storage directories exist early to avoid ENOENT when accessing files
-    StorageManager.ensureDirectoriesExist().catch(err => {
-      console.warn('Failed to ensure storage directories at startup:', err && err.message ? err.message : err);
+    StorageManager.ensureDirectoriesExist().catch((err) => {
+      console.warn(
+        'Failed to ensure storage directories at startup:',
+        err && err.message ? err.message : err
+      );
     });
 
     const handleBackPress = () => {
@@ -161,14 +166,19 @@ function App() {
       return false;
     };
 
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      handleBackPress
+    );
     return () => backHandler.remove();
   }, []);
 
   // Handle audio file intents - allows Orbit to be a default music player
   useEffect(() => {
     const handleAudioFileUrl = async (url: string | null) => {
-      if (!url) return;
+      if (!url) {
+        return;
+      }
 
       // Check if the URL is for an audio file (file:// or content:// scheme)
       const isContentUri = url.startsWith('content://');
@@ -184,7 +194,8 @@ function App() {
 
           if (isContentUri) {
             // For content:// URIs, use native module to resolve and read metadata
-            const metadata = await NativeMetadataReader.readMetadataFromUri(url);
+            const metadata: any =
+              await NativeMetadataReader.readMetadataFromUri(url);
 
             if (metadata && metadata.filePath) {
               song = {
@@ -202,7 +213,9 @@ function App() {
               // Fallback if native module fails
               console.warn('⚠️ Failed to resolve content URI, using fallback');
               const pathParts = url.split('/');
-              const fileName = decodeURIComponent(pathParts[pathParts.length - 1] || 'Unknown');
+              const fileName = decodeURIComponent(
+                pathParts[pathParts.length - 1] || 'Unknown'
+              );
               const titleWithoutExt = fileName.replace(/\.[^/.]+$/, '');
 
               song = {
@@ -218,15 +231,16 @@ function App() {
             // For file:// URIs, extract filename and try to read metadata
             const filePath = url.replace('file://', '');
             const pathParts = url.split('/');
-            const fileName = decodeURIComponent(pathParts[pathParts.length - 1] || 'Unknown');
+            const fileName = decodeURIComponent(
+              pathParts[pathParts.length - 1] || 'Unknown'
+            );
             const titleWithoutExt = fileName.replace(/\.[^/.]+$/, '');
 
             // Try to read metadata from local file
-            let metadata = null;
+            let metadata: any = null;
             try {
               metadata = await NativeMetadataReader.readMetadata(filePath);
-            } catch (e) {
-            }
+            } catch (e) {}
 
             song = {
               id: `local-${Date.now()}`,
@@ -263,63 +277,84 @@ function App() {
     };
   }, []);
 
-  return <GestureHandlerRootView style={{ flex: 1 }}>
-    <ContextState>
-      <BottomSheetModalProvider>
-        <ThemeProvider>
-          {({ theme, paperTheme, isThemeLoaded }: ThemeContextType) => {
-            // Only render when theme is loaded to prevent flash of wrong theme
-            if (!isThemeLoaded) {
-              return null; // Or a loading indicator if preferred
-            }
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ContextState>
+        <BottomSheetModalProvider>
+          <ThemeProvider>
+            {({ theme, paperTheme, isThemeLoaded }: ThemeContextType) => {
+              // Only render when theme is loaded to prevent flash of wrong theme
+              if (!isThemeLoaded) {
+                return null; // Or a loading indicator if preferred
+              }
 
-            return (
-              <PaperProvider theme={paperTheme}>
-                <NavigationContainer
-                  ref={navigationRef}
-                  theme={theme}
-                  onStateChange={(state) => {
-                    const currentRouteName = navigationRef.current?.getCurrentRoute()?.name;
-                    if (currentRouteName) {
-                      // Log screen view to Firebase Analytics
-                      analyticsService.logScreenView(currentRouteName);
-                    }
-                  }}
-                  fallback={<InitialScreen navigation={undefined as any} />}
-                >
-                  <Stack.Navigator screenOptions={{
-                    headerShown: false,
-                    cardStyle: { backgroundColor: theme.colors.background },
-                    // INSTANCE REUSE: Keep screens in memory for instant back navigation
-                    detachInactiveScreens: false,
-                  }}>
-                    <Stack.Screen name="Initial" component={InitialScreen} />
-                    <Stack.Screen name="Onboarding" component={RouteOnboarding} />
-                    <Stack.Screen name="MainRoute" component={RootRoute} />
-                    <Stack.Screen name="Album" component={Album} />
-                    <Stack.Screen name="ArtistPage" component={ArtistPage} />
-                    <Stack.Screen name="ArtistSongs" component={ArtistSongs} />
-                    <Stack.Screen name="ArtistItems" component={ArtistItems} />
-                    <Stack.Screen name="SectionListPage" component={SectionListPage} />
-                    <Stack.Screen name="LoginScreen" component={LoginScreen} />
-                    <Stack.Screen name="ChangeName" component={ChangeName} />
-                    <Stack.Screen name="SelectLanguages" component={SelectLanguages} />
-                  </Stack.Navigator>
-                </NavigationContainer>
+              return (
+                <PaperProvider theme={paperTheme}>
+                  <NavigationContainer
+                    ref={navigationRef}
+                    theme={theme}
+                    onStateChange={(_state) => {
+                      const currentRouteName =
+                        navigationRef.current?.getCurrentRoute()?.name;
+                      if (currentRouteName) {
+                        // Log screen view to Firebase Analytics
+                        analyticsService.logScreenView(currentRouteName);
+                      }
+                    }}
+                    fallback={<InitialScreen navigation={undefined as any} />}
+                  >
+                    <Stack.Navigator
+                      screenOptions={{
+                        headerShown: false,
+                        cardStyle: { backgroundColor: theme.colors.background },
+                      }}
+                    >
+                      <Stack.Screen name="Initial" component={InitialScreen} />
+                      <Stack.Screen
+                        name="Onboarding"
+                        component={RouteOnboarding}
+                      />
+                      <Stack.Screen name="MainRoute" component={RootRoute} />
+                      <Stack.Screen name="Album" component={Album} />
+                      <Stack.Screen name="ArtistPage" component={ArtistPage} />
+                      <Stack.Screen
+                        name="ArtistSongs"
+                        component={ArtistSongs}
+                      />
+                      <Stack.Screen
+                        name="ArtistItems"
+                        component={ArtistItems}
+                      />
+                      <Stack.Screen
+                        name="SectionListPage"
+                        component={SectionListPage}
+                      />
+                      <Stack.Screen
+                        name="LoginScreen"
+                        component={LoginScreen}
+                      />
+                      <Stack.Screen name="ChangeName" component={ChangeName} />
+                      <Stack.Screen
+                        name="SelectLanguages"
+                        component={SelectLanguages}
+                      />
+                    </Stack.Navigator>
+                  </NavigationContainer>
 
-                {/* Global Update Modal */}
-                <UpdateModal
-                  visible={updateModalVisible}
-                  onDismiss={handleUpdateDismiss}
-                  updateInfo={updateInfo}
-                  onUpdate={handleUpdateNow}
-                />
-              </PaperProvider>
-            );
-          }}
-        </ThemeProvider>
-      </BottomSheetModalProvider>
-    </ContextState>
-  </GestureHandlerRootView>
+                  {/* Global Update Modal */}
+                  <UpdateModal
+                    visible={updateModalVisible}
+                    onDismiss={handleUpdateDismiss}
+                    updateInfo={updateInfo}
+                    onUpdate={handleUpdateNow}
+                  />
+                </PaperProvider>
+              );
+            }}
+          </ThemeProvider>
+        </BottomSheetModalProvider>
+      </ContextState>
+    </GestureHandlerRootView>
+  );
 }
-export default App
+export default App;

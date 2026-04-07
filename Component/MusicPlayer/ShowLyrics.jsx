@@ -1,28 +1,38 @@
-import { Dimensions, Modal, Pressable, ScrollView, Text, View, StyleSheet, ImageBackground } from "react-native";
-import { Heading } from "../Global/Heading";
-import { Spacer } from "../Global/Spacer";
-import { LoadingComponent } from "../Global/Loading";
-import React, { useState, useEffect, useRef } from "react";
+import {
+  Dimensions,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  StyleSheet,
+  ImageBackground,
+} from 'react-native';
+import { LoadingComponent } from '../Global/Loading';
+import React, { useState, useEffect, useRef } from 'react';
 // import { useTheme } from "@react-navigation/native"; // Replaced with useThemeContext
 import { useThemeContext } from '../../Context/ThemeContext'; // Added custom theme context
-import LinearGradient from "react-native-linear-gradient";
-import Clipboard from '@react-native-clipboard/clipboard';
-import { useProgress } from "react-native-track-player";
+import { useProgress } from 'react-native-track-player';
 
 const parseLRC = (lrcString) => {
-  if (!lrcString) return [];
+  if (!lrcString) {
+    return [];
+  }
   const lines = lrcString.split('\n');
   const lyrics = [];
   const timeRegex = /^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$/;
 
-  lines.forEach(line => {
+  lines.forEach((line) => {
     const match = line.match(timeRegex);
     if (match) {
       const minutes = parseInt(match[1], 10);
       const seconds = parseInt(match[2], 10);
       const msString = match[3];
-      const milliseconds = parseInt(msString.length === 2 ? msString + '0' : msString, 10);
-      const time = (minutes * 60 * 1000) + (seconds * 1000) + milliseconds;
+      const milliseconds = parseInt(
+        msString.length === 2 ? msString + '0' : msString,
+        10
+      );
+      const time = minutes * 60 * 1000 + seconds * 1000 + milliseconds;
       const text = match[4].trim();
       if (text) {
         lyrics.push({ time, text });
@@ -32,10 +42,16 @@ const parseLRC = (lrcString) => {
   return lyrics.sort((a, b) => a.time - b.time);
 };
 
-export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentArtworkSource }) => {
-  const screenHeight = Dimensions.get("window").height;
-  const screenWidth = Dimensions.get("window").width;
-  const { theme, themeMode } = useThemeContext(); // Use custom theme context
+export const ShowLyrics = ({
+  ShowDailog,
+  Loading,
+  Lyric,
+  setShowDailog,
+  currentArtworkSource,
+}) => {
+  const screenHeight = Dimensions.get('window').height;
+  const screenWidth = Dimensions.get('window').width;
+  const { theme } = useThemeContext(); // Use custom theme context
   // Use 50ms interval for smooth real-time sync (500ms was too slow)
   const { position } = useProgress(50);
 
@@ -43,14 +59,10 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
   const SYNC_OFFSET_MS = 150;
 
   const artworkCenterOpacity = 0.3;
-  const artworkEdgeOpacity = 1.0; // Fully opaque edge for artwork background
   const fallbackCenterOpacity = 0.5;
-  const fallbackEdgeOpacity = 1.0; // Increased opacity (fully opaque) for the edge of the fade (fallback background)
 
   const artworkCenterColor = `rgba(0,0,0,${artworkCenterOpacity})`;
-  const artworkEdgeColor = `rgba(0,0,0,${artworkEdgeOpacity})`;
   const fallbackCenterColor = `rgba(0,0,0,${fallbackCenterOpacity})`;
-  const fallbackEdgeColor = `rgba(0,0,0,${fallbackEdgeOpacity})`;
 
   const [parsedLyrics, setParsedLyrics] = useState([]);
   const [activeLyricIndex, setActiveLyricIndex] = useState(-1);
@@ -61,7 +73,9 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
     if (Lyric?.synced) {
       const parsed = parseLRC(Lyric.synced);
       setParsedLyrics(parsed);
-      lyricLineRefs.current = parsed.map((_, i) => lyricLineRefs.current[i] || React.createRef());
+      lyricLineRefs.current = parsed.map(
+        (_, i) => lyricLineRefs.current[i] || React.createRef()
+      );
       setActiveLyricIndex(-1);
     } else {
       setParsedLyrics([]);
@@ -69,9 +83,11 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
   }, [Lyric?.synced]);
 
   useEffect(() => {
-    if (parsedLyrics.length === 0 || !ShowDailog) return;
+    if (parsedLyrics.length === 0 || !ShowDailog) {
+      return;
+    }
     // Apply sync offset to compensate for audio buffering delay
-    const currentPositionMs = (position * 1000) + SYNC_OFFSET_MS;
+    const currentPositionMs = position * 1000 + SYNC_OFFSET_MS;
     let newActiveIndex = -1;
     for (let i = 0; i < parsedLyrics.length; i++) {
       if (currentPositionMs >= parsedLyrics[i].time) {
@@ -86,24 +102,32 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
   }, [position, parsedLyrics, activeLyricIndex, ShowDailog]);
 
   useEffect(() => {
-    if (activeLyricIndex >= 0 && activeLyricIndex < lyricLineRefs.current.length && ShowDailog) {
+    if (
+      activeLyricIndex >= 0 &&
+      activeLyricIndex < lyricLineRefs.current.length &&
+      ShowDailog
+    ) {
       const activeRef = lyricLineRefs.current[activeLyricIndex];
       if (activeRef && activeRef.current && scrollViewRef.current) {
         activeRef.current.measureLayout(
           scrollViewRef.current.getInnerViewNode(),
           (x, y, width, height) => {
             const lyricsViewVisibleHeight = screenHeight - 50 - 50 - 120 - 20; // topPad - bottomPad - controlsHeight - controlsBottomMargin
-            const scrollToY = y - (lyricsViewVisibleHeight / 2) + (height / 2);
-            scrollViewRef.current.scrollTo({ y: Math.max(0, scrollToY), animated: true });
+            const scrollToY = y - lyricsViewVisibleHeight / 2 + height / 2;
+            scrollViewRef.current.scrollTo({
+              y: Math.max(0, scrollToY),
+              animated: true,
+            });
           },
-          () => { /* Error handling for measureLayout */ }
+          () => {
+            /* Error handling for measureLayout */
+          }
         );
       }
     }
   }, [activeLyricIndex, ShowDailog, screenHeight]);
 
   const styles = StyleSheet.create({
-
     contentWrapper: {
       flex: 1,
       paddingHorizontal: 20,
@@ -119,7 +143,7 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
       fontWeight: 'bold', // Made base lyric text bold
       fontSize: screenWidth * 0.055,
       paddingVertical: 10,
-      textAlign: "center",
+      textAlign: 'center',
       lineHeight: screenWidth * 0.055 * 1.5,
     },
     plainLyricText: {
@@ -127,7 +151,7 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
       fontWeight: '300', // Fixed duplicate fontWeight
       color: theme.colors.text,
       fontSize: screenWidth * 0.055,
-      textAlign: "center",
+      textAlign: 'center',
       lineHeight: screenWidth * 0.055 * 1.5,
     },
     fadeGradient: {
@@ -147,16 +171,28 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
       statusBarTranslucent={true} // Allow content to go behind status bar
       animationType="fade" // Recommended for smooth transition with translucent status bar
     >
-      {currentArtworkSource && (typeof currentArtworkSource === 'number' || currentArtworkSource.uri) ? (
+      {currentArtworkSource &&
+      (typeof currentArtworkSource === 'number' || currentArtworkSource.uri) ? (
         <ImageBackground
           source={currentArtworkSource}
           style={{ flex: 1 }}
           blurRadius={15} // Keep existing blur
         >
-          <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: artworkCenterColor }} />
-          <Pressable style={{ flex: 1, backgroundColor: 'transparent' }} onPress={() => setShowDailog(false)}>
+          <View
+            style={{
+              ...StyleSheet.absoluteFillObject,
+              backgroundColor: artworkCenterColor,
+            }}
+          />
+          <Pressable
+            style={{ flex: 1, backgroundColor: 'transparent' }}
+            onPress={() => setShowDailog(false)}
+          >
             {/* This View consumes touch events to prevent modal close when interacting with content */}
-            <View style={styles.contentWrapper} onStartShouldSetResponder={() => true}>
+            <View
+              style={styles.contentWrapper}
+              onStartShouldSetResponder={() => true}
+            >
               {/* Top fade gradient removed as per request */}
               <ScrollView
                 ref={scrollViewRef}
@@ -165,7 +201,12 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
                 scrollEventThrottle={16}
                 style={{ zIndex: 1 }} // Ensure gradients can overlay
               >
-                {Loading && <LoadingComponent loading={true} height={screenHeight - 150} />}
+                {Loading && (
+                  <LoadingComponent
+                    loading={true}
+                    height={screenHeight - 150}
+                  />
+                )}
                 {!Loading && (
                   <>
                     {parsedLyrics.length > 0 ? (
@@ -176,8 +217,11 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
                           style={[
                             styles.lyricText, // fontWeight is now handled by styles.lyricText base style
                             {
-                              color: index === activeLyricIndex ? '#FFFFFF' : '#9E9E9E' // Active: white, Inactive: gray
-                            }
+                              color:
+                                index === activeLyricIndex
+                                  ? '#FFFFFF'
+                                  : '#9E9E9E', // Active: white, Inactive: gray
+                            },
                           ]}
                         >
                           {line.text}
@@ -185,7 +229,8 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
                       ))
                     ) : (
                       <Text selectable={true} style={styles.plainLyricText}>
-                        {Lyric?.plain?.replaceAll("<br>", "\n") || "No lyrics available for this song."}
+                        {Lyric?.plain?.replaceAll('<br>', '\n') ||
+                          'No lyrics available for this song.'}
                       </Text>
                     )}
                   </>
@@ -197,9 +242,15 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
         </ImageBackground>
       ) : (
         <View style={{ flex: 1, backgroundColor: fallbackCenterColor }}>
-          <Pressable style={{ flex: 1, backgroundColor: 'transparent' }} onPress={() => setShowDailog(false)}>
+          <Pressable
+            style={{ flex: 1, backgroundColor: 'transparent' }}
+            onPress={() => setShowDailog(false)}
+          >
             {/* This View consumes touch events to prevent modal close when interacting with content */}
-            <View style={styles.contentWrapper} onStartShouldSetResponder={() => true}>
+            <View
+              style={styles.contentWrapper}
+              onStartShouldSetResponder={() => true}
+            >
               <ScrollView
                 ref={scrollViewRef}
                 showsVerticalScrollIndicator={false}
@@ -207,7 +258,12 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
                 scrollEventThrottle={16}
                 style={{ zIndex: 1 }} // Ensure gradients can overlay
               >
-                {Loading && <LoadingComponent loading={true} height={screenHeight - 150} />}
+                {Loading && (
+                  <LoadingComponent
+                    loading={true}
+                    height={screenHeight - 150}
+                  />
+                )}
                 {!Loading && (
                   <>
                     {parsedLyrics.length > 0 ? (
@@ -218,8 +274,11 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
                           style={[
                             styles.lyricText,
                             {
-                              color: index === activeLyricIndex ? '#FFFFFF' : '#9E9E9E' // Active: white, Inactive: gray
-                            }
+                              color:
+                                index === activeLyricIndex
+                                  ? '#FFFFFF'
+                                  : '#9E9E9E', // Active: white, Inactive: gray
+                            },
                           ]}
                         >
                           {line.text}
@@ -227,7 +286,8 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
                       ))
                     ) : (
                       <Text selectable={true} style={styles.plainLyricText}>
-                        {Lyric?.plain?.replaceAll("<br>", "\n") || "No lyrics available for this song."}
+                        {Lyric?.plain?.replaceAll('<br>', '\n') ||
+                          'No lyrics available for this song.'}
                       </Text>
                     )}
                   </>

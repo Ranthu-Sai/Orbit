@@ -4,7 +4,11 @@ import { useTheme } from '@react-navigation/native';
 import { Heading } from '../Global/Heading';
 import { SmallText } from '../Global/SmallText';
 import { PlainText } from '../Global/PlainText';
-import { processBioData, shouldTruncateText, safeString } from '../../Utils/ArtistUtils';
+import {
+  processBioData,
+  shouldTruncateText,
+  safeString,
+} from '../../Utils/ArtistUtils';
 
 /**
  * BioSection component - renders individual bio section with read more/less functionality
@@ -24,8 +28,10 @@ const BioSection = ({ section, index, isExpanded, onToggle }) => {
 
   // Handle Top 10 Songs list differently
   if (sectionTitle === 'Top 10 Songs') {
-    const songLines = sectionText.split('\r\n').filter(line => line && line.trim());
-    
+    const songLines = sectionText
+      .split('\r\n')
+      .filter((line) => line && line.trim());
+
     return (
       <View style={{ marginBottom: 20 }}>
         <Heading
@@ -34,13 +40,15 @@ const BioSection = ({ section, index, isExpanded, onToggle }) => {
             color: theme.colors.text,
             fontSize: 18,
             fontWeight: 'bold',
-            marginBottom: 10
+            marginBottom: 10,
           }}
         />
         {songLines.map((song, songIndex) => {
           const songText = safeString(song).trim();
-          if (!songText) return <View key={songIndex} />;
-          
+          if (!songText) {
+            return <View key={songIndex} />;
+          }
+
           return (
             <PlainText
               key={songIndex}
@@ -50,7 +58,7 @@ const BioSection = ({ section, index, isExpanded, onToggle }) => {
                 opacity: 0.8,
                 lineHeight: 22,
                 fontSize: 14,
-                marginBottom: 4
+                marginBottom: 4,
               }}
             />
           );
@@ -70,17 +78,17 @@ const BioSection = ({ section, index, isExpanded, onToggle }) => {
           color: theme.colors.text,
           fontSize: 18,
           fontWeight: 'bold',
-          marginBottom: 10
+          marginBottom: 10,
         }}
       />
       <PlainText
         text={sectionText}
-        numberOfLine={isExpanded ? null : (shouldTruncate ? 2 : null)}
+        numberOfLine={isExpanded ? null : shouldTruncate ? 2 : null}
         style={{
           color: theme.colors.text,
           opacity: 0.8,
           lineHeight: 22,
-          fontSize: 14
+          fontSize: 14,
         }}
       />
       {shouldTruncate && (
@@ -106,9 +114,9 @@ const ArtistBio = ({ bioData }) => {
   const [showFullBio, setShowFullBio] = useState({});
 
   const toggleSection = (index) => {
-    setShowFullBio(prev => ({
+    setShowFullBio((prev) => ({
       ...prev,
-      [index]: !prev[index]
+      [index]: !prev[index],
     }));
   };
 
@@ -118,7 +126,10 @@ const ArtistBio = ({ bioData }) => {
     if (bioArray.length === 0) {
       return (
         <View style={{ padding: 20, alignItems: 'center' }}>
-          <SmallText text="No biography available" style={{ color: theme.colors.text, opacity: 0.6 }} />
+          <SmallText
+            text="No biography available"
+            style={{ color: theme.colors.text, opacity: 0.6 }}
+          />
         </View>
       );
     }
@@ -128,7 +139,10 @@ const ArtistBio = ({ bioData }) => {
         {bioArray.map((section, index) => {
           try {
             // Safety check for section data
-            if (!section || (typeof section !== 'object' && typeof section !== 'string')) {
+            if (
+              !section ||
+              (typeof section !== 'object' && typeof section !== 'string')
+            ) {
               return <View key={index} />;
             }
 
@@ -157,7 +171,10 @@ const ArtistBio = ({ bioData }) => {
     console.error('Error rendering bio sections:', error);
     return (
       <View style={{ padding: 20, alignItems: 'center' }}>
-        <SmallText text="Error loading biography" style={{ color: theme.colors.text, opacity: 0.6 }} />
+        <SmallText
+          text="Error loading biography"
+          style={{ color: theme.colors.text, opacity: 0.6 }}
+        />
       </View>
     );
   }

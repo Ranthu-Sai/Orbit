@@ -14,10 +14,13 @@ export const showPlaylistSelectorWithFallback = (song) => {
   try {
     if (!PlaylistSelectorRef.current) {
       console.warn('PlaylistSelectorRef is not initialized yet');
-      ToastAndroid.show('Playlist selector is not ready yet, please try again in a moment', ToastAndroid.SHORT);
+      ToastAndroid.show(
+        'Playlist selector is not ready yet, please try again in a moment',
+        ToastAndroid.SHORT
+      );
       return false;
     }
-    
+
     // Call the show method on the ref
     return PlaylistSelectorRef.current.show(song);
   } catch (error) {
@@ -35,17 +38,20 @@ export const PlaylistSelectorManager = {
         console.error('Cannot show playlist selector: No song provided');
         return false;
       }
-      
+
       if (!song.id || !song.title) {
         console.error('Invalid song object for playlist selector:', song);
         return false;
       }
-      
+
       if (PlaylistSelectorRef.current) {
         return PlaylistSelectorRef.current.show(song);
       } else {
         console.error('PlaylistSelector reference is not initialized');
-        ToastAndroid.show('Cannot open playlist selector now', ToastAndroid.SHORT);
+        ToastAndroid.show(
+          'Cannot open playlist selector now',
+          ToastAndroid.SHORT
+        );
         return false;
       }
     } catch (error) {
@@ -53,13 +59,15 @@ export const PlaylistSelectorManager = {
       return false;
     }
   },
-  
+
   hide: () => {
     try {
       if (PlaylistSelectorRef.current) {
         return PlaylistSelectorRef.current.hide();
       } else {
-        console.warn('Tried to hide PlaylistSelector but reference is not initialized');
+        console.warn(
+          'Tried to hide PlaylistSelector but reference is not initialized'
+        );
         return false;
       }
     } catch (error) {
@@ -67,7 +75,7 @@ export const PlaylistSelectorManager = {
       return false;
     }
   },
-  
+
   isVisible: () => {
     try {
       if (PlaylistSelectorRef.current) {
@@ -78,5 +86,5 @@ export const PlaylistSelectorManager = {
       console.error('Error checking playlist selector visibility:', error);
       return false;
     }
-  }
-}; 
+  },
+};

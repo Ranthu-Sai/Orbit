@@ -6,7 +6,6 @@ import DeviceInfo from 'react-native-device-info';
  * Handles the complexity of Android permission requirements across different API levels
  */
 export class PermissionHandler {
-  
   /**
    * Requests storage permission based on Android version
    * @returns {Promise<boolean>} - True if permission granted or not needed, false otherwise
@@ -28,25 +27,26 @@ export class PermissionHandler {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
           {
-            title: "Storage Permission",
-            message: "Orbit needs storage access to save music for offline playback",
-            buttonPositive: "Allow",
-            buttonNegative: "Cancel"
+            title: 'Storage Permission',
+            message:
+              'Orbit needs storage access to save music for offline playback',
+            buttonPositive: 'Allow',
+            buttonNegative: 'Cancel',
           }
         );
-        
+
         if (granted === PermissionsAndroid.RESULTS.GRANTED) {
           return true;
         } else {
           Alert.alert(
-            "Permission Denied",
-            "Storage permission is required to download songs. Please enable it in app settings."
+            'Permission Denied',
+            'Storage permission is required to download songs. Please enable it in app settings.'
           );
           return false;
         }
       }
     } catch (versionError) {
-      console.error("Error detecting device version:", versionError);
+      console.error('Error detecting device version:', versionError);
       // Fallback - try anyway, it might work with app-specific storage
       return true;
     }
@@ -63,7 +63,7 @@ export class PermissionHandler {
       }
 
       const deviceVersion = DeviceInfo.getSystemVersion();
-      
+
       if (parseInt(deviceVersion) >= 13) {
         return true; // No permission needed for Android 13+
       } else {
@@ -73,7 +73,7 @@ export class PermissionHandler {
         return hasPermission;
       }
     } catch (error) {
-      console.error("Error checking storage permission:", error);
+      console.error('Error checking storage permission:', error);
       return false;
     }
   }

@@ -1,6 +1,6 @@
 /**
  * YTMusicArtworkUtils.js
- * 
+ *
  * Utilities for upgrading YouTube Music artwork URLs to higher quality versions
  */
 
@@ -12,23 +12,23 @@
  * @returns {string} - Upgraded high-quality URL
  */
 export function upgradeArtworkQuality(url) {
-    if (!url || typeof url !== 'string') {
-        return url;
-    }
-
-    // Handle googleusercontent.com URLs - upgrade size parameters
-    // Use 500x500 for smartphones (not 800x800 which is too large)
-    if (url.includes('lh3.googleusercontent.com')) {
-        // Replace any size parameters (w###-h###) with w500-h500
-        return url.replace(/=w\d+-h\d+/g, '=w500-h500');
-    }
-
-    // For ytimg.com URLs - DON'T upgrade automatically
-    // This will be handled progressively during playback
-    // Just return the original URL from API
-
-    // Return unchanged for other URLs
+  if (!url || typeof url !== 'string') {
     return url;
+  }
+
+  // Handle googleusercontent.com URLs - upgrade size parameters
+  // Use 500x500 for smartphones (not 800x800 which is too large)
+  if (url.includes('lh3.googleusercontent.com')) {
+    // Replace any size parameters (w###-h###) with w500-h500
+    return url.replace(/[=]w\d+-h\d+/g, '=w500-h500');
+  }
+
+  // For ytimg.com URLs - DON'T upgrade automatically
+  // This will be handled progressively during playback
+  // Just return the original URL from API
+
+  // Return unchanged for other URLs
+  return url;
 }
 
 /**
@@ -37,16 +37,16 @@ export function upgradeArtworkQuality(url) {
  * @returns {string|null} - Fallback URL or null
  */
 export function getArtworkFallback(url) {
-    if (!url || typeof url !== 'string') {
-        return null;
-    }
-
-    // For ytimg.com maxresdefault, fallback to hqdefault
-    if (url.includes('i.ytimg.com/vi/') && url.includes('maxresdefault.jpg')) {
-        return url.replace('maxresdefault.jpg', 'hqdefault.jpg');
-    }
-
+  if (!url || typeof url !== 'string') {
     return null;
+  }
+
+  // For ytimg.com maxresdefault, fallback to hqdefault
+  if (url.includes('i.ytimg.com/vi/') && url.includes('maxresdefault.jpg')) {
+    return url.replace('maxresdefault.jpg', 'hqdefault.jpg');
+  }
+
+  return null;
 }
 
 /**
@@ -56,21 +56,21 @@ export function getArtworkFallback(url) {
  * @returns {string} - Upgraded URL with maxresdefault
  */
 export function upgradeYtimgQuality(url) {
-    if (!url || typeof url !== 'string') {
-        return url;
-    }
-
-    // Only upgrade ytimg.com URLs
-    if (url.includes('i.ytimg.com/vi/')) {
-        // Try maxresdefault first
-        return url.replace(/(sd|mq|hq)default\.jpg/, 'maxresdefault.jpg');
-    }
-
+  if (!url || typeof url !== 'string') {
     return url;
+  }
+
+  // Only upgrade ytimg.com URLs
+  if (url.includes('i.ytimg.com/vi/')) {
+    // Try maxresdefault first
+    return url.replace(/(sd|mq|hq)default\.jpg/, 'maxresdefault.jpg');
+  }
+
+  return url;
 }
 
 export default {
-    upgradeArtworkQuality,
-    getArtworkFallback,
-    upgradeYtimgQuality
+  upgradeArtworkQuality,
+  getArtworkFallback,
+  upgradeYtimgQuality,
 };

@@ -1,52 +1,92 @@
-import { ActivityIndicator, Dimensions, View } from "react-native";
-import React, { memo, useContext, useCallback, useState, useEffect } from "react";
-import { PlainText } from "../Global/PlainText";
-import { SmallText } from "../Global/SmallText";
-import Animated, { FadeIn } from "react-native-reanimated";
-import { GestureDetector, Gesture, GestureHandlerRootView } from "react-native-gesture-handler";
-import { PlayPauseButton } from "./PlayPauseButton";
-import { NextSongButton } from "./NextSongButton";
-import { PreviousSongButton } from "./PreviousSongButton";
-import { LikeSongButton } from "./LikeSongButton";
-import FastImage from "react-native-fast-image";
-import { useActiveTrack, useProgress } from "react-native-track-player";
-import { PlayNextSong, PlayPreviousSong } from "../../MusicPlayerFunctions";
-import Context from "../../Context/Context";
-import TrackPlayer from "react-native-track-player";
-import { Pressable } from "react-native";
-import NetInfo from "@react-native-community/netinfo";
-import { useNavigation, useTheme } from "@react-navigation/native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ActivityIndicator, Dimensions, View } from 'react-native';
+import React, {
+  memo,
+  useContext,
+  useCallback,
+  useState,
+  useEffect,
+} from 'react';
+import { PlainText } from '../Global/PlainText';
+import { SmallText } from '../Global/SmallText';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import {
+  GestureDetector,
+  Gesture,
+  GestureHandlerRootView,
+} from 'react-native-gesture-handler';
+import { PlayPauseButton } from './PlayPauseButton';
+import { NextSongButton } from './NextSongButton';
+import { PreviousSongButton } from './PreviousSongButton';
+import { LikeSongButton } from './LikeSongButton';
+import FastImage from 'react-native-fast-image';
+import { useActiveTrack, useProgress } from 'react-native-track-player';
+import { PlayNextSong, PlayPreviousSong } from '../../MusicPlayerFunctions';
+import Context from '../../Context/Context';
+import TrackPlayer from 'react-native-track-player';
+import { Pressable } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
+import { useNavigation, useTheme } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Function to get high quality artwork URL
 const getHighQualityArtwork = (artworkUrl, track = null) => {
   // Helper to check if URL is valid (not a placeholder)
   const isValidArtwork = (art) => {
-    if (!art) return false;
-    if (typeof art === 'number') return true; // require() result
+    if (!art) {
+      return false;
+    }
+    if (typeof art === 'number') {
+      return true;
+    } // require() result
     if (typeof art === 'string') {
       // Filter out placeholder URLs
-      if (art.includes('htmlcolorcodes.com') || art.includes('placeholder')) return false;
-      if (art.startsWith('file://') || art.startsWith('/') || art.startsWith('http') || art.startsWith('data:')) return true;
+      if (art.includes('htmlcolorcodes.com') || art.includes('placeholder')) {
+        return false;
+      }
+      if (
+        art.startsWith('file://') ||
+        art.startsWith('/') ||
+        art.startsWith('http') ||
+        art.startsWith('data:')
+      ) {
+        return true;
+      }
     }
-    if (typeof art === 'object' && art.uri) return isValidArtwork(art.uri);
+    if (typeof art === 'object' && art.uri) {
+      return isValidArtwork(art.uri);
+    }
     return false;
   };
 
   // Handle downloaded songs with embedded or cached artwork FIRST
-  if (track?.isDownloaded || track?.isLocal || track?.sourceType === 'download' || track?.sourceType === 'downloaded') {
+  if (
+    track?.isDownloaded ||
+    track?.isLocal ||
+    track?.sourceType === 'download' ||
+    track?.sourceType === 'downloaded'
+  ) {
     // Check both artwork and image fields, prioritize valid ones
-    const artworkToUse = isValidArtwork(artworkUrl) ? artworkUrl :
-      (isValidArtwork(track?.artwork) ? track.artwork :
-        (isValidArtwork(track?.image) ? track.image : null));
+    const artworkToUse = isValidArtwork(artworkUrl)
+      ? artworkUrl
+      : isValidArtwork(track?.artwork)
+      ? track.artwork
+      : isValidArtwork(track?.image)
+      ? track.image
+      : null;
 
     if (artworkToUse) {
       // Handle data: URIs (embedded artwork)
-      if (typeof artworkToUse === 'string' && artworkToUse.startsWith('data:')) {
+      if (
+        typeof artworkToUse === 'string' &&
+        artworkToUse.startsWith('data:')
+      ) {
         return artworkToUse;
       }
       // Handle file:// paths
-      if (typeof artworkToUse === 'string' && artworkToUse.startsWith('file://')) {
+      if (
+        typeof artworkToUse === 'string' &&
+        artworkToUse.startsWith('file://')
+      ) {
         return artworkToUse;
       }
       // Handle remote URLs
@@ -61,11 +101,19 @@ const getHighQualityArtwork = (artworkUrl, track = null) => {
 
   if (!artworkUrl) {
     // Check if this is a local track and use Music.jpeg
-    if (track && (track.isLocal || track.sourceType === 'mymusic' || track.path ||
-      (track.url && (track.url.startsWith('file://') || track.url.includes('content://') || track.url.includes('/storage/'))))) {
+    if (
+      track &&
+      (track.isLocal ||
+        track.sourceType === 'mymusic' ||
+        track.path ||
+        (track.url &&
+          (track.url.startsWith('file://') ||
+            track.url.includes('content://') ||
+            track.url.includes('/storage/'))))
+    ) {
       return require('../../Images/Music.jpeg');
     }
-    return "https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png";
+    return 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png';
   }
 
   try {
@@ -101,8 +149,9 @@ const getHighQualityArtwork = (artworkUrl, track = null) => {
 };
 
 export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
-  const { position, duration } = useProgress()
-  const { setPreviousScreen, setMusicPreviousScreen, setCurrentPlaylistData } = useContext(Context);
+  const { position, duration } = useProgress();
+  const { setPreviousScreen, setMusicPreviousScreen, setCurrentPlaylistData } =
+    useContext(Context);
   const [isOffline, setIsOffline] = useState(false);
   const [localTracks, setLocalTracks] = useState([]);
   const navigation = useNavigation();
@@ -116,7 +165,7 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
     };
 
     checkConnection();
-    const unsubscribe = NetInfo.addEventListener(state => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
       setIsOffline(!state.isConnected);
     });
 
@@ -147,7 +196,7 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
           id: currentTabRoute.params.id,
           name: currentTabRoute.params.name || 'Playlist',
           image: currentTabRoute.params.image || '',
-          follower: currentTabRoute.params.follower || ''
+          follower: currentTabRoute.params.follower || '',
         };
       }
 
@@ -174,17 +223,25 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
             id: activeNestedRoute.params.id,
             name: activeNestedRoute.params.name || 'Playlist',
             image: activeNestedRoute.params.image || '',
-            follower: activeNestedRoute.params.follower || ''
+            follower: activeNestedRoute.params.follower || '',
           };
         }
 
         // 3. Check if there's even deeper nesting
-        if (activeNestedRoute.state && activeNestedRoute.state.routes && activeNestedRoute.state.routes.length > 0) {
-          if (activeNestedRoute.state.index >= activeNestedRoute.state.routes.length) {
+        if (
+          activeNestedRoute.state &&
+          activeNestedRoute.state.routes &&
+          activeNestedRoute.state.routes.length > 0
+        ) {
+          if (
+            activeNestedRoute.state.index >=
+            activeNestedRoute.state.routes.length
+          ) {
             return null;
           }
 
-          const deepNestedRoute = activeNestedRoute.state.routes[activeNestedRoute.state.index];
+          const deepNestedRoute =
+            activeNestedRoute.state.routes[activeNestedRoute.state.index];
           if (!deepNestedRoute) {
             return null;
           }
@@ -199,7 +256,7 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
               id: deepNestedRoute.params.id,
               name: deepNestedRoute.params.name || 'Playlist',
               image: deepNestedRoute.params.image || '',
-              follower: deepNestedRoute.params.follower || ''
+              follower: deepNestedRoute.params.follower || '',
             };
           }
         }
@@ -225,13 +282,19 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
       // Use a more reliable approach to find the current screen
       if (state && state.routes && state.routes.length > 0) {
         // Find the MainRoute container
-        const mainRoute = state.routes.find(route => route.name === 'MainRoute');
+        const mainRoute = state.routes.find(
+          (route) => route.name === 'MainRoute'
+        );
         if (mainRoute && mainRoute.state && mainRoute.state.routes) {
           // Find the active tab in the bottom tab navigator
           const tabState = mainRoute.state;
           const activeTabIndex = tabState.index;
 
-          if (activeTabIndex !== undefined && tabState.routes && tabState.routes.length > activeTabIndex) {
+          if (
+            activeTabIndex !== undefined &&
+            tabState.routes &&
+            tabState.routes.length > activeTabIndex
+          ) {
             const activeTab = tabState.routes[activeTabIndex];
             // Start building the path with the tab name
             screenPath = activeTab.name;
@@ -241,22 +304,35 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
               const nestedState = activeTab.state;
               const activeNestedIndex = nestedState.index;
 
-              if (activeNestedIndex !== undefined && nestedState.routes && nestedState.routes.length > activeNestedIndex) {
+              if (
+                activeNestedIndex !== undefined &&
+                nestedState.routes &&
+                nestedState.routes.length > activeNestedIndex
+              ) {
                 const activeScreen = nestedState.routes[activeNestedIndex];
                 // Add the active screen to the path
                 screenPath = `${screenPath}/${activeScreen.name}`;
 
                 // If we're in CustomPlaylistView, save its params
-                if (activeScreen.name === 'CustomPlaylistView' && activeScreen.params) {
+                if (
+                  activeScreen.name === 'CustomPlaylistView' &&
+                  activeScreen.params
+                ) {
                   customPlaylistParams = activeScreen.params;
                   // Also store in AsyncStorage for recovery
-                  if (customPlaylistParams.playlistName && customPlaylistParams.songs) {
-                    AsyncStorage.setItem('last_viewed_custom_playlist',
+                  if (
+                    customPlaylistParams.playlistName &&
+                    customPlaylistParams.songs
+                  ) {
+                    AsyncStorage.setItem(
+                      'last_viewed_custom_playlist',
                       JSON.stringify({
                         name: customPlaylistParams.playlistName,
-                        songs: customPlaylistParams.songs
+                        songs: customPlaylistParams.songs,
                       })
-                    ).catch(err => console.error('Failed to store playlist params:', err));
+                    ).catch((err) =>
+                      console.error('Failed to store playlist params:', err)
+                    );
                   }
                 }
               }
@@ -287,11 +363,17 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
       try {
         const queue = await TrackPlayer.getQueue();
         const currentTrack = await TrackPlayer.getActiveTrack();
-        if (!currentTrack || queue.length === 0) return;
+        if (!currentTrack || queue.length === 0) {
+          return;
+        }
 
         // Find current track index
-        const currentIndex = queue.findIndex(track => track.id === currentTrack.id);
-        if (currentIndex === -1) return;
+        const currentIndex = queue.findIndex(
+          (track) => track.id === currentTrack.id
+        );
+        if (currentIndex === -1) {
+          return;
+        }
 
         // Calculate next track index (with wrap-around)
         const nextIndex = (currentIndex + 1) % queue.length;
@@ -314,11 +396,17 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
       try {
         const queue = await TrackPlayer.getQueue();
         const currentTrack = await TrackPlayer.getActiveTrack();
-        if (!currentTrack || queue.length === 0) return;
+        if (!currentTrack || queue.length === 0) {
+          return;
+        }
 
         // Find current track index
-        const currentIndex = queue.findIndex(track => track.id === currentTrack.id);
-        if (currentIndex === -1) return;
+        const currentIndex = queue.findIndex(
+          (track) => track.id === currentTrack.id
+        );
+        if (currentIndex === -1) {
+          return;
+        }
 
         // Calculate previous track index (with wrap-around)
         const prevIndex = (currentIndex - 1 + queue.length) % queue.length;
@@ -348,13 +436,15 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
   });
 
   function TotalCompletedInpercent() {
-    if (!duration || duration <= 0) return 0;
+    if (!duration || duration <= 0) {
+      return 0;
+    }
     const progress = Math.min(Math.max((position || 0) / duration, 0), 1) * 100;
     return Math.round(progress); // Round to avoid floating point precision issues
   }
 
-  const size = Dimensions.get("window").height
-  const currentPlaying = useActiveTrack()
+  const size = Dimensions.get('window').height;
+  const currentPlaying = useActiveTrack();
 
   // OPTIMISTIC UI: Use loadingSong if available, otherwise use currentPlaying
   const displaySong = loadingSong || currentPlaying;
@@ -369,44 +459,50 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
         entering={FadeIn}
         style={{
           flexDirection: 'row',
-          justifyContent: "space-between",
+          justifyContent: 'space-between',
           height: 80,
           paddingHorizontal: 15,
           paddingVertical: 15,
-          alignItems: "center",
+          alignItems: 'center',
           gap: 10,
           backgroundColor: color || colors.musicPlayerBg,
-        }}>
+        }}
+      >
         <GestureDetector gesture={pan}>
-          <View style={{
-            flexDirection: "row",
-            flex: 1,
-          }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              flex: 1,
+            }}
+          >
             <FastImage
               source={
-                typeof getHighQualityArtwork(artworkSource, displaySong) === 'string'
+                typeof getHighQualityArtwork(artworkSource, displaySong) ===
+                'string'
                   ? { uri: getHighQualityArtwork(artworkSource, displaySong) }
                   : getHighQualityArtwork(artworkSource, displaySong)
               }
               style={{
-                height: (size * 0.09) - 25,
-                width: (size * 0.09) - 25,
+                height: size * 0.09 - 25,
+                width: size * 0.09 - 25,
                 borderRadius: 8,
                 marginRight: 6,
                 alignSelf: 'center',
               }}
             />
-            <View style={{
-              flex: 1,
-              height: (size * 0.1) - 25,
-              justifyContent: 'center',
-              paddingRight: 2,
-              minWidth: 0,
-              marginLeft: 2,
-            }}>
+            <View
+              style={{
+                flex: 1,
+                height: size * 0.1 - 25,
+                justifyContent: 'center',
+                paddingRight: 2,
+                minWidth: 0,
+                marginLeft: 2,
+              }}
+            >
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <PlainText
-                  text={displaySong?.title ?? "No music :("}
+                  text={displaySong?.title ?? 'No music :('}
                   style={{
                     color: colors.text,
                     fontSize: 13,
@@ -417,22 +513,33 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
                 />
               </View>
               <SmallText
-                text={displaySong?.artist && displaySong.artist.length > 20 ? displaySong.artist.substring(0, 20) + '...' : displaySong?.artist ?? "Explore now!"}
+                text={
+                  displaySong?.artist && displaySong.artist.length > 20
+                    ? displaySong.artist.substring(0, 20) + '...'
+                    : displaySong?.artist ?? 'Explore now!'
+                }
                 maxLine={1}
                 style={{
                   color: colors.textSecondary,
                   fontSize: 10,
                   marginTop: 1,
-                  includeFontPadding: false
+                  includeFontPadding: false,
                 }}
               />
             </View>
           </View>
         </GestureDetector>
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           {isLoadingStream ? (
             // OPTIMISTIC UI: Show loading indicator while stream is being fetched
-            <View style={{ flexDirection: "row", gap: 10, alignItems: "center", paddingHorizontal: 10 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: 10,
+                alignItems: 'center',
+                paddingHorizontal: 10,
+              }}
+            >
               <ActivityIndicator
                 size={24}
                 color={colors.primary || '#1DB954'}
@@ -443,12 +550,20 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
               <View style={{ marginRight: 0 }}>
                 <LikeSongButton size={20} color={colors.icon} />
               </View>
-              <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-                <Pressable onPress={isOffline ? playPreviousOfflineSong : PlayPreviousSong}>
+              <View
+                style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}
+              >
+                <Pressable
+                  onPress={
+                    isOffline ? playPreviousOfflineSong : PlayPreviousSong
+                  }
+                >
                   <PreviousSongButton color={colors.icon} />
                 </Pressable>
                 <PlayPauseButton isplaying={false} color={colors.icon} />
-                <Pressable onPress={isOffline ? playNextOfflineSong : PlayNextSong}>
+                <Pressable
+                  onPress={isOffline ? playNextOfflineSong : PlayNextSong}
+                >
                   <NextSongButton color={colors.icon} />
                 </Pressable>
               </View>
@@ -456,8 +571,13 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
           )}
         </View>
       </Animated.View>
-      <View style={{ height: 2, width: `${TotalCompletedInpercent()}%`, backgroundColor: colors.primary }} />
+      <View
+        style={{
+          height: 2,
+          width: `${TotalCompletedInpercent()}%`,
+          backgroundColor: colors.primary,
+        }}
+      />
     </GestureHandlerRootView>
   );
 });
-

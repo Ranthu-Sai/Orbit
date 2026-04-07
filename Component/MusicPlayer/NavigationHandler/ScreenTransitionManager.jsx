@@ -3,7 +3,7 @@ import { useNavigationHandler } from './useNavigationHandler';
 
 /**
  * ScreenTransitionManager - Manages screen transitions and navigation state
- * 
+ *
  * This component provides screen transition management including:
  * - Transition state tracking
  * - Navigation history management
@@ -11,45 +11,45 @@ import { useNavigationHandler } from './useNavigationHandler';
  * - Transition callbacks
  */
 
-export const ScreenTransitionManager = ({ 
+export const ScreenTransitionManager = ({
   children,
   musicPreviousScreen,
   onTransitionStart = null,
   onTransitionEnd = null,
   onNavigationChange = null,
   preserveHistory = true,
-  maxHistoryLength = 10
+  maxHistoryLength = 10,
 }) => {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [navigationHistory, setNavigationHistory] = useState([]);
   const [currentScreen, setCurrentScreen] = useState(null);
 
-  const { 
+  const {
     handlePlayerClose,
     handleBackNavigation,
     navigateToScreen,
-    getCurrentPath 
+    getCurrentPath,
   } = useNavigationHandler({
     musicPreviousScreen,
     onNavigationChange: (path, params) => {
       handleNavigationChange(path, params);
-    }
+    },
   });
 
   // Handle navigation changes
   const handleNavigationChange = (path, params) => {
     setCurrentScreen({ path, params, timestamp: Date.now() });
-    
+
     if (preserveHistory) {
-      setNavigationHistory(prev => {
+      setNavigationHistory((prev) => {
         const newHistory = [
           { path, params, timestamp: Date.now() },
-          ...prev.slice(0, maxHistoryLength - 1)
+          ...prev.slice(0, maxHistoryLength - 1),
         ];
         return newHistory;
       });
     }
-    
+
     if (onNavigationChange) {
       onNavigationChange(path, params);
     }
@@ -59,18 +59,21 @@ export const ScreenTransitionManager = ({
   const handlePlayerCloseWithTransition = async () => {
     try {
       setIsTransitioning(true);
-      
+
       if (onTransitionStart) {
         onTransitionStart('close', currentScreen);
       }
-      
+
       await handlePlayerClose();
-      
+
       if (onTransitionEnd) {
         onTransitionEnd('close', currentScreen);
       }
     } catch (error) {
-      console.error('ScreenTransitionManager: Error in player close transition:', error);
+      console.error(
+        'ScreenTransitionManager: Error in player close transition:',
+        error
+      );
     } finally {
       setIsTransitioning(false);
     }
@@ -80,18 +83,21 @@ export const ScreenTransitionManager = ({
   const handleBackNavigationWithTransition = async () => {
     try {
       setIsTransitioning(true);
-      
+
       if (onTransitionStart) {
         onTransitionStart('back', currentScreen);
       }
-      
+
       await handleBackNavigation();
-      
+
       if (onTransitionEnd) {
         onTransitionEnd('back', currentScreen);
       }
     } catch (error) {
-      console.error('ScreenTransitionManager: Error in back navigation transition:', error);
+      console.error(
+        'ScreenTransitionManager: Error in back navigation transition:',
+        error
+      );
     } finally {
       setIsTransitioning(false);
     }
@@ -101,18 +107,21 @@ export const ScreenTransitionManager = ({
   const navigateToScreenWithTransition = async (screenPath, params = {}) => {
     try {
       setIsTransitioning(true);
-      
+
       if (onTransitionStart) {
         onTransitionStart('navigate', { path: screenPath, params });
       }
-      
+
       await navigateToScreen(screenPath, params);
-      
+
       if (onTransitionEnd) {
         onTransitionEnd('navigate', { path: screenPath, params });
       }
     } catch (error) {
-      console.error('ScreenTransitionManager: Error in screen navigation transition:', error);
+      console.error(
+        'ScreenTransitionManager: Error in screen navigation transition:',
+        error
+      );
     } finally {
       setIsTransitioning(false);
     }
@@ -138,7 +147,7 @@ export const ScreenTransitionManager = ({
     isTransitioning,
     currentScreen,
     historyLength: navigationHistory.length,
-    canGoBack: navigationHistory.length > 1
+    canGoBack: navigationHistory.length > 1,
   });
 
   // Initialize current screen
@@ -146,13 +155,16 @@ export const ScreenTransitionManager = ({
     const initializeCurrentScreen = () => {
       try {
         const path = getCurrentPath();
-        setCurrentScreen({ 
-          path, 
-          params: {}, 
-          timestamp: Date.now() 
+        setCurrentScreen({
+          path,
+          params: {},
+          timestamp: Date.now(),
         });
       } catch (error) {
-        console.error('ScreenTransitionManager: Error initializing current screen:', error);
+        console.error(
+          'ScreenTransitionManager: Error initializing current screen:',
+          error
+        );
       }
     };
 
@@ -170,16 +182,16 @@ export const ScreenTransitionManager = ({
     getTransitionState,
     isTransitioning,
     currentScreen,
-    navigationHistory
+    navigationHistory,
   };
 
   return (
     <>
-      {React.Children.map(children, child => {
+      {React.Children.map(children, (child) => {
         if (React.isValidElement(child)) {
           return React.cloneElement(child, {
             ...child.props,
-            navigationContext: enhancedNavigationContext
+            navigationContext: enhancedNavigationContext,
           });
         }
         return child;

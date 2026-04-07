@@ -21,17 +21,17 @@ export const useArtistNavigation = (artistId, artistName, activeTab) => {
       params: {
         artistId,
         artistName,
-        initialTab: activeTab
-      }
+        initialTab: activeTab,
+      },
     });
-  }, [artistId]);
+  }, [artistId, activeTab, artistName]);
 
   // Handle hardware back button
   useEffect(() => {
     const handleBackPress = () => {
       // Check navigation state to detect potential loops
       const navigationState = navigation.getState();
-      
+
       try {
         // Detect navigation loop using utility function
         if (detectNavigationLoop(navigationState)) {
@@ -39,12 +39,13 @@ export const useArtistNavigation = (artistId, artistName, activeTab) => {
           navigation.navigate('MainRoute', {
             screen: 'Home',
             params: {
-              screen: 'Search'
-            }
+              screen: 'Search',
+            },
           });
         } else {
           // Use navigation history manager for proper back navigation
-          const backAction = navigationHistoryManager.getBackNavigationAction(navigation);
+          const backAction =
+            navigationHistoryManager.getBackNavigationAction(navigation);
           backAction();
         }
       } catch (error) {
@@ -54,15 +55,18 @@ export const useArtistNavigation = (artistId, artistName, activeTab) => {
         navigation.navigate('MainRoute', {
           screen: 'Home',
           params: {
-            screen: 'Search'
-          }
+            screen: 'Search',
+          },
         });
       }
 
       return true; // Prevent default back action
     };
 
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      handleBackPress
+    );
 
     return () => {
       backHandler.remove();
@@ -84,8 +88,8 @@ export const useArtistNavigation = (artistId, artistName, activeTab) => {
         source: 'Artist',
         artistId,
         artistName,
-        previousTab: currentTab
-      }
+        previousTab: currentTab,
+      },
     });
 
     navigation.navigate('Album', {
@@ -94,11 +98,11 @@ export const useArtistNavigation = (artistId, artistName, activeTab) => {
       source: 'Artist',
       artistId,
       artistName,
-      previousTab: currentTab
+      previousTab: currentTab,
     });
   };
 
   return {
-    navigateToAlbum
+    navigateToAlbum,
   };
 };

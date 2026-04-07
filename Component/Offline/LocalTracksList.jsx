@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+} from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import FullScreenLocalTrackItem from '../MusicPlayer/FullScreenLocalTrackItem';
 import useOffline from '../../hooks/useOffline';
@@ -8,7 +14,7 @@ import useOffline from '../../hooks/useOffline';
  * LocalTracksList - Displays list of local/downloaded tracks
  * Shows available offline tracks with play functionality
  */
-const LocalTracksList = ({ 
+const LocalTracksList = ({
   localTracks = [],
   onTrackPress,
   onClose,
@@ -21,7 +27,7 @@ const LocalTracksList = ({
   headerText = 'Downloaded Songs',
   emptyText = 'No downloaded songs available',
   emptySubText = 'Download songs to listen offline',
-  maxHeight = 400
+  maxHeight = 400,
 }) => {
   const { isOffline } = useOffline();
   const [isVisible, setIsVisible] = useState(visible);
@@ -48,23 +54,26 @@ const LocalTracksList = ({
   }
 
   const renderTrackItem = ({ item }) => (
-    <FullScreenLocalTrackItem 
-      song={item} 
-      onPress={handleTrackPress}
-    />
+    <FullScreenLocalTrackItem song={item} onPress={handleTrackPress} />
   );
 
   const renderEmptyState = () => (
     <View style={[styles.emptyContainer, emptyStateStyle]}>
-      <Ionicons name="musical-notes-outline" size={50} color="rgba(255,255,255,0.5)" />
+      <Ionicons
+        name="musical-notes-outline"
+        size={50}
+        color="rgba(255,255,255,0.5)"
+      />
       <Text style={styles.emptyText}>{emptyText}</Text>
       <Text style={styles.emptySubText}>{emptySubText}</Text>
     </View>
   );
 
   const renderHeader = () => {
-    if (!showHeader) return null;
-    
+    if (!showHeader) {
+      return null;
+    }
+
     return (
       <View style={[styles.header, headerStyle]}>
         <Text style={styles.headerText}>{headerText}</Text>
@@ -78,15 +87,19 @@ const LocalTracksList = ({
   return (
     <View style={[styles.container, { maxHeight }, style]}>
       {renderHeader()}
-      
+
       <FlatList
         data={localTracks}
         renderItem={renderTrackItem}
-        keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
+        keyExtractor={(item, index) =>
+          item.id ? item.id.toString() : index.toString()
+        }
         style={[styles.list, listStyle]}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={renderEmptyState}
-        contentContainerStyle={localTracks.length === 0 ? styles.emptyListContainer : null}
+        contentContainerStyle={
+          localTracks.length === 0 ? styles.emptyListContainer : null
+        }
       />
     </View>
   );

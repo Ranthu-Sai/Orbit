@@ -1,13 +1,30 @@
-import React, { useCallback, useContext, useEffect, useRef, useState, useMemo } from "react";
-import { BackHandler, StyleSheet, Text, Keyboard, Platform, DeviceEventEmitter } from "react-native";
-import BottomSheet, { BottomSheetView, useBottomSheetSpringConfigs } from "@gorhom/bottom-sheet";
-import { Easing } from "react-native-reanimated";
-import { MinimizedMusic } from "./MinimizedMusic";
-import { FullScreenMusic } from "./FullScreenMusic";
-import Context from "../../Context/Context";
-import { useNavigation, useTheme } from "@react-navigation/native";
-import { useActiveTrack, usePlaybackState } from "react-native-track-player";
-import TrackPlayer, { Event } from "react-native-track-player";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+} from 'react';
+import {
+  BackHandler,
+  StyleSheet,
+  Text,
+  Keyboard,
+  Platform,
+  DeviceEventEmitter,
+} from 'react-native';
+import BottomSheet, {
+  BottomSheetView,
+  useBottomSheetSpringConfigs,
+} from '@gorhom/bottom-sheet';
+import { Easing } from 'react-native-reanimated';
+import { MinimizedMusic } from './MinimizedMusic';
+import { FullScreenMusic } from './FullScreenMusic';
+import Context from '../../Context/Context';
+import { useNavigation, useTheme } from '@react-navigation/native';
+import { useActiveTrack, usePlaybackState } from 'react-native-track-player';
+import TrackPlayer, { Event } from 'react-native-track-player';
 
 const BottomSheetMusic = React.memo(({ color }) => {
   const bottomSheetRef = useRef(null);
@@ -26,10 +43,13 @@ const BottomSheetMusic = React.memo(({ color }) => {
 
   // Listen for early metadata event from PlayOneSong for immediate UI feedback
   useEffect(() => {
-    const loadingListener = DeviceEventEmitter.addListener('song-loading-started', (songData) => {
-      setLoadingSong(songData);
-      setIsMusicActive(true); // Immediately show the player
-    });
+    const loadingListener = DeviceEventEmitter.addListener(
+      'song-loading-started',
+      (songData) => {
+        setLoadingSong(songData);
+        setIsMusicActive(true); // Immediately show the player
+      }
+    );
 
     return () => {
       loadingListener.remove();
@@ -62,43 +82,55 @@ const BottomSheetMusic = React.memo(({ color }) => {
   }, []);
 
   // Memoized functions to prevent re-renders
-  const handleSheetChanges = useCallback((index) => {
-    if (index < 0) {
-      setIndex(0);
-    } else {
-      setIndex(index);
-    }
-  }, [setIndex]);
+  const handleSheetChanges = useCallback(
+    (index) => {
+      if (index < 0) {
+        setIndex(0);
+      } else {
+        setIndex(index);
+      }
+    },
+    [setIndex]
+  );
 
-  const updateIndex = useCallback((index) => {
-    setIndex(index);
-  }, [setIndex]);
+  const updateIndex = useCallback(
+    (index) => {
+      setIndex(index);
+    },
+    [setIndex]
+  );
 
   // Direct event listener for instant response
   useEffect(() => {
-    const eventListener = TrackPlayer.addEventListener(Event.PlaybackState, (event) => {
-      // Instant response to any playback state change
-      if (event.state === 'playing' || event.state === 'paused') {
-        setIsMusicActive(true);
-        setHasQueue(true);
-      } else if (event.state === 'stopped' || event.state === 'none') {
-        // Only hide if no active track
-        if (!currentPlaying) {
-          setIsMusicActive(false);
-        }
-      }
-    });
-
-    // Also listen for track changes
-    const trackListener = TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, (event) => {
-      // PERFORMANCE: Defer state updates to prevent blocking during track change
-      if (event.track) {
-        setImmediate(() => {
+    const eventListener = TrackPlayer.addEventListener(
+      Event.PlaybackState,
+      (event) => {
+        // Instant response to any playback state change
+        if (event.state === 'playing' || event.state === 'paused') {
           setIsMusicActive(true);
           setHasQueue(true);
-        });
+        } else if (event.state === 'stopped' || event.state === 'none') {
+          // Only hide if no active track
+          if (!currentPlaying) {
+            setIsMusicActive(false);
+          }
+        }
       }
-    });
+    );
+
+    // Also listen for track changes
+    const trackListener = TrackPlayer.addEventListener(
+      Event.PlaybackActiveTrackChanged,
+      (event) => {
+        // PERFORMANCE: Defer state updates to prevent blocking during track change
+        if (event.track) {
+          setImmediate(() => {
+            setIsMusicActive(true);
+            setHasQueue(true);
+          });
+        }
+      }
+    );
 
     return () => {
       eventListener.remove();
@@ -122,7 +154,10 @@ const BottomSheetMusic = React.memo(({ color }) => {
 
   // Instant response to playback state
   useEffect(() => {
-    if (playbackState?.state === 'playing' || playbackState?.state === 'paused') {
+    if (
+      playbackState?.state === 'playing' ||
+      playbackState?.state === 'paused'
+    ) {
       setIsMusicActive(true);
     }
   }, [playbackState?.state]);
@@ -146,18 +181,34 @@ const BottomSheetMusic = React.memo(({ color }) => {
 
   const shouldShowPlayer = useMemo(() => {
     // Hide minimized player when keyboard is visible
-    if (isKeyboardVisible && Index !== 1) return false;
-    return currentPlaying || hasQueue || isMusicActive || loadingSong ||
-      (playbackState?.state === 'playing' || playbackState?.state === 'paused') ||
-      Index === 1;
-  }, [currentPlaying, hasQueue, isMusicActive, playbackState?.state, Index, isKeyboardVisible, loadingSong]);
+    if (isKeyboardVisible && Index !== 1) {
+      return false;
+    }
+    return (
+      currentPlaying ||
+      hasQueue ||
+      isMusicActive ||
+      loadingSong ||
+      playbackState?.state === 'playing' ||
+      playbackState?.state === 'paused' ||
+      Index === 1
+    );
+  }, [
+    currentPlaying,
+    hasQueue,
+    isMusicActive,
+    playbackState?.state,
+    Index,
+    isKeyboardVisible,
+    loadingSong,
+  ]);
 
   // Function to specifically navigate to MyMusicPage
   const navigateToMyMusicPage = useCallback(() => {
     try {
-      navigation.navigate("Library", { screen: "MyMusicPage" });
+      navigation.navigate('Library', { screen: 'MyMusicPage' });
     } catch (error) {
-      console.error("Error navigating to MyMusicPage:", error);
+      console.error('Error navigating to MyMusicPage:', error);
     }
   }, [navigation]);
 
@@ -165,61 +216,61 @@ const BottomSheetMusic = React.memo(({ color }) => {
   const navigateToScreen = useCallback(
     (tabName, screenName, nestedScreenName) => {
       try {
-        if (tabName === "Library") {
-          if (screenName === "MyMusicPage" || screenName === "MyMusic") {
+        if (tabName === 'Library') {
+          if (screenName === 'MyMusicPage' || screenName === 'MyMusic') {
             // Direct navigation to MyMusicPage
             navigateToMyMusicPage();
-          } else if (screenName === "LikedSongs") {
+          } else if (screenName === 'LikedSongs') {
             // Direct navigation to LikedSongs
             navigation.reset({
               index: 0,
               routes: [
                 {
-                  name: "Library",
+                  name: 'Library',
                   state: {
-                    routes: [{ name: "LikedSongs" }],
+                    routes: [{ name: 'LikedSongs' }],
                     index: 0,
                   },
                 },
               ],
             });
-          } else if (screenName === "CustomPlaylist") {
+          } else if (screenName === 'CustomPlaylist') {
             // Direct navigation to CustomPlaylist
             navigation.reset({
               index: 0,
               routes: [
                 {
-                  name: "Library",
+                  name: 'Library',
                   state: {
-                    routes: [{ name: "CustomPlaylist" }],
+                    routes: [{ name: 'CustomPlaylist' }],
                     index: 0,
                   },
                 },
               ],
             });
-          } else if (screenName === "LikedPlaylists") {
+          } else if (screenName === 'LikedPlaylists') {
             // Direct navigation to LikedPlaylists
             navigation.reset({
               index: 0,
               routes: [
                 {
-                  name: "Library",
+                  name: 'Library',
                   state: {
-                    routes: [{ name: "LikedPlaylists" }],
+                    routes: [{ name: 'LikedPlaylists' }],
                     index: 0,
                   },
                 },
               ],
             });
-          } else if (screenName === "AboutProject") {
+          } else if (screenName === 'AboutProject') {
             // Direct navigation to AboutProject
             navigation.reset({
               index: 0,
               routes: [
                 {
-                  name: "Library",
+                  name: 'Library',
                   state: {
-                    routes: [{ name: "AboutProject" }],
+                    routes: [{ name: 'AboutProject' }],
                     index: 0,
                   },
                 },
@@ -227,7 +278,7 @@ const BottomSheetMusic = React.memo(({ color }) => {
             });
           } else if (screenName) {
             // Navigate to specific screen in Library
-            navigation.navigate("Library", {
+            navigation.navigate('Library', {
               screen: screenName,
               params: nestedScreenName
                 ? { screen: nestedScreenName }
@@ -235,38 +286,38 @@ const BottomSheetMusic = React.memo(({ color }) => {
             });
           } else {
             // Default to main Library page
-            navigation.navigate("Library");
+            navigation.navigate('Library');
           }
-        } else if (tabName === "Discover") {
+        } else if (tabName === 'Discover') {
           if (screenName) {
             // Navigate to specific screen in Discover
-            navigation.navigate("Discover", {
+            navigation.navigate('Discover', {
               screen: screenName,
               params: nestedScreenName
                 ? { screen: nestedScreenName }
                 : undefined,
             });
           } else {
-            navigation.navigate("Discover");
+            navigation.navigate('Discover');
           }
-        } else if (tabName === "Home") {
+        } else if (tabName === 'Home') {
           if (screenName) {
             // Navigate to specific screen in Home
-            navigation.navigate("Home", {
+            navigation.navigate('Home', {
               screen: screenName,
               params: nestedScreenName
                 ? { screen: nestedScreenName }
                 : undefined,
             });
           } else {
-            navigation.navigate("Home");
+            navigation.navigate('Home');
           }
         } else {
           // Default navigation
-          navigation.navigate(tabName || "Home");
+          navigation.navigate(tabName || 'Home');
         }
       } catch (error) {
-        console.error("Navigation error:", error);
+        console.error('Navigation error:', error);
       }
     },
     [navigation, navigateToMyMusicPage]
@@ -293,7 +344,7 @@ const BottomSheetMusic = React.memo(({ color }) => {
           currentState?.routes?.[currentState.index]?.name;
 
         // Check if we're in a nested Library screen
-        if (currentScreenName === "Library") {
+        if (currentScreenName === 'Library') {
           const libraryState =
             currentState?.routes?.[currentState.index]?.state;
 
@@ -302,15 +353,15 @@ const BottomSheetMusic = React.memo(({ color }) => {
               libraryState.routes[libraryState.index].name;
 
             // If we're on MyMusicPage or any other nested screen in Library, explicitly navigate to LibraryPage
-            if (currentLibraryScreenName !== "LibraryPage") {
+            if (currentLibraryScreenName !== 'LibraryPage') {
               // Use reset for consistent navigation behavior
               navigation.reset({
                 index: 0,
                 routes: [
                   {
-                    name: "Library",
+                    name: 'Library',
                     state: {
-                      routes: [{ name: "LibraryPage" }],
+                      routes: [{ name: 'LibraryPage' }],
                       index: 0,
                     },
                   },
@@ -322,16 +373,16 @@ const BottomSheetMusic = React.memo(({ color }) => {
         }
         // If we're in Home or Discover but should be in Library based on music context
         else if (
-          (currentScreenName === "Home" || currentScreenName === "Discover") &&
-          musicPreviousScreen.startsWith("Library")
+          (currentScreenName === 'Home' || currentScreenName === 'Discover') &&
+          musicPreviousScreen.startsWith('Library')
         ) {
           navigation.reset({
             index: 0,
             routes: [
               {
-                name: "Library",
+                name: 'Library',
                 state: {
-                  routes: [{ name: "LibraryPage" }],
+                  routes: [{ name: 'LibraryPage' }],
                   index: 0,
                 },
               },
@@ -345,7 +396,7 @@ const BottomSheetMusic = React.memo(({ color }) => {
     };
 
     const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
+      'hardwareBackPress',
       backAction
     );
 
@@ -379,15 +430,15 @@ const BottomSheetMusic = React.memo(({ color }) => {
       handleIndicatorStyle={{
         height: 0,
         width: 0,
-        position: "absolute",
-        backgroundColor: "rgba(0,0,0,0)",
+        position: 'absolute',
+        backgroundColor: 'rgba(0,0,0,0)',
       }}
       backgroundStyle={{
         backgroundColor: color || colors.musicPlayerBg,
       }}
       handleHeight={20}
       handleStyle={{
-        position: "absolute",
+        position: 'absolute',
         height: 20,
       }}
       snapPoints={[155, '100%']}
@@ -399,7 +450,8 @@ const BottomSheetMusic = React.memo(({ color }) => {
         style={{
           ...styles.contentContainer,
           // Solid background when fullscreen to prevent gap during animation
-          backgroundColor: Index === 1 ? (color || colors.musicPlayerBg) : 'transparent',
+          backgroundColor:
+            Index === 1 ? color || colors.musicPlayerBg : 'transparent',
         }}
       >
         {Index !== 1 ? (

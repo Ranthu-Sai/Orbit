@@ -1,4 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
+import React from 'react';
+import { ToastAndroid } from 'react-native';
 
 /**
  * Shared network utilities to eliminate duplication across components
@@ -12,7 +14,7 @@ export const ConnectionTypes = {
   WIFI: 'wifi',
   ETHERNET: 'ethernet',
   BLUETOOTH: 'bluetooth',
-  WIMAX: 'wimax'
+  WIMAX: 'wimax',
 };
 
 // Connection quality levels
@@ -21,7 +23,7 @@ export const ConnectionQuality = {
   LOW: 'low',
   MEDIUM: 'medium',
   HIGH: 'high',
-  EXCELLENT: 'excellent'
+  EXCELLENT: 'excellent',
 };
 
 // Network state interface
@@ -83,7 +85,11 @@ class NetworkState {
    * @returns {boolean} True if suitable for streaming
    */
   canStreamMusic() {
-    return this.isConnected && this.isInternetReachable && this.connectionQuality !== ConnectionQuality.NONE;
+    return (
+      this.isConnected &&
+      this.isInternetReachable &&
+      this.connectionQuality !== ConnectionQuality.NONE
+    );
   }
 
   /**
@@ -91,8 +97,10 @@ class NetworkState {
    * @returns {boolean} True if high quality connection
    */
   isHighQualityConnection() {
-    return this.connectionQuality === ConnectionQuality.EXCELLENT ||
-           this.connectionQuality === ConnectionQuality.HIGH;
+    return (
+      this.connectionQuality === ConnectionQuality.EXCELLENT ||
+      this.connectionQuality === ConnectionQuality.HIGH
+    );
   }
 
   /**
@@ -100,8 +108,12 @@ class NetworkState {
    * @returns {string} Human-readable connection description
    */
   getConnectionDescription() {
-    if (this.isOffline) return 'Offline';
-    if (!this.isInternetReachable) return 'No Internet';
+    if (this.isOffline) {
+      return 'Offline';
+    }
+    if (!this.isInternetReachable) {
+      return 'No Internet';
+    }
 
     switch (this.connectionType) {
       case ConnectionTypes.WIFI:
@@ -134,7 +146,7 @@ class NetworkState {
       isHighQualityConnection: this.isHighQualityConnection(),
       description: this.getConnectionDescription(),
       lastUpdate: this.lastUpdate,
-      details: this.details
+      details: this.details,
     };
   }
 }
@@ -163,10 +175,7 @@ class NetworkMonitor {
     }
 
     try {
-      const {
-        showToasts = true,
-        onConnectionChange = null
-      } = options;
+      const { showToasts = true, onConnectionChange = null } = options;
 
       // Get initial network state
       const initialState = await NetInfo.fetch();
@@ -187,8 +196,8 @@ class NetworkMonitor {
             wasOffline: previousStatus.isOffline,
             isOffline: currentStatus.isOffline,
             wasConnected: previousStatus.isConnected,
-            isConnected: currentStatus.isConnected
-          }
+            isConnected: currentStatus.isConnected,
+          },
         });
 
         // Show toast notifications if enabled
@@ -204,7 +213,6 @@ class NetworkMonitor {
 
       this.isInitialized = true;
       return true;
-
     } catch (error) {
       console.error('NetworkMonitor: Initialization failed:', error);
       return false;
@@ -219,9 +227,15 @@ class NetworkMonitor {
   handleConnectionChangeToast(previousStatus, currentStatus) {
     try {
       if (previousStatus.isOffline && currentStatus.isConnected) {
-        ToastAndroid.show('Back online! Music streaming available.', ToastAndroid.SHORT);
+        ToastAndroid.show(
+          'Back online! Music streaming available.',
+          ToastAndroid.SHORT
+        );
       } else if (!previousStatus.isOffline && currentStatus.isOffline) {
-        ToastAndroid.show('You are offline. Playing downloaded music only.', ToastAndroid.SHORT);
+        ToastAndroid.show(
+          'You are offline. Playing downloaded music only.',
+          ToastAndroid.SHORT
+        );
       }
     } catch (error) {
       console.error('Error showing connection toast:', error);
@@ -259,7 +273,7 @@ class NetworkMonitor {
    * @param {Object} data - State change data
    */
   notifyListeners(data) {
-    this.listeners.forEach(listener => {
+    this.listeners.forEach((listener) => {
       try {
         listener(data);
       } catch (error) {
@@ -318,7 +332,7 @@ export const useNetworkMonitor = (options = {}) => {
   // Initialize network monitor if not already done
   React.useEffect(() => {
     if (autoInitialize && !networkMonitor.isInitialized) {
-      networkMonitor.initialize(options).catch(error => {
+      networkMonitor.initialize(options).catch((error) => {
         console.error('Failed to auto-initialize network monitor:', error);
       });
     }
@@ -336,7 +350,7 @@ export const useNetworkMonitor = (options = {}) => {
     ...networkState.getStatus(),
     refresh: networkMonitor.refresh.bind(networkMonitor),
     addListener: networkMonitor.addListener.bind(networkMonitor),
-    removeListener: networkMonitor.removeListener.bind(networkMonitor)
+    removeListener: networkMonitor.removeListener.bind(networkMonitor),
   };
 };
 
@@ -365,7 +379,7 @@ export const getNetworkInfo = async () => {
       ...state,
       quality: networkState.determineConnectionQuality(),
       canStream: state.isConnected && state.isInternetReachable,
-      description: networkState.getConnectionDescription()
+      description: networkState.getConnectionDescription(),
     };
   } catch (error) {
     console.error('Error getting network info:', error);
@@ -375,7 +389,7 @@ export const getNetworkInfo = async () => {
       type: ConnectionTypes.UNKNOWN,
       quality: ConnectionQuality.NONE,
       canStream: false,
-      description: 'Unknown'
+      description: 'Unknown',
     };
   }
 };
@@ -389,7 +403,7 @@ export const waitForConnection = async (options = {}) => {
   const {
     timeout = 30000,
     checkInterval = 1000,
-    requireHighQuality = false
+    requireHighQuality = false,
   } = options;
 
   const startTime = Date.now();
@@ -399,14 +413,14 @@ export const waitForConnection = async (options = {}) => {
 
     if (status.isConnected && status.isInternetReachable) {
       if (requireHighQuality && !status.isHighQualityConnection()) {
-        await new Promise(resolve => setTimeout(resolve, checkInterval));
+        await new Promise((resolve) => setTimeout(resolve, checkInterval));
         continue;
       }
 
       return true;
     }
 
-    await new Promise(resolve => setTimeout(resolve, checkInterval));
+    await new Promise((resolve) => setTimeout(resolve, checkInterval));
   }
 
   return false;
@@ -423,7 +437,7 @@ export const withNetworkCheck = async (operation, options = {}) => {
     requireConnection = true,
     requireHighQuality = false,
     fallbackOperation = null,
-    errorMessage = 'Network connection required'
+    errorMessage = 'Network connection required',
   } = options;
 
   const status = networkState.getStatus();

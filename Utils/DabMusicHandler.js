@@ -12,7 +12,7 @@ import DabAuthService from './DabAuthService';
  * @returns {boolean} True if track is from DAB
  */
 export function isDabTrack(track) {
-    return track?.source === 'dab' || track?.api === 'dab';
+  return track?.source === 'dab' || track?.api === 'dab';
 }
 
 /**
@@ -22,23 +22,23 @@ export function isDabTrack(track) {
  * @returns {Promise<string>} Streaming URL
  */
 export async function getDabTrackStreamUrl(track, quality = '27') {
-    if (!isDabTrack(track)) {
-        throw new Error('Track is not from DAB source');
-    }
+  if (!isDabTrack(track)) {
+    throw new Error('Track is not from DAB source');
+  }
 
-    const trackId = track.id || track.downloadUrl;
+  const trackId = track.id || track.downloadUrl;
 
-    if (!trackId) {
-        throw new Error('Track ID not found');
-    }
+  if (!trackId) {
+    throw new Error('Track ID not found');
+  }
 
-    try {
-        const streamUrl = await getDabStreamingUrl(trackId, quality);
-        return streamUrl;
-    } catch (error) {
-        console.error('Error getting DAB stream URL:', error);
-        throw error;
-    }
+  try {
+    const streamUrl = await getDabStreamingUrl(trackId, quality);
+    return streamUrl;
+  } catch (error) {
+    console.error('Error getting DAB stream URL:', error);
+    throw error;
+  }
 }
 
 /**
@@ -47,21 +47,21 @@ export async function getDabTrackStreamUrl(track, quality = '27') {
  * @returns {string} Quality label
  */
 export function getDabQualityLabel(track) {
-    if (!track?.audioQuality) {
-        return 'Standard';
-    }
+  if (!track?.audioQuality) {
+    return 'Standard';
+  }
 
-    const { isHiRes, maximumBitDepth, maximumSamplingRate } = track.audioQuality;
+  const { isHiRes, maximumBitDepth, maximumSamplingRate } = track.audioQuality;
 
-    if (isHiRes) {
-        return `Hi-Res ${maximumBitDepth}bit/${maximumSamplingRate}kHz`;
-    }
+  if (isHiRes) {
+    return `Hi-Res ${maximumBitDepth}bit/${maximumSamplingRate}kHz`;
+  }
 
-    if (maximumBitDepth && maximumSamplingRate) {
-        return `${maximumBitDepth}bit/${maximumSamplingRate}kHz`;
-    }
+  if (maximumBitDepth && maximumSamplingRate) {
+    return `${maximumBitDepth}bit/${maximumSamplingRate}kHz`;
+  }
 
-    return 'Lossless';
+  return 'Lossless';
 }
 
 /**
@@ -69,7 +69,7 @@ export function getDabQualityLabel(track) {
  * @returns {boolean} Login status
  */
 export function isDabLoggedIn() {
-    return DabAuthService.isAuth();
+  return DabAuthService.isAuth();
 }
 
 /**
@@ -77,7 +77,7 @@ export function isDabLoggedIn() {
  * @returns {Object|null} User object
  */
 export function getDabUser() {
-    return DabAuthService.getUser();
+  return DabAuthService.getUser();
 }
 
 /**
@@ -86,15 +86,15 @@ export function getDabUser() {
  * @returns {Object} Formatted track info
  */
 export function formatDabTrack(track) {
-    return {
-        title: track.title || track.name,
-        artist: track.artist || track.subtitle,
-        album: track.album || '',
-        duration: track.duration || 0,
-        image: track.image?.[track.image.length - 1]?.url || '',
-        quality: getDabQualityLabel(track),
-        isHiRes: track.audioQuality?.isHiRes || false,
-    };
+  return {
+    title: track.title || track.name,
+    artist: track.artist || track.subtitle,
+    album: track.album || '',
+    duration: track.duration || 0,
+    image: track.image?.[track.image.length - 1]?.url || '',
+    quality: getDabQualityLabel(track),
+    isHiRes: track.audioQuality?.isHiRes || false,
+  };
 }
 
 /**
@@ -103,7 +103,7 @@ export function formatDabTrack(track) {
  * @returns {boolean} True if Hi-Res
  */
 export function isDabHiRes(track) {
-    return track?.audioQuality?.isHiRes || false;
+  return track?.audioQuality?.isHiRes || false;
 }
 
 /**
@@ -112,23 +112,23 @@ export function isDabHiRes(track) {
  * @returns {Object} Metadata
  */
 export function getDabTrackMetadata(track) {
-    return {
-        source: 'DAB Music',
-        quality: getDabQualityLabel(track),
-        isHiRes: isDabHiRes(track),
-        bitDepth: track.audioQuality?.maximumBitDepth || null,
-        sampleRate: track.audioQuality?.maximumSamplingRate || null,
-        genre: track.genre || null,
-    };
+  return {
+    source: 'DAB Music',
+    quality: getDabQualityLabel(track),
+    isHiRes: isDabHiRes(track),
+    bitDepth: track.audioQuality?.maximumBitDepth || null,
+    sampleRate: track.audioQuality?.maximumSamplingRate || null,
+    genre: track.genre || null,
+  };
 }
 
 export default {
-    isDabTrack,
-    getDabTrackStreamUrl,
-    getDabQualityLabel,
-    isDabLoggedIn,
-    getDabUser,
-    formatDabTrack,
-    isDabHiRes,
-    getDabTrackMetadata,
+  isDabTrack,
+  getDabTrackStreamUrl,
+  getDabQualityLabel,
+  isDabLoggedIn,
+  getDabUser,
+  formatDabTrack,
+  isDabHiRes,
+  getDabTrackMetadata,
 };

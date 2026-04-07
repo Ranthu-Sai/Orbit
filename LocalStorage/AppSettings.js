@@ -1,13 +1,13 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { DEFAULT_COLOR_SCHEME, colorSchemes } from "../Theme/colorSchemes";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DEFAULT_COLOR_SCHEME, colorSchemes } from '../Theme/colorSchemes';
 
 async function GetFontSizeValue() {
   try {
     const value = await AsyncStorage.getItem('FontSize');
     if (value !== null) {
-      return value
+      return value;
     } else {
-      return 'Medium'
+      return 'Medium';
     }
   } catch (e) {
     // error reading value
@@ -17,17 +17,16 @@ async function GetFontSizeValue() {
 async function SetFontSizeValue(FontSize) {
   try {
     await AsyncStorage.setItem('FontSize', FontSize);
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 async function GetPlaybackQuality() {
   try {
     const value = await AsyncStorage.getItem('PlaybackQuality');
     if (value !== null) {
-      return value
+      return value;
     } else {
-      return '320kbps'
+      return '320kbps';
     }
   } catch (e) {
     // error reading value
@@ -37,17 +36,16 @@ async function GetPlaybackQuality() {
 async function SetPlaybackQuality(PlaybackQuality) {
   try {
     await AsyncStorage.setItem('PlaybackQuality', PlaybackQuality);
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 async function GetDownloadPath() {
   try {
     const value = await AsyncStorage.getItem('DownloadPath');
     if (value !== null) {
-      return value
+      return value;
     } else {
-      return 'Download'
+      return 'Download';
     }
   } catch (e) {
     // error reading value
@@ -57,48 +55,45 @@ async function GetDownloadPath() {
 async function SetDownloadPath(DownloadPath) {
   try {
     await AsyncStorage.setItem('DownloadPath', DownloadPath);
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 async function GetThemePreference() {
   try {
     const value = await AsyncStorage.getItem('ThemePreference');
     if (value !== null) {
-      return value
+      return value;
     } else {
-      return 'dark' // Default theme is dark
+      return 'dark'; // Default theme is dark
     }
   } catch (e) {
-    return 'dark' // Fallback to dark theme
+    return 'dark'; // Fallback to dark theme
   }
 }
 
 async function SetThemePreference(theme) {
   try {
     await AsyncStorage.setItem('ThemePreference', theme);
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 async function GetColorScheme() {
   try {
     const value = await AsyncStorage.getItem('ColorScheme');
     if (value !== null) {
-      return value
+      return value;
     } else {
-      return DEFAULT_COLOR_SCHEME // Default color scheme
+      return DEFAULT_COLOR_SCHEME; // Default color scheme
     }
   } catch (e) {
-    return DEFAULT_COLOR_SCHEME // Fallback to default
+    return DEFAULT_COLOR_SCHEME; // Fallback to default
   }
 }
 
 async function SetColorScheme(colorScheme) {
   try {
     await AsyncStorage.setItem('ColorScheme', colorScheme);
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 // Get icon color preference
@@ -106,7 +101,7 @@ async function GetIconColor() {
   try {
     const value = await AsyncStorage.getItem('IconColor');
     if (value !== null) {
-      return value
+      return value;
     } else {
       // Default to the color scheme's icon color
       const scheme = await GetColorScheme();
@@ -121,8 +116,7 @@ async function GetIconColor() {
 async function SetIconColor(iconColor) {
   try {
     await AsyncStorage.setItem('IconColor', iconColor);
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 // Get text highlight color preference
@@ -130,7 +124,7 @@ async function GetTextColor() {
   try {
     const value = await AsyncStorage.getItem('TextColor');
     if (value !== null) {
-      return value
+      return value;
     } else {
       // Default to the color scheme's text color
       const scheme = await GetColorScheme();
@@ -145,8 +139,7 @@ async function GetTextColor() {
 async function SetTextColor(textColor) {
   try {
     await AsyncStorage.setItem('TextColor', textColor);
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 // Get accent color preference (used when song is playing)
@@ -154,7 +147,7 @@ async function GetAccentColor() {
   try {
     const value = await AsyncStorage.getItem('AccentColor');
     if (value !== null) {
-      return value
+      return value;
     } else {
       // Default to the color scheme's accent color
       const scheme = await GetColorScheme();
@@ -169,8 +162,7 @@ async function GetAccentColor() {
 async function SetAccentColor(accentColor) {
   try {
     await AsyncStorage.setItem('AccentColor', accentColor);
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 // Get whether custom colors are enabled
@@ -178,21 +170,23 @@ async function GetCustomColorsEnabled() {
   try {
     const value = await AsyncStorage.getItem('CustomColorsEnabled');
     if (value !== null) {
-      return value === 'true'
+      return value === 'true';
     } else {
-      return false // Default to not using custom colors
+      return false; // Default to not using custom colors
     }
   } catch (e) {
-    return false // Fallback to not using custom colors
+    return false; // Fallback to not using custom colors
   }
 }
 
 // Set whether custom colors are enabled
 async function SetCustomColorsEnabled(enabled) {
   try {
-    await AsyncStorage.setItem('CustomColorsEnabled', enabled ? 'true' : 'false');
-  } catch (e) {
-  }
+    await AsyncStorage.setItem(
+      'CustomColorsEnabled',
+      enabled ? 'true' : 'false'
+    );
+  } catch (e) {}
 }
 
 // Get music source preference
@@ -200,12 +194,12 @@ async function GetMusicSource() {
   try {
     const value = await AsyncStorage.getItem('MusicSource');
     if (value !== null) {
-      return value
+      return value;
     } else {
-      return 'Ytmusic' // Default music source
+      return 'Ytmusic'; // Default music source
     }
   } catch (e) {
-    return 'Ytmusic' // Fallback to Ytmusic
+    return 'Ytmusic'; // Fallback to Ytmusic
   }
 }
 
@@ -213,8 +207,7 @@ async function GetMusicSource() {
 async function SetMusicSource(musicSource) {
   try {
     await AsyncStorage.setItem('MusicSource', musicSource);
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 // Get home feed source preference
@@ -222,12 +215,12 @@ async function GetHomeFeedSource() {
   try {
     const value = await AsyncStorage.getItem('HomeFeedSource');
     if (value !== null) {
-      return value
+      return value;
     } else {
-      return 'Hybrid' // Default home feed source
+      return 'Hybrid'; // Default home feed source
     }
   } catch (e) {
-    return 'Hybrid' // Fallback to Hybrid
+    return 'Hybrid'; // Fallback to Hybrid
   }
 }
 
@@ -235,8 +228,7 @@ async function GetHomeFeedSource() {
 async function SetHomeFeedSource(homeFeedSource) {
   try {
     await AsyncStorage.setItem('HomeFeedSource', homeFeedSource);
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 // Get lyrics provider preference
@@ -244,12 +236,12 @@ async function GetLyricsProvider() {
   try {
     const value = await AsyncStorage.getItem('LyricsProvider');
     if (value !== null) {
-      return value
+      return value;
     } else {
-      return 'LrcLib' // Default lyrics provider
+      return 'LrcLib'; // Default lyrics provider
     }
   } catch (e) {
-    return 'LrcLib' // Fallback
+    return 'LrcLib'; // Fallback
   }
 }
 
@@ -257,8 +249,7 @@ async function GetLyricsProvider() {
 async function SetLyricsProvider(provider) {
   try {
     await AsyncStorage.setItem('LyricsProvider', provider);
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 // Get lyrics animation style preference
@@ -266,12 +257,12 @@ async function GetLyricsAnimationStyle() {
   try {
     const value = await AsyncStorage.getItem('LyricsAnimationStyle');
     if (value !== null) {
-      return value
+      return value;
     } else {
-      return 'Apple' // Default lyrics animation style (ArchiveTune-style)
+      return 'Apple'; // Default lyrics animation style (ArchiveTune-style)
     }
   } catch (e) {
-    return 'Smooth' // Fallback
+    return 'Smooth'; // Fallback
   }
 }
 
@@ -279,8 +270,7 @@ async function GetLyricsAnimationStyle() {
 async function SetLyricsAnimationStyle(style) {
   try {
     await AsyncStorage.setItem('LyricsAnimationStyle', style);
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 // Get lyrics font size preference
@@ -288,12 +278,12 @@ async function GetLyricsFontSize() {
   try {
     const value = await AsyncStorage.getItem('LyricsFontSize');
     if (value !== null) {
-      return parseInt(value, 10)
+      return parseInt(value, 10);
     } else {
-      return 26 // Default font size
+      return 26; // Default font size
     }
   } catch (e) {
-    return 26
+    return 26;
   }
 }
 
@@ -301,8 +291,7 @@ async function GetLyricsFontSize() {
 async function SetLyricsFontSize(size) {
   try {
     await AsyncStorage.setItem('LyricsFontSize', size.toString());
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 // Get lyrics theme preference
@@ -310,12 +299,12 @@ async function GetLyricsTheme() {
   try {
     const value = await AsyncStorage.getItem('LyricsTheme');
     if (value !== null) {
-      return value
+      return value;
     } else {
-      return 'Blur' // Default theme
+      return 'Blur'; // Default theme
     }
   } catch (e) {
-    return 'Blur'
+    return 'Blur';
   }
 }
 
@@ -323,8 +312,7 @@ async function GetLyricsTheme() {
 async function SetLyricsTheme(theme) {
   try {
     await AsyncStorage.setItem('LyricsTheme', theme);
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 // Get lyrics text color preference
@@ -332,12 +320,12 @@ async function GetLyricsTextColor() {
   try {
     const value = await AsyncStorage.getItem('LyricsTextColor');
     if (value !== null) {
-      return value
+      return value;
     } else {
-      return 'Auto' // Default to auto
+      return 'Auto'; // Default to auto
     }
   } catch (e) {
-    return 'Auto'
+    return 'Auto';
   }
 }
 
@@ -345,28 +333,26 @@ async function GetLyricsTextColor() {
 async function SetLyricsTextColor(color) {
   try {
     await AsyncStorage.setItem('LyricsTextColor', color);
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 async function GetYtMusicQuality() {
   try {
     const value = await AsyncStorage.getItem('YtMusicQuality');
     if (value !== null) {
-      return value
+      return value;
     } else {
-      return 'Auto'
+      return 'Auto';
     }
   } catch (e) {
-    return 'Auto'
+    return 'Auto';
   }
 }
 
 async function SetYtMusicQuality(quality) {
   try {
     await AsyncStorage.setItem('YtMusicQuality', quality);
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 export {
@@ -404,4 +390,4 @@ export {
   SetLyricsTextColor,
   GetYtMusicQuality,
   SetYtMusicQuality,
-}
+};

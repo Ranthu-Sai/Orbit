@@ -10,7 +10,9 @@ const FullScreenLocalTrackItem = ({ song, onPress }) => {
   if (song.isLocal || song.sourceType === 'mymusic') {
     imageSource = require('../../Images/Music.jpeg');
   } else {
-    imageSource = song.artwork ? { uri: song.artwork } : require('../../Images/Music.jpeg');
+    imageSource = song.artwork
+      ? { uri: song.artwork }
+      : require('../../Images/Music.jpeg');
   }
 
   return (
@@ -24,7 +26,7 @@ const FullScreenLocalTrackItem = ({ song, onPress }) => {
         borderBottomColor: 'rgba(255,255,255,0.1)',
         backgroundColor: 'rgba(0,0,0,0.2)',
         borderRadius: 8,
-        marginBottom: 8
+        marginBottom: 8,
       }}
     >
       <FastImage
@@ -36,7 +38,9 @@ const FullScreenLocalTrackItem = ({ song, onPress }) => {
         <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>
           {song.title || 'Unknown Title'}
         </Text>
-        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, marginTop: 4 }}>
+        <Text
+          style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, marginTop: 4 }}
+        >
           {song.artist || 'Unknown Artist'}
         </Text>
       </View>

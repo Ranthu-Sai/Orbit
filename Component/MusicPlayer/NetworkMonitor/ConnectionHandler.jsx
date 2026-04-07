@@ -3,7 +3,7 @@ import { useNetworkMonitor } from './useNetworkMonitor';
 
 /**
  * ConnectionHandler - Handles network connection events and side effects
- * 
+ *
  * This component manages network-related side effects including:
  * - Connection change callbacks
  * - Error suppression in offline mode
@@ -11,22 +11,22 @@ import { useNetworkMonitor } from './useNetworkMonitor';
  * - Automatic retry mechanisms
  */
 
-export const ConnectionHandler = ({ 
+export const ConnectionHandler = ({
   children,
   onOnline = null,
   onOffline = null,
   onConnectionChange = null,
   suppressOfflineErrors = true,
   enableAutoRetry = false,
-  retryInterval = 30000 // 30 seconds
+  retryInterval = 30000, // 30 seconds
 }) => {
-  const { 
-    isConnected, 
-    isOffline, 
-    connectionType, 
+  const {
+    isConnected,
+    isOffline,
+    connectionType,
     connectionQuality,
     canStreamMusic,
-    refreshNetworkState 
+    refreshNetworkState,
   } = useNetworkMonitor();
 
   // Handle connection state changes
@@ -37,7 +37,7 @@ export const ConnectionHandler = ({
         isOffline,
         connectionType,
         connectionQuality,
-        canStreamMusic
+        canStreamMusic,
       });
     }
   }, [isConnected, isOffline, connectionType, connectionQuality]);
@@ -48,7 +48,7 @@ export const ConnectionHandler = ({
       onOnline({
         connectionType,
         connectionQuality,
-        canStreamMusic
+        canStreamMusic,
       });
     }
   }, [isConnected, isOffline]);
@@ -57,7 +57,7 @@ export const ConnectionHandler = ({
   useEffect(() => {
     if (isOffline && onOffline) {
       onOffline({
-        previousConnectionType: connectionType
+        previousConnectionType: connectionType,
       });
     }
   }, [isOffline]);
@@ -69,7 +69,7 @@ export const ConnectionHandler = ({
       const originalConsoleError = console.error;
       console.error = (...args) => {
         const errorMessage = args.join(' ').toLowerCase();
-        
+
         // Suppress common network error messages when offline
         const networkErrorKeywords = [
           'network request failed',
@@ -78,13 +78,13 @@ export const ConnectionHandler = ({
           'connection refused',
           'timeout',
           'no internet',
-          'offline'
+          'offline',
         ];
-        
-        const shouldSuppress = networkErrorKeywords.some(keyword => 
+
+        const shouldSuppress = networkErrorKeywords.some((keyword) =>
           errorMessage.includes(keyword)
         );
-        
+
         if (!shouldSuppress) {
           originalConsoleError.apply(console, args);
         }

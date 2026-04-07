@@ -1,7 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as RNFS from 'react-native-fs';
-import { Platform } from 'react-native';
-import { analyticsService } from './AnalyticsUtils';
 
 // Storage keys (legacy)
 const HISTORY_STORAGE_KEY = 'orbit_listening_history';
@@ -10,7 +8,6 @@ const WEEKLY_STATS_KEY = 'orbit_weekly_stats';
 // File paths
 const HISTORY_FILE_PATH = `${RNFS.DocumentDirectoryPath}/orbit_history.json`;
 const WEEKLY_STATS_FILE_PATH = `${RNFS.DocumentDirectoryPath}/orbit_weekly_stats.json`;
-
 
 // History entry structure
 const createHistoryEntry = (song, listenDuration = 0) => ({
@@ -24,7 +21,9 @@ const createHistoryEntry = (song, listenDuration = 0) => ({
   playCount: 1,
   lastPlayed: Date.now(),
   firstPlayed: Date.now(),
-  sourceType: song.sourceType || (song.isLocal ? 'local' : song.path ? 'download' : 'online'),
+  sourceType:
+    song.sourceType ||
+    (song.isLocal ? 'local' : song.path ? 'download' : 'online'),
   isLocal: song.isLocal || false,
   path: song.path || null,
   // Store YouTube video ID for songs that need stream fetching (Spotify mapped to YTMusic, etc.)
@@ -58,7 +57,9 @@ class HistoryManager {
 
   // Initialize history tracking
   async initialize() {
-    if (this.isInitialized) return;
+    if (this.isInitialized) {
+      return;
+    }
     try {
       // Load history into memory once
       const historyFileExists = await RNFS.exists(HISTORY_FILE_PATH);
@@ -90,7 +91,7 @@ class HistoryManager {
         if (legacyHistory) {
           await RNFS.writeFile(HISTORY_FILE_PATH, legacyHistory, 'utf8');
           // Don't remove from AsyncStorage yet, wait for verification or just leave it as backup
-          // AsyncStorage.removeItem(HISTORY_STORAGE_KEY); 
+          // AsyncStorage.removeItem(HISTORY_STORAGE_KEY);
         }
       }
 
@@ -110,7 +111,9 @@ class HistoryManager {
   async readJsonFile(path, defaultValue = null) {
     try {
       const exists = await RNFS.exists(path);
-      if (!exists) return defaultValue;
+      if (!exists) {
+        return defaultValue;
+      }
 
       const content = await RNFS.readFile(path, 'utf8');
       return content ? JSON.parse(content) : defaultValue;
@@ -132,14 +135,19 @@ class HistoryManager {
     }
   }
 
-
   // Start tracking a song
   async startTracking(song) {
     try {
-      if (!song || !song.id) return;
+      if (!song || !song.id) {
+        return;
+      }
 
       // Check if we're already tracking this same song
-      if (this.isTracking && this.currentTrack && this.currentTrack.id === song.id) {
+      if (
+        this.isTracking &&
+        this.currentTrack &&
+        this.currentTrack.id === song.id
+      ) {
         return;
       }
 
@@ -149,8 +157,11 @@ class HistoryManager {
       }
 
       // Quick check in-memory history instead of file read
-      const existingEntry = this.history.find(item => item && item.id === song.id);
-      const isRecentPlay = existingEntry && (Date.now() - existingEntry.lastPlayed) < 300000; // 5 minutes
+      const existingEntry = this.history.find(
+        (item) => item && item.id === song.id
+      );
+      const isRecentPlay =
+        existingEntry && Date.now() - existingEntry.lastPlayed < 300000; // 5 minutes
 
       this.currentTrack = song;
       this.startTime = Date.now();
@@ -171,7 +182,9 @@ class HistoryManager {
   // Add song to memory history and trigger async save
   addToHistoryMemory(song) {
     try {
-      const existingIndex = this.history.findIndex(item => item && item.id === song.id);
+      const existingIndex = this.history.findIndex(
+        (item) => item && item.id === song.id
+      );
 
       if (existingIndex !== -1) {
         // Move to top and update timestamp
@@ -200,7 +213,9 @@ class HistoryManager {
 
   // debounced disk write
   async saveHistoryToDisk() {
-    if (this._saveTimeout) clearTimeout(this._saveTimeout);
+    if (this._saveTimeout) {
+      clearTimeout(this._saveTimeout);
+    }
     this._saveTimeout = setTimeout(async () => {
       try {
         await this.writeJsonFile(HISTORY_FILE_PATH, this.history);
@@ -218,7 +233,7 @@ class HistoryManager {
       }
 
       // No longer saving progress incrementally to avoid any lag
-      const title = this.currentTrack.title;
+      // const title = this.currentTrack.title;
       this.isTracking = false;
       this.currentTrack = null;
       this.startTime = null;
@@ -261,7 +276,7 @@ class HistoryManager {
   }
 
   // Save current progress (Disabled for performance)
-  async saveProgress(isFinal = false) {
+  async saveProgress(_isFinal = false) {
     // Progress tracking disabled per user request to eliminate all lag
     return;
   }
@@ -278,9 +293,10 @@ class HistoryManager {
 
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
-        filtered = filtered.filter(item =>
-          item.title.toLowerCase().includes(query) ||
-          item.artist.toLowerCase().includes(query)
+        filtered = filtered.filter(
+          (item) =>
+            item.title.toLowerCase().includes(query) ||
+            item.artist.toLowerCase().includes(query)
         );
       }
 
@@ -310,24 +326,33 @@ class HistoryManager {
       weekStart: Date.now(),
       totalListenTime: 0,
       songsPlayed: 0,
-      dailyStats: [0, 0, 0, 0, 0, 0, 0]
+      dailyStats: [0, 0, 0, 0, 0, 0, 0],
     };
   }
 
   async getHistoryStats() {
-    const totalTime = this.history.reduce((sum, item) => sum + (item.listenDuration || 0), 0);
+    const totalTime = this.history.reduce(
+      (sum, item) => sum + (item.listenDuration || 0),
+      0
+    );
     return {
       totalSongs: this.history.length,
-      totalPlayCount: this.history.reduce((sum, item) => sum + (item.playCount || 0), 0),
+      totalPlayCount: this.history.reduce(
+        (sum, item) => sum + (item.playCount || 0),
+        0
+      ),
       totalListenTime: totalTime,
       weeklyStats: await this.getWeeklyStats(),
-      averageListenTime: this.history.length > 0 ? totalTime / this.history.length : 0,
+      averageListenTime:
+        this.history.length > 0 ? totalTime / this.history.length : 0,
     };
   }
 
   // Format duration for display (consistent across app)
   formatDuration(milliseconds) {
-    if (!milliseconds || milliseconds < 0) return '0:00';
+    if (!milliseconds || milliseconds < 0) {
+      return '0:00';
+    }
 
     const totalSeconds = Math.floor(milliseconds / 1000);
     const hours = Math.floor(totalSeconds / 3600);
@@ -335,7 +360,9 @@ class HistoryManager {
     const seconds = totalSeconds % 60;
 
     if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds
+        .toString()
+        .padStart(2, '0')}`;
     } else {
       return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
@@ -343,7 +370,9 @@ class HistoryManager {
 
   // Format time for statistics display (hours/minutes format)
   static formatTimeForStats(milliseconds) {
-    if (!milliseconds || milliseconds < 0) return '<1m';
+    if (!milliseconds || milliseconds < 0) {
+      return '<1m';
+    }
 
     const hours = Math.floor(milliseconds / (1000 * 60 * 60));
     const minutes = Math.floor((milliseconds % (1000 * 60 * 60)) / (1000 * 60));
@@ -375,7 +404,7 @@ class HistoryManager {
       hasCountedPlay: this.hasCountedPlay,
       startTime: this.startTime,
       lastSavedDuration: this.lastSavedDuration,
-      duration: this.startTime ? Date.now() - this.startTime : 0
+      duration: this.startTime ? Date.now() - this.startTime : 0,
     };
   }
 
@@ -394,7 +423,7 @@ class HistoryManager {
   // Reset play counts
   async resetPlayCounts() {
     try {
-      this.history = this.history.map(item => ({ ...item, playCount: 1 }));
+      this.history = this.history.map((item) => ({ ...item, playCount: 1 }));
       await this.saveHistoryToDisk();
       return true;
     } catch (err) {

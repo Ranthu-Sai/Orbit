@@ -8,11 +8,14 @@
  * @returns {string} Normalized name
  */
 const normalizeAlbumName = (name) => {
-    if (!name) return '';
-    return name.toLowerCase()
-        .replace(/[^\w\s]/gi, '') // Remove special characters
-        .replace(/\s+/g, ' ') // Normalize whitespace
-        .trim();
+  if (!name) {
+    return '';
+  }
+  return name
+    .toLowerCase()
+    .replace(/[^\w\s]/gi, '') // Remove special characters
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .trim();
 };
 
 /**
@@ -21,50 +24,53 @@ const normalizeAlbumName = (name) => {
  * @returns {Array} Deduplicated array
  */
 export const deduplicateAlbums = (albums) => {
-    if (!Array.isArray(albums) || albums.length === 0) {
-        return [];
+  if (!Array.isArray(albums) || albums.length === 0) {
+    return [];
+  }
+
+  // Group albums by normalized name
+  const albumGroups = {};
+
+  albums.forEach((album) => {
+    if (!album || !album.name) {
+      return;
     }
 
-    // Group albums by normalized name
-    const albumGroups = {};
+    const normalizedName = normalizeAlbumName(album.name);
 
-    albums.forEach(album => {
-        if (!album || !album.name) return;
+    if (!albumGroups[normalizedName]) {
+      albumGroups[normalizedName] = [];
+    }
 
-        const normalizedName = normalizeAlbumName(album.name);
+    albumGroups[normalizedName].push(album);
+  });
 
-        if (!albumGroups[normalizedName]) {
-            albumGroups[normalizedName] = [];
-        }
+  // For each group, prioritize Saavn over YTMusic
+  const deduplicatedAlbums = [];
 
-        albumGroups[normalizedName].push(album);
-    });
+  Object.values(albumGroups).forEach((group) => {
+    if (group.length === 1) {
+      // Only one album with this name
+      deduplicatedAlbums.push(group[0]);
+    } else {
+      // Multiple albums with same name - prioritize Saavn
+      const saavnAlbum = group.find(
+        (album) =>
+          album.source !== 'ytmusic' &&
+          album.source !== 'youtube' &&
+          !album.id?.length === 11 // YTMusic IDs are typically 11 chars
+      );
 
-    // For each group, prioritize Saavn over YTMusic
-    const deduplicatedAlbums = [];
+      if (saavnAlbum) {
+        deduplicatedAlbums.push(saavnAlbum);
+      } else {
+        // No Saavn album found, use first one
+        deduplicatedAlbums.push(group[0]);
+      }
+    }
+  });
 
-    Object.values(albumGroups).forEach(group => {
-        if (group.length === 1) {
-            // Only one album with this name
-            deduplicatedAlbums.push(group[0]);
-        } else {
-            // Multiple albums with same name - prioritize Saavn
-            const saavnAlbum = group.find(album =>
-                album.source !== 'ytmusic' &&
-                album.source !== 'youtube' &&
-                !album.id?.length === 11 // YTMusic IDs are typically 11 chars
-            );
-
-            if (saavnAlbum) {
-                deduplicatedAlbums.push(saavnAlbum);
-            } else {
-                // No Saavn album found, use first one
-                deduplicatedAlbums.push(group[0]);
-            }
-        }
-    });
-
-    return deduplicatedAlbums;
+  return deduplicatedAlbums;
 };
 
 /**
@@ -73,11 +79,13 @@ export const deduplicateAlbums = (albums) => {
  * @returns {boolean} True if from YTMusic
  */
 export const isYTMusicAlbum = (album) => {
-    if (!album) return false;
+  if (!album) {
+    return false;
+  }
 
-    return (
-        album.source === 'ytmusic' ||
-        album.source === 'youtube' ||
-        (album.id && typeof album.id === 'string' && album.id.length === 11)
-    );
+  return (
+    album.source === 'ytmusic' ||
+    album.source === 'youtube' ||
+    (album.id && typeof album.id === 'string' && album.id.length === 11)
+  );
 };

@@ -4,7 +4,7 @@ import { ToastAndroid } from 'react-native';
 
 /**
  * useNetworkMonitor - Custom hook for network state monitoring
- * 
+ *
  * This hook provides network monitoring capabilities including:
  * - Real-time network status detection
  * - Offline/online transition handling
@@ -13,10 +13,10 @@ import { ToastAndroid } from 'react-native';
  */
 
 export const useNetworkMonitor = (options = {}) => {
-  const { 
-    showToasts = true, 
+  const {
+    showToasts = true,
     enableQualityDetection = true,
-    onConnectionChange = null 
+    onConnectionChange = null,
   } = options;
 
   const [isConnected, setIsConnected] = useState(true);
@@ -37,7 +37,7 @@ export const useNetworkMonitor = (options = {}) => {
     setIsOffline(newIsOffline);
     setConnectionType(state.type || 'unknown');
     setIsInternetReachable(state.isInternetReachable);
-    
+
     // Set connection quality based on connection type
     if (enableQualityDetection) {
       if (state.type === 'wifi') {
@@ -54,9 +54,15 @@ export const useNetworkMonitor = (options = {}) => {
     // Show toast notifications for connection changes
     if (showToasts && previousConnectionState !== null) {
       if (wasOffline && newIsConnected) {
-        ToastAndroid.show('Back online! Music streaming available.', ToastAndroid.SHORT);
+        ToastAndroid.show(
+          'Back online! Music streaming available.',
+          ToastAndroid.SHORT
+        );
       } else if (!wasOffline && newIsOffline) {
-        ToastAndroid.show('You are offline. Playing downloaded music only.', ToastAndroid.SHORT);
+        ToastAndroid.show(
+          'You are offline. Playing downloaded music only.',
+          ToastAndroid.SHORT
+        );
       }
     }
 
@@ -67,7 +73,9 @@ export const useNetworkMonitor = (options = {}) => {
         isOffline: newIsOffline,
         connectionType: state.type,
         wasOffline,
-        connectionQuality: enableQualityDetection ? connectionQuality : 'unknown'
+        connectionQuality: enableQualityDetection
+          ? connectionQuality
+          : 'unknown',
       });
     }
 
@@ -111,7 +119,7 @@ export const useNetworkMonitor = (options = {}) => {
     isOffline,
     connectionType,
     connectionQuality,
-    isInternetReachable
+    isInternetReachable,
   });
 
   const isHighQualityConnection = () => {
@@ -127,9 +135,13 @@ export const useNetworkMonitor = (options = {}) => {
   };
 
   const getConnectionDescription = () => {
-    if (isOffline) return 'Offline';
-    if (!isInternetReachable) return 'No Internet';
-    
+    if (isOffline) {
+      return 'Offline';
+    }
+    if (!isInternetReachable) {
+      return 'No Internet';
+    }
+
     switch (connectionType) {
       case 'wifi':
         return 'WiFi';
@@ -158,13 +170,13 @@ export const useNetworkMonitor = (options = {}) => {
     connectionType,
     connectionQuality,
     isInternetReachable,
-    
+
     // Utility functions
     getNetworkStatus,
     isHighQualityConnection,
     canStreamMusic,
     shouldUseOfflineMode,
     getConnectionDescription,
-    refreshNetworkState
+    refreshNetworkState,
   };
 };

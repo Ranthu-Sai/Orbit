@@ -1,16 +1,32 @@
-import { Dimensions, TextInput, View, Text, StyleSheet, TouchableOpacity, Keyboard, StatusBar, ImageBackground, Platform } from "react-native";
-import Animated, { FadeInDown, useAnimatedStyle, withTiming, useSharedValue } from "react-native-reanimated";
-import { useState, useEffect, useCallback } from "react";
-import { SetUserNameValue } from "../../LocalStorage/StoreUserName";
-import { UserCircle2 } from "lucide-react-native";
-import PlaylistSelectorWrapper from "../../Component/Playlist/PlaylistSelectorWrapper";
+import {
+  Dimensions,
+  TextInput,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Keyboard,
+  StatusBar,
+  ImageBackground,
+  ToastAndroid,
+  Platform,
+} from 'react-native';
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  withTiming,
+  useSharedValue,
+} from 'react-native-reanimated';
+import { useState, useEffect } from 'react';
+import { SetUserNameValue } from '../../LocalStorage/StoreUserName';
+import { UserCircle2 } from 'lucide-react-native';
+import PlaylistSelectorWrapper from '../../Component/Playlist/PlaylistSelectorWrapper';
 
-const SlideImage = require("../../Images/slide.jpg");
+const SlideImage = require('../../Images/slide.jpg');
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export const Slide1 = ({ navigation }) => {
-  const [Name, setName] = useState("");
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [Name, setName] = useState('');
   const bottomOffset = useSharedValue(0);
 
   // Setup keyboard listeners
@@ -19,7 +35,6 @@ export const Slide1 = ({ navigation }) => {
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       (e) => {
         const height = e.endCoordinates.height;
-        setKeyboardHeight(height);
         bottomOffset.value = withTiming(height, { duration: 250 });
       }
     );
@@ -27,7 +42,6 @@ export const Slide1 = ({ navigation }) => {
     const keyboardWillHide = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
-        setKeyboardHeight(0);
         bottomOffset.value = withTiming(0, { duration: 250 });
       }
     );
@@ -36,7 +50,7 @@ export const Slide1 = ({ navigation }) => {
       keyboardWillShow.remove();
       keyboardWillHide.remove();
     };
-  }, []);
+  }, [bottomOffset]);
 
   const inputAnimatedStyle = useAnimatedStyle(() => ({
     bottom: bottomOffset.value + 10,
@@ -44,11 +58,11 @@ export const Slide1 = ({ navigation }) => {
 
   async function NextPress(name) {
     Keyboard.dismiss();
-    if (name === "") {
-      alert("Please Enter name!")
+    if (name === '') {
+      ToastAndroid.show('Please Enter name!', ToastAndroid.SHORT);
     } else {
-      await SetUserNameValue(name.trim())
-      navigation.replace("Slide2")
+      await SetUserNameValue(name.trim());
+      navigation.replace('Slide2');
     }
   }
 
@@ -68,7 +82,10 @@ export const Slide1 = ({ navigation }) => {
       >
         {/* Title Section - Centered */}
         <View style={styles.titleSection}>
-          <Animated.View entering={FadeInDown.duration(500)} style={styles.titleContainer}>
+          <Animated.View
+            entering={FadeInDown.duration(500)}
+            style={styles.titleContainer}
+          >
             <Text style={[styles.titleCyan, styles.glowingText]}>Orbit</Text>
             <Text style={styles.titleWhite}>Music.</Text>
           </Animated.View>
@@ -80,7 +97,10 @@ export const Slide1 = ({ navigation }) => {
 
         {/* Input Section - Absolutely positioned at bottom */}
         <Animated.View style={[styles.bottomSection, inputAnimatedStyle]}>
-          <Animated.View entering={FadeInDown.delay(400)} style={styles.inputContainer}>
+          <Animated.View
+            entering={FadeInDown.delay(400)}
+            style={styles.inputContainer}
+          >
             <UserCircle2 size={20} color="#98bad5" style={styles.inputIcon} />
             <TextInput
               placeholderTextColor="rgba(255, 255, 255, 0.5)"
@@ -91,7 +111,10 @@ export const Slide1 = ({ navigation }) => {
             />
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(500)} style={{ width: '100%' }}>
+          <Animated.View
+            entering={FadeInDown.delay(500)}
+            style={{ width: '100%' }}
+          >
             <TouchableOpacity
               style={styles.button}
               onPress={() => NextPress(Name)}

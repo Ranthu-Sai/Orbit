@@ -1,13 +1,27 @@
-import { Dimensions, TextInput, View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, StatusBar, ToastAndroid } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import Animated, { FadeInDown } from "react-native-reanimated";
-import { useState, useEffect } from "react";
-import { SetUserNameValue, GetUserNameValue } from "../../LocalStorage/StoreUserName";
-import { UserCircle2 } from "lucide-react-native";
-import ScreenSVG from "../../Images/screen.svg";
+import {
+  Dimensions,
+  TextInput,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
+  ToastAndroid,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useState, useEffect } from 'react';
+import {
+  SetUserNameValue,
+  GetUserNameValue,
+} from '../../LocalStorage/StoreUserName';
+import { UserCircle2 } from 'lucide-react-native';
+import ScreenSVG from '../../Images/screen.svg';
 
 export const ChangeName = ({ navigation }) => {
-  const [Name, setName] = useState("");
+  const [Name, setName] = useState('');
 
   useEffect(() => {
     const fetchName = async () => {
@@ -20,15 +34,15 @@ export const ChangeName = ({ navigation }) => {
   }, []);
 
   async function OnConfirm(name) {
-    if (name === "") {
-      alert("Please Enter name!")
+    if (name === '') {
+      alert('Please Enter name!');
     } else {
-      await SetUserNameValue(name.trim())
-      navigation.pop()
+      await SetUserNameValue(name.trim());
+      navigation.pop();
       ToastAndroid.showWithGravity(
-        `Please restart the app`,
+        'Please restart the app',
         ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
+        ToastAndroid.CENTER
       );
     }
   }
@@ -57,7 +71,10 @@ export const ChangeName = ({ navigation }) => {
           style={styles.contentContainer}
         >
           {/* Title */}
-          <Animated.View entering={FadeInDown.duration(500)} style={styles.titleContainer}>
+          <Animated.View
+            entering={FadeInDown.duration(500)}
+            style={styles.titleContainer}
+          >
             <Text style={styles.titleCyan}>Orbit</Text>
             <Text style={styles.titleWhite}>Music.</Text>
           </Animated.View>
@@ -71,7 +88,10 @@ export const ChangeName = ({ navigation }) => {
           <View style={{ flex: 1 }} />
 
           {/* Input Field */}
-          <Animated.View entering={FadeInDown.delay(400)} style={styles.inputContainer}>
+          <Animated.View
+            entering={FadeInDown.delay(400)}
+            style={styles.inputContainer}
+          >
             <UserCircle2 size={20} color="#98bad5" style={styles.inputIcon} />
             <TextInput
               placeholderTextColor="rgba(255, 255, 255, 0.5)"
@@ -83,7 +103,10 @@ export const ChangeName = ({ navigation }) => {
           </Animated.View>
 
           {/* Confirm Button */}
-          <Animated.View entering={FadeInDown.delay(500)} style={{ width: '100%' }}>
+          <Animated.View
+            entering={FadeInDown.delay(500)}
+            style={{ width: '100%' }}
+          >
             <TouchableOpacity
               style={styles.button}
               onPress={() => OnConfirm(Name)}
@@ -125,13 +148,13 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   titleCyan: {
-    fontSize: Dimensions.get('window').width * 0.20,
+    fontSize: Dimensions.get('window').width * 0.2,
     fontWeight: 'bold',
     color: '#9db6d3ff',
     lineHeight: Dimensions.get('window').width * 0.22,
   },
   titleWhite: {
-    fontSize: Dimensions.get('window').width * 0.20,
+    fontSize: Dimensions.get('window').width * 0.2,
     fontWeight: 'bold',
     color: '#FFFFFF',
     lineHeight: Dimensions.get('window').width * 0.22,

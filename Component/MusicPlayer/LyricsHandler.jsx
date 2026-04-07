@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useContext,
+  useCallback,
+  useMemo,
+} from 'react';
 import LyricsPage from './LyricsPage';
 import { GetLyricsButton } from './GetLyricsButton';
 import { getUnifiedLyrics } from '../../Api/Songs';
@@ -6,27 +12,33 @@ import { GetLyricsProvider } from '../../LocalStorage/AppSettings';
 
 // Constants for error messages
 const ERROR_MESSAGES = {
-  NO_TRACK: 'No song playing or missing track information. Please play a song first.',
+  NO_TRACK:
+    'No song playing or missing track information. Please play a song first.',
   OFFLINE: 'You are offline. Lyrics are not available in offline mode.',
-  NOT_FOUND: 'No Lyrics Found\nSorry, we couldn\'t find lyrics for this song.',
+  NOT_FOUND: "No Lyrics Found\nSorry, we couldn't find lyrics for this song.",
   EMPTY_LYRICS: 'No Lyrics Found\nLyrics data is empty for this song.',
-  FETCH_ERROR: 'Could not fetch lyrics. Please try again.'
+  FETCH_ERROR: 'Could not fetch lyrics. Please try again.',
 };
 
 const parseLRC = (lrcString) => {
-  if (!lrcString) return [];
+  if (!lrcString) {
+    return [];
+  }
   const lines = lrcString.split('\n');
   const lyrics = [];
   const timeRegex = /^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$/;
 
-  lines.forEach(line => {
+  lines.forEach((line) => {
     const match = line.match(timeRegex);
     if (match) {
       const minutes = parseInt(match[1], 10);
       const seconds = parseInt(match[2], 10);
       const msString = match[3];
-      const milliseconds = parseInt(msString.length === 2 ? msString + '0' : msString, 10);
-      const time = (minutes * 60 * 1000) + (seconds * 1000) + milliseconds;
+      const milliseconds = parseInt(
+        msString.length === 2 ? msString + '0' : msString,
+        10
+      );
+      const time = minutes * 60 * 1000 + seconds * 1000 + milliseconds;
       const text = match[4].trim();
       if (text) {
         lyrics.push({ time, text });
@@ -87,7 +99,13 @@ export const LyricsHandler = ({
 
       const { artist, title, duration } = currentPlayingTrack;
       const providerPreference = await GetLyricsProvider();
-      const lyricsData = await getUnifiedLyrics(artist, title, duration, providerPreference, currentPlayingTrack);
+      const lyricsData = await getUnifiedLyrics(
+        artist,
+        title,
+        duration,
+        providerPreference,
+        currentPlayingTrack
+      );
 
       if (!lyricsData?.success) {
         setErrorMessage(lyricsData?.message || ERROR_MESSAGES.NOT_FOUND);
@@ -104,11 +122,14 @@ export const LyricsHandler = ({
         }
       } else if (plainLyrics) {
         // Handle plain lyrics by creating a single item or just splitting by newline without time
-        // For now, LyricsPage expects distinct lines with time. 
+        // For now, LyricsPage expects distinct lines with time.
         // We can create dummy time or handle plain text display in LyricsPage.
         // Let's split plain text into lines with 0 time for now, or handle specifically.
         // Actually, let's just use 0 time for all to show them in list.
-        const lines = plainLyrics.split('\n').filter(t => t.trim()).map(text => ({ time: 0, text }));
+        const lines = plainLyrics
+          .split('\n')
+          .filter((t) => t.trim())
+          .map((text) => ({ time: 0, text }));
         setLyricData(lines);
       } else {
         setErrorMessage(ERROR_MESSAGES.EMPTY_LYRICS);

@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, Text, Dimensions, RefreshControl, ToastAndroid, TextInput, TouchableOpacity } from 'react-native';
+import {
+  View,
+  FlatList,
+  StyleSheet,
+  Text,
+  Dimensions,
+  RefreshControl,
+  ToastAndroid,
+  TextInput,
+  TouchableOpacity,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PlainText } from '../Global/PlainText';
 import { DownloadedSongCard } from './DownloadedSongCard';
@@ -7,7 +17,7 @@ import { DownloadedSongSkeleton } from './DownloadedSongSkeleton';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useTheme, useNavigation } from '@react-navigation/native';
 import { StorageManager } from '../../Utils/StorageManager';
-import { safeExists } from '../../Utils/FileUtils';
+import RNFS from 'react-native-fs';
 import { analyticsService } from '../../Utils/AnalyticsUtils';
 
 const { width, height } = Dimensions.get('window');
@@ -51,9 +61,10 @@ export default function DownloadScreen(props) {
       setFilteredSongs(downloadedSongs);
     } else {
       const query = searchQuery.toLowerCase().trim();
-      const filtered = downloadedSongs.filter(song =>
-        (song.title && song.title.toLowerCase().includes(query)) ||
-        (song.artist && song.artist.toLowerCase().includes(query))
+      const filtered = downloadedSongs.filter(
+        (song) =>
+          (song.title && song.title.toLowerCase().includes(query)) ||
+          (song.artist && song.artist.toLowerCase().includes(query))
       );
       setFilteredSongs(filtered);
     }
@@ -73,7 +84,9 @@ export default function DownloadScreen(props) {
 
   // Function to clean up the song name from filename
   const cleanupSongName = (name) => {
-    if (!name) return "Unknown Title";
+    if (!name) {
+      return 'Unknown Title';
+    }
 
     // Replace underscores with spaces
     let cleanName = name.replace(/_/g, ' ');
@@ -111,17 +124,14 @@ export default function DownloadScreen(props) {
         }
       }
 
-      if (!stringPath) return false;
-
-      // Use safeExists from FileUtils if available
-      if (typeof safeExists === 'function') {
-        return await safeExists(stringPath);
+      if (!stringPath) {
+        return false;
       }
 
-      // Fallback to RNFS.exists
+      // Use RNFS.exists
       return await RNFS.exists(stringPath);
     } catch (error) {
-      console.error(`Error checking if file exists:`, error);
+      console.error('Error checking if file exists:', error);
       return false;
     }
   };
@@ -143,7 +153,6 @@ export default function DownloadScreen(props) {
       const FastOrbitScanner = require('../../Utils/FastOrbitScanner').default;
       const songs = await FastOrbitScanner.quickScan(handleMetadataUpdate);
       setDownloadedSongs(songs);
-
     } catch (error) {
       console.error('Failed to get downloaded songs:', error);
       ToastAndroid.show('Could not load downloaded songs.', ToastAndroid.SHORT);
@@ -158,8 +167,8 @@ export default function DownloadScreen(props) {
     const originalSongs = [...downloadedSongs];
     const originalFiltered = [...filteredSongs];
 
-    setDownloadedSongs(prev => prev.filter(song => song.id !== songId));
-    setFilteredSongs(prev => prev.filter(song => song.id !== songId));
+    setDownloadedSongs((prev) => prev.filter((song) => song.id !== songId));
+    setFilteredSongs((prev) => prev.filter((song) => song.id !== songId));
 
     try {
       // Perform disk operations in background
@@ -196,7 +205,10 @@ export default function DownloadScreen(props) {
               onPress: async () => {
                 try {
                   // Use native module to open the specific permission page
-                  if (StoragePermissionModule && StoragePermissionModule.openAllFilesAccessSettings) {
+                  if (
+                    StoragePermissionModule &&
+                    StoragePermissionModule.openAllFilesAccessSettings
+                  ) {
                     await StoragePermissionModule.openAllFilesAccessSettings();
                   } else {
                     // Fallback to general settings
@@ -204,10 +216,13 @@ export default function DownloadScreen(props) {
                     await Linking.openSettings();
                   }
                 } catch (e) {
-                  ToastAndroid.show('Could not open settings', ToastAndroid.SHORT);
+                  ToastAndroid.show(
+                    'Could not open settings',
+                    ToastAndroid.SHORT
+                  );
                 }
-              }
-            }
+              },
+            },
           ]
         );
       } else {
@@ -215,8 +230,6 @@ export default function DownloadScreen(props) {
       }
     }
   };
-
-
 
   return (
     <SafeAreaView style={styles.container}>
@@ -236,15 +249,24 @@ export default function DownloadScreen(props) {
               selectionColor={colors.primary}
               autoFocus={true}
             />
-            <TouchableOpacity onPress={() => {
-              setShowSearch(false);
-              setSearchQuery('');
-            }}>
-              <MaterialIcons name="close" size={24} color={colors.textSecondary} />
+            <TouchableOpacity
+              onPress={() => {
+                setShowSearch(false);
+                setSearchQuery('');
+              }}
+            >
+              <MaterialIcons
+                name="close"
+                size={24}
+                color={colors.textSecondary}
+              />
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity onPress={() => setShowSearch(true)} style={styles.searchIcon}>
+          <TouchableOpacity
+            onPress={() => setShowSearch(true)}
+            style={styles.searchIcon}
+          >
             <MaterialIcons name="search" size={24} color={colors.text} />
           </TouchableOpacity>
         )}
@@ -261,7 +283,9 @@ export default function DownloadScreen(props) {
             onDeleteRequest={handleDeleteSong}
           />
         )}
-        keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
+        keyExtractor={(item, index) =>
+          item.id ? item.id.toString() : index.toString()
+        }
         contentContainerStyle={styles.songsList}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
@@ -270,16 +294,20 @@ export default function DownloadScreen(props) {
             <DownloadedSongSkeleton count={8} />
           ) : (
             <View style={styles.emptyContainer}>
-              <MaterialIcons name="music-off" size={50} color={colors.textSecondary} />
+              <MaterialIcons
+                name="music-off"
+                size={50}
+                color={colors.textSecondary}
+              />
               <Text style={styles.emptyText}>
                 {searchQuery
                   ? `No downloads matching "${searchQuery}"`
-                  : "No downloaded songs found"}
+                  : 'No downloaded songs found'}
               </Text>
               <Text style={styles.emptySubText}>
                 {searchQuery
-                  ? "Try a different search term"
-                  : "Download your favorite songs to listen offline"}
+                  ? 'Try a different search term'
+                  : 'Download your favorite songs to listen offline'}
               </Text>
             </View>
           )
@@ -297,62 +325,63 @@ export default function DownloadScreen(props) {
   );
 }
 
-const getStyles = (colors, dark) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: dark ? '#121212' : '#FFFFFF',
-  },
-  header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  searchIcon: {
-    padding: 4,
-  },
-  searchBarContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: dark ? '#242424' : '#EFEFEF',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginLeft: 16,
-    height: 40,
-  },
-  searchInput: {
-    flex: 1,
-    height: 40,
-    color: colors.text,
-    fontSize: 16,
-  },
-  songsList: {
-    paddingBottom: 150, // Extra padding for bottom tabs and player
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-    height: height * 0.5,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: colors.text,
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  emptySubText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-}); 
+const getStyles = (colors, dark) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: dark ? '#121212' : '#FFFFFF',
+    },
+    header: {
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    title: {
+      fontSize: 22,
+      fontWeight: 'bold',
+      color: colors.text,
+    },
+    searchIcon: {
+      padding: 4,
+    },
+    searchBarContainer: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: dark ? '#242424' : '#EFEFEF',
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      marginLeft: 16,
+      height: 40,
+    },
+    searchInput: {
+      flex: 1,
+      height: 40,
+      color: colors.text,
+      fontSize: 16,
+    },
+    songsList: {
+      paddingBottom: 150, // Extra padding for bottom tabs and player
+    },
+    emptyContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 32,
+      height: height * 0.5,
+    },
+    emptyText: {
+      fontSize: 18,
+      color: colors.text,
+      marginTop: 16,
+      textAlign: 'center',
+    },
+    emptySubText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginTop: 8,
+      textAlign: 'center',
+    },
+  });

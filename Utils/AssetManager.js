@@ -21,7 +21,9 @@ class AssetManager {
    * Initialize the asset manager
    */
   async initialize() {
-    if (this.isInitialized) return;
+    if (this.isInitialized) {
+      return;
+    }
 
     try {
       // Preload critical images
@@ -50,8 +52,8 @@ class AssetManager {
     try {
       // Convert require() results to URIs for preloading
       const imageUris = criticalImages
-        .filter(img => typeof img === 'number') // require() results are numbers
-        .map(img => ({ uri: img }));
+        .filter((img) => typeof img === 'number') // require() results are numbers
+        .map((img) => ({ uri: img }));
 
       if (imageUris.length > 0) {
         await FastImage.preload(imageUris);
@@ -108,7 +110,11 @@ class AssetManager {
     }
 
     // Get optimized font style
-    let fontStyle = FontManager.getOptimizedFontStyle(type, SCREEN_WIDTH, customSize);
+    let fontStyle = FontManager.getOptimizedFontStyle(
+      type,
+      SCREEN_WIDTH,
+      customSize
+    );
 
     // Apply user preference
     fontStyle = FontManager.applyFontSizePreference(fontStyle, preference);
@@ -146,7 +152,9 @@ class AssetManager {
    * Optimize artwork URL for different quality levels
    */
   getOptimizedArtwork(artworkUrl, quality = 'medium') {
-    if (!artworkUrl) return null;
+    if (!artworkUrl) {
+      return null;
+    }
 
     return ImageManager.getOptimizedArtworkUrl(artworkUrl, quality);
   }
@@ -179,17 +187,21 @@ class AssetManager {
    * Prefetch images for a list of items
    */
   async prefetchImages(items, imageExtractor) {
-    if (!Array.isArray(items) || items.length === 0) return;
+    if (!Array.isArray(items) || items.length === 0) {
+      return;
+    }
 
     const urls = items
       .map(imageExtractor)
-      .filter(url => url && typeof url === 'string' && url.startsWith('http'))
+      .filter((url) => url && typeof url === 'string' && url.startsWith('http'))
       .slice(0, 10); // Limit to first 10 items
 
-    if (urls.length === 0) return;
+    if (urls.length === 0) {
+      return;
+    }
 
     try {
-      const sources = urls.map(url => ({ uri: url }));
+      const sources = urls.map((url) => ({ uri: url }));
       await FastImage.preload(sources);
     } catch (error) {
       console.warn('⚠️ Failed to prefetch some images:', error);
@@ -218,14 +230,11 @@ class AssetManager {
 const assetManager = new AssetManager();
 
 // Auto-initialize when imported
-assetManager.initialize().catch(error => {
+assetManager.initialize().catch((error) => {
   console.error('Failed to auto-initialize AssetManager:', error);
 });
 
 export default assetManager;
 
 // Export utilities for direct use
-export {
-  ImageManager,
-  FontManager,
-};
+export { ImageManager, FontManager };

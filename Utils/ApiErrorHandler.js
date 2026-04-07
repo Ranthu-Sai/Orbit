@@ -2,6 +2,9 @@
  * Centralized API error handling to eliminate duplication across API calls
  */
 
+import { ToastAndroid } from 'react-native';
+import { ValidationResult, createValidationResult } from './ValidationUtils';
+
 // Error types
 export const ApiErrorTypes = {
   NETWORK: 'network',
@@ -15,7 +18,7 @@ export const ApiErrorTypes = {
   VALIDATION: 'validation',
   QUOTA_EXCEEDED: 'quota_exceeded',
   SERVICE_UNAVAILABLE: 'service_unavailable',
-  UNKNOWN: 'unknown'
+  UNKNOWN: 'unknown',
 };
 
 // Error severity levels
@@ -23,14 +26,20 @@ export const ErrorSeverity = {
   LOW: 'low',
   MEDIUM: 'medium',
   HIGH: 'high',
-  CRITICAL: 'critical'
+  CRITICAL: 'critical',
 };
 
 /**
  * API Error class for structured error handling
  */
 export class ApiError extends Error {
-  constructor(type, message, originalError = null, severity = ErrorSeverity.MEDIUM, context = {}) {
+  constructor(
+    type,
+    message,
+    originalError = null,
+    severity = ErrorSeverity.MEDIUM,
+    context = {}
+  ) {
     super(message);
     this.name = 'ApiError';
     this.type = type;
@@ -59,7 +68,7 @@ export class ApiError extends Error {
       case ApiErrorTypes.AUTHENTICATION:
         return 'Authentication failed. Please log in again.';
       case ApiErrorTypes.AUTHORIZATION:
-        return 'You don\'t have permission to perform this action.';
+        return "You don't have permission to perform this action.";
       case ApiErrorTypes.NOT_FOUND:
         return 'The requested content was not found.';
       case ApiErrorTypes.SERVER:
@@ -84,10 +93,13 @@ export class ApiError extends Error {
       ApiErrorTypes.TIMEOUT,
       ApiErrorTypes.SERVER,
       ApiErrorTypes.SERVICE_UNAVAILABLE,
-      ApiErrorTypes.RATE_LIMIT
+      ApiErrorTypes.RATE_LIMIT,
     ];
 
-    return retryableTypes.includes(this.type) && this.severity !== ErrorSeverity.CRITICAL;
+    return (
+      retryableTypes.includes(this.type) &&
+      this.severity !== ErrorSeverity.CRITICAL
+    );
   }
 
   /**
@@ -165,7 +177,9 @@ export const parseApiError = (error, context = {}) => {
       case 503:
       case 504:
         return new ApiError(
-          status === 503 ? ApiErrorTypes.SERVICE_UNAVAILABLE : ApiErrorTypes.SERVER,
+          status === 503
+            ? ApiErrorTypes.SERVICE_UNAVAILABLE
+            : ApiErrorTypes.SERVER,
           `Server error: ${status}`,
           error,
           ErrorSeverity.HIGH,
@@ -304,8 +318,8 @@ export const RetryConfig = {
     ApiErrorTypes.TIMEOUT,
     ApiErrorTypes.SERVER,
     ApiErrorTypes.SERVICE_UNAVAILABLE,
-    ApiErrorTypes.RATE_LIMIT
-  ]
+    ApiErrorTypes.RATE_LIMIT,
+  ],
 };
 
 /**
@@ -321,7 +335,7 @@ export const retryApiCall = async (apiCall, options = {}) => {
     maxDelay = RetryConfig.maxDelay,
     backoffFactor = RetryConfig.backoffFactor,
     retryableErrors = RetryConfig.retryableErrors,
-    onRetry = null
+    onRetry = null,
   } = options;
 
   let lastError;
@@ -332,7 +346,6 @@ export const retryApiCall = async (apiCall, options = {}) => {
 
       // Success - return result
       return result;
-
     } catch (error) {
       lastError = parseApiError(error, { attempt, maxAttempts });
 
@@ -347,7 +360,7 @@ export const retryApiCall = async (apiCall, options = {}) => {
           onRetry(lastError, attempt, delay);
         }
 
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
 
@@ -371,7 +384,7 @@ export const handleApiError = (error, options = {}) => {
     showToast = true,
     logError = true,
     context = {},
-    fallbackMessage = null
+    fallbackMessage = null,
   } = options;
 
   const apiError = parseApiError(error, context);
@@ -382,7 +395,7 @@ export const handleApiError = (error, options = {}) => {
       message: apiError.message,
       severity: apiError.severity,
       context: apiError.context,
-      originalError: apiError.originalError
+      originalError: apiError.originalError,
     });
   }
 
@@ -405,7 +418,7 @@ export const createApiCallWrapper = (options = {}) => {
     enableRetry = true,
     enableErrorHandling = true,
     retryOptions = {},
-    errorOptions = {}
+    errorOptions = {},
   } = options;
 
   return async (apiCall, callOptions = {}) => {
@@ -413,13 +426,15 @@ export const createApiCallWrapper = (options = {}) => {
       let result;
 
       if (enableRetry) {
-        result = await retryApiCall(apiCall, { ...retryOptions, ...callOptions });
+        result = await retryApiCall(apiCall, {
+          ...retryOptions,
+          ...callOptions,
+        });
       } else {
         result = await apiCall();
       }
 
       return result;
-
     } catch (error) {
       if (enableErrorHandling) {
         return handleApiError(error, { ...errorOptions, ...callOptions });
@@ -441,7 +456,7 @@ export const batchApiCalls = async (apiCalls, options = {}) => {
     concurrent = true,
     stopOnError = false,
     enableRetry = true,
-    retryOptions = {}
+    retryOptions = {},
   } = options;
 
   if (concurrent) {
@@ -493,11 +508,17 @@ export const batchApiCalls = async (apiCalls, options = {}) => {
  */
 export const validateApiResponse = (response, schema = {}) => {
   if (!response) {
-    return createValidationResult(ValidationResult.ERROR, 'Response is null or undefined');
+    return createValidationResult(
+      ValidationResult.ERROR,
+      'Response is null or undefined'
+    );
   }
 
   if (typeof response !== 'object') {
-    return createValidationResult(ValidationResult.ERROR, 'Response must be an object');
+    return createValidationResult(
+      ValidationResult.ERROR,
+      'Response must be an object'
+    );
   }
 
   // Check required fields in schema
@@ -526,10 +547,14 @@ export const validateApiResponse = (response, schema = {}) => {
     for (const [field, expectedType] of Object.entries(schema.properties)) {
       if (field in response) {
         const actualValue = response[field];
-        const actualType = Array.isArray(actualValue) ? 'array' : typeof actualValue;
+        const actualType = Array.isArray(actualValue)
+          ? 'array'
+          : typeof actualValue;
 
         if (actualType !== expectedType) {
-          typeErrors.push(`${field}: expected ${expectedType}, got ${actualType}`);
+          typeErrors.push(
+            `${field}: expected ${expectedType}, got ${actualType}`
+          );
         }
       }
     }
@@ -543,7 +568,10 @@ export const validateApiResponse = (response, schema = {}) => {
     }
   }
 
-  return createValidationResult(ValidationResult.SUCCESS, 'Response validation passed');
+  return createValidationResult(
+    ValidationResult.SUCCESS,
+    'Response validation passed'
+  );
 };
 
 /**
@@ -554,12 +582,17 @@ export const validateApiResponse = (response, schema = {}) => {
  * @param {Object} metadata - Additional metadata
  * @returns {Object} Standardized response
  */
-export const createApiResponse = (success, data = null, message = '', metadata = {}) => ({
+export const createApiResponse = (
+  success,
+  data = null,
+  message = '',
+  metadata = {}
+) => ({
   success,
   data,
   message,
   metadata,
-  timestamp: Date.now()
+  timestamp: Date.now(),
 });
 
 /**
@@ -584,7 +617,9 @@ export const processApiResponse = (response, schema = {}) => {
   return createApiResponse(
     true,
     response,
-    validation.status === ValidationResult.SUCCESS ? 'Success' : validation.message,
+    validation.status === ValidationResult.SUCCESS
+      ? 'Success'
+      : validation.message,
     { validation }
   );
 };

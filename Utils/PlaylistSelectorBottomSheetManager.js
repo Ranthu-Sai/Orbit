@@ -1,4 +1,3 @@
-import React from 'react';
 import { ToastAndroid } from 'react-native';
 
 // Reference to the PlaylistSelectorBottomSheet component
@@ -14,10 +13,13 @@ export const showPlaylistSelectorBottomSheetWithFallback = (song) => {
   try {
     if (!PlaylistSelectorBottomSheetRef.current) {
       console.warn('PlaylistSelectorBottomSheetRef is not initialized yet');
-      ToastAndroid.show('Playlist selector is not ready yet, please try again in a moment', ToastAndroid.SHORT);
+      ToastAndroid.show(
+        'Playlist selector is not ready yet, please try again in a moment',
+        ToastAndroid.SHORT
+      );
       return false;
     }
-    
+
     // Call the show method on the ref
     return PlaylistSelectorBottomSheetRef.current.show(song);
   } catch (error) {
@@ -32,20 +34,30 @@ export const PlaylistSelectorBottomSheetManager = {
   show: (song) => {
     try {
       if (!song) {
-        console.error('❌ Cannot show playlist selector bottom sheet: No song provided');
+        console.error(
+          '❌ Cannot show playlist selector bottom sheet: No song provided'
+        );
         return false;
       }
 
       if (!song.id || !song.title) {
-        console.error('❌ Invalid song object for playlist selector bottom sheet:', song);
+        console.error(
+          '❌ Invalid song object for playlist selector bottom sheet:',
+          song
+        );
         return false;
       }
       if (PlaylistSelectorBottomSheetRef.current) {
         const result = PlaylistSelectorBottomSheetRef.current.show(song);
         return result;
       } else {
-        console.error('❌ PlaylistSelectorBottomSheet reference is not initialized');
-        ToastAndroid.show('Cannot open playlist selector now', ToastAndroid.SHORT);
+        console.error(
+          '❌ PlaylistSelectorBottomSheet reference is not initialized'
+        );
+        ToastAndroid.show(
+          'Cannot open playlist selector now',
+          ToastAndroid.SHORT
+        );
         return false;
       }
     } catch (error) {
@@ -59,7 +71,9 @@ export const PlaylistSelectorBottomSheetManager = {
       if (PlaylistSelectorBottomSheetRef.current) {
         return PlaylistSelectorBottomSheetRef.current.hide();
       } else {
-        console.warn('PlaylistSelectorBottomSheet reference is not initialized');
+        console.warn(
+          'PlaylistSelectorBottomSheet reference is not initialized'
+        );
         return false;
       }
     } catch (error) {
@@ -75,14 +89,17 @@ export const PlaylistSelectorBottomSheetManager = {
       }
       return false;
     } catch (error) {
-      console.error('Error checking playlist selector bottom sheet visibility:', error);
+      console.error(
+        'Error checking playlist selector bottom sheet visibility:',
+        error
+      );
       return false;
     }
   },
 
   isInitialized: () => {
     return !!PlaylistSelectorBottomSheetRef.current;
-  }
+  },
 };
 
 // Default export for convenience

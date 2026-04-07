@@ -1,11 +1,11 @@
 /**
  * ArtworkEnhancer.js
- * 
+ *
  * Centralized utility for upgrading YTMusic artwork URLs to higher quality versions.
  * Handles two types of URLs:
  * 1. Google CDN (lh3.googleusercontent.com) - modify query parameters
  * 2. YouTube CDN (i.ytimg.com) - replace filename with higher quality variant
- * 
+ *
  * Context-based sizing ensures optimal quality vs performance balance:
  * - 'playing': 500x500 (highest quality for currently playing song)
  * - 'card': 400x400 (good quality for lists and search results)
@@ -20,27 +20,27 @@
  * @returns {string|object|null} Enhanced URL or object with primary/fallback for YouTube thumbnails
  */
 export const enhanceYTMusicArtwork = (originalUrl, context = 'card') => {
-    // Return null for invalid input
-    if (!originalUrl || typeof originalUrl !== 'string') {
-        return null;
-    }
+  // Return null for invalid input
+  if (!originalUrl || typeof originalUrl !== 'string') {
+    return null;
+  }
 
-    // Skip enhancement for playlist/album headers (already high quality)
-    if (context === 'playlist-header' || context === 'album-header') {
-        return originalUrl;
-    }
-
-    // Detect URL type and apply appropriate enhancement
-    if (originalUrl.includes('googleusercontent.com')) {
-        return enhanceGoogleCDN(originalUrl, context);
-    }
-
-    if (originalUrl.includes('i.ytimg.com')) {
-        return enhanceYouTubeThumbnail(originalUrl, context);
-    }
-
-    // Return original for other sources (JioSaavn, local files, etc.)
+  // Skip enhancement for playlist/album headers (already high quality)
+  if (context === 'playlist-header' || context === 'album-header') {
     return originalUrl;
+  }
+
+  // Detect URL type and apply appropriate enhancement
+  if (originalUrl.includes('googleusercontent.com')) {
+    return enhanceGoogleCDN(originalUrl, context);
+  }
+
+  if (originalUrl.includes('i.ytimg.com')) {
+    return enhanceYouTubeThumbnail(originalUrl, context);
+  }
+
+  // Return original for other sources (JioSaavn, local files, etc.)
+  return originalUrl;
 };
 
 /**
@@ -49,16 +49,16 @@ export const enhanceYTMusicArtwork = (originalUrl, context = 'card') => {
  * @private
  */
 const enhanceGoogleCDN = (url, context) => {
-    const size = getSizeForContext(context);
+  const size = getSizeForContext(context);
 
-    // Replace existing size parameters with enhanced ones
-    // Preserves other parameters like -l90-rj (quality level, format)
-    const enhanced = url.replace(
-        /=w\d+-h\d+(-[^-&]*)*/,
-        `=w${size}-h${size}-l90-rj`
-    );
+  // Replace existing size parameters with enhanced ones
+  // Preserves other parameters like -l90-rj (quality level, format)
+  const enhanced = url.replace(
+    /[=]w\d+-h\d+(-[^-&]*)*/,
+    `=w${size}-h${size}-l90-rj`
+  );
 
-    return enhanced;
+  return enhanced;
 };
 
 /**
@@ -66,26 +66,26 @@ const enhanceGoogleCDN = (url, context) => {
  * Returns object with fallback chain: maxresdefault → hqdefault → original
  * @private
  */
-const enhanceYouTubeThumbnail = (url, context) => {
-    // Extract video ID from URL
-    const videoIdMatch = url.match(/\/vi\/([^\/]+)\//);
-    if (!videoIdMatch || !videoIdMatch[1]) {
-        return url; // Can't extract video ID, return original
-    }
+const enhanceYouTubeThumbnail = (url, _context) => {
+  // Extract video ID from URL
+  const videoIdMatch = url.match(/\/vi\/([^\/]+)\//);
+  if (!videoIdMatch || !videoIdMatch[1]) {
+    return url; // Can't extract video ID, return original
+  }
 
-    const videoId = videoIdMatch[1];
+  const videoId = videoIdMatch[1];
 
-    // Build fallback chain
-    // maxresdefault: 1280x720 (best quality, but not available for all videos)
-    // hqdefault: 480x360 (good quality, widely available)
-    // original: API-provided URL (fallback)
-    return {
-        primary: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
-        fallback: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-        original: url,
-        needsCrop: true, // YouTube thumbnails are 16:9, need center crop to 1:1
-        isYouTubeThumbnail: true
-    };
+  // Build fallback chain
+  // maxresdefault: 1280x720 (best quality, but not available for all videos)
+  // hqdefault: 480x360 (good quality, widely available)
+  // original: API-provided URL (fallback)
+  return {
+    primary: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+    fallback: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+    original: url,
+    needsCrop: true, // YouTube thumbnails are 16:9, need center crop to 1:1
+    isYouTubeThumbnail: true,
+  };
 };
 
 /**
@@ -93,15 +93,15 @@ const enhanceYouTubeThumbnail = (url, context) => {
  * @private
  */
 const getSizeForContext = (context) => {
-    const sizeMap = {
-        'playing': 500,      // Currently playing song (highest quality)
-        'card': 400,         // Song cards in playlists, albums, search
-        'queue': 300,        // Queue items (balance quality vs performance)
-        'thumbnail': 200,    // Small thumbnails
-        'default': 400       // Safe default
-    };
+  const sizeMap = {
+    playing: 500, // Currently playing song (highest quality)
+    card: 400, // Song cards in playlists, albums, search
+    queue: 300, // Queue items (balance quality vs performance)
+    thumbnail: 200, // Small thumbnails
+    default: 400, // Safe default
+  };
 
-    return sizeMap[context] || sizeMap['default'];
+  return sizeMap[context] || sizeMap.default;
 };
 
 /**
@@ -110,7 +110,11 @@ const getSizeForContext = (context) => {
  * @returns {boolean}
  */
 export const isYouTubeThumbnailObject = (artwork) => {
-    return artwork && typeof artwork === 'object' && artwork.isYouTubeThumbnail === true;
+  return (
+    artwork &&
+    typeof artwork === 'object' &&
+    artwork.isYouTubeThumbnail === true
+  );
 };
 
 /**
@@ -119,17 +123,19 @@ export const isYouTubeThumbnailObject = (artwork) => {
  * @returns {string|null}
  */
 export const getPrimaryArtworkUrl = (artwork) => {
-    if (!artwork) return null;
-
-    if (typeof artwork === 'string') {
-        return artwork;
-    }
-
-    if (isYouTubeThumbnailObject(artwork)) {
-        return artwork.primary; // Try maxresdefault first
-    }
-
+  if (!artwork) {
     return null;
+  }
+
+  if (typeof artwork === 'string') {
+    return artwork;
+  }
+
+  if (isYouTubeThumbnailObject(artwork)) {
+    return artwork.primary; // Try maxresdefault first
+  }
+
+  return null;
 };
 
 /**
@@ -138,8 +144,8 @@ export const getPrimaryArtworkUrl = (artwork) => {
  * @returns {string|null}
  */
 export const getFallbackArtworkUrl = (artwork) => {
-    if (isYouTubeThumbnailObject(artwork)) {
-        return artwork.fallback;
-    }
-    return null;
+  if (isYouTubeThumbnailObject(artwork)) {
+    return artwork.fallback;
+  }
+  return null;
 };

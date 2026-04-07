@@ -1,13 +1,28 @@
-import React, { useRef, useState, useCallback, useEffect, useMemo } from "react";
-import BottomSheet from "@gorhom/bottom-sheet";
-import QueueRenderSongs from "./QueueRenderSongs";
-import { PlainText } from "../Global/PlainText";
-import { SmallText } from "../Global/SmallText";
-import { View, StyleSheet, Dimensions, Text, ActivityIndicator, ToastAndroid, InteractionManager, DeviceEventEmitter } from "react-native";
-import { TouchableOpacity as Pressable } from "react-native";
+import React, {
+  useRef,
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+} from 'react';
+import BottomSheet from '@gorhom/bottom-sheet';
+import QueueRenderSongs from './QueueRenderSongs';
+import { PlainText } from '../Global/PlainText';
+import { SmallText } from '../Global/SmallText';
+import {
+  View,
+  StyleSheet,
+  Dimensions,
+  Text,
+  ActivityIndicator,
+  ToastAndroid,
+  InteractionManager,
+  DeviceEventEmitter,
+} from 'react-native';
+import { TouchableOpacity as Pressable } from 'react-native';
 import { Minus, ListPlus, ListX, Shuffle, Sparkles } from 'lucide-react-native';
-import Svg, { Circle } from "react-native-svg";
-import { useThemeContext } from "../../Context/ThemeContext";
+import Svg, { Circle } from 'react-native-svg';
+import { useThemeContext } from '../../Context/ThemeContext';
 import TrackPlayer from 'react-native-track-player';
 import { shuffleQueuePreservingCurrent } from '../../Utils/SmartShuffleUtils';
 
@@ -35,13 +50,15 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
   };
 
   const getShadowColor = () => {
-    return themeMode === 'light' ? "#000" : "#000";
+    return themeMode === 'light' ? '#000' : '#000';
   };
 
   // Handle smart shuffle - PERFORMANCE OPTIMIZED
   // Uses batched background operations to prevent UI freeze with 120+ songs
   const handleSmartShuffle = useCallback(async () => {
-    if (isShuffling) return;
+    if (isShuffling) {
+      return;
+    }
 
     try {
       setIsShuffling(true);
@@ -93,28 +110,30 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
             const batch = indicesToRemove.slice(i, i + BATCH_SIZE);
             await TrackPlayer.remove(batch);
             // Yield to UI thread
-            await new Promise(r => setTimeout(r, 16));
+            await new Promise((r) => setTimeout(r, 16));
           }
 
           // Filter out current track from shuffled queue (it's already at index 0)
-          const tracksToAdd = shuffledQueue.filter(t => t.id !== currentTrack?.id);
+          const tracksToAdd = shuffledQueue.filter(
+            (t) => t.id !== currentTrack?.id
+          );
 
           // Add shuffled tracks in batches
           for (let i = 0; i < tracksToAdd.length; i += BATCH_SIZE) {
             const batch = tracksToAdd.slice(i, i + BATCH_SIZE);
             await TrackPlayer.add(batch);
             // Yield to UI thread
-            await new Promise(r => setTimeout(r, 16));
+            await new Promise((r) => setTimeout(r, 16));
           }
 
           // Emit queue update event for UI refresh
-          DeviceEventEmitter.emit('queue-updated', { count: shuffledQueue.length });
-
+          DeviceEventEmitter.emit('queue-updated', {
+            count: shuffledQueue.length,
+          });
         } catch (bgError) {
           console.error('Background shuffle error:', bgError);
         }
       });
-
     } catch (error) {
       console.error('Error shuffling queue:', error);
       ToastAndroid.show('Failed to shuffle queue', ToastAndroid.SHORT);
@@ -145,7 +164,7 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
       enableContentPanningGesture={false}
       enableHandlePanningGesture={true}
       backgroundStyle={{
-        backgroundColor: "transparent",
+        backgroundColor: 'transparent',
       }}
       handleStyle={{
         backgroundColor: getBackgroundColor(),
@@ -154,7 +173,12 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
         borderTopRightRadius: 15,
       }}
       handleComponent={() => (
-        <View style={[styles.handleContainer, { backgroundColor: getBackgroundColor() }]}>
+        <View
+          style={[
+            styles.handleContainer,
+            { backgroundColor: getBackgroundColor() },
+          ]}
+        >
           <View style={styles.minusIconContainer}>
             <Minus size={24} color={getTextColor()} />
           </View>
@@ -165,11 +189,14 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
                 disabled={isShuffling}
                 style={[
                   styles.actionButton,
-                  isSmartShuffleActive && styles.smartShuffleActive
+                  isSmartShuffleActive && styles.smartShuffleActive,
                 ]}
               >
                 {isShuffling ? (
-                  <ActivityIndicator size="small" color={isSmartShuffleActive ? '#FFD700' : getTextColor()} />
+                  <ActivityIndicator
+                    size="small"
+                    color={isSmartShuffleActive ? '#FFD700' : getTextColor()}
+                  />
                 ) : (
                   <Shuffle
                     size={20}
@@ -182,7 +209,7 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
             </View>
             <View style={styles.headerCenter}>
               <PlainText
-                text={"Queue"}
+                text={'Queue'}
                 style={[styles.headerText, { color: getTextColor() }]}
               />
             </View>
@@ -202,19 +229,19 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
           <SmallText
             text={
               isShuffling
-                ? "Shuffling queue..."
+                ? 'Shuffling queue...'
                 : reorderMode
-                  ? "Drag songs to reorder"
-                  : isSmartShuffleActive
-                    ? "✨ Smart Shuffle Active"
-                    : "Swipe left to delete"
+                ? 'Drag songs to reorder'
+                : isSmartShuffleActive
+                ? '✨ Smart Shuffle Active'
+                : 'Swipe left to delete'
             }
             style={[
               styles.subHeaderText,
               {
                 color: isSmartShuffleActive ? '#FFD700' : getTextColor(),
-                fontWeight: isSmartShuffleActive ? '600' : '500'
-              }
+                fontWeight: isSmartShuffleActive ? '600' : '500',
+              },
             ]}
           />
         </View>
@@ -246,21 +273,25 @@ const CircularProgress = ({ progress = 0, size = 40, thickness = 4 }) => {
   };
 
   return (
-    <View style={{
-      width: size,
-      height: size,
-      position: 'relative',
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}>
-      <View style={{
+    <View
+      style={{
         width: size,
         height: size,
-        borderRadius: size / 2,
-        borderWidth: thickness,
-        borderColor: getBackgroundBorderColor(),
-        position: 'absolute',
-      }} />
+        position: 'relative',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: thickness,
+          borderColor: getBackgroundBorderColor(),
+          position: 'absolute',
+        }}
+      />
       <Svg
         width={size}
         height={size}
@@ -280,20 +311,24 @@ const CircularProgress = ({ progress = 0, size = 40, thickness = 4 }) => {
           strokeLinecap="round"
         />
       </Svg>
-      <Text style={{
-        color: getTextColor(),
-        fontSize: size * 0.3,
-        fontWeight: 'bold',
-      }}>{Math.round(progress)}%</Text>
+      <Text
+        style={{
+          color: getTextColor(),
+          fontSize: size * 0.3,
+          fontWeight: 'bold',
+        }}
+      >
+        {Math.round(progress)}%
+      </Text>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   handleContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "transparent",
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
     height: 90,
     width: SCREEN_WIDTH,
     paddingVertical: 5,
@@ -347,7 +382,7 @@ const styles = StyleSheet.create({
     marginTop: 0,
     fontWeight: '500',
     // Color will be applied dynamically via theme
-  }
+  },
 });
 
 export default QueueBottomSheet;

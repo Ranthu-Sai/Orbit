@@ -1,75 +1,95 @@
-import React, { useContext, useEffect, useRef, useState } from "react";
-import { View, StyleSheet, Platform, Vibration, Pressable, Keyboard } from "react-native"; // Keep Vibration just in case user re-enables perm
-import { Home, Compass, ListMusic } from "lucide-react-native";
-import Animated, { withSpring, useAnimatedStyle, withTiming, FadeIn } from "react-native-reanimated";
-import Context from "../../Context/Context";
-import { useTheme } from "@react-navigation/native";
-import { useActiveTrack } from "react-native-track-player";
-import { Text } from "react-native-paper";
+import React, { useContext, useEffect, useRef, useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  Platform,
+  Vibration,
+  Pressable,
+  Keyboard,
+} from 'react-native'; // Keep Vibration just in case user re-enables perm
+import { Home, Compass, ListMusic } from 'lucide-react-native';
+import Animated, {
+  withSpring,
+  useAnimatedStyle,
+  withTiming,
+  FadeIn,
+} from 'react-native-reanimated';
+import Context from '../../Context/Context';
+import { useTheme } from '@react-navigation/native';
+import { useActiveTrack } from 'react-native-track-player';
+import { Text } from 'react-native-paper';
 
 // Extracted TabItem component to safe-guard Hooks at top level
-const TabItem = React.memo(({ route, index, state, descriptors, navigation, colors, dark }) => {
-  const { options } = descriptors[route.key];
-  const label = options.tabBarLabel ?? options.title ?? route.name;
-  const isFocused = state.index === index;
+const TabItem = React.memo(
+  ({ route, index, state, descriptors, navigation, colors, dark }) => {
+    const { options } = descriptors[route.key];
+    const label = options.tabBarLabel ?? options.title ?? route.name;
+    const isFocused = state.index === index;
 
-  // Hooks must be at the top level of the component
-  const pillStyle = useAnimatedStyle(() => {
-    const activeColor = dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)';
-    return {
-      transform: [{ scale: withSpring(isFocused ? 1 : 0, { damping: 15, stiffness: 200 }) }],
-      opacity: withTiming(isFocused ? 1 : 0, { duration: 200 }),
-      backgroundColor: activeColor,
-    };
-  });
-
-  const labelStyle = useAnimatedStyle(() => {
-    return {
-      opacity: withTiming(isFocused ? 1 : 0.7, { duration: 200 }),
-      transform: [{ translateY: withSpring(isFocused ? 0 : 2, { damping: 15 }) }]
-    };
-  });
-
-  const onPress = () => {
-    const event = navigation.emit({
-      type: 'tabPress',
-      target: route.key,
+    // Hooks must be at the top level of the component
+    const pillStyle = useAnimatedStyle(() => {
+      const activeColor = dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)';
+      return {
+        transform: [
+          {
+            scale: withSpring(isFocused ? 1 : 0, {
+              damping: 15,
+              stiffness: 200,
+            }),
+          },
+        ],
+        opacity: withTiming(isFocused ? 1 : 0, { duration: 200 }),
+        backgroundColor: activeColor,
+      };
     });
 
-    if (!isFocused && !event.defaultPrevented) {
-      navigation.navigate(route.name);
-    }
-  };
+    const labelStyle = useAnimatedStyle(() => {
+      return {
+        opacity: withTiming(isFocused ? 1 : 0.7, { duration: 200 }),
+        transform: [
+          { translateY: withSpring(isFocused ? 0 : 2, { damping: 15 }) },
+        ],
+      };
+    });
 
-  return (
-    <Pressable
-      onPress={onPress}
-      style={styles.touchable}
-    >
-      <View style={styles.itemContent}>
-        <View style={styles.iconWrapper}>
-          <Animated.View style={[styles.pill, pillStyle]} />
-          {GetIcon(label, isFocused, colors)}
+    const onPress = () => {
+      const event = navigation.emit({
+        type: 'tabPress',
+        target: route.key,
+      });
+
+      if (!isFocused && !event.defaultPrevented) {
+        navigation.navigate(route.name);
+      }
+    };
+
+    return (
+      <Pressable onPress={onPress} style={styles.touchable}>
+        <View style={styles.itemContent}>
+          <View style={styles.iconWrapper}>
+            <Animated.View style={[styles.pill, pillStyle]} />
+            {GetIcon(label, isFocused, colors)}
+          </View>
+
+          <Animated.View style={labelStyle}>
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: isFocused ? colors.primary : colors.textSecondary,
+                  fontWeight: isFocused ? '700' : '500',
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {label === 'Discover' ? 'Explore' : label}
+            </Text>
+          </Animated.View>
         </View>
-
-        <Animated.View style={labelStyle}>
-          <Text
-            style={[
-              styles.label,
-              {
-                color: isFocused ? colors.primary : colors.textSecondary,
-                fontWeight: isFocused ? '700' : '500'
-              }
-            ]}
-            numberOfLines={1}
-          >
-            {label === "Discover" ? "Explore" : label}
-          </Text>
-        </Animated.View>
-      </View>
-    </Pressable>
-  );
-});
+      </Pressable>
+    );
+  }
+);
 
 function GetIcon(label, isFocused, colors) {
   const activeColor = colors.primary; // Use primary color for active state
@@ -80,12 +100,12 @@ function GetIcon(label, isFocused, colors) {
   // Fill effect for active state if supported by icons, or just stroke width
   const strokeWidth = isFocused ? 2.5 : 2;
 
-  if (label === "Home") {
-    return <Home color={color} size={size} strokeWidth={strokeWidth} />
-  } else if (label === "Discover") {
-    return <Compass color={color} size={size} strokeWidth={strokeWidth} />
-  } else if (label === "Library") {
-    return <ListMusic color={color} size={size} strokeWidth={strokeWidth} />
+  if (label === 'Home') {
+    return <Home color={color} size={size} strokeWidth={strokeWidth} />;
+  } else if (label === 'Discover') {
+    return <Compass color={color} size={size} strokeWidth={strokeWidth} />;
+  } else if (label === 'Library') {
+    return <ListMusic color={color} size={size} strokeWidth={strokeWidth} />;
   }
 }
 
@@ -128,9 +148,11 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
           const parts = musicPreviousScreen.split('/');
           const tabName = parts[0];
           const currentState = navigation.getState();
-          const isInCorrectTab = currentState?.routes?.[currentState.index]?.state?.index !== undefined &&
+          const isInCorrectTab =
+            currentState?.routes?.[currentState.index]?.state?.index !==
+              undefined &&
             currentState.routes[currentState.index].state.routes.some(
-              route => route.name === tabName && route.state
+              (route) => route.name === tabName && route.state
             );
 
           if (!isInCorrectTab && tabName === 'Library') {
@@ -139,20 +161,31 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
         }
       }, 200);
     }
-    previousFullscreenState.current = (Index === 1);
+    previousFullscreenState.current = Index === 1;
   }, [Index, navigation, musicPreviousScreen]);
 
   const activeTrack = useActiveTrack();
   const isPlayerActive = activeTrack != null;
 
   // Hide tab bar when in fullscreen mode OR when keyboard is visible
-  if (Index === 1 || isKeyboardVisible) return null;
+  if (Index === 1 || isKeyboardVisible) {
+    return null;
+  }
 
   return (
-    <View style={[styles.mainContainer, {
-      backgroundColor: isPlayerActive ? 'transparent' : (dark ? 'rgba(18, 18, 18, 0.90)' : 'rgba(255, 255, 255, 0.90)'), // Transparent if player provides background
-      borderTopColor: dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-    }]}>
+    <View
+      style={[
+        styles.mainContainer,
+        {
+          backgroundColor: isPlayerActive
+            ? 'transparent'
+            : dark
+            ? 'rgba(18, 18, 18, 0.90)'
+            : 'rgba(255, 255, 255, 0.90)', // Transparent if player provides background
+          borderTopColor: dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+        },
+      ]}
+    >
       {state.routes.map((route, index) => (
         <TabItem
           key={route.key}
@@ -173,7 +206,7 @@ const styles = StyleSheet.create({
   mainContainer: {
     flexDirection: 'row',
     height: 70, // Reduced from 80
-    alignItems: "center",
+    alignItems: 'center',
     paddingBottom: 4, // Spacing for home bar
     borderTopWidth: 0, // Removed upper border
     position: 'absolute', // For transparency to work over content if needed, or just standard
@@ -209,5 +242,5 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     letterSpacing: 0.2,
-  }
+  },
 });

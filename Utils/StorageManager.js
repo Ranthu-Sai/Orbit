@@ -18,7 +18,9 @@ const getBaseDir = async () => {
       if (downloadDir) {
         publicDir = downloadDir;
       } else {
-        console.warn('StorageManager: Download directory not available. Falling back.');
+        console.warn(
+          'StorageManager: Download directory not available. Falling back.'
+        );
         publicDir = RNFS.ExternalDirectoryPath || RNFS.DocumentDirectoryPath;
         actualPathUsed = 'External/Fallback';
       }
@@ -27,9 +29,11 @@ const getBaseDir = async () => {
     }
 
     if (!publicDir) {
-      console.error('StorageManager: Could not determine any valid storage directory. Falling back to app-specific documents directory.');
+      console.error(
+        'StorageManager: Could not determine any valid storage directory. Falling back to app-specific documents directory.'
+      );
       publicDir = RNFS.DocumentDirectoryPath;
-      actualPathUsed = 'App Documents (fallback)';
+      // actualPathUsed = 'App Documents (fallback)';
     }
 
     const finalPath = `${publicDir}/orbit`;
@@ -72,7 +76,9 @@ const ensureDirectoriesExist = async () => {
 // Gets the full path for a song file
 // Helper function to sanitize filename
 const sanitizeFilename = (filename) => {
-  if (!filename) return '';
+  if (!filename) {
+    return '';
+  }
 
   // Convert to string and remove any path traversal attempts
   let sanitized = String(filename)
@@ -82,7 +88,11 @@ const sanitizeFilename = (filename) => {
     .trim();
 
   // Ensure filename doesn't start with dangerous patterns
-  if (sanitized.startsWith('/') || sanitized.startsWith('\\') || sanitized.startsWith('.')) {
+  if (
+    sanitized.startsWith('/') ||
+    sanitized.startsWith('\\') ||
+    sanitized.startsWith('.')
+  ) {
     sanitized = sanitized.substring(1);
   }
 
@@ -189,7 +199,9 @@ const checkStorageQuota = async () => {
 const cleanupOldMetadata = async (allMetadata) => {
   try {
     const entries = Object.entries(allMetadata);
-    if (entries.length === 0) return;
+    if (entries.length === 0) {
+      return;
+    }
 
     // Sort by download time (oldest first)
     entries.sort((a, b) => a[1].downloadTime - b[1].downloadTime);
@@ -205,7 +217,7 @@ const cleanupOldMetadata = async (allMetadata) => {
 
     await AsyncStorage.setItem(
       STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
-      JSON.stringify(cleanedMetadata),
+      JSON.stringify(cleanedMetadata)
     );
   } catch (error) {
     console.error('Error cleaning up old metadata:', error);
@@ -226,13 +238,16 @@ const saveDownloadedSongMetadata = async (songId, metadata) => {
 
     await AsyncStorage.setItem(
       STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
-      JSON.stringify(allMetadata),
+      JSON.stringify(allMetadata)
     );
   } catch (error) {
     console.error('Error saving downloaded song metadata:', error);
 
     // If storage is full, try cleanup and retry once
-    if (error.message?.includes('storage') || error.message?.includes('quota')) {
+    if (
+      error.message?.includes('storage') ||
+      error.message?.includes('quota')
+    ) {
       try {
         const allMetadata = await getAllDownloadedSongsMetadata();
         await cleanupOldMetadata(allMetadata);
@@ -245,7 +260,7 @@ const saveDownloadedSongMetadata = async (songId, metadata) => {
         };
         await AsyncStorage.setItem(
           STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
-          JSON.stringify(retryMetadata),
+          JSON.stringify(retryMetadata)
         );
       } catch (retryError) {
         console.error('Error saving metadata even after cleanup:', retryError);
@@ -261,7 +276,7 @@ const saveDownloadedSongMetadata = async (songId, metadata) => {
 const getAllDownloadedSongsMetadata = async () => {
   try {
     const metadataJson = await AsyncStorage.getItem(
-      STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
+      STORAGE_KEYS.DOWNLOADED_SONGS_METADATA
     );
     return metadataJson ? JSON.parse(metadataJson) : {};
   } catch (error) {
@@ -300,10 +315,15 @@ const removeDownloadedSongMetadata = async (songId, localFilePath = null) => {
         await RNFS.unlink(songPath);
       } catch (unlinkError) {
         // If file doesn't exist, ignore the error
-        if (unlinkError.message.includes('no such file or directory') ||
-          unlinkError.message.includes('File does not exist')) {
+        if (
+          unlinkError.message.includes('no such file or directory') ||
+          unlinkError.message.includes('File does not exist')
+        ) {
         } else {
-          console.error(`❌ [StorageManager] RNFS.unlink error:`, unlinkError.message);
+          console.error(
+            '❌ [StorageManager] RNFS.unlink error:',
+            unlinkError.message
+          );
           // Don't throw for artwork or non-critical file issues, but here it's the main song
           throw unlinkError;
         }
@@ -318,7 +338,7 @@ const removeDownloadedSongMetadata = async (songId, localFilePath = null) => {
       delete allMetadata[songId];
       await AsyncStorage.setItem(
         STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
-        JSON.stringify(allMetadata),
+        JSON.stringify(allMetadata)
       );
     }
   } catch (error) {
@@ -329,13 +349,17 @@ const removeDownloadedSongMetadata = async (songId, localFilePath = null) => {
 
 // Checks if a song is actually downloaded (metadata exists AND file exists on disk)
 const isSongDownloaded = async (songId) => {
-  if (!songId) return false;
+  if (!songId) {
+    return false;
+  }
   try {
     const allMetadata = await getAllDownloadedSongsMetadata();
     const metadata = allMetadata[String(songId)];
 
     // If no metadata, definitely not downloaded
-    if (!metadata) return false;
+    if (!metadata) {
+      return false;
+    }
 
     // Verify file actually exists on disk
     const songPath = await getSongPath(songId, metadata.title, metadata.source);
@@ -365,7 +389,10 @@ const saveArtwork = async (songId, artworkUrl) => {
     const artworkPath = await getArtworkPath(songId);
 
     if (!artworkUrl || typeof artworkUrl !== 'string' || !artworkPath) {
-      console.error('Invalid artwork URL or path:', { artworkUrl, artworkPath });
+      console.error('Invalid artwork URL or path:', {
+        artworkUrl,
+        artworkPath,
+      });
       return null;
     }
 
@@ -389,7 +416,11 @@ const cleanupOrphanedMetadata = async () => {
 
     for (const [songId, metadata] of Object.entries(allMetadata)) {
       // Pass source for correct file extension
-      const songPath = await getSongPath(songId, metadata.title, metadata.source);
+      const songPath = await getSongPath(
+        songId,
+        metadata.title,
+        metadata.source
+      );
       const songExists = await safeExists(songPath);
 
       if (!songExists) {
@@ -405,7 +436,7 @@ const cleanupOrphanedMetadata = async () => {
 
       await AsyncStorage.setItem(
         STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
-        JSON.stringify(allMetadata),
+        JSON.stringify(allMetadata)
       );
     }
 
@@ -424,7 +455,7 @@ const saveLocalMusicCache = async (musicData) => {
     };
     await AsyncStorage.setItem(
       STORAGE_KEYS.LOCAL_MUSIC_CACHE,
-      JSON.stringify(cacheData),
+      JSON.stringify(cacheData)
     );
   } catch (error) {
     console.error('Error saving local music cache:', error);
@@ -434,7 +465,9 @@ const saveLocalMusicCache = async (musicData) => {
 // Retrieves local music cache from AsyncStorage
 const getLocalMusicCache = async () => {
   try {
-    const cacheJson = await AsyncStorage.getItem(STORAGE_KEYS.LOCAL_MUSIC_CACHE);
+    const cacheJson = await AsyncStorage.getItem(
+      STORAGE_KEYS.LOCAL_MUSIC_CACHE
+    );
     if (cacheJson) {
       const cacheData = JSON.parse(cacheJson);
       // Check if cache is less than 24 hours old
@@ -484,7 +517,7 @@ const getDownloadPathInfo = async () => {
       requestedPath: downloadPref,
       actualBasePath: baseDir,
       songsPath: songsDir,
-      artworkPath: `${baseDir}/artwork`
+      artworkPath: `${baseDir}/artwork`,
     };
   } catch (error) {
     console.error('Error getting download path info:', error);

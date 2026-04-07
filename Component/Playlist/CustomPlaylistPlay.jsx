@@ -5,13 +5,19 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import TrackPlayer from 'react-native-track-player';
 import Context from '../../Context/Context';
 
-export const CustomPlaylistPlay = ({ onPress, songs = [], playlistId = '', playlistName = 'Playlist' }) => {
+export const CustomPlaylistPlay = ({
+  onPress,
+  songs = [],
+  playlistId = '',
+}) => {
   const theme = useTheme();
   const [isPlaying, setIsPlaying] = useState(false);
   const { currentPlaying } = useContext(Context);
 
   const getContrastingTextColor = (hexColor) => {
-    if (!hexColor || hexColor.length < 7) return '#000000'; // Default to black if invalid color
+    if (!hexColor || hexColor.length < 7) {
+      return '#000000';
+    } // Default to black if invalid color
     const r = parseInt(hexColor.slice(1, 3), 16);
     const g = parseInt(hexColor.slice(3, 5), 16);
     const b = parseInt(hexColor.slice(5, 7), 16);
@@ -21,7 +27,7 @@ export const CustomPlaylistPlay = ({ onPress, songs = [], playlistId = '', playl
   };
 
   const contrastingColor = getContrastingTextColor(theme.colors.primary);
-  
+
   // Check if this playlist is currently playing
   useEffect(() => {
     const checkPlaybackState = async () => {
@@ -29,52 +35,52 @@ export const CustomPlaylistPlay = ({ onPress, songs = [], playlistId = '', playl
         // Check if player is playing
         const playerState = await TrackPlayer.getState();
         const isPlayerPlaying = playerState === TrackPlayer.STATE_PLAYING;
-        
+
         // Check if current track is from this playlist
         if (isPlayerPlaying && currentPlaying) {
           const queue = await TrackPlayer.getQueue();
-          
+
           // Create a set of playlist song IDs for faster lookup
           const playlistSongIds = new Set();
-          songs.forEach(song => {
+          songs.forEach((song) => {
             if (song && song.id) {
               playlistSongIds.add(song.id);
             }
           });
-          
+
           // Check if any queue item is from this playlist
-          const isPlaylistPlaying = queue.some(track => 
+          const isPlaylistPlaying = queue.some((track) =>
             playlistSongIds.has(track.id)
           );
-          
+
           setIsPlaying(isPlaylistPlaying);
         } else {
           setIsPlaying(false);
         }
       } catch (error) {
-        console.error("Error checking playback state:", error);
+        console.error('Error checking playback state:', error);
         setIsPlaying(false);
       }
     };
-    
+
     // Check initially
     checkPlaybackState();
-    
+
     // Setup interval to check regularly
     const checkInterval = setInterval(checkPlaybackState, 2000);
-    
+
     // Listen for track player events
     const playerStateListener = TrackPlayer.addEventListener(
       'playback-state',
       () => checkPlaybackState()
     );
-    
+
     return () => {
       clearInterval(checkInterval);
       playerStateListener.remove();
     };
   }, [currentPlaying, songs, playlistId]);
-  
+
   // Handle play/pause toggle
   const handlePress = async () => {
     try {
@@ -98,8 +104,14 @@ export const CustomPlaylistPlay = ({ onPress, songs = [], playlistId = '', playl
         onPress={handlePress}
         activeOpacity={0.8}
       >
-        <Ionicons name={isPlaying ? "pause" : "play"} size={20} color={contrastingColor} />
-        <Text style={[styles.playButtonText, { color: contrastingColor }]}>{isPlaying ? 'Pause' : 'Play'}</Text>
+        <Ionicons
+          name={isPlaying ? 'pause' : 'play'}
+          size={20}
+          color={contrastingColor}
+        />
+        <Text style={[styles.playButtonText, { color: contrastingColor }]}>
+          {isPlaying ? 'Pause' : 'Play'}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -132,4 +144,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 8,
   },
-}); 
+});

@@ -6,7 +6,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 
 /**
  * NetworkStatusIndicator - Visual component showing current network status
- * 
+ *
  * This component provides visual feedback about network connectivity including:
  * - Connection status icon and text
  * - Connection type display
@@ -14,23 +14,23 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
  * - Theme-aware styling
  */
 
-export const NetworkStatusIndicator = ({ 
-  style, 
-  showText = true, 
+export const NetworkStatusIndicator = ({
+  style,
+  showText = true,
   showIcon = true,
   variant = 'full', // 'full', 'compact', 'icon-only'
   onPress = null,
-  size = 'medium' // 'small', 'medium', 'large'
+  size = 'medium', // 'small', 'medium', 'large'
 }) => {
-  const { 
-    isConnected, 
-    isOffline, 
-    connectionType, 
+  const {
+    isConnected,
+    isOffline,
+    connectionType,
     connectionQuality,
     getConnectionDescription,
-    refreshNetworkState 
+    refreshNetworkState,
   } = useNetworkMonitor();
-  
+
   const { getTextColor, getButtonBackgroundColor } = useThemeManager();
 
   const handlePress = () => {
@@ -42,9 +42,13 @@ export const NetworkStatusIndicator = ({
   };
 
   const getStatusIcon = () => {
-    if (isOffline) return 'cloud-offline-outline';
-    if (!isConnected) return 'wifi-off';
-    
+    if (isOffline) {
+      return 'cloud-offline-outline';
+    }
+    if (!isConnected) {
+      return 'wifi-off';
+    }
+
     switch (connectionType) {
       case 'wifi':
         return 'wifi';
@@ -58,9 +62,13 @@ export const NetworkStatusIndicator = ({
   };
 
   const getStatusColor = () => {
-    if (isOffline) return '#FF6B6B';
-    if (!isConnected) return '#FFA726';
-    
+    if (isOffline) {
+      return '#FF6B6B';
+    }
+    if (!isConnected) {
+      return '#FFA726';
+    }
+
     switch (connectionQuality) {
       case 'high':
         return '#4CAF50';
@@ -102,10 +110,10 @@ export const NetworkStatusIndicator = ({
         style={[styles.iconOnlyContainer, style]}
         activeOpacity={0.7}
       >
-        <Ionicons 
-          name={getStatusIcon()} 
-          size={getIconSize()} 
-          color={getStatusColor()} 
+        <Ionicons
+          name={getStatusIcon()}
+          size={getIconSize()}
+          color={getStatusColor()}
         />
       </TouchableOpacity>
     );
@@ -119,20 +127,22 @@ export const NetworkStatusIndicator = ({
         activeOpacity={0.8}
       >
         {showIcon && (
-          <Ionicons 
-            name={getStatusIcon()} 
-            size={getIconSize()} 
-            color={getStatusColor()} 
+          <Ionicons
+            name={getStatusIcon()}
+            size={getIconSize()}
+            color={getStatusColor()}
           />
         )}
         {showText && (
-          <Text style={[
-            styles.compactText,
-            { 
-              color: getStatusColor(),
-              fontSize: getTextSize()
-            }
-          ]}>
+          <Text
+            style={[
+              styles.compactText,
+              {
+                color: getStatusColor(),
+                fontSize: getTextSize(),
+              },
+            ]}
+          >
             {getConnectionDescription()}
           </Text>
         )}
@@ -147,36 +157,40 @@ export const NetworkStatusIndicator = ({
       style={[
         styles.fullContainer,
         { backgroundColor: getButtonBackgroundColor(0.1) },
-        style
+        style,
       ]}
       activeOpacity={0.8}
     >
       {showIcon && (
-        <Ionicons 
-          name={getStatusIcon()} 
-          size={getIconSize()} 
-          color={getStatusColor()} 
+        <Ionicons
+          name={getStatusIcon()}
+          size={getIconSize()}
+          color={getStatusColor()}
         />
       )}
       {showText && (
         <View style={styles.textContainer}>
-          <Text style={[
-            styles.statusText,
-            { 
-              color: getTextColor('primary'),
-              fontSize: getTextSize()
-            }
-          ]}>
+          <Text
+            style={[
+              styles.statusText,
+              {
+                color: getTextColor('primary'),
+                fontSize: getTextSize(),
+              },
+            ]}
+          >
             {getConnectionDescription()}
           </Text>
           {connectionQuality !== 'unknown' && (
-            <Text style={[
-              styles.qualityText,
-              { 
-                color: getTextColor('secondary'),
-                fontSize: getTextSize() - 2
-              }
-            ]}>
+            <Text
+              style={[
+                styles.qualityText,
+                {
+                  color: getTextColor('secondary'),
+                  fontSize: getTextSize() - 2,
+                },
+              ]}
+            >
               {connectionQuality} quality
             </Text>
           )}

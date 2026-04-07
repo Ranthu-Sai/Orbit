@@ -1,12 +1,12 @@
-import React from "react";
-import { useTheme } from "@react-navigation/native";
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
-import { IconButton } from "react-native-paper";
+import React from 'react';
+import { useTheme } from '@react-navigation/native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { IconButton } from 'react-native-paper';
 
 /**
  * FullScreenMusicMenuButton - Three-dot menu button for FullScreenMusic
  * Provides a themed, pressable button that triggers the menu modal
- * 
+ *
  * @param {Function} onPress - Callback function when button is pressed
  * @param {number} size - Size of the icon (default: 25)
  */
@@ -17,7 +17,11 @@ export const FullScreenMusicMenuButton = ({ onPress, size = 25, color }) => {
   return (
     <IconButton
       icon={() => (
-        <MaterialCommunityIcons name="dots-vertical" size={size} color={iconColor} />
+        <MaterialCommunityIcons
+          name="dots-vertical"
+          size={size}
+          color={iconColor}
+        />
       )}
       size={28}
       onPress={onPress}

@@ -1,40 +1,38 @@
-import { useEffect, useState, useCallback, useRef, useContext } from "react";
+import { useEffect, useState, useCallback, useRef, useContext } from 'react';
 import {
   View,
   Text,
   Pressable,
   StyleSheet,
-  Dimensions,
   BackHandler,
   ToastAndroid,
   RefreshControl,
   ScrollView,
-  Animated,
-  Easing,
   TextInput,
   DeviceEventEmitter,
-} from "react-native";
-import { useTheme, useNavigation } from "@react-navigation/native";
-import { useActiveTrack, usePlaybackState } from "react-native-track-player";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
-import FastImage from "react-native-fast-image";
-import LinearGradient from "react-native-linear-gradient";
+} from 'react-native';
+import { useTheme, useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import FastImage from 'react-native-fast-image';
+import LinearGradient from 'react-native-linear-gradient';
 
-import { GetLikedSongs } from "../../LocalStorage/StoreLikedSongs";
-import { GetLikedAlbums } from "../../LocalStorage/StoreLikedAlbums";
-import { Heading } from "../../Component/Global/Heading";
-import { SmallText } from "../../Component/Global/SmallText";
-import { Spacer } from "../../Component/Global/Spacer";
-import { AddPlaylist } from "../../MusicPlayerFunctions";
-import Context from "../../Context/Context";
-import { CacheManager } from "../../Utils/NavigationCacheManager";
-import { CACHE_TTL } from "../../Utils/CacheConfig";
+import { GetLikedSongs } from '../../LocalStorage/StoreLikedSongs';
+import { GetLikedAlbums } from '../../LocalStorage/StoreLikedAlbums';
+import { Heading } from '../../Component/Global/Heading';
+import { SmallText } from '../../Component/Global/SmallText';
+import { Spacer } from '../../Component/Global/Spacer';
+import { AddPlaylist } from '../../MusicPlayerFunctions';
 
-import { ImportPlaylistModal } from "../../Component/Playlist/ImportPlaylistModal";
-import { EachSongMenuModal } from "../../Component/Global/EachSongMenuModal";
-import { AlbumMenuDrawer } from "../../Component/Global/AlbumMenuDrawer";
-import { DeleteALikedAlbum } from "../../LocalStorage/StoreLikedAlbums";
+const DEFAULT_ALBUM_IMAGE = require('../../Images/Music.jpeg');
+import Context from '../../Context/Context';
+import { CacheManager } from '../../Utils/NavigationCacheManager';
+import { CACHE_TTL } from '../../Utils/CacheConfig';
+
+import { ImportPlaylistModal } from '../../Component/Playlist/ImportPlaylistModal';
+import { EachSongMenuModal } from '../../Component/Global/EachSongMenuModal';
+import { AlbumMenuDrawer } from '../../Component/Global/AlbumMenuDrawer';
+import { DeleteALikedAlbum } from '../../LocalStorage/StoreLikedAlbums';
 
 // ... existing code ...
 
@@ -50,11 +48,11 @@ export const LikedSongPage = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   // Search state
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
 
   // View mode state: 'list' or 'card'
-  const [viewMode, setViewMode] = useState("list");
+  const [viewMode, setViewMode] = useState('list');
 
   // Combined data for unified display
   const [combinedItems, setCombinedItems] = useState([]);
@@ -78,12 +76,12 @@ export const LikedSongPage = () => {
   useEffect(() => {
     const loadViewPreference = async () => {
       try {
-        const saved = await AsyncStorage.getItem("favorites_view_mode");
+        const saved = await AsyncStorage.getItem('favorites_view_mode');
         if (saved) {
           setViewMode(saved);
         }
       } catch (error) {
-        console.error("Error loading view preference:", error);
+        console.error('Error loading view preference:', error);
       }
     };
     loadViewPreference();
@@ -91,20 +89,22 @@ export const LikedSongPage = () => {
 
   // Toggle view mode and save preference
   const toggleViewMode = async () => {
-    const newMode = viewMode === "list" ? "card" : "list";
+    const newMode = viewMode === 'list' ? 'card' : 'list';
     setViewMode(newMode);
     try {
-      await AsyncStorage.setItem("favorites_view_mode", newMode);
+      await AsyncStorage.setItem('favorites_view_mode', newMode);
     } catch (error) {
-      console.error("Error saving view preference:", error);
+      console.error('Error saving view preference:', error);
     }
   };
 
   // CACHE-FIRST LOADING for favorites data
   const loadFavoritesData = useCallback(async (forceRefresh = false) => {
-    if (!isMounted.current) return;
+    if (!isMounted.current) {
+      return;
+    }
 
-    const cacheKey = "favorites_data";
+    const cacheKey = 'favorites_data';
 
     try {
       // Check cache first (unless force refresh)
@@ -126,7 +126,7 @@ export const LikedSongPage = () => {
       const songsData = await GetLikedSongs();
       const processedSongs = [];
 
-      for (const [_, value] of Object.entries(songsData.songs || {})) {
+      for (const value of Object.values(songsData.songs || {})) {
         if (value) {
           processedSongs.push({
             type: 'song',
@@ -139,7 +139,7 @@ export const LikedSongPage = () => {
             language: value?.language,
             artistID: value?.primary_artists_id,
             count: value.count,
-            timestamp: value.timestamp || (value.count * 1000) || 0,
+            timestamp: value.timestamp || value.count * 1000 || 0,
           });
         }
       }
@@ -148,7 +148,7 @@ export const LikedSongPage = () => {
       const albumsData = await GetLikedAlbums();
       const processedAlbums = [];
 
-      for (const [_, value] of Object.entries(albumsData.albums || {})) {
+      for (const value of Object.values(albumsData.albums || {})) {
         if (value) {
           processedAlbums.push({
             type: 'album',
@@ -157,7 +157,7 @@ export const LikedSongPage = () => {
             image: value.image,
             year: value.year,
             count: value.count,
-            timestamp: value.timestamp || (value.count * 1000) || 0,
+            timestamp: value.timestamp || value.count * 1000 || 0,
           });
         }
       }
@@ -178,10 +178,10 @@ export const LikedSongPage = () => {
         );
       }
     } catch (error) {
-      console.error("Error loading favorites:", error);
+      console.error('Error loading favorites:', error);
       if (isMounted.current) {
         setLoading(false);
-        ToastAndroid.show("Failed to load favorites", ToastAndroid.SHORT);
+        ToastAndroid.show('Failed to load favorites', ToastAndroid.SHORT);
       }
     } finally {
       if (isMounted.current) {
@@ -194,13 +194,13 @@ export const LikedSongPage = () => {
   // Combine and sort songs and albums by timestamp (most recent first)
   useEffect(() => {
     // Create combined list sorted by timestamp (most recent first)
-    const songsWithType = likedSongs.map(s => ({ ...s, type: 'song' }));
-    const albumsWithType = likedAlbums.map(a => ({ ...a, type: 'album' }));
+    const songsWithType = likedSongs.map((s) => ({ ...s, type: 'song' }));
+    const albumsWithType = likedAlbums.map((a) => ({ ...a, type: 'album' }));
     const combined = [...songsWithType, ...albumsWithType];
     // Sort by timestamp first (if available), fallback to count for older items
     combined.sort((a, b) => {
-      const timeA = a.timestamp || (a.count * 1000) || 0;
-      const timeB = b.timestamp || (b.count * 1000) || 0;
+      const timeA = a.timestamp || a.count * 1000 || 0;
+      const timeB = b.timestamp || b.count * 1000 || 0;
       return timeB - timeA; // Most recent first
     });
     setCombinedItems(combined);
@@ -212,7 +212,7 @@ export const LikedSongPage = () => {
       setFilteredItems(combinedItems);
     } else {
       const query = searchQuery.toLowerCase();
-      const filtered = combinedItems.filter(item => {
+      const filtered = combinedItems.filter((item) => {
         if (item.type === 'song') {
           return (
             item.title?.toLowerCase().includes(query) ||
@@ -230,7 +230,7 @@ export const LikedSongPage = () => {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     // Clear cache to force fresh data
-    CacheManager.invalidate("favorites_data");
+    CacheManager.invalidate('favorites_data');
     loadFavoritesData(true);
   }, [loadFavoritesData]);
 
@@ -243,7 +243,7 @@ export const LikedSongPage = () => {
       'favorites-updated',
       () => {
         // Clear cache and reload
-        CacheManager.invalidate("favorites_data");
+        CacheManager.invalidate('favorites_data');
         loadFavoritesData(true);
       }
     );
@@ -259,15 +259,15 @@ export const LikedSongPage = () => {
     const handleBack = () => {
       if (showSearch) {
         setShowSearch(false);
-        setSearchQuery("");
+        setSearchQuery('');
         return true;
       }
-      navigation.navigate("Library", { screen: "LibraryPage" });
+      navigation.navigate('Library', { screen: 'LibraryPage' });
       return true;
     };
 
     const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
+      'hardwareBackPress',
       handleBack
     );
     return () => backHandler.remove();
@@ -282,13 +282,19 @@ export const LikedSongPage = () => {
         onPress={() => {
           const playData = [
             {
-              url: typeof item.url === "string" ? item.url : item.url?.[0]?.url || "",
-              title: item?.title || "Unknown",
-              artist: item?.artist || "Unknown",
-              artwork: typeof item?.artwork === "string" ? item.artwork : item?.artwork?.[2]?.url || "",
+              url:
+                typeof item.url === 'string'
+                  ? item.url
+                  : item.url?.[0]?.url || '',
+              title: item?.title || 'Unknown',
+              artist: item?.artist || 'Unknown',
+              artwork:
+                typeof item?.artwork === 'string'
+                  ? item.artwork
+                  : item?.artwork?.[2]?.url || '',
               duration: item?.duration || 0,
-              id: item?.id || "",
-              language: item?.language || "",
+              id: item?.id || '',
+              language: item?.language || '',
             },
           ];
           AddPlaylist(playData);
@@ -300,25 +306,31 @@ export const LikedSongPage = () => {
             id: item.id,
             title: item.title,
             artist: item.artist,
-            image: typeof item?.artwork === "string" ? item.artwork : item?.artwork?.[2]?.url || "",
-            url: typeof item.url === "string" ? item.url : item.url?.[0]?.url || "",
+            image:
+              typeof item?.artwork === 'string'
+                ? item.artwork
+                : item?.artwork?.[2]?.url || '',
+            url:
+              typeof item.url === 'string'
+                ? item.url
+                : item.url?.[0]?.url || '',
             duration: item.duration,
             source: 'favorites',
-            isLocalMusic: false
+            isLocalMusic: false,
           });
         }}
         android_ripple={{
           color: theme.dark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-          borderless: false
+          borderless: false,
         }}
       >
         <FastImage
           source={
-            typeof item?.artwork === "string"
+            typeof item?.artwork === 'string'
               ? { uri: item.artwork }
               : item?.artwork?.[2]?.url
-                ? { uri: item.artwork[2].url }
-                : DEFAULT_ALBUM_IMAGE
+              ? { uri: item.artwork[2].url }
+              : DEFAULT_ALBUM_IMAGE
           }
           style={styles.listItemImage}
           resizeMode={FastImage.resizeMode.cover}
@@ -331,10 +343,13 @@ export const LikedSongPage = () => {
             {item.title}
           </Text>
           <Text
-            style={[styles.listItemSubtitle, { color: theme.colors.textSecondary }]}
+            style={[
+              styles.listItemSubtitle,
+              { color: theme.colors.textSecondary },
+            ]}
             numberOfLines={1}
           >
-            {item?.artist || "Unknown"} • Song
+            {item?.artist || 'Unknown'} • Song
           </Text>
         </View>
       </Pressable>
@@ -344,29 +359,32 @@ export const LikedSongPage = () => {
   // Render song item (card view)
   const renderSongCardItem = (item, index) => {
     const imageSource =
-      typeof item?.artwork === "string"
+      typeof item?.artwork === 'string'
         ? { uri: item.artwork }
         : item?.artwork?.[2]?.url
-          ? { uri: item.artwork[2].url }
-          : DEFAULT_ALBUM_IMAGE;
+        ? { uri: item.artwork[2].url }
+        : DEFAULT_ALBUM_IMAGE;
 
     return (
-      <View
-        key={`song-card-${item.id}-${index}`}
-        style={styles.cardItem}
-      >
+      <View key={`song-card-${item.id}-${index}`} style={styles.cardItem}>
         <Pressable
           style={styles.card}
           onPress={() => {
             const playData = [
               {
-                url: typeof item.url === "string" ? item.url : item.url?.[0]?.url || "",
-                title: item?.title || "Unknown",
-                artist: item?.artist || "Unknown",
-                artwork: typeof item?.artwork === "string" ? item.artwork : item?.artwork?.[2]?.url || "",
+                url:
+                  typeof item.url === 'string'
+                    ? item.url
+                    : item.url?.[0]?.url || '',
+                title: item?.title || 'Unknown',
+                artist: item?.artist || 'Unknown',
+                artwork:
+                  typeof item?.artwork === 'string'
+                    ? item.artwork
+                    : item?.artwork?.[2]?.url || '',
                 duration: item?.duration || 0,
-                id: item?.id || "",
-                language: item?.language || "",
+                id: item?.id || '',
+                language: item?.language || '',
               },
             ];
             AddPlaylist(playData);
@@ -378,14 +396,21 @@ export const LikedSongPage = () => {
               id: item.id,
               title: item.title,
               artist: item.artist,
-              image: typeof item?.artwork === "string" ? item.artwork : item?.artwork?.[2]?.url || "",
-              url: typeof item.url === "string" ? item.url : item.url?.[0]?.url || "",
+              image:
+                typeof item?.artwork === 'string'
+                  ? item.artwork
+                  : item?.artwork?.[2]?.url || '',
+              url:
+                typeof item.url === 'string'
+                  ? item.url
+                  : item.url?.[0]?.url || '',
               duration: item.duration,
               source: 'favorites',
-              isLocalMusic: false
+              isLocalMusic: false,
             });
           }}
-          android_ripple={{ color: theme.colors.card, borderless: false }}>
+          android_ripple={{ color: theme.colors.card, borderless: false }}
+        >
           <FastImage
             source={imageSource}
             style={styles.cardImage}
@@ -394,19 +419,22 @@ export const LikedSongPage = () => {
           <LinearGradient
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
-            colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.7)", "rgba(0,0,0,0.95)"]}
-            style={styles.cardGradient}>
+            colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.95)']}
+            style={styles.cardGradient}
+          >
             <Text
               style={styles.cardTitle}
               numberOfLines={2}
-              ellipsizeMode="tail">
-              {item?.title || "Unknown"}
+              ellipsizeMode="tail"
+            >
+              {item?.title || 'Unknown'}
             </Text>
             <Text
               style={styles.cardSubtitle}
               numberOfLines={1}
-              ellipsizeMode="tail">
-              {item?.artist || "Unknown"} • Song
+              ellipsizeMode="tail"
+            >
+              {item?.artist || 'Unknown'} • Song
             </Text>
           </LinearGradient>
         </Pressable>
@@ -423,7 +451,7 @@ export const LikedSongPage = () => {
         key={`album-${item.id}-${index}`}
         style={styles.listItem}
         onPress={() => {
-          navigation.navigate("Album", {
+          navigation.navigate('Album', {
             id: item.id,
             name: item.name,
             timestamp: Date.now(),
@@ -436,7 +464,7 @@ export const LikedSongPage = () => {
         }}
         android_ripple={{
           color: theme.dark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-          borderless: false
+          borderless: false,
         }}
       >
         <FastImage
@@ -452,7 +480,10 @@ export const LikedSongPage = () => {
             {item.name}
           </Text>
           <Text
-            style={[styles.listItemSubtitle, { color: theme.colors.textSecondary }]}
+            style={[
+              styles.listItemSubtitle,
+              { color: theme.colors.textSecondary },
+            ]}
           >
             Album
           </Text>
@@ -466,14 +497,11 @@ export const LikedSongPage = () => {
     const imageSource = item?.image ? { uri: item.image } : DEFAULT_ALBUM_IMAGE;
 
     return (
-      <View
-        key={`album-card-${item.id}-${index}`}
-        style={styles.cardItem}
-      >
+      <View key={`album-card-${item.id}-${index}`} style={styles.cardItem}>
         <Pressable
           style={styles.card}
           onPress={() => {
-            navigation.navigate("Album", {
+            navigation.navigate('Album', {
               id: item.id,
               name: item.name,
               timestamp: Date.now(),
@@ -494,7 +522,7 @@ export const LikedSongPage = () => {
           <LinearGradient
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
-            colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.6)", "rgba(0,0,0,0.9)"]}
+            colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.9)']}
             style={styles.cardGradient}
           >
             <Text
@@ -534,7 +562,9 @@ export const LikedSongPage = () => {
             size={64}
             color={theme.colors.textSecondary}
           />
-          <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+          <Text
+            style={[styles.emptyText, { color: theme.colors.textSecondary }]}
+          >
             Loading your favorites...
           </Text>
         </View>
@@ -545,15 +575,21 @@ export const LikedSongPage = () => {
       return (
         <View style={styles.emptyContainer}>
           <MaterialCommunityIcons
-            name={searchQuery ? "magnify-close" : "heart-plus-outline"}
+            name={searchQuery ? 'magnify-close' : 'heart-plus-outline'}
             size={64}
             color={theme.colors.textSecondary}
           />
-          <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-            {searchQuery ? "No results found" : "No favorites yet"}
+          <Text
+            style={[styles.emptyText, { color: theme.colors.textSecondary }]}
+          >
+            {searchQuery ? 'No results found' : 'No favorites yet'}
           </Text>
           <SmallText
-            text={searchQuery ? `No matches for "${searchQuery}"` : "Like songs and albums to see them here"}
+            text={
+              searchQuery
+                ? `No matches for "${searchQuery}"`
+                : 'Like songs and albums to see them here'
+            }
             style={{ color: theme.colors.textSecondary, marginTop: 8 }}
           />
         </View>
@@ -573,7 +609,7 @@ export const LikedSongPage = () => {
           />
         }
       >
-        {viewMode === "list" ? (
+        {viewMode === 'list' ? (
           <View style={styles.listContainer}>
             {filteredItems.map((item, index) => renderItem(item, index))}
           </View>
@@ -588,9 +624,16 @@ export const LikedSongPage = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
       <View style={styles.header}>
-        <View style={[styles.headerLeft, showSearch && { flex: 1, marginRight: 10 }]}>
+        <View
+          style={[
+            styles.headerLeft,
+            showSearch && { flex: 1, marginRight: 10 },
+          ]}
+        >
           {showSearch ? (
             <View style={styles.headerSearchWrapper}>
               <TextInput
@@ -606,7 +649,7 @@ export const LikedSongPage = () => {
             <Heading
               text="Favorites"
               nospace={true}
-              style={{ fontSize: 28, fontWeight: "900" }}
+              style={{ fontSize: 28, fontWeight: '900' }}
             />
           )}
         </View>
@@ -616,12 +659,18 @@ export const LikedSongPage = () => {
             style={styles.iconButton}
             onPress={() => {
               setShowSearch(!showSearch);
-              if (showSearch) setSearchQuery(""); // Clear on close
+              if (showSearch) {
+                setSearchQuery('');
+              } // Clear on close
             }}
-            android_ripple={{ color: "rgba(255,255,255,0.2)", borderless: true, radius: 20 }}
+            android_ripple={{
+              color: 'rgba(255,255,255,0.2)',
+              borderless: true,
+              radius: 20,
+            }}
           >
             <MaterialCommunityIcons
-              name={showSearch ? "close" : "magnify"}
+              name={showSearch ? 'close' : 'magnify'}
               size={26}
               color={theme.colors.text}
             />
@@ -630,7 +679,11 @@ export const LikedSongPage = () => {
           <Pressable
             style={styles.iconButton}
             onPress={() => setImportModalVisible(true)}
-            android_ripple={{ color: "rgba(255,255,255,0.2)", borderless: true, radius: 20 }}
+            android_ripple={{
+              color: 'rgba(255,255,255,0.2)',
+              borderless: true,
+              radius: 20,
+            }}
           >
             <MaterialCommunityIcons
               name="import"
@@ -642,10 +695,14 @@ export const LikedSongPage = () => {
           <Pressable
             style={styles.iconButton}
             onPress={toggleViewMode}
-            android_ripple={{ color: "rgba(255,255,255,0.2)", borderless: true, radius: 20 }}
+            android_ripple={{
+              color: 'rgba(255,255,255,0.2)',
+              borderless: true,
+              radius: 20,
+            }}
           >
             <MaterialCommunityIcons
-              name={viewMode === "list" ? "view-grid" : "view-list"}
+              name={viewMode === 'list' ? 'view-grid' : 'view-list'}
               size={26}
               color={theme.colors.primary}
             />
@@ -668,18 +725,21 @@ export const LikedSongPage = () => {
         visible={importModalVisible}
         onClose={() => setImportModalVisible(false)}
         onImportSuccess={() => {
-          CacheManager.invalidate("favorites_data");
+          CacheManager.invalidate('favorites_data');
           loadFavoritesData(true);
         }}
         title="Import Track / Album"
         label="Paste a link from Spotify, YouTube, or YouTube Music"
         customImportHandler={async (url, onProgress) => {
-          const { importFromLink } = require("../../Utils/PlaylistImportLogic");
+          const { importFromLink } = require('../../Utils/PlaylistImportLogic');
           await importFromLink(url, onProgress);
         }}
       />
 
-      <EachSongMenuModal Visible={activeMenuSong} setVisible={setActiveMenuSong} />
+      <EachSongMenuModal
+        Visible={activeMenuSong}
+        setVisible={setActiveMenuSong}
+      />
 
       <AlbumMenuDrawer
         visible={albumMenuVisible}
@@ -695,25 +755,24 @@ export const LikedSongPage = () => {
   );
 };
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   backButton: {
@@ -727,8 +786,8 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     // Kept for compatibility if needed, but unused in new layout
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   headerSearchWrapper: {
     flex: 1,
@@ -760,25 +819,25 @@ const styles = StyleSheet.create({
   },
   gridContainer: {
     paddingHorizontal: 12,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingTop: 100,
   },
   emptyText: {
     marginTop: 16,
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: 'bold',
   },
   // List Item Styles
   listItem: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
     marginBottom: 0,
@@ -788,15 +847,15 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 8,
     marginRight: 12,
-    backgroundColor: "#333",
+    backgroundColor: '#333',
   },
   listItemDetails: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: 'center',
   },
   listItemName: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: '600',
     marginBottom: 4,
   },
   listItemSubtitle: {
@@ -804,38 +863,38 @@ const styles = StyleSheet.create({
   },
   // Card Item Styles
   cardItem: {
-    width: "48%",
+    width: '48%',
     marginBottom: 16,
   },
   card: {
-    width: "100%",
+    width: '100%',
     aspectRatio: 1,
     borderRadius: 12,
-    overflow: "hidden",
-    backgroundColor: "#333",
+    overflow: 'hidden',
+    backgroundColor: '#333',
   },
   cardImage: {
-    width: "100%",
-    height: "100%",
+    width: '100%',
+    height: '100%',
   },
   cardGradient: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: "100%",
-    justifyContent: "flex-end",
+    height: '100%',
+    justifyContent: 'flex-end',
     padding: 12,
   },
   cardTitle: {
-    color: "white",
+    color: 'white',
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: 'bold',
     marginBottom: 4,
   },
   cardSubtitle: {
-    color: "rgba(255,255,255,0.8)",
+    color: 'rgba(255,255,255,0.8)',
     fontSize: 12,
-    fontWeight: "500",
+    fontWeight: '500',
   },
 });

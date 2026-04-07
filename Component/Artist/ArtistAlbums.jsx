@@ -30,11 +30,13 @@ const AlbumCard = ({ album, onPress }) => {
         marginBottom: 20, // Add bottom margin to prevent overlapping
       }}
     >
-      <View style={{
-        backgroundColor: 'transparent',
-        borderRadius: 10,
-        overflow: 'hidden',
-      }}>
+      <View
+        style={{
+          backgroundColor: 'transparent',
+          borderRadius: 10,
+          overflow: 'hidden',
+        }}
+      >
         <FastImage
           source={{ uri: getValidImageUrl(album.image) }}
           style={{
@@ -45,10 +47,12 @@ const AlbumCard = ({ album, onPress }) => {
           }}
           resizeMode={FastImage.resizeMode.cover}
         />
-        <View style={{
-          paddingHorizontal: 5,
-          paddingBottom: 5, // Add bottom padding for text area
-        }}>
+        <View
+          style={{
+            paddingHorizontal: 5,
+            paddingBottom: 5, // Add bottom padding for text area
+          }}
+        >
           <PlainText
             text={safeString(album.name, 'Unknown Album')}
             numberOfLine={2}
@@ -61,7 +65,9 @@ const AlbumCard = ({ album, onPress }) => {
             }}
           />
           <SmallText
-            text={safeString(`${album.year || 'Unknown'} • ${album.songCount || 0} songs`)}
+            text={safeString(
+              `${album.year || 'Unknown'} • ${album.songCount || 0} songs`
+            )}
             style={{
               color: theme.colors.text,
               opacity: 0.8,
@@ -93,20 +99,25 @@ const ArtistAlbums = ({
   albumLoading,
   hasMoreAlbums,
   onLoadMore,
-  onAlbumPress
+  onAlbumPress,
 }) => {
   const theme = useTheme();
 
   if (!visibleAlbums?.length && !albumLoading) {
     return (
       <View style={{ padding: 40, alignItems: 'center' }}>
-        <Ionicons name="albums-outline" size={48} color={theme.colors.text} style={{ opacity: 0.3, marginBottom: 16 }} />
+        <Ionicons
+          name="albums-outline"
+          size={48}
+          color={theme.colors.text}
+          style={{ opacity: 0.3, marginBottom: 16 }}
+        />
         <PlainText
           text="No albums available"
           style={{
             color: theme.dark ? '#CCCCCC' : '#666666',
             fontSize: 16,
-            fontWeight: '600'
+            fontWeight: '600',
           }}
         />
       </View>
@@ -115,26 +126,40 @@ const ArtistAlbums = ({
 
   return (
     <View style={{ paddingHorizontal: 20 }}>
-      <View style={{
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 15
-      }}>
-        <Heading text="Albums" style={{ color: theme.colors.text, fontSize: 20,marginRight:30 }} />
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 15,
+        }}
+      >
+        <Heading
+          text="Albums"
+          style={{ color: theme.colors.text, fontSize: 20, marginRight: 30 }}
+        />
         <SmallText
-          text={safeString(`${totalAlbums || visibleAlbums?.length || 0} albums`)}
-          style={{ color: theme.colors.text, opacity: 0.6, fontSize: 14, marginRight: 10 }}
+          text={safeString(
+            `${totalAlbums || visibleAlbums?.length || 0} albums`
+          )}
+          style={{
+            color: theme.colors.text,
+            opacity: 0.6,
+            fontSize: 14,
+            marginRight: 10,
+          }}
         />
       </View>
 
-      <View style={{
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-        marginHorizontal: -5, // Negative margin to offset card margins
-        paddingBottom: 10, // Add bottom padding to container
-      }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          marginHorizontal: -5, // Negative margin to offset card margins
+          paddingBottom: 10, // Add bottom padding to container
+        }}
+      >
         {visibleAlbums.map((album, index) => (
           <AlbumCard
             key={`${album.id}_${index}`} // Fixed: Use unique key with index
@@ -167,9 +192,18 @@ const ArtistAlbums = ({
             <LoadingComponent loading={true} height={20} />
           ) : (
             <>
-              <Ionicons name="add-circle-outline" size={20} color={theme.colors.text} style={{ marginRight: 8 }} />
+              <Ionicons
+                name="add-circle-outline"
+                size={20}
+                color={theme.colors.text}
+                style={{ marginRight: 8 }}
+              />
               <PlainText
-                text={safeString(`Load More (${(totalAlbums || 0) - (visibleAlbums.length || 0)} remaining)`)}
+                text={safeString(
+                  `Load More (${
+                    (totalAlbums || 0) - (visibleAlbums.length || 0)
+                  } remaining)`
+                )}
                 style={{ color: theme.colors.text, fontWeight: 'bold' }}
               />
             </>

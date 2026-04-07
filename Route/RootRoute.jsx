@@ -1,16 +1,19 @@
 import React, { useRef, useEffect, useContext } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { HomeRoute } from "./Home/HomeRoute";
-import { DiscoverRoute } from "./Discover/DiscoverRoute";
-import { LibraryRoute } from "./Library/LibraryRoute";
-import Entypo from "react-native-vector-icons/Entypo";
-import Octicons from "react-native-vector-icons/Octicons";
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
-import { useTheme } from "@react-navigation/native";
+import { HomeRoute } from './Home/HomeRoute';
+import { DiscoverRoute } from './Discover/DiscoverRoute';
+import { LibraryRoute } from './Library/LibraryRoute';
+import Entypo from 'react-native-vector-icons/Entypo';
+import Octicons from 'react-native-vector-icons/Octicons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useTheme } from '@react-navigation/native';
 import CustomTabBar from '../Component/Tab/CustomTabBar.jsx';
 import BottomSheetMusic from '../Component/MusicPlayer/BottomSheetMusic.jsx';
 import { View, ToastAndroid } from 'react-native';
-import { useNavigation, useFocusEffect, CommonActions } from '@react-navigation/native';
+import {
+  useNavigation,
+  CommonActions,
+} from '@react-navigation/native';
 import { BackHandler } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Context from '../Context/Context';
@@ -20,17 +23,18 @@ import { PlaylistSelectorBottomSheetWrapper } from '../Component/Playlist/Playli
 const Tab = createBottomTabNavigator();
 
 // AsyncStorage keys
-const CURRENT_ALBUM_ID_KEY = "orbit_current_album_id";
-const CURRENT_ALBUM_DATA_KEY = "orbit_current_album_data";
-const CURRENT_PLAYLIST_ID_KEY = "orbit_current_playlist_id";
-const CURRENT_PLAYLIST_DATA_KEY = "orbit_current_playlist_data";
-
-// Define tab names for reference
-const Tabs = ['Home', 'Discover', 'Library'];
+const CURRENT_ALBUM_ID_KEY = 'orbit_current_album_id';
+const CURRENT_ALBUM_DATA_KEY = 'orbit_current_album_data';
+const CURRENT_PLAYLIST_ID_KEY = 'orbit_current_playlist_id';
+const CURRENT_PLAYLIST_DATA_KEY = 'orbit_current_playlist_data';
 
 export const RootRoute = () => {
   const theme = useTheme();
-  const { Index, setIndex, previousScreen, setPreviousScreen, musicPreviousScreen, setMusicPreviousScreen } = useContext(Context);
+  const {
+    Index,
+    setPreviousScreen,
+    setMusicPreviousScreen,
+  } = useContext(Context);
   const navigation = useNavigation();
   const isFullscreenActive = useRef(false);
   const previousTabName = useRef(null);
@@ -47,11 +51,15 @@ export const RootRoute = () => {
 
       // Get current navigation state
       const currentState = navigation.getState();
-      if (!currentState) return false;
+      if (!currentState) {
+        return false;
+      }
 
       // Get the current active tab
       const currentActiveTab = currentState.routes[currentState.index];
-      if (!currentActiveTab) return false;
+      if (!currentActiveTab) {
+        return false;
+      }
 
       // Handle Home tab - exit app if at root
       if (currentActiveTab.name === 'Home') {
@@ -98,14 +106,17 @@ export const RootRoute = () => {
             navigation.dispatch(
               CommonActions.navigate({
                 name: 'Library',
-                params: { screen: 'LibraryPage' }
+                params: { screen: 'LibraryPage' },
               })
             );
             return true;
           }
 
           // If we're at LibraryPage and there's a previous tab, go back to that tab
-          if (previousTabName.current && previousTabName.current !== 'Library') {
+          if (
+            previousTabName.current &&
+            previousTabName.current !== 'Library'
+          ) {
             navigation.navigate(previousTabName.current);
             return true;
           }
@@ -118,7 +129,10 @@ export const RootRoute = () => {
       return false;
     };
 
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      handleBackPress
+    );
 
     return () => backHandler.remove();
   }, [navigation]);
@@ -126,13 +140,13 @@ export const RootRoute = () => {
   // Effect to track fullscreen state - simplified since screens now stay mounted
   useEffect(() => {
     // Update fullscreen active ref for back handling
-    isFullscreenActive.current = (Index === 1);
-    prevFullscreenState.current = (Index === 1);
+    isFullscreenActive.current = Index === 1;
+    prevFullscreenState.current = Index === 1;
 
     // Log for debugging
     if (Index === 1) {
-      } else if (prevFullscreenState.current) {
-      }
+    } else if (prevFullscreenState.current) {
+    }
   }, [Index]);
 
   // Track screen changes continuously to better remember which screen the user was on
@@ -154,7 +168,11 @@ export const RootRoute = () => {
       try {
         const currentState = navigation.getState();
 
-        if (currentState && currentState.routes && currentState.routes.length > 0) {
+        if (
+          currentState &&
+          currentState.routes &&
+          currentState.routes.length > 0
+        ) {
           // Get the active route information
           const currentTabRoute = currentState.routes[currentState.index];
 
@@ -164,22 +182,33 @@ export const RootRoute = () => {
           let screenName = ''; // To capture nested screen name
 
           // If there's a nested navigation state, get the current active route
-          if (nestedState && nestedState.routes && nestedState.routes.length > 0) {
+          if (
+            nestedState &&
+            nestedState.routes &&
+            nestedState.routes.length > 0
+          ) {
             const activeNestedRoute = nestedState.routes[nestedState.index];
 
             // Save the screen name
-            screenName = activeNestedRoute.name;
+            // screenName = activeNestedRoute.name;
 
             // Check if this is a navigation to MyMusicPage through params
-            if (activeNestedRoute.params && activeNestedRoute.params.screen === 'MyMusicPage') {
+            if (
+              activeNestedRoute.params &&
+              activeNestedRoute.params.screen === 'MyMusicPage'
+            ) {
               fullNavPath = `${currentTabRoute.name}/MyMusicPage`;
             }
             // Check for deeper nesting (for screens like MyMusicPage in Library)
-            else if (activeNestedRoute.state && activeNestedRoute.state.routes && activeNestedRoute.state.routes.length > 0) {
-              const deepNestedRoute = activeNestedRoute.state.routes[activeNestedRoute.state.index];
+            else if (
+              activeNestedRoute.state &&
+              activeNestedRoute.state.routes &&
+              activeNestedRoute.state.routes.length > 0
+            ) {
+              const deepNestedRoute =
+                activeNestedRoute.state.routes[activeNestedRoute.state.index];
               // Store the full navigation path with tab, screen and nested screen
               fullNavPath = `${currentTabRoute.name}/${activeNestedRoute.name}/${deepNestedRoute.name}`;
-
             } else {
               // Store the full navigation path (tab/screen)
               fullNavPath = `${currentTabRoute.name}/${activeNestedRoute.name}`;
@@ -194,13 +223,17 @@ export const RootRoute = () => {
           // CRITICAL FIX: Special handling for Library tab
           // If we're in Library tab but a specific screen name wasn't captured properly,
           // check the params to see if there's a target screen
-          if (fullNavPath === 'Library' && currentTabRoute.params && currentTabRoute.params.screen) {
+          if (
+            fullNavPath === 'Library' &&
+            currentTabRoute.params &&
+            currentTabRoute.params.screen
+          ) {
             // Don't set Library/Library - check for more specific screens first
             const screenFromParams = currentTabRoute.params.screen;
 
             // Check if we're trying to navigate to MyMusicPage specifically
             if (screenFromParams === 'MyMusicPage') {
-              fullNavPath = `Library/MyMusicPage`;
+              fullNavPath = 'Library/MyMusicPage';
             } else if (screenFromParams !== 'Library') {
               // Only use params if the screen is not 'Library' to avoid Library/Library
               fullNavPath = `Library/${screenFromParams}`;
@@ -220,7 +253,10 @@ export const RootRoute = () => {
 
             // Only update musicPreviousScreen if we're in a music-related screen
             // This preserves the music context even when navigating to non-music screens
-            if (fullNavPath.includes('Library') || fullNavPath.includes('MyMusic')) {
+            if (
+              fullNavPath.includes('Library') ||
+              fullNavPath.includes('MyMusic')
+            ) {
               setMusicPreviousScreen(fullNavPath);
             }
           }
@@ -267,25 +303,27 @@ export const RootRoute = () => {
   // Effect to handle direct navigation to Library tab
   useEffect(() => {
     // When Library tab is focused directly (not via back button or internal navigation)
-    const unsubscribe = navigation.addListener('tabPress', e => {
+    const unsubscribe = navigation.addListener('tabPress', (e) => {
       if (e.target.includes('Library')) {
         // Check if we're already on a Library sub-screen
         const currentState = navigation.getState();
         if (currentState && currentState.routes) {
-          const libraryTab = currentState.routes.find(route => route.name === 'Library');
+          const libraryTab = currentState.routes.find(
+            (route) => route.name === 'Library'
+          );
 
           // If we have nested state in Library tab and it's not the main screen
-          if (libraryTab &&
+          if (
+            libraryTab &&
             libraryTab.state &&
             libraryTab.state.routes &&
             libraryTab.state.routes.length > 0 &&
-            libraryTab.state.routes[0].name !== 'LibraryPage') {
-
+            libraryTab.state.routes[0].name !== 'LibraryPage'
+          ) {
             // Clear any special navigation flags
             AsyncStorage.removeItem('came_from_fullscreen_player')
-              .then(() => {
-              })
-              .catch(error => {
+              .then(() => {})
+              .catch((error) => {
                 console.error('Error clearing navigation flag:', error);
               });
 
@@ -316,16 +354,17 @@ export const RootRoute = () => {
           screenOptions={{
             tabBarShowLabel: false,
             tabBarLabelStyle: {
-              fontWeight: "bold",
+              fontWeight: 'bold',
             },
             tabBarInactiveTintColor: theme.colors.textSecondary,
             tabBarActiveTintColor: theme.colors.primary,
             headerShown: false,
             tabBarStyle: {
               backgroundColor: theme.colors.background,
-              borderColor: "rgba(28,27,27,0)"
-            }
-          }}>
+              borderColor: 'rgba(28,27,27,0)',
+            },
+          }}
+        >
           <Tab.Screen
             options={{
               tabBarIcon: ({ color, size }) => (
@@ -338,7 +377,9 @@ export const RootRoute = () => {
               tabPress: () => {
                 // Only clear navigation data when user explicitly taps Home tab from another tab
                 const state = navigation.getState();
-                const mainRoute = state?.routes?.find(r => r.name === 'MainRoute');
+                const mainRoute = state?.routes?.find(
+                  (r) => r.name === 'MainRoute'
+                );
                 const currentTabIndex = mainRoute?.state?.index ?? 0;
                 const currentTab = mainRoute?.state?.routes?.[currentTabIndex];
 
@@ -348,12 +389,12 @@ export const RootRoute = () => {
                     AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
                     AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY),
                     AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY),
-                    AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY)
-                  ]).catch(error => {
+                    AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY),
+                  ]).catch((error) => {
                     console.error('Error clearing stored screen data:', error);
                   });
                 }
-              }
+              },
             }}
           />
           <Tab.Screen
@@ -368,7 +409,9 @@ export const RootRoute = () => {
               tabPress: () => {
                 // Clear navigation data when switching to Discover from another tab
                 const state = navigation.getState();
-                const mainRoute = state?.routes?.find(r => r.name === 'MainRoute');
+                const mainRoute = state?.routes?.find(
+                  (r) => r.name === 'MainRoute'
+                );
                 const currentTabIndex = mainRoute?.state?.index ?? 0;
                 const currentTab = mainRoute?.state?.routes?.[currentTabIndex];
 
@@ -378,25 +421,29 @@ export const RootRoute = () => {
                     AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
                     AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY),
                     AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY),
-                    AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY)
-                  ]).catch(error => {
+                    AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY),
+                  ]).catch((error) => {
                     console.error('Error clearing stored screen data:', error);
                   });
 
                   // Navigate to DiscoverPage
                   setTimeout(() => {
                     navigation.navigate('Discover', {
-                      screen: 'DiscoverPage'
+                      screen: 'DiscoverPage',
                     });
                   }, 50);
                 }
-              }
+              },
             }}
           />
           <Tab.Screen
             options={{
               tabBarIcon: ({ color, size }) => (
-                <MaterialCommunityIcons name="music-box-multiple-outline" color={color} size={size - 4} />
+                <MaterialCommunityIcons
+                  name="music-box-multiple-outline"
+                  color={color}
+                  size={size - 4}
+                />
               ),
             }}
             name="Library"
@@ -405,7 +452,9 @@ export const RootRoute = () => {
               tabPress: () => {
                 // Clear navigation data when switching to Library from another tab
                 const state = navigation.getState();
-                const mainRoute = state?.routes?.find(r => r.name === 'MainRoute');
+                const mainRoute = state?.routes?.find(
+                  (r) => r.name === 'MainRoute'
+                );
                 const currentTabIndex = mainRoute?.state?.index ?? 0;
                 const currentTab = mainRoute?.state?.routes?.[currentTabIndex];
 
@@ -414,12 +463,12 @@ export const RootRoute = () => {
                     AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
                     AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY),
                     AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY),
-                    AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY)
-                  ]).catch(error => {
+                    AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY),
+                  ]).catch((error) => {
                     console.error('Error clearing stored screen data:', error);
                   });
                 }
-              }
+              },
             }}
           />
         </Tab.Navigator>

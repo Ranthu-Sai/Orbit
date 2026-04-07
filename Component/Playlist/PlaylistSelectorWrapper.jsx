@@ -1,4 +1,9 @@
-import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'react';
+import React, {
+  useState,
+  useImperativeHandle,
+  forwardRef,
+  useEffect,
+} from 'react';
 import { PlaylistSelector } from './PlaylistSelector';
 import { PlaylistSelectorRef } from '../../Utils/PlaylistSelectorManager';
 import { ToastAndroid, AppState } from 'react-native';
@@ -12,7 +17,7 @@ const PlaylistSelectorWrapperComponent = forwardRef((props, ref) => {
   useEffect(() => {
     // Initialize immediately
     setInitialized(true);
-    
+
     // Initialize component
     const initializeComponent = async () => {
       try {
@@ -25,18 +30,21 @@ const PlaylistSelectorWrapperComponent = forwardRef((props, ref) => {
         console.error('Error initializing playlists:', error);
       }
     };
-    
+
     initializeComponent();
-    
+
     // Set up app state listener
     const handleAppStateChange = (nextAppState) => {
       if (nextAppState === 'active') {
         setInitialized(true);
       }
     };
-    
-    const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
-    
+
+    const appStateSubscription = AppState.addEventListener(
+      'change',
+      handleAppStateChange
+    );
+
     return () => {
       appStateSubscription.remove();
     };
@@ -61,7 +69,7 @@ const PlaylistSelectorWrapperComponent = forwardRef((props, ref) => {
     },
     isInitialized: () => {
       return initialized;
-    }
+    },
   }));
 
   const handleClose = () => {
@@ -73,7 +81,7 @@ const PlaylistSelectorWrapperComponent = forwardRef((props, ref) => {
   };
 
   return (
-    <PlaylistSelector 
+    <PlaylistSelector
       visible={visible}
       onClose={handleClose}
       song={selectedSong}
@@ -82,4 +90,4 @@ const PlaylistSelectorWrapperComponent = forwardRef((props, ref) => {
 });
 
 // This component should be included once in your app's root component
-export default PlaylistSelectorWrapperComponent; 
+export default PlaylistSelectorWrapperComponent;

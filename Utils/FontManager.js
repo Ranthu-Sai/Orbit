@@ -14,22 +14,22 @@ export const FONT_FAMILIES = {
   PRIMARY: Platform.select({
     ios: 'System',
     android: 'Roboto',
-    default: 'System'
+    default: 'System',
   }),
-  
+
   // Secondary font family for special cases
   SECONDARY: Platform.select({
     ios: 'San Francisco',
     android: 'Roboto',
-    default: 'System'
+    default: 'System',
   }),
-  
+
   // Monospace font for code/numbers
   MONOSPACE: Platform.select({
     ios: 'Menlo',
     android: 'monospace',
-    default: 'monospace'
-  })
+    default: 'monospace',
+  }),
 };
 
 /**
@@ -42,21 +42,21 @@ export const FONT_WEIGHTS = {
   SEMIBOLD: '600',
   BOLD: '700',
   HEAVY: '800',
-  BLACK: '900'
+  BLACK: '900',
 };
 
 /**
  * Standardized font sizes based on screen dimensions
  */
 export const getFontSizes = (screenWidth) => ({
-  TINY: screenWidth * 0.025,      // ~10px on 400px screen
-  SMALL: screenWidth * 0.030,     // ~12px on 400px screen
-  BODY: screenWidth * 0.035,      // ~14px on 400px screen
-  MEDIUM: screenWidth * 0.040,    // ~16px on 400px screen
-  LARGE: screenWidth * 0.045,     // ~18px on 400px screen
-  HEADING: screenWidth * 0.055,   // ~22px on 400px screen
-  TITLE: screenWidth * 0.065,     // ~26px on 400px screen
-  DISPLAY: screenWidth * 0.085,   // ~34px on 400px screen
+  TINY: screenWidth * 0.025, // ~10px on 400px screen
+  SMALL: screenWidth * 0.03, // ~12px on 400px screen
+  BODY: screenWidth * 0.035, // ~14px on 400px screen
+  MEDIUM: screenWidth * 0.04, // ~16px on 400px screen
+  LARGE: screenWidth * 0.045, // ~18px on 400px screen
+  HEADING: screenWidth * 0.055, // ~22px on 400px screen
+  TITLE: screenWidth * 0.065, // ~26px on 400px screen
+  DISPLAY: screenWidth * 0.085, // ~34px on 400px screen
 });
 
 /**
@@ -64,13 +64,13 @@ export const getFontSizes = (screenWidth) => ({
  */
 export const getOptimizedFontStyle = (type, screenWidth, customSize = null) => {
   const fontSizes = getFontSizes(screenWidth);
-  
+
   const baseStyle = {
     fontFamily: FONT_FAMILIES.PRIMARY,
     includeFontPadding: false, // Android optimization
     textAlignVertical: 'center', // Android optimization
   };
-  
+
   switch (type) {
     case 'heading':
       return {
@@ -79,7 +79,7 @@ export const getOptimizedFontStyle = (type, screenWidth, customSize = null) => {
         fontWeight: FONT_WEIGHTS.BOLD,
         lineHeight: (customSize || fontSizes.HEADING) * 1.2,
       };
-    
+
     case 'title':
       return {
         ...baseStyle,
@@ -87,7 +87,7 @@ export const getOptimizedFontStyle = (type, screenWidth, customSize = null) => {
         fontWeight: FONT_WEIGHTS.SEMIBOLD,
         lineHeight: (customSize || fontSizes.TITLE) * 1.3,
       };
-    
+
     case 'body':
       return {
         ...baseStyle,
@@ -95,7 +95,7 @@ export const getOptimizedFontStyle = (type, screenWidth, customSize = null) => {
         fontWeight: FONT_WEIGHTS.NORMAL,
         lineHeight: (customSize || fontSizes.BODY) * 1.4,
       };
-    
+
     case 'small':
       return {
         ...baseStyle,
@@ -103,7 +103,7 @@ export const getOptimizedFontStyle = (type, screenWidth, customSize = null) => {
         fontWeight: FONT_WEIGHTS.NORMAL,
         lineHeight: (customSize || fontSizes.SMALL) * 1.3,
       };
-    
+
     case 'song-title':
       return {
         ...baseStyle,
@@ -112,7 +112,7 @@ export const getOptimizedFontStyle = (type, screenWidth, customSize = null) => {
         lineHeight: (customSize || fontSizes.MEDIUM) * 1.2,
         letterSpacing: 0.3,
       };
-    
+
     case 'artist-name':
       return {
         ...baseStyle,
@@ -120,7 +120,7 @@ export const getOptimizedFontStyle = (type, screenWidth, customSize = null) => {
         fontWeight: FONT_WEIGHTS.MEDIUM,
         lineHeight: (customSize || fontSizes.SMALL) * 1.2,
       };
-    
+
     case 'lyrics':
       return {
         ...baseStyle,
@@ -129,7 +129,7 @@ export const getOptimizedFontStyle = (type, screenWidth, customSize = null) => {
         lineHeight: (customSize || fontSizes.LARGE) * 1.5,
         textAlign: 'center',
       };
-    
+
     case 'button':
       return {
         ...baseStyle,
@@ -137,7 +137,7 @@ export const getOptimizedFontStyle = (type, screenWidth, customSize = null) => {
         fontWeight: FONT_WEIGHTS.SEMIBOLD,
         textAlign: 'center',
       };
-    
+
     default:
       return {
         ...baseStyle,
@@ -151,9 +151,9 @@ export const getOptimizedFontStyle = (type, screenWidth, customSize = null) => {
  * Font size preferences mapping
  */
 export const FONT_SIZE_PREFERENCES = {
-  'Small': 0.9,   // 90% of base size
-  'Medium': 1.0,  // 100% of base size (default)
-  'Large': 1.1,   // 110% of base size
+  Small: 0.9, // 90% of base size
+  Medium: 1.0, // 100% of base size (default)
+  Large: 1.1, // 110% of base size
 };
 
 /**
@@ -168,11 +168,13 @@ export const getFontSizeMultiplier = (preference = 'Medium') => {
  */
 export const applyFontSizePreference = (fontStyle, preference = 'Medium') => {
   const multiplier = getFontSizeMultiplier(preference);
-  
+
   return {
     ...fontStyle,
     fontSize: fontStyle.fontSize * multiplier,
-    lineHeight: fontStyle.lineHeight ? fontStyle.lineHeight * multiplier : undefined,
+    lineHeight: fontStyle.lineHeight
+      ? fontStyle.lineHeight * multiplier
+      : undefined,
   };
 };
 
@@ -182,16 +184,16 @@ export const applyFontSizePreference = (fontStyle, preference = 'Medium') => {
 export const TEXT_PERFORMANCE_PROPS = {
   // Disable font scaling for consistent UI
   allowFontScaling: false,
-  
+
   // Optimize text rendering on Android
   ...(Platform.OS === 'android' && {
     includeFontPadding: false,
     textAlignVertical: 'center',
   }),
-  
+
   // Optimize text selection
   selectable: false,
-  
+
   // Optimize text updates
   maxFontSizeMultiplier: 1.2,
 };

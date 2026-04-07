@@ -1,5 +1,11 @@
 import { useCallback, useRef, useEffect } from 'react';
-import { ActivityIndicator, View, Animated, Easing, Pressable } from 'react-native';
+import {
+  ActivityIndicator,
+  View,
+  Animated,
+  Easing,
+  Pressable,
+} from 'react-native';
 import { usePlaybackState } from 'react-native-track-player';
 import TrackPlayer from 'react-native-track-player';
 import { useTheme } from 'react-native-paper';
@@ -32,7 +38,6 @@ export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
         await TrackPlayer.pause();
       }
     } catch (error) {
-
     } finally {
       setTimeout(() => {
         isProcessingRef.current = false;
@@ -40,7 +45,8 @@ export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
     }
   }, []);
 
-  const isPlaying = playerState && (playerState.state === 'playing' || playerState.state === 6);
+  const isPlaying =
+    playerState && (playerState.state === 'playing' || playerState.state === 6);
   const buttonSize = isFullScreen ? size * 1.8 : size * 1.5; // Increased size for better touch
   const iconSize = size * 1; // Increased icon size relative to button
 
@@ -57,7 +63,7 @@ export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
         toValue: 1,
         friction: 4,
         useNativeDriver: true,
-      })
+      }),
     ]).start();
 
     // Call play/pause - action happens BEFORE animation completes
@@ -92,7 +98,7 @@ export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
           borderRadius: buttonSize / 2,
           backgroundColor: 'rgba(200, 200, 200, 0.3)', // Light gray with some transparency
           opacity: opacityAnim,
-          transform: [{ scale: scaleAnim }]
+          transform: [{ scale: scaleAnim }],
         }}
       >
         <ActivityIndicator
@@ -125,7 +131,11 @@ export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
         width: buttonSize,
         height: buttonSize,
         borderRadius: buttonSize / 2,
-        backgroundColor: pressed ? 'rgba(200, 200, 200, 0.3)' : (isFullScreen ? '#ffffff' : 'transparent'),
+        backgroundColor: pressed
+          ? 'rgba(200, 200, 200, 0.3)'
+          : isFullScreen
+          ? '#ffffff'
+          : 'transparent',
         justifyContent: 'center',
         alignItems: 'center',
         elevation: isFullScreen ? 4 : 0,
@@ -139,7 +149,7 @@ export const PlayPauseButton = ({ isFullScreen, size = 32, color }) => {
         <Icon
           name={isPlaying ? 'pause' : 'play'}
           size={iconSize}
-          color={isFullScreen ? "#000000" : (color || theme.colors.primary)}
+          color={isFullScreen ? '#000000' : color || theme.colors.primary}
         />
       </Animated.View>
     </Pressable>

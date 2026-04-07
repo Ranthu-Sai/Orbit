@@ -1,26 +1,48 @@
-import { useEffect, useState, useCallback, useRef } from "react";
-import { View, Modal, TextInput, Pressable, Text, FlatList, StyleSheet, Animated, Easing, ToastAndroid, Dimensions, ScrollView, BackHandler } from "react-native";
-import { GetCustomPlaylists, CreateCustomPlaylist } from "../../LocalStorage/CustomPlaylists";
-import { GetLikedPlaylist } from "../../LocalStorage/StoreLikedPlaylists";
-import { useTheme } from "@react-navigation/native";
-import { Heading } from "../../Component/Global/Heading";
-import { SmallText } from "../../Component/Global/SmallText";
-import { Spacer } from "../../Component/Global/Spacer";
-import MaterialIcons from "react-native-vector-icons/MaterialIcons";
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
-import { FileInput, Import } from "lucide-react-native";
-import FastImage from "react-native-fast-image";
-import { useNavigation } from "@react-navigation/native";
+import { useEffect, useState, useCallback, useRef } from 'react';
+import {
+  View,
+  Modal,
+  TextInput,
+  Pressable,
+  Text,
+  FlatList,
+  StyleSheet,
+  Animated,
+  Easing,
+  ToastAndroid,
+  Dimensions,
+  ScrollView,
+  BackHandler,
+} from 'react-native';
+import {
+  GetCustomPlaylists,
+  CreateCustomPlaylist,
+} from '../../LocalStorage/CustomPlaylists';
+import { GetLikedPlaylist } from '../../LocalStorage/StoreLikedPlaylists';
+import { useTheme } from '@react-navigation/native';
+import { Heading } from '../../Component/Global/Heading';
+import { SmallText } from '../../Component/Global/SmallText';
+import { Spacer } from '../../Component/Global/Spacer';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { FileInput, Import } from 'lucide-react-native';
+import FastImage from 'react-native-fast-image';
+import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getUserPlaylists, createPlaylist, clearPlaylistCache, deletePlaylist, updatePlaylist } from "../../Utils/PlaylistManager";
+import {
+  getUserPlaylists,
+  createPlaylist,
+  clearPlaylistCache,
+  deletePlaylist,
+  updatePlaylist,
+} from '../../Utils/PlaylistManager';
 import { CacheManager } from '../../Utils/NavigationCacheManager';
 import { CACHE_TTL, CACHE_KEYS } from '../../Utils/CacheConfig';
-import { ImportPlaylistModal } from "../../Component/Playlist/ImportPlaylistModal";
-import { DeviceEventEmitter, RefreshControl } from "react-native";
-import { Playlist } from "../Playlist";
-import { PlaylistListSkeleton } from "../../Component/Global/PlaylistListSkeleton";
-import { PlaylistMenuDrawer } from "../../Component/Global/PlaylistMenuDrawer";
-
+import { ImportPlaylistModal } from '../../Component/Playlist/ImportPlaylistModal';
+import { DeviceEventEmitter, RefreshControl } from 'react-native';
+import { Playlist } from '../Playlist';
+import { PlaylistListSkeleton } from '../../Component/Global/PlaylistListSkeleton';
+import { PlaylistMenuDrawer } from '../../Component/Global/PlaylistMenuDrawer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -51,7 +73,9 @@ export const CustomPlaylist = () => {
 
   // CACHE-FIRST LOADING for playlists
   const loadPlaylists = async (forceRefresh = false) => {
-    if (!isMounted.current) return;
+    if (!isMounted.current) {
+      return;
+    }
 
     const cacheKey = CACHE_KEYS.CUSTOM_PLAYLISTS;
 
@@ -93,7 +117,9 @@ export const CustomPlaylist = () => {
       const likedPlaylistsData = await GetLikedPlaylist();
 
       // Convert liked playlists object to array (robust conversion)
-      const filteredLikedPlaylists = Object.values(likedPlaylistsData.playlist || {})
+      const filteredLikedPlaylists = Object.values(
+        likedPlaylistsData.playlist || {}
+      )
         .filter(Boolean)
         .sort((a, b) => (a.count || 0) - (b.count || 0));
       setLikedPlaylists(filteredLikedPlaylists);
@@ -108,12 +134,18 @@ export const CustomPlaylist = () => {
 
       // Cache the data
       if (isMounted.current) {
-        CacheManager.set(cacheKey, {
-          playlists: customPlaylists,
-          userPlaylists: Array.isArray(newUserPlaylists) ? newUserPlaylists : [],
-          likedPlaylists: filteredLikedPlaylists,
-          hasPlaylists: hasAnyPlaylists
-        }, CACHE_TTL.LIBRARY_DATA);
+        CacheManager.set(
+          cacheKey,
+          {
+            playlists: customPlaylists,
+            userPlaylists: Array.isArray(newUserPlaylists)
+              ? newUserPlaylists
+              : [],
+            likedPlaylists: filteredLikedPlaylists,
+            hasPlaylists: hasAnyPlaylists,
+          },
+          CACHE_TTL.LIBRARY_DATA
+        );
       }
     } catch (error) {
       console.error('Error loading playlists:', error);
@@ -146,7 +178,10 @@ export const CustomPlaylist = () => {
           setPlaylistName('');
           setModalVisible(false);
           await loadPlaylists();
-          ToastAndroid.show('Playlist created successfully', ToastAndroid.SHORT);
+          ToastAndroid.show(
+            'Playlist created successfully',
+            ToastAndroid.SHORT
+          );
         }
       } catch (error) {
         console.error('Error creating playlist:', error);
@@ -166,11 +201,14 @@ export const CustomPlaylist = () => {
 
   // Listen for playlist updates (imports, creates, deletes)
   useEffect(() => {
-    const subscription = DeviceEventEmitter.addListener('playlist-updated', () => {
-      CacheManager.invalidate(CACHE_KEYS.CUSTOM_PLAYLISTS);
-      clearPlaylistCache();
-      loadPlaylists(true);
-    });
+    const subscription = DeviceEventEmitter.addListener(
+      'playlist-updated',
+      () => {
+        CacheManager.invalidate(CACHE_KEYS.CUSTOM_PLAYLISTS);
+        clearPlaylistCache();
+        loadPlaylists(true);
+      }
+    );
 
     loadPlaylists(false);
 
@@ -187,8 +225,6 @@ export const CustomPlaylist = () => {
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
-
-
 
   // Delete playlist - receives playlist data directly from drawer callback
   const handleMenuDelete = async (playlist) => {
@@ -208,12 +244,18 @@ export const CustomPlaylist = () => {
         // Delete legacy playlist from AsyncStorage
         const customPlaylists = await GetCustomPlaylists();
         delete customPlaylists[playlist.name];
-        await AsyncStorage.setItem('CustomPlaylists', JSON.stringify(customPlaylists));
+        await AsyncStorage.setItem(
+          'CustomPlaylists',
+          JSON.stringify(customPlaylists)
+        );
         CacheManager.invalidate(CACHE_KEYS.CUSTOM_PLAYLISTS);
         ToastAndroid.show('Playlist deleted', ToastAndroid.SHORT);
         loadPlaylists(true);
       } else if (playlist.type === 'liked') {
-        ToastAndroid.show("Cannot delete liked playlists from here", ToastAndroid.SHORT);
+        ToastAndroid.show(
+          'Cannot delete liked playlists from here',
+          ToastAndroid.SHORT
+        );
       }
     } catch (error) {
       console.error('Error deleting playlist:', error);
@@ -246,7 +288,7 @@ export const CustomPlaylist = () => {
       if (selectedPlaylist.type === 'user') {
         // Use proper file-based update from PlaylistManager
         const success = await updatePlaylist(selectedPlaylist.id, {
-          name: newPlaylistName.trim()
+          name: newPlaylistName.trim(),
         });
 
         if (success) {
@@ -262,7 +304,10 @@ export const CustomPlaylist = () => {
         const trimmedName = newPlaylistName.trim();
 
         if (customPlaylists[trimmedName] && trimmedName !== oldName) {
-          ToastAndroid.show('Playlist with this name already exists', ToastAndroid.SHORT);
+          ToastAndroid.show(
+            'Playlist with this name already exists',
+            ToastAndroid.SHORT
+          );
           return;
         }
 
@@ -271,7 +316,10 @@ export const CustomPlaylist = () => {
           delete customPlaylists[oldName];
         }
 
-        await AsyncStorage.setItem('CustomPlaylists', JSON.stringify(customPlaylists));
+        await AsyncStorage.setItem(
+          'CustomPlaylists',
+          JSON.stringify(customPlaylists)
+        );
         setEditModalVisible(false);
         CacheManager.invalidate(CACHE_KEYS.CUSTOM_PLAYLISTS);
         ToastAndroid.show('Playlist renamed', ToastAndroid.SHORT);
@@ -292,18 +340,18 @@ export const CustomPlaylist = () => {
       playlistData = {
         name: playlist,
         songs: playlists[playlist],
-        type: 'legacy'
+        type: 'legacy',
       };
     } else if (type === 'user') {
       // User 'playlist' arg is the full object
       playlistData = {
         ...playlist,
-        type: 'user'
+        type: 'user',
       };
     } else if (type === 'liked') {
       playlistData = {
         ...playlist,
-        type: 'liked'
+        type: 'liked',
       };
     }
 
@@ -311,16 +359,14 @@ export const CustomPlaylist = () => {
     setMenuVisible(true);
   };
 
-
-
   const renderPlaylist = ({ item, index }) => {
     const handlePlaylistPress = () => {
       const playlist = playlists[item];
       if (playlist) {
-        navigation.navigate("CustomPlaylistView", {
+        navigation.navigate('CustomPlaylistView', {
           songs: playlist,
           playlistName: item,
-          previousScreen: "CustomPlaylist"
+          previousScreen: 'CustomPlaylist',
         });
       }
     };
@@ -350,7 +396,12 @@ export const CustomPlaylist = () => {
         style={styles.playlistItem}
         onPress={handlePlaylistPress}
         onLongPress={(e) => handlePlaylistOptions(item, e, 'legacy')}
-        android_ripple={{ color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)', borderless: false }}
+        android_ripple={{
+          color: theme.dark
+            ? 'rgba(255, 255, 255, 0.15)'
+            : 'rgba(0, 0, 0, 0.05)',
+          borderless: false,
+        }}
       >
         <View style={styles.playlistCoverContainer}>
           <FastImage
@@ -363,7 +414,9 @@ export const CustomPlaylist = () => {
           <Text style={[styles.playlistName, { color: theme.colors.text }]}>
             {item}
           </Text>
-          <Text style={[styles.songCount, { color: theme.colors.textSecondary }]}>
+          <Text
+            style={[styles.songCount, { color: theme.colors.textSecondary }]}
+          >
             {playlists[item] ? playlists[item].length : 0} songs
           </Text>
         </View>
@@ -376,11 +429,11 @@ export const CustomPlaylist = () => {
     const handlePlaylistPress = () => {
       // Navigate to the playlist view with the songs from this playlist
       if (item.songs && item.songs.length > 0) {
-        navigation.navigate("CustomPlaylistView", {
+        navigation.navigate('CustomPlaylistView', {
           songs: item.songs,
           playlistName: item.name,
           playlistId: item.id,
-          previousScreen: "CustomPlaylist"
+          previousScreen: 'CustomPlaylist',
         });
       } else {
         ToastAndroid.show('This playlist is empty', ToastAndroid.SHORT);
@@ -411,7 +464,12 @@ export const CustomPlaylist = () => {
         style={styles.playlistItem}
         onPress={handlePlaylistPress}
         onLongPress={(e) => handlePlaylistOptions(item, e, 'user')}
-        android_ripple={{ color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)', borderless: false }}
+        android_ripple={{
+          color: theme.dark
+            ? 'rgba(255, 255, 255, 0.15)'
+            : 'rgba(0, 0, 0, 0.05)',
+          borderless: false,
+        }}
       >
         <View style={styles.playlistCoverContainer}>
           <FastImage
@@ -424,7 +482,9 @@ export const CustomPlaylist = () => {
           <Text style={[styles.playlistName, { color: theme.colors.text }]}>
             {item.name}
           </Text>
-          <Text style={[styles.songCount, { color: theme.colors.textSecondary }]}>
+          <Text
+            style={[styles.songCount, { color: theme.colors.textSecondary }]}
+          >
             {item.songs ? item.songs.length : 0} songs
           </Text>
         </View>
@@ -437,7 +497,8 @@ export const CustomPlaylist = () => {
       // Instead of navigating, toggle embedded view
       if (item.id) {
         // Check if it's a YouTube Music ID (typically starts with VL, PL, RD, OL, UC or is long)
-        const isYT = item.id.length > 20 ||
+        const isYT =
+          item.id.length > 20 ||
           item.id.startsWith('PL') ||
           item.id.startsWith('VL') ||
           item.id.startsWith('RD') ||
@@ -461,12 +522,20 @@ export const CustomPlaylist = () => {
 
     // Extract image URL from various formats
     const getImageUrl = (imageData) => {
-      if (!imageData) return null;
-      if (typeof imageData === 'string') return imageData;
-      if (Array.isArray(imageData) && imageData.length > 0) {
-        return imageData[imageData.length - 1]?.url || imageData[0]?.url || null;
+      if (!imageData) {
+        return null;
       }
-      if (typeof imageData === 'object' && imageData.url) return imageData.url;
+      if (typeof imageData === 'string') {
+        return imageData;
+      }
+      if (Array.isArray(imageData) && imageData.length > 0) {
+        return (
+          imageData[imageData.length - 1]?.url || imageData[0]?.url || null
+        );
+      }
+      if (typeof imageData === 'object' && imageData.url) {
+        return imageData.url;
+      }
       return null;
     };
 
@@ -477,7 +546,12 @@ export const CustomPlaylist = () => {
         style={styles.playlistItem}
         onPress={handlePlaylistPress}
         onLongPress={(e) => handlePlaylistOptions(item, e, 'liked')}
-        android_ripple={{ color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)', borderless: false }}
+        android_ripple={{
+          color: theme.dark
+            ? 'rgba(255, 255, 255, 0.15)'
+            : 'rgba(0, 0, 0, 0.05)',
+          borderless: false,
+        }}
       >
         {imageUrl ? (
           <FastImage
@@ -498,7 +572,9 @@ export const CustomPlaylist = () => {
           <Text style={[styles.playlistName, { color: theme.colors.text }]}>
             {item.name}
           </Text>
-          <Text style={[styles.songCount, { color: theme.colors.textSecondary }]}>
+          <Text
+            style={[styles.songCount, { color: theme.colors.textSecondary }]}
+          >
             {item.follower || 'Playlist'}
           </Text>
         </View>
@@ -514,20 +590,27 @@ export const CustomPlaylist = () => {
     const hasLikedPlaylists = likedPlaylists.length > 0;
 
     if (loading) {
-      return (
-        <PlaylistListSkeleton count={10} />
-      );
+      return <PlaylistListSkeleton count={10} />;
     }
 
     if (error) {
       return (
         <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons name="alert-circle-outline" size={64} color="#6E6E6E" />
-          <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+          <MaterialCommunityIcons
+            name="alert-circle-outline"
+            size={64}
+            color="#6E6E6E"
+          />
+          <Text
+            style={[styles.emptyText, { color: theme.colors.textSecondary }]}
+          >
             {error}
           </Text>
           <Pressable
-            style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
+            style={[
+              styles.retryButton,
+              { backgroundColor: theme.colors.primary },
+            ]}
             onPress={loadPlaylists}
           >
             <Text style={styles.retryButtonText}>Retry</Text>
@@ -540,12 +623,17 @@ export const CustomPlaylist = () => {
       return (
         <View style={styles.emptyContainer}>
           <MaterialIcons name="playlist-add" size={64} color="#6E6E6E" />
-          <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+          <Text
+            style={[styles.emptyText, { color: theme.colors.textSecondary }]}
+          >
             You don't have any playlists yet.
           </Text>
           <Spacer height={20} />
           <Pressable
-            style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
+            style={[
+              styles.createButton,
+              { backgroundColor: theme.colors.primary },
+            ]}
             onPress={() => setModalVisible(true)}
             android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
           >
@@ -559,7 +647,10 @@ export const CustomPlaylist = () => {
     return (
       <ScrollView
         style={styles.playlistsScrollContainer}
-        contentContainerStyle={[styles.playlistsContentContainer, { paddingBottom: 150 }]}
+        contentContainerStyle={[
+          styles.playlistsContentContainer,
+          { paddingBottom: 150 },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -580,14 +671,20 @@ export const CustomPlaylist = () => {
           {/* Render liked/favorited playlists */}
           {likedPlaylists.map((item, index) => (
             <View key={item.id || `liked-playlist-${index}`}>
-              {renderLikedPlaylist({ item, index: index + userPlaylists.length })}
+              {renderLikedPlaylist({
+                item,
+                index: index + userPlaylists.length,
+              })}
             </View>
           ))}
 
           {/* Render legacy playlists */}
           {playlistNames.map((item, index) => (
             <View key={item || `legacy-playlist-${index}`}>
-              {renderPlaylist({ item, index: index + userPlaylists.length + likedPlaylists.length })}
+              {renderPlaylist({
+                item,
+                index: index + userPlaylists.length + likedPlaylists.length,
+              })}
             </View>
           ))}
         </View>
@@ -611,13 +708,18 @@ export const CustomPlaylist = () => {
       return true; // Prevent default back action
     };
 
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBack);
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      handleBack
+    );
 
     return () => backHandler.remove();
   }, [navigation, showPlaylistDetail]);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
       {/* Conditional rendering: Show playlist detail or list */}
       {showPlaylistDetail && selectedPlaylistData ? (
         <Playlist
@@ -627,9 +729,12 @@ export const CustomPlaylist = () => {
             typeof selectedPlaylistData.image === 'string'
               ? selectedPlaylistData.image
               : Array.isArray(selectedPlaylistData.image)
-                ? selectedPlaylistData.image[selectedPlaylistData.image.length - 1]?.url ||
-                selectedPlaylistData.image[0]?.url || ''
-                : selectedPlaylistData.image?.url || ''
+              ? selectedPlaylistData.image[
+                  selectedPlaylistData.image.length - 1
+                ]?.url ||
+                selectedPlaylistData.image[0]?.url ||
+                ''
+              : selectedPlaylistData.image?.url || ''
           }
           follower={selectedPlaylistData.follower}
           source={selectedPlaylistData.source}
@@ -643,28 +748,65 @@ export const CustomPlaylist = () => {
       ) : (
         <>
           <View style={styles.header}>
-            <Heading text="Playlists" nospace={true} style={{ marginLeft: 0, paddingLeft: 12, fontSize: 28, fontWeight: '900' }} />
+            <Heading
+              text="Playlists"
+              nospace={true}
+              style={{
+                marginLeft: 0,
+                paddingLeft: 12,
+                fontSize: 28,
+                fontWeight: '900',
+              }}
+            />
             <View style={styles.headerButtons}>
               <Pressable
-                style={[styles.addButton, { backgroundColor: theme.dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}
+                style={[
+                  styles.addButton,
+                  {
+                    backgroundColor: theme.dark
+                      ? 'rgba(255,255,255,0.07)'
+                      : 'rgba(0,0,0,0.05)',
+                  },
+                ]}
                 onPress={() => setImportModalVisible(true)}
-                android_ripple={{ color: theme.dark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)', borderless: true, radius: 20 }}
+                android_ripple={{
+                  color: theme.dark
+                    ? 'rgba(255,255,255,0.2)'
+                    : 'rgba(0,0,0,0.1)',
+                  borderless: true,
+                  radius: 20,
+                }}
               >
                 <FileInput size={24} color={theme.colors.text} />
               </Pressable>
               <Pressable
-                style={[styles.addButton, { backgroundColor: theme.dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}
+                style={[
+                  styles.addButton,
+                  {
+                    backgroundColor: theme.dark
+                      ? 'rgba(255,255,255,0.07)'
+                      : 'rgba(0,0,0,0.05)',
+                  },
+                ]}
                 onPress={() => setModalVisible(true)}
-                android_ripple={{ color: theme.dark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)', borderless: true, radius: 20 }}
+                android_ripple={{
+                  color: theme.dark
+                    ? 'rgba(255,255,255,0.2)'
+                    : 'rgba(0,0,0,0.1)',
+                  borderless: true,
+                  radius: 20,
+                }}
               >
-                <MaterialIcons name="playlist-add" size={28} color={theme.colors.text} />
+                <MaterialIcons
+                  name="playlist-add"
+                  size={28}
+                  color={theme.colors.text}
+                />
               </Pressable>
             </View>
           </View>
 
-          <View style={[styles.content, { flex: 1 }]}>
-            {renderPlaylists()}
-          </View>
+          <View style={[styles.content, { flex: 1 }]}>{renderPlaylists()}</View>
         </>
       )}
 
@@ -691,27 +833,67 @@ export const CustomPlaylist = () => {
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={[styles.modalContainer, { backgroundColor: theme.colors.backdrop || 'rgba(0,0,0,0.7)' }]}>
-          <View style={[styles.modalContent, { backgroundColor: theme.colors.card }]}>
+        <View
+          style={[
+            styles.modalContainer,
+            { backgroundColor: theme.colors.backdrop || 'rgba(0,0,0,0.7)' },
+          ]}
+        >
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.colors.card },
+            ]}
+          >
             <Heading text="Create New Playlist" />
-            <SmallText text="Enter playlist name" style={[styles.modalLabel, { color: theme.colors.textSecondary || theme.colors.text }]} />
+            <SmallText
+              text="Enter playlist name"
+              style={[
+                styles.modalLabel,
+                { color: theme.colors.textSecondary || theme.colors.text },
+              ]}
+            />
             <TextInput
               placeholder="Playlist name"
-              placeholderTextColor={theme.dark ? 'rgba(255,255,255,0.5)' : '#000000'}
+              placeholderTextColor={
+                theme.dark ? 'rgba(255,255,255,0.5)' : '#000000'
+              }
               value={playlistName}
               onChangeText={setPlaylistName}
-              style={[styles.input, { color: theme.colors.text, backgroundColor: theme.dark ? (theme.colors.input || theme.colors.border) : '#F0F0F0', borderColor: theme.colors.border }]}
+              style={[
+                styles.input,
+                {
+                  color: theme.colors.text,
+                  backgroundColor: theme.dark
+                    ? theme.colors.input || theme.colors.border
+                    : '#F0F0F0',
+                  borderColor: theme.colors.border,
+                },
+              ]}
               autoFocus
             />
             <View style={styles.modalButtonContainer}>
               <Pressable
-                style={[styles.cancelButton, { backgroundColor: theme.colors.border }]}
+                style={[
+                  styles.cancelButton,
+                  { backgroundColor: theme.colors.border },
+                ]}
                 onPress={() => setModalVisible(false)}
               >
-                <Text style={[styles.cancelButtonText, { color: theme.colors.text }]}>Cancel</Text>
+                <Text
+                  style={[
+                    styles.cancelButtonText,
+                    { color: theme.colors.text },
+                  ]}
+                >
+                  Cancel
+                </Text>
               </Pressable>
               <Pressable
-                style={[styles.createPlaylistButton, { backgroundColor: theme.colors.primary || '#1DB954' }]}
+                style={[
+                  styles.createPlaylistButton,
+                  { backgroundColor: theme.colors.primary || '#1DB954' },
+                ]}
                 onPress={handleCreatePlaylist}
               >
                 <Text style={styles.createButtonText}>Create</Text>
@@ -728,27 +910,67 @@ export const CustomPlaylist = () => {
         visible={editModalVisible}
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <View style={[styles.modalContainer, { backgroundColor: theme.colors.backdrop || 'rgba(0,0,0,0.7)' }]}>
-          <View style={[styles.modalContent, { backgroundColor: theme.colors.card }]}>
+        <View
+          style={[
+            styles.modalContainer,
+            { backgroundColor: theme.colors.backdrop || 'rgba(0,0,0,0.7)' },
+          ]}
+        >
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.colors.card },
+            ]}
+          >
             <Heading text="Edit Playlist Name" />
-            <SmallText text="Enter new playlist name" style={[styles.modalLabel, { color: theme.colors.textSecondary || theme.colors.text }]} />
+            <SmallText
+              text="Enter new playlist name"
+              style={[
+                styles.modalLabel,
+                { color: theme.colors.textSecondary || theme.colors.text },
+              ]}
+            />
             <TextInput
               placeholder="Playlist name"
-              placeholderTextColor={theme.dark ? 'rgba(255,255,255,0.5)' : '#000000'}
+              placeholderTextColor={
+                theme.dark ? 'rgba(255,255,255,0.5)' : '#000000'
+              }
               value={newPlaylistName}
               onChangeText={setNewPlaylistName}
-              style={[styles.input, { color: theme.colors.text, backgroundColor: theme.dark ? (theme.colors.input || theme.colors.border) : '#F0F0F0', borderColor: theme.colors.border }]}
+              style={[
+                styles.input,
+                {
+                  color: theme.colors.text,
+                  backgroundColor: theme.dark
+                    ? theme.colors.input || theme.colors.border
+                    : '#F0F0F0',
+                  borderColor: theme.colors.border,
+                },
+              ]}
               autoFocus
             />
             <View style={styles.modalButtonContainer}>
               <Pressable
-                style={[styles.cancelButton, { backgroundColor: theme.colors.border }]}
+                style={[
+                  styles.cancelButton,
+                  { backgroundColor: theme.colors.border },
+                ]}
                 onPress={() => setEditModalVisible(false)}
               >
-                <Text style={[styles.cancelButtonText, { color: theme.colors.text }]}>Cancel</Text>
+                <Text
+                  style={[
+                    styles.cancelButtonText,
+                    { color: theme.colors.text },
+                  ]}
+                >
+                  Cancel
+                </Text>
               </Pressable>
               <Pressable
-                style={[styles.createPlaylistButton, { backgroundColor: theme.colors.primary || '#1DB954' }]}
+                style={[
+                  styles.createPlaylistButton,
+                  { backgroundColor: theme.colors.primary || '#1DB954' },
+                ]}
                 onPress={handleUpdatePlaylistName}
               >
                 <Text style={styles.createButtonText}>Update</Text>
@@ -764,7 +986,6 @@ export const CustomPlaylist = () => {
         onClose={() => setImportModalVisible(false)}
         onImportSuccess={onImportSuccess}
       />
-
     </View>
   );
 };
@@ -978,5 +1199,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 20,
   },
-
 });

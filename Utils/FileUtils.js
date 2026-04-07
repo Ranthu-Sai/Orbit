@@ -1,6 +1,7 @@
 import * as RNFS from 'react-native-fs';
 import { Platform } from 'react-native';
-import { analyticsService, AnalyticsEvents } from './AnalyticsUtils';
+import { decode as atob } from 'base-64';
+import { analyticsService } from './AnalyticsUtils';
 
 /**
  * Ensures that a path is converted to a string, with fallbacks for object paths
@@ -46,15 +47,23 @@ export const safePath = (path) => {
     }
 
     // Handle Promise objects - this could be causing the error
-    if (path instanceof Promise || (path.then && typeof path.then === 'function')) {
-      console.warn('Promise provided as path, returning empty string to prevent errors');
+    if (
+      path instanceof Promise ||
+      (path.then && typeof path.then === 'function')
+    ) {
+      console.warn(
+        'Promise provided as path, returning empty string to prevent errors'
+      );
       return '';
     }
 
     // Try to convert to string without calling methods that might throw
     try {
-      if (path.toString && typeof path.toString === 'function' &&
-        path.toString !== Object.prototype.toString) {
+      if (
+        path.toString &&
+        typeof path.toString === 'function' &&
+        path.toString !== Object.prototype.toString
+      ) {
         const result = path.toString();
         if (typeof result === 'string') {
           return result;
@@ -80,7 +89,7 @@ export const safePath = (path) => {
 
 /**
  * Safely checks if a file exists, handling non-string paths
- * @param {any} path - Path to check 
+ * @param {any} path - Path to check
  * @returns {Promise<boolean>} True if file exists, false otherwise
  */
 export const safeExists = async (path) => {
@@ -188,8 +197,6 @@ export const ensureDirectoryExists = async (path) => {
   }
 };
 
-
-
 /**
  * Safely downloads a file, handling non-string paths
  * @param {string} url - URL to download from
@@ -198,7 +205,12 @@ export const ensureDirectoryExists = async (path) => {
  * @param {Function} onProgress - Optional progress callback (percentage: number) => void
  * @returns {Promise<boolean>} True if successfully downloaded
  */
-export const safeDownloadFile = async (url, path, customHeaders = null, onProgress = null) => {
+export const safeDownloadFile = async (
+  url,
+  path,
+  customHeaders = null,
+  onProgress = null
+) => {
   const stringPath = safePath(path);
   try {
     if (!url || typeof url !== 'string') {
@@ -219,18 +231,23 @@ export const safeDownloadFile = async (url, path, customHeaders = null, onProgre
 
     // Add progress callback if provided
     if (typeof onProgress === 'function') {
-      downloadOptions.begin = (res) => {
+      downloadOptions.begin = (_res) => {
         // Report 0% when download begins
         onProgress(0);
       };
-      downloadOptions.progress = (res) => {
+      downloadOptions.progress = (_res) => {
         // Calculate percentage (handle cases where contentLength is -1 or 0)
-        if (res.contentLength > 0) {
-          const percentage = Math.round((res.bytesWritten / res.contentLength) * 100);
+        if (_res.contentLength > 0) {
+          const percentage = Math.round(
+            (_res.bytesWritten / _res.contentLength) * 100
+          );
           onProgress(percentage);
         } else {
           // If content length unknown, show indeterminate progress (pulse between 10-90%)
-          const fakeProgress = Math.min(90, Math.max(10, (res.bytesWritten / 1000000) * 10));
+          const fakeProgress = Math.min(
+            90,
+            Math.max(10, (_res.bytesWritten / 1000000) * 10)
+          );
           onProgress(Math.round(fakeProgress));
         }
       };
@@ -246,8 +263,9 @@ export const safeDownloadFile = async (url, path, customHeaders = null, onProgre
     // Priority 2: Add User-Agent for specific CDNs
     else if (url.includes('qobuz.com') || url.includes('akamaized.net')) {
       downloadOptions.headers = {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-        'Accept': 'image/*,*/*',
+        'User-Agent':
+          'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        Accept: 'image/*,*/*',
       };
     }
 
@@ -269,18 +287,25 @@ export const safeDownloadFile = async (url, path, customHeaders = null, onProgre
       }
       return true;
     } else {
-      console.error(`Download failed with status code: ${result.statusCode} for URL: ${url.substring(0, 80)}...`);
+      console.error(
+        `Download failed with status code: ${
+          result.statusCode
+        } for URL: ${url.substring(0, 80)}...`
+      );
       await safeUnlink(stringPath);
       return false;
     }
   } catch (error) {
-    console.error('Error in safeDownloadFile:', error.message, 'URL:', url.substring(0, 80));
+    console.error(
+      'Error in safeDownloadFile:',
+      error.message,
+      'URL:',
+      url.substring(0, 80)
+    );
     await safeUnlink(stringPath);
     return false;
   }
 };
-
-
 
 /**
  * Downloads a file with analytics tracking
@@ -291,7 +316,13 @@ export const safeDownloadFile = async (url, path, customHeaders = null, onProgre
  * @param {Function} onProgress - Optional progress callback (percentage: number) => void
  * @returns {Promise<boolean>} True if successfully downloaded
  */
-export const downloadFileWithAnalytics = async (url, path, metadata = {}, headers = null, onProgress = null) => {
+export const downloadFileWithAnalytics = async (
+  url,
+  path,
+  metadata = {},
+  headers = null,
+  onProgress = null
+) => {
   const { id, name, type = 'song' } = metadata;
 
   try {
@@ -324,7 +355,7 @@ export const downloadFileWithAnalytics = async (url, path, metadata = {}, header
 /**
  * Detects the actual audio format of a file by reading its magic bytes
  * This is essential because YouTube sometimes returns different formats than expected
- * 
+ *
  * @param {string} filePath - Path to the audio file
  * @returns {Promise<{format: string, canEmbedMetadata: boolean, actualExtension: string}>}
  */
@@ -332,47 +363,90 @@ export const detectAudioFormat = async (filePath) => {
   try {
     const stringPath = safePath(filePath);
     if (!stringPath || !(await safeExists(stringPath))) {
-      return { format: 'unknown', canEmbedMetadata: false, actualExtension: '' };
+      return {
+        format: 'unknown',
+        canEmbedMetadata: false,
+        actualExtension: '',
+      };
     }
 
     // Read first 12 bytes to detect format
     const fileHandle = await RNFS.read(stringPath, 12, 0, 'base64');
-    const bytes = Uint8Array.from(atob(fileHandle), c => c.charCodeAt(0));
+    const bytes = Uint8Array.from(atob(fileHandle), (c) => c.charCodeAt(0));
 
     // Check for WebM/Matroska: 0x1A 0x45 0xDF 0xA3
-    if (bytes[0] === 0x1A && bytes[1] === 0x45 && bytes[2] === 0xDF && bytes[3] === 0xA3) {
-      return { format: 'webm', canEmbedMetadata: false, actualExtension: '.opus' };
+    if (
+      bytes[0] === 0x1a &&
+      bytes[1] === 0x45 &&
+      bytes[2] === 0xdf &&
+      bytes[3] === 0xa3
+    ) {
+      return {
+        format: 'webm',
+        canEmbedMetadata: false,
+        actualExtension: '.opus',
+      };
     }
 
     // Check for MP4/M4A: 'ftyp' at offset 4
-    if (bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) { // 'ftyp'
+    if (
+      bytes[4] === 0x66 &&
+      bytes[5] === 0x74 &&
+      bytes[6] === 0x79 &&
+      bytes[7] === 0x70
+    ) {
+      // 'ftyp'
       return { format: 'm4a', canEmbedMetadata: true, actualExtension: '.m4a' };
     }
 
     // Check for FLAC: 'fLaC'
-    if (bytes[0] === 0x66 && bytes[1] === 0x4C && bytes[2] === 0x61 && bytes[3] === 0x43) {
-      return { format: 'flac', canEmbedMetadata: true, actualExtension: '.flac' };
+    if (
+      bytes[0] === 0x66 &&
+      bytes[1] === 0x4c &&
+      bytes[2] === 0x61 &&
+      bytes[3] === 0x43
+    ) {
+      return {
+        format: 'flac',
+        canEmbedMetadata: true,
+        actualExtension: '.flac',
+      };
     }
 
     // Check for MP3: ID3 tag or frame sync
-    if ((bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) || // 'ID3'
-      (bytes[0] === 0xFF && (bytes[1] & 0xE0) === 0xE0)) { // Frame sync
+    if (
+      (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) || // 'ID3'
+      (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0)
+    ) {
+      // Frame sync
       return { format: 'mp3', canEmbedMetadata: true, actualExtension: '.mp3' };
     }
 
     // Check for OGG: 'OggS'
-    if (bytes[0] === 0x4F && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) {
+    if (
+      bytes[0] === 0x4f &&
+      bytes[1] === 0x67 &&
+      bytes[2] === 0x67 &&
+      bytes[3] === 0x53
+    ) {
       return { format: 'ogg', canEmbedMetadata: true, actualExtension: '.ogg' };
     }
 
     // Check for WAV: 'RIFF'...'WAVE'
-    if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
-      bytes[8] === 0x57 && bytes[9] === 0x41 && bytes[10] === 0x56 && bytes[11] === 0x45) {
+    if (
+      bytes[0] === 0x52 &&
+      bytes[1] === 0x49 &&
+      bytes[2] === 0x46 &&
+      bytes[3] === 0x46 &&
+      bytes[8] === 0x57 &&
+      bytes[9] === 0x41 &&
+      bytes[10] === 0x56 &&
+      bytes[11] === 0x45
+    ) {
       return { format: 'wav', canEmbedMetadata: true, actualExtension: '.wav' };
     }
 
     return { format: 'unknown', canEmbedMetadata: false, actualExtension: '' };
-
   } catch (error) {
     console.error('🔍 [Format Detection] Error:', error.message);
     return { format: 'unknown', canEmbedMetadata: false, actualExtension: '' };
@@ -388,11 +462,14 @@ export const detectAudioFormat = async (filePath) => {
 export const renameToCorrectExtension = async (currentPath, newExtension) => {
   try {
     const stringPath = safePath(currentPath);
-    if (!stringPath || !newExtension) return null;
+    if (!stringPath || !newExtension) {
+      return null;
+    }
 
     // Get the base path without extension
     const lastDotIndex = stringPath.lastIndexOf('.');
-    const basePath = lastDotIndex > 0 ? stringPath.substring(0, lastDotIndex) : stringPath;
+    const basePath =
+      lastDotIndex > 0 ? stringPath.substring(0, lastDotIndex) : stringPath;
     const newPath = basePath + newExtension;
 
     // If already correct extension, return current path

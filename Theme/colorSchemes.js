@@ -9,7 +9,7 @@ export const colorSchemes = {
     iconActive: '#4a6e8d',
     textActive: '#4a6e8d',
     tabActive: '#4a6e8d',
-    accent: '#4a6e8d'
+    accent: '#4a6e8d',
   },
   // Blue scheme
   blue: {
@@ -18,7 +18,7 @@ export const colorSchemes = {
     iconActive: '#4A90E2',
     textActive: '#4A90E2',
     tabActive: '#4A90E2',
-    accent: '#4A90E2'
+    accent: '#4A90E2',
   },
   // Purple scheme
   purple: {
@@ -27,7 +27,7 @@ export const colorSchemes = {
     iconActive: '#9C27B0',
     textActive: '#9C27B0',
     tabActive: '#9C27B0',
-    accent: '#9C27B0'
+    accent: '#9C27B0',
   },
   // Teal scheme
   teal: {
@@ -36,7 +36,7 @@ export const colorSchemes = {
     iconActive: '#009688',
     textActive: '#009688',
     tabActive: '#009688',
-    accent: '#009688'
+    accent: '#009688',
   },
   // Orange scheme
   orange: {
@@ -45,7 +45,7 @@ export const colorSchemes = {
     iconActive: '#FF9800',
     textActive: '#FF9800',
     tabActive: '#FF9800',
-    accent: '#FF9800'
+    accent: '#FF9800',
   },
   // Pink scheme
   pink: {
@@ -54,7 +54,7 @@ export const colorSchemes = {
     iconActive: '#E91E63',
     textActive: '#E91E63',
     tabActive: '#E91E63',
-    accent: '#E91E63'
+    accent: '#E91E63',
   },
   // Red scheme
   red: {
@@ -63,7 +63,7 @@ export const colorSchemes = {
     iconActive: '#F44336',
     textActive: '#F44336',
     tabActive: '#F44336',
-    accent: '#F44336'
+    accent: '#F44336',
   },
   // Amber scheme
   amber: {
@@ -72,8 +72,8 @@ export const colorSchemes = {
     iconActive: '#FFC107',
     textActive: '#FFC107',
     tabActive: '#FFC107',
-    accent: '#FFC107'
-  }
+    accent: '#FFC107',
+  },
 };
 
 // Available colors for custom color picker
@@ -84,32 +84,32 @@ export const availableColors = [
   { name: 'Blue', value: '#4A90E2' },
   { name: 'Sky Blue', value: '#00BCD4' },
   { name: 'Navy', value: '#3498DB' },
-  
+
   // Greens
   { name: 'Green', value: '#6CC04A' },
   { name: 'Emerald', value: '#2ECC71' },
   { name: 'Mint', value: '#00B894' },
-  
+
   // Purples
   { name: 'Purple', value: '#9C27B0' },
   { name: 'Lavender', value: '#9B59B6' },
   { name: 'Violet', value: '#8E44AD' },
-  
+
   // Reds
   { name: 'Red', value: '#F44336' },
   { name: 'Crimson', value: '#E74C3C' },
   { name: 'Maroon', value: '#C0392B' },
-  
+
   // Oranges
   { name: 'Orange', value: '#FF9800' },
   { name: 'Coral', value: '#FF7F50' },
   { name: 'Amber', value: '#FFC107' },
-  
+
   // Pinks
   { name: 'Pink', value: '#E91E63' },
   { name: 'Rose', value: '#FF4081' },
   { name: 'Magenta', value: '#D81B60' },
-  
+
   // Others
   { name: 'Teal', value: '#009688' },
   { name: 'Cyan', value: '#00BCD4' },
@@ -117,7 +117,6 @@ export const availableColors = [
   { name: 'Grey', value: '#607D8B' },
   { name: 'Black', value: '#000000' },
 ];
-
 
 // Default color scheme key
 export const DEFAULT_COLOR_SCHEME = 'green';
@@ -129,8 +128,8 @@ export const getColorScheme = (schemeName) => {
 
 // Get color scheme options for dropdown
 export const getColorSchemeOptions = () => {
-  return Object.keys(colorSchemes).map(key => ({
+  return Object.keys(colorSchemes).map((key) => ({
     value: key,
-    label: colorSchemes[key].name
+    label: colorSchemes[key].name,
   }));
 };

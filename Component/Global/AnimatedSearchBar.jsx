@@ -1,22 +1,41 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, TextInput, Pressable, Dimensions, StyleSheet } from 'react-native';
+import {
+  View,
+  TextInput,
+  Pressable,
+  Dimensions,
+  StyleSheet,
+} from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import Feather from 'react-native-vector-icons/Feather';
 import Entypo from 'react-native-vector-icons/Entypo';
-import Animated, { useAnimatedStyle, withTiming, withSpring, FadeIn } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  FadeIn,
+} from 'react-native-reanimated';
 
-export const AnimatedSearchBar = ({ onChange, navigation, placeholder = 'Type to search...' }) => {
+export const AnimatedSearchBar = ({
+  onChange,
+  navigation,
+  placeholder = 'Type to search...',
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchText, setSearchText] = useState('');
   const inputRef = useRef(null);
   const width = Dimensions.get('window').width;
   const theme = useTheme();
-  
+
   // Animation values
   const containerWidth = useAnimatedStyle(() => {
     return {
-      width: isExpanded ? withTiming(width * 0.65, { duration: 300 }) : withTiming(40, { duration: 300 }),
-      backgroundColor: isExpanded ? withTiming('rgba(30, 30, 30, 0.8)', { duration: 300 }) : withTiming('rgba(0, 0, 0, 0)', { duration: 300 }),
+      width: isExpanded
+        ? withTiming(width * 0.65, { duration: 300 })
+        : withTiming(40, { duration: 300 }),
+      backgroundColor: isExpanded
+        ? withTiming('rgba(30, 30, 30, 0.8)', { duration: 300 })
+        : withTiming('rgba(0, 0, 0, 0)', { duration: 300 }),
     };
   });
 
@@ -72,7 +91,10 @@ export const AnimatedSearchBar = ({ onChange, navigation, placeholder = 'Type to
     <View style={styles.container}>
       <Animated.View style={[styles.searchContainer, containerWidth]}>
         {isExpanded ? (
-          <Animated.View entering={FadeIn.duration(200)} style={styles.inputContainer}>
+          <Animated.View
+            entering={FadeIn.duration(200)}
+            style={styles.inputContainer}
+          >
             <TextInput
               ref={inputRef}
               value={searchText}
@@ -85,14 +107,22 @@ export const AnimatedSearchBar = ({ onChange, navigation, placeholder = 'Type to
             />
           </Animated.View>
         ) : null}
-        
+
         {!isExpanded ? (
           <Pressable onPress={handleSearchPress} style={styles.iconButton}>
-            <Feather name="search" size={width * 0.055} color={theme.colors.text} />
+            <Feather
+              name="search"
+              size={width * 0.055}
+              color={theme.colors.text}
+            />
           </Pressable>
         ) : (
           <Pressable onPress={handleClosePress} style={styles.closeButton}>
-            <Entypo name="cross" size={width * 0.045} color={theme.colors.text} />
+            <Entypo
+              name="cross"
+              size={width * 0.045}
+              color={theme.colors.text}
+            />
           </Pressable>
         )}
       </Animated.View>

@@ -1,18 +1,22 @@
-import { View, Dimensions, ToastAndroid, Animated } from "react-native";
-import { TouchableOpacity as Pressable } from "react-native";
-import FastImage from "react-native-fast-image";
-import { PlainText } from "../Global/PlainText";
-import { SmallText } from "../Global/SmallText";
-import { memo, useState, useRef, useEffect, useCallback } from "react";
+import { View, Dimensions, ToastAndroid, Animated } from 'react-native';
+import { TouchableOpacity as Pressable } from 'react-native';
+import FastImage from 'react-native-fast-image';
+import { PlainText } from '../Global/PlainText';
+import { SmallText } from '../Global/SmallText';
+import { memo, useState, useRef, useEffect, useCallback } from 'react';
 // Removed useActiveTrack and usePlaybackState - now passed as props to prevent hook leak
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
-import { Swipeable } from "react-native-gesture-handler";
-import { useThemeContext } from "../../Context/ThemeContext";
-import { useThemeManager } from "./ThemeManager/useThemeManager";
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { Swipeable } from 'react-native-gesture-handler';
+import { useThemeContext } from '../../Context/ThemeContext';
+import { useThemeManager } from './ThemeManager/useThemeManager';
 // useDownload hook removed - download state is now passed as props from parent to prevent callback leak
-import { DownloadControl } from "../Download/DownloadControl";
+import { DownloadControl } from '../Download/DownloadControl';
 // TrackPlayer import removed to prevent callback leaks in list items
-import { GetLikedSongs, SetLikedSongs, DeleteALikedSong } from "../../LocalStorage/StoreLikedSongs";
+import {
+  GetLikedSongs,
+  SetLikedSongs,
+  DeleteALikedSong,
+} from '../../LocalStorage/StoreLikedSongs';
 
 // Get screen dimensions for responsive layout
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -36,7 +40,7 @@ export const EachSongQueue = memo(function EachSongQueue({
   isDownloaded: propIsDownloaded = false,
   isDownloading: propIsDownloading = false,
   downloadProgress: propDownloadProgress = 0,
-  onDownloadPress = null
+  onDownloadPress = null,
 }) {
   const { theme, themeMode } = useThemeContext();
   const { getOpacityColor } = useThemeManager();
@@ -44,7 +48,8 @@ export const EachSongQueue = memo(function EachSongQueue({
 
   // Download state is now passed as props from parent (QueueRenderSongs)
   // This prevents 87+ hook instances causing "Excessive pending callbacks" warning
-  const isDownloaded = songData?.isDownloaded || songData?.isLocal || propIsDownloaded;
+  const isDownloaded =
+    songData?.isDownloaded || songData?.isLocal || propIsDownloaded;
   const isDownloading = propIsDownloading;
   const downloadProgress = propDownloadProgress;
   const canDownload = !isDownloaded && !isDownloading && !!onDownloadPress;
@@ -82,44 +87,83 @@ export const EachSongQueue = memo(function EachSongQueue({
 
       // For downloaded/local tracks, prioritize songData artwork first
       if (songData) {
-        const st = songData.sourceType ? String(songData.sourceType).toLowerCase() : null;
-        const isLocalSongData = songData.isLocal || songData.isDownloaded || st === 'mymusic' || st === 'download' || st === 'downloaded' || songData.path;
+        const st = songData.sourceType
+          ? String(songData.sourceType).toLowerCase()
+          : null;
+        const isLocalSongData =
+          songData.isLocal ||
+          songData.isDownloaded ||
+          st === 'mymusic' ||
+          st === 'download' ||
+          st === 'downloaded' ||
+          songData.path;
 
         // Helper to check if artwork is valid (not a placeholder)
         const isValidArtwork = (art) => {
-          if (!art) return false;
-          if (typeof art === 'number') return true; // require() result
+          if (!art) {
+            return false;
+          }
+          if (typeof art === 'number') {
+            return true;
+          } // require() result
           if (typeof art === 'string') {
             // Filter out placeholder URLs
-            if (art.includes('htmlcolorcodes.com') || art.includes('placeholder')) return false;
-            if (art.startsWith('file://') || art.startsWith('/') || art.startsWith('http') || art.startsWith('data:')) return true;
+            if (
+              art.includes('htmlcolorcodes.com') ||
+              art.includes('placeholder')
+            ) {
+              return false;
+            }
+            if (
+              art.startsWith('file://') ||
+              art.startsWith('/') ||
+              art.startsWith('http') ||
+              art.startsWith('data:')
+            ) {
+              return true;
+            }
           }
-          if (typeof art === 'object' && art.uri) return isValidArtwork(art.uri);
+          if (typeof art === 'object' && art.uri) {
+            return isValidArtwork(art.uri);
+          }
           return false;
         };
 
         // Get artwork - check both artwork and image fields
-        const artworkToUse = isValidArtwork(songData.artwork) ? songData.artwork :
-          (isValidArtwork(songData.image) ? songData.image : null);
+        const artworkToUse = isValidArtwork(songData.artwork)
+          ? songData.artwork
+          : isValidArtwork(songData.image)
+          ? songData.image
+          : null;
 
         // First check songData artwork/image (for downloaded songs)
         if (isLocalSongData && artworkToUse) {
           // Handle require() result (number)
-          if (typeof artworkToUse === 'number') return artworkToUse;
+          if (typeof artworkToUse === 'number') {
+            return artworkToUse;
+          }
 
           // Handle object with uri property
-          if (typeof artworkToUse === 'object' && artworkToUse.uri) return artworkToUse;
+          if (typeof artworkToUse === 'object' && artworkToUse.uri) {
+            return artworkToUse;
+          }
 
           // Handle string URIs
           if (typeof artworkToUse === 'string') {
             // For data: URIs (embedded artwork), return directly
-            if (artworkToUse.startsWith('data:')) return { uri: artworkToUse };
+            if (artworkToUse.startsWith('data:')) {
+              return { uri: artworkToUse };
+            }
 
             // For file:// paths, return directly
-            if (artworkToUse.startsWith('file://')) return { uri: artworkToUse };
+            if (artworkToUse.startsWith('file://')) {
+              return { uri: artworkToUse };
+            }
 
             // For other paths, add file:// prefix if needed
-            if (artworkToUse.startsWith('/')) return { uri: `file://${artworkToUse}` };
+            if (artworkToUse.startsWith('/')) {
+              return { uri: `file://${artworkToUse}` };
+            }
 
             return { uri: artworkToUse };
           }
@@ -129,22 +173,30 @@ export const EachSongQueue = memo(function EachSongQueue({
       // Fallback to artwork prop for other tracks
       if (artwork) {
         // Handle numeric artwork values (which come from local files)
-        if (typeof artwork === 'number') return artwork; // If it's a require() result, return it directly
+        if (typeof artwork === 'number') {
+          return artwork;
+        } // If it's a require() result, return it directly
 
         // Handle artwork as object with URI
         if (typeof artwork === 'object' && artwork.uri) {
           // Ensure URI is not null or undefined
-          if (!artwork.uri) return getDefaultImage();
+          if (!artwork.uri) {
+            return getDefaultImage();
+          }
           return artwork;
         }
 
         // Handle local file paths for downloaded songs
         if (typeof artwork === 'string') {
           // Check if it's a local file path that needs file:// prefix
-          if (artwork.startsWith('/') && !artwork.startsWith('file://')) return { uri: `file://${artwork}` };
+          if (artwork.startsWith('/') && !artwork.startsWith('file://')) {
+            return { uri: `file://${artwork}` };
+          }
 
           // Handle file:// paths
-          if (artwork.startsWith('file://')) return { uri: artwork };
+          if (artwork.startsWith('file://')) {
+            return { uri: artwork };
+          }
 
           // Handle remote URLs
           return { uri: artwork };
@@ -161,9 +213,19 @@ export const EachSongQueue = memo(function EachSongQueue({
   // Function to get a default image for songs without artwork
   const getDefaultImage = () => {
     // Check if this is a local track
-    const st = songData?.sourceType ? String(songData.sourceType).toLowerCase() : null;
-    const isLocal = songData?.isLocal || st === 'mymusic' || st === 'download' || st === 'downloaded' || songData?.path ||
-      (songData?.url && (songData.url.startsWith('file://') || songData.url.includes('content://') || songData.url.includes('/storage/')));
+    const st = songData?.sourceType
+      ? String(songData.sourceType).toLowerCase()
+      : null;
+    const isLocal =
+      songData?.isLocal ||
+      st === 'mymusic' ||
+      st === 'download' ||
+      st === 'downloaded' ||
+      songData?.path ||
+      (songData?.url &&
+        (songData.url.startsWith('file://') ||
+          songData.url.includes('content://') ||
+          songData.url.includes('/storage/')));
 
     // Use Music.jpeg for local tracks, Music.jpeg for others
     return require('../../Images/Music.jpeg');
@@ -171,17 +233,22 @@ export const EachSongQueue = memo(function EachSongQueue({
 
   // Handle special characters in text
   const formatText = (text) => {
-    if (!text) return 'Unknown';
-    return text.toString()
-      .replaceAll("&quot;", "\"")
-      .replaceAll("&amp;", "and")
-      .replaceAll("&#039;", "'")
-      .replaceAll("&trade;", "™");
+    if (!text) {
+      return 'Unknown';
+    }
+    return text
+      .toString()
+      .replaceAll('&quot;', '"')
+      .replaceAll('&amp;', 'and')
+      .replaceAll('&#039;', "'")
+      .replaceAll('&trade;', '™');
   };
 
   // Truncate text to 20 characters
   const truncateText = (text, limit = 20) => {
-    if (!text) return 'Unknown';
+    if (!text) {
+      return 'Unknown';
+    }
     return text.length > limit ? text.substring(0, limit) + '...' : text;
   };
 
@@ -205,10 +272,13 @@ export const EachSongQueue = memo(function EachSongQueue({
   };
 
   // Only add drag functionality if drag function is provided
-  const dragHandlers = typeof drag === 'function' ? {
-    onLongPress: handleLongPress,
-    delayLongPress: 100
-  } : {};
+  const dragHandlers =
+    typeof drag === 'function'
+      ? {
+          onLongPress: handleLongPress,
+          delayLongPress: 100,
+        }
+      : {};
 
   // Handle track selection with safer approach
   const handlePress = () => {
@@ -239,7 +309,7 @@ export const EachSongQueue = memo(function EachSongQueue({
         await onRemoveFromQueue(index, id);
         ToastAndroid.show('Removed from queue', ToastAndroid.SHORT);
       } else {
-        console.warn("onRemoveFromQueue not provided");
+        console.warn('onRemoveFromQueue not provided');
       }
     } catch (error) {
       console.error('Error removing from queue:', error);
@@ -300,11 +370,7 @@ export const EachSongQueue = memo(function EachSongQueue({
         }}
         onPress={handleSwipeDelete}
       >
-        <MaterialCommunityIcons
-          name="delete-outline"
-          size={24}
-          color="white"
-        />
+        <MaterialCommunityIcons name="delete-outline" size={24} color="white" />
       </Pressable>
     );
   }, [handleSwipeDelete]);
@@ -323,7 +389,7 @@ export const EachSongQueue = memo(function EachSongQueue({
         onPress={handleSwipeLike}
       >
         <MaterialCommunityIcons
-          name={isLiked ? "heart" : "heart-outline"}
+          name={isLiked ? 'heart' : 'heart-outline'}
           size={24}
           color="white"
         />
@@ -347,11 +413,13 @@ export const EachSongQueue = memo(function EachSongQueue({
 
   const getActiveBackgroundColor = () => {
     // Background for items being dragged
-    return themeMode === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)';
+    return themeMode === 'light'
+      ? 'rgba(0, 0, 0, 0.08)'
+      : 'rgba(255, 255, 255, 0.12)';
   };
 
   const getShadowColor = () => {
-    return themeMode === 'light' ? "#000" : "#000";
+    return themeMode === 'light' ? '#000' : '#000';
   };
 
   // Create the main content component
@@ -362,7 +430,7 @@ export const EachSongQueue = memo(function EachSongQueue({
       android_ripple={{ color: getRippleColor() }}
       style={{
         flexDirection: 'row',
-        alignItems: "center",
+        alignItems: 'center',
         paddingHorizontal: 12,
         paddingVertical: 8,
         marginVertical: 2,
@@ -370,8 +438,8 @@ export const EachSongQueue = memo(function EachSongQueue({
         backgroundColor: isActive
           ? getActiveBackgroundColor()
           : isCurrentTrack
-            ? getCurrentTrackBackgroundColor()
-            : 'transparent',
+          ? getCurrentTrackBackgroundColor()
+          : 'transparent',
         borderRadius: 8,
         // Clean, simple drag styling like reference image
         ...(isActive && {
@@ -399,18 +467,20 @@ export const EachSongQueue = memo(function EachSongQueue({
       />
 
       {/* Song info */}
-      <View style={{
-        flex: 1,
-        width: maxTextWidth,
-        justifyContent: 'center',
-      }}>
+      <View
+        style={{
+          flex: 1,
+          width: maxTextWidth,
+          justifyContent: 'center',
+        }}
+      >
         <PlainText
           text={truncateText(formatText(title), 20)}
           style={{
             width: maxTextWidth,
             fontWeight: isCurrentTrack ? '700' : '600',
             color: isCurrentTrack
-              ? (theme.colors.playingColor || theme.colors.primary)
+              ? theme.colors.playingColor || theme.colors.primary
               : theme.colors.text,
             fontSize: 15,
             lineHeight: 20,
@@ -456,7 +526,7 @@ export const EachSongQueue = memo(function EachSongQueue({
         android_ripple={{ color: getRippleColor() }}
         style={{
           flexDirection: 'row',
-          alignItems: "center",
+          alignItems: 'center',
           paddingHorizontal: 12,
           paddingVertical: 8,
           marginVertical: 2,
@@ -464,8 +534,8 @@ export const EachSongQueue = memo(function EachSongQueue({
           backgroundColor: isActive
             ? getActiveBackgroundColor()
             : isCurrentTrack
-              ? getCurrentTrackBackgroundColor()
-              : 'transparent',
+            ? getCurrentTrackBackgroundColor()
+            : 'transparent',
           borderRadius: 8,
           // Clean, simple drag styling like reference image
           ...(isActive && {
@@ -493,18 +563,20 @@ export const EachSongQueue = memo(function EachSongQueue({
         />
 
         {/* Song info */}
-        <View style={{
-          flex: 1,
-          width: maxTextWidth,
-          justifyContent: 'center',
-        }}>
+        <View
+          style={{
+            flex: 1,
+            width: maxTextWidth,
+            justifyContent: 'center',
+          }}
+        >
           <PlainText
             text={truncateText(formatText(title), 20)}
             style={{
               width: maxTextWidth,
               fontWeight: isCurrentTrack ? '700' : '600',
               color: isCurrentTrack
-                ? (theme.colors.playingColor || theme.colors.primary)
+                ? theme.colors.playingColor || theme.colors.primary
                 : theme.colors.text,
               fontSize: 15,
               lineHeight: 20,
@@ -539,12 +611,14 @@ export const EachSongQueue = memo(function EachSongQueue({
         </View>
 
         {/* Drag handle indicator */}
-        <View style={{
-          width: 24,
-          height: 24,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
+        <View
+          style={{
+            width: 24,
+            height: 24,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           <MaterialCommunityIcons
             name="drag-vertical"
             size={16}

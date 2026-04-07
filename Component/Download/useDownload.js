@@ -21,7 +21,7 @@ setInterval(() => {
 /**
  * useDownload - Custom hook for managing download state and functionality
  * Provides a clean interface for components to handle downloads
- * 
+ *
  * Note: This is now a wrapper around useUnifiedDownload for backward compatibility
  */
 export const useDownload = (songData = null, isOffline = false) => {

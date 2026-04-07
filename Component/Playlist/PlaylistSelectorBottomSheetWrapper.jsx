@@ -1,4 +1,9 @@
-import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'react';
+import React, {
+  useState,
+  useImperativeHandle,
+  forwardRef,
+  useEffect,
+} from 'react';
 import { PlaylistSelectorBottomSheet } from './PlaylistSelectorBottomSheet';
 import { PlaylistSelectorBottomSheetRef } from '../../Utils/PlaylistSelectorBottomSheetManager';
 import { ToastAndroid, AppState } from 'react-native';
@@ -17,7 +22,9 @@ const PlaylistSelectorBottomSheetWrapperComponent = forwardRef((props, ref) => {
         PlaylistSelectorBottomSheetRef.current = {
           show: (song) => {
             if (!song) {
-              console.error('❌ Attempted to show PlaylistSelectorBottomSheet without a song');
+              console.error(
+                '❌ Attempted to show PlaylistSelectorBottomSheet without a song'
+              );
               return false;
             }
             setSelectedSong(song);
@@ -33,12 +40,15 @@ const PlaylistSelectorBottomSheetWrapperComponent = forwardRef((props, ref) => {
           },
           isInitialized: () => {
             return true;
-          }
+          },
         };
 
         setInitialized(true);
       } catch (error) {
-        console.error('Error initializing PlaylistSelectorBottomSheetWrapper:', error);
+        console.error(
+          'Error initializing PlaylistSelectorBottomSheetWrapper:',
+          error
+        );
       }
     };
 
@@ -51,7 +61,10 @@ const PlaylistSelectorBottomSheetWrapperComponent = forwardRef((props, ref) => {
       }
     };
 
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    const subscription = AppState.addEventListener(
+      'change',
+      handleAppStateChange
+    );
 
     return () => {
       subscription?.remove();
@@ -61,7 +74,9 @@ const PlaylistSelectorBottomSheetWrapperComponent = forwardRef((props, ref) => {
   useImperativeHandle(ref, () => ({
     show: (song) => {
       if (!song) {
-        console.error('Attempted to show PlaylistSelectorBottomSheet without a song');
+        console.error(
+          'Attempted to show PlaylistSelectorBottomSheet without a song'
+        );
         return false;
       }
       setSelectedSong(song);
@@ -77,7 +92,7 @@ const PlaylistSelectorBottomSheetWrapperComponent = forwardRef((props, ref) => {
     },
     isInitialized: () => {
       return initialized;
-    }
+    },
   }));
 
   const handleClose = () => {
@@ -89,7 +104,7 @@ const PlaylistSelectorBottomSheetWrapperComponent = forwardRef((props, ref) => {
   };
 
   return (
-    <PlaylistSelectorBottomSheet 
+    <PlaylistSelectorBottomSheet
       visible={visible}
       onClose={handleClose}
       song={selectedSong}
@@ -97,6 +112,8 @@ const PlaylistSelectorBottomSheetWrapperComponent = forwardRef((props, ref) => {
   );
 });
 
-PlaylistSelectorBottomSheetWrapperComponent.displayName = 'PlaylistSelectorBottomSheetWrapper';
+PlaylistSelectorBottomSheetWrapperComponent.displayName =
+  'PlaylistSelectorBottomSheetWrapper';
 
-export const PlaylistSelectorBottomSheetWrapper = PlaylistSelectorBottomSheetWrapperComponent;
+export const PlaylistSelectorBottomSheetWrapper =
+  PlaylistSelectorBottomSheetWrapperComponent;

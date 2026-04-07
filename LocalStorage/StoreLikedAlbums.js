@@ -1,28 +1,28 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { DeviceEventEmitter } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DeviceEventEmitter } from 'react-native';
 
 /**
  * Get all liked albums from AsyncStorage
  * @returns {Promise<Object>} Object containing albums and count
  */
 async function GetLikedAlbums() {
-    try {
-        const value = await AsyncStorage.getItem('LikedAlbums');
-        if (value !== null) {
-            return JSON.parse(value);
-        } else {
-            return {
-                albums: {},
-                count: 0,
-            };
-        }
-    } catch (e) {
-        console.error('Error reading liked albums:', e);
-        return {
-            albums: {},
-            count: 0,
-        };
+  try {
+    const value = await AsyncStorage.getItem('LikedAlbums');
+    if (value !== null) {
+      return JSON.parse(value);
+    } else {
+      return {
+        albums: {},
+        count: 0,
+      };
     }
+  } catch (e) {
+    console.error('Error reading liked albums:', e);
+    return {
+      albums: {},
+      count: 0,
+    };
+  }
 }
 
 /**
@@ -33,21 +33,21 @@ async function GetLikedAlbums() {
  * @param {string} id - Album ID
  */
 async function SetLikedAlbum(image, name, year, id) {
-    const stored_value = await GetLikedAlbums();
-    const count = stored_value.count + 1;
-    const timestamp = Date.now(); // Add timestamp for sorting
-    const value = {
-        ...stored_value,
-        count,
-    };
-    value.albums[id] = { image, name, year, id, count, timestamp };
-    try {
-        const jsonValue = JSON.stringify(value);
-        await AsyncStorage.setItem('LikedAlbums', jsonValue);
-        DeviceEventEmitter.emit('favorites-updated');
-    } catch (e) {
-        console.error("Error saving liked album:", e);
-    }
+  const stored_value = await GetLikedAlbums();
+  const count = stored_value.count + 1;
+  const timestamp = Date.now(); // Add timestamp for sorting
+  const value = {
+    ...stored_value,
+    count,
+  };
+  value.albums[id] = { image, name, year, id, count, timestamp };
+  try {
+    const jsonValue = JSON.stringify(value);
+    await AsyncStorage.setItem('LikedAlbums', jsonValue);
+    DeviceEventEmitter.emit('favorites-updated');
+  } catch (e) {
+    console.error('Error saving liked album:', e);
+  }
 }
 
 /**
@@ -55,20 +55,20 @@ async function SetLikedAlbum(image, name, year, id) {
  * @param {string} id - Album ID to remove
  */
 async function DeleteALikedAlbum(id) {
-    const stored_value = await GetLikedAlbums();
-    const value = {
-        ...stored_value,
-        count: stored_value.count // Preserve count or not? Usually count increases. But here we just modify object.
-        // The original code copied ...stored_value which includes count.
-    };
-    delete value.albums[id];
-    try {
-        const jsonValue = JSON.stringify(value);
-        await AsyncStorage.setItem('LikedAlbums', jsonValue);
-        DeviceEventEmitter.emit('favorites-updated');
-    } catch (e) {
-        console.error("Error deleting liked album:", e);
-    }
+  const stored_value = await GetLikedAlbums();
+  const value = {
+    ...stored_value,
+    count: stored_value.count, // Preserve count or not? Usually count increases. But here we just modify object.
+    // The original code copied ...stored_value which includes count.
+  };
+  delete value.albums[id];
+  try {
+    const jsonValue = JSON.stringify(value);
+    await AsyncStorage.setItem('LikedAlbums', jsonValue);
+    DeviceEventEmitter.emit('favorites-updated');
+  } catch (e) {
+    console.error('Error deleting liked album:', e);
+  }
 }
 
 export { GetLikedAlbums, SetLikedAlbum, DeleteALikedAlbum };

@@ -8,9 +8,10 @@ import { safeExists, ensureDirectoryExists } from './FileUtils';
 const getPlaylistsFilePath = async () => {
   // Use ExternalDirectoryPath (/storage/emulated/0/Android/data/com.orbit.app/files)
   // instead of DownloadDirectoryPath to avoid MANAGE_EXTERNAL_STORAGE requirement
-  const baseDir = Platform.OS === 'android'
-    ? `${RNFS.ExternalDirectoryPath}/orbit`
-    : RNFS.DocumentDirectoryPath;
+  const baseDir =
+    Platform.OS === 'android'
+      ? `${RNFS.ExternalDirectoryPath}/orbit`
+      : RNFS.DocumentDirectoryPath;
 
   await ensureDirectoryExists(baseDir);
   return `${baseDir}/playlists.json`;
@@ -36,7 +37,9 @@ export const clearPlaylistCache = () => {
  * Check if cache is valid
  */
 const isCacheValid = () => {
-  if (!playlistCache || !cacheTimestamp) return false;
+  if (!playlistCache || !cacheTimestamp) {
+    return false;
+  }
   return Date.now() - cacheTimestamp < CACHE_DURATION;
 };
 
@@ -44,7 +47,9 @@ const isCacheValid = () => {
  * Migrate playlists from AsyncStorage to file storage (one-time migration)
  */
 const migrateFromAsyncStorage = async () => {
-  if (migrationAttempted) return null;
+  if (migrationAttempted) {
+    return null;
+  }
   migrationAttempted = true;
 
   try {
@@ -54,7 +59,11 @@ const migrateFromAsyncStorage = async () => {
       if (Array.isArray(playlists) && playlists.length > 0) {
         // Save to file
         const filePath = await getPlaylistsFilePath();
-        await RNFS.writeFile(filePath, JSON.stringify(playlists, null, 2), 'utf8');
+        await RNFS.writeFile(
+          filePath,
+          JSON.stringify(playlists, null, 2),
+          'utf8'
+        );
 
         // Remove from AsyncStorage to free up space
         await AsyncStorage.removeItem('userPlaylists');
@@ -149,11 +158,14 @@ export const createPlaylist = async (name, firstSong = null) => {
 
     // Check if playlist with same name already exists
     const nameExists = existingPlaylists.some(
-      playlist => playlist.name.toLowerCase() === name.trim().toLowerCase()
+      (playlist) => playlist.name.toLowerCase() === name.trim().toLowerCase()
     );
 
     if (nameExists) {
-      ToastAndroid.show('Playlist with this name already exists', ToastAndroid.SHORT);
+      ToastAndroid.show(
+        'Playlist with this name already exists',
+        ToastAndroid.SHORT
+      );
       return null;
     }
 
@@ -163,7 +175,7 @@ export const createPlaylist = async (name, firstSong = null) => {
       songs: firstSong ? [firstSong] : [],
       createdAt: Date.now(),
       lastModified: Date.now(),
-      coverImage: firstSong?.artwork || null
+      coverImage: firstSong?.artwork || null,
     };
 
     const updatedPlaylists = [...existingPlaylists, newPlaylist];
@@ -192,7 +204,11 @@ export const createPlaylist = async (name, firstSong = null) => {
  * @param {string} coverImage - Optional cover image URL
  * @returns {Object|null} Created playlist object or null if failed
  */
-export const createPlaylistWithSongs = async (name, songs = [], coverImage = null) => {
+export const createPlaylistWithSongs = async (
+  name,
+  songs = [],
+  coverImage = null
+) => {
   try {
     if (!name || !name.trim()) {
       ToastAndroid.show('Please enter a playlist name', ToastAndroid.SHORT);
@@ -207,7 +223,7 @@ export const createPlaylistWithSongs = async (name, songs = [], coverImage = nul
     let playlistName = name.trim();
     let counter = 1;
     let nameExists = existingPlaylists.some(
-      playlist => playlist.name.toLowerCase() === playlistName.toLowerCase()
+      (playlist) => playlist.name.toLowerCase() === playlistName.toLowerCase()
     );
 
     // Auto-rename if exists: "My Playlist (1)"
@@ -215,7 +231,7 @@ export const createPlaylistWithSongs = async (name, songs = [], coverImage = nul
       playlistName = `${name.trim()} (${counter})`;
       counter++;
       nameExists = existingPlaylists.some(
-        playlist => playlist.name.toLowerCase() === playlistName.toLowerCase()
+        (playlist) => playlist.name.toLowerCase() === playlistName.toLowerCase()
       );
     }
 
@@ -225,7 +241,7 @@ export const createPlaylistWithSongs = async (name, songs = [], coverImage = nul
       songs: songs,
       createdAt: Date.now(),
       lastModified: Date.now(),
-      coverImage: coverImage || (songs.length > 0 ? songs[0].artwork : null)
+      coverImage: coverImage || (songs.length > 0 ? songs[0].artwork : null),
     };
 
     const updatedPlaylists = [...existingPlaylists, newPlaylist];
@@ -261,7 +277,7 @@ export const addSongToPlaylist = async (playlistId, song) => {
     }
 
     const playlists = await getUserPlaylists();
-    const playlistIndex = playlists.findIndex(p => p.id === playlistId);
+    const playlistIndex = playlists.findIndex((p) => p.id === playlistId);
 
     if (playlistIndex === -1) {
       ToastAndroid.show('Playlist not found', ToastAndroid.SHORT);
@@ -269,7 +285,9 @@ export const addSongToPlaylist = async (playlistId, song) => {
     }
 
     // Check if song already exists in playlist
-    const existingSong = playlists[playlistIndex].songs.find(s => s.id === song.id);
+    const existingSong = playlists[playlistIndex].songs.find(
+      (s) => s.id === song.id
+    );
     if (existingSong) {
       ToastAndroid.show('Song already exists in playlist', ToastAndroid.SHORT);
       return false;
@@ -294,7 +312,10 @@ export const addSongToPlaylist = async (playlistId, song) => {
     // Clear cache to force refresh
     clearPlaylistCache();
 
-    ToastAndroid.show(`Added "${song.title}" to "${playlists[playlistIndex].name}"`, ToastAndroid.SHORT);
+    ToastAndroid.show(
+      `Added "${song.title}" to "${playlists[playlistIndex].name}"`,
+      ToastAndroid.SHORT
+    );
     DeviceEventEmitter.emit('playlist-updated');
     return true;
   } catch (error) {
@@ -313,14 +334,16 @@ export const addSongToPlaylist = async (playlistId, song) => {
 export const removeSongFromPlaylist = async (playlistId, songId) => {
   try {
     const playlists = await getUserPlaylists();
-    const playlistIndex = playlists.findIndex(p => p.id === playlistId);
+    const playlistIndex = playlists.findIndex((p) => p.id === playlistId);
 
     if (playlistIndex === -1) {
       ToastAndroid.show('Playlist not found', ToastAndroid.SHORT);
       return false;
     }
 
-    const songIndex = playlists[playlistIndex].songs.findIndex(s => s.id === songId);
+    const songIndex = playlists[playlistIndex].songs.findIndex(
+      (s) => s.id === songId
+    );
     if (songIndex === -1) {
       ToastAndroid.show('Song not found in playlist', ToastAndroid.SHORT);
       return false;
@@ -333,19 +356,28 @@ export const removeSongFromPlaylist = async (playlistId, songId) => {
     const success = await writePlaylistsToFile(playlists);
 
     if (!success) {
-      ToastAndroid.show('Failed to remove song from playlist', ToastAndroid.SHORT);
+      ToastAndroid.show(
+        'Failed to remove song from playlist',
+        ToastAndroid.SHORT
+      );
       return false;
     }
 
     // Clear cache to force refresh
     clearPlaylistCache();
 
-    ToastAndroid.show(`Removed "${removedSong.title}" from playlist`, ToastAndroid.SHORT);
+    ToastAndroid.show(
+      `Removed "${removedSong.title}" from playlist`,
+      ToastAndroid.SHORT
+    );
     DeviceEventEmitter.emit('playlist-updated');
     return true;
   } catch (error) {
     console.error('Error removing song from playlist:', error);
-    ToastAndroid.show('Failed to remove song from playlist', ToastAndroid.SHORT);
+    ToastAndroid.show(
+      'Failed to remove song from playlist',
+      ToastAndroid.SHORT
+    );
     return false;
   }
 };
@@ -358,7 +390,7 @@ export const removeSongFromPlaylist = async (playlistId, songId) => {
 export const deletePlaylist = async (playlistId) => {
   try {
     const playlists = await getUserPlaylists();
-    const filteredPlaylists = playlists.filter(p => p.id !== playlistId);
+    const filteredPlaylists = playlists.filter((p) => p.id !== playlistId);
 
     if (filteredPlaylists.length === playlists.length) {
       ToastAndroid.show('Playlist not found', ToastAndroid.SHORT);
@@ -393,7 +425,7 @@ export const deletePlaylist = async (playlistId) => {
 export const getPlaylistById = async (playlistId) => {
   try {
     const playlists = await getUserPlaylists();
-    return playlists.find(p => p.id === playlistId) || null;
+    return playlists.find((p) => p.id === playlistId) || null;
   } catch (error) {
     console.error('Error getting playlist by ID:', error);
     return null;
@@ -409,7 +441,7 @@ export const getPlaylistById = async (playlistId) => {
 export const updatePlaylist = async (playlistId, updates) => {
   try {
     const playlists = await getUserPlaylists();
-    const playlistIndex = playlists.findIndex(p => p.id === playlistId);
+    const playlistIndex = playlists.findIndex((p) => p.id === playlistId);
 
     if (playlistIndex === -1) {
       ToastAndroid.show('Playlist not found', ToastAndroid.SHORT);
@@ -420,7 +452,7 @@ export const updatePlaylist = async (playlistId, updates) => {
     playlists[playlistIndex] = {
       ...playlists[playlistIndex],
       ...updates,
-      lastModified: Date.now()
+      lastModified: Date.now(),
     };
 
     const success = await writePlaylistsToFile(playlists);

@@ -1,14 +1,27 @@
-import { Dimensions, Pressable, View, Image, ToastAndroid, Alert } from "react-native";
-import { PlainText } from "./PlainText";
-import { SmallText } from "./SmallText";
-import { AddPlaylist, getIndexQuality, PlayOneSong } from "../../MusicPlayerFunctions";
-import { useTheme } from "@react-navigation/native";
-import { memo, useContext, useState, useEffect } from "react";
-import Context from "../../Context/Context";
+import {
+  Dimensions,
+  Pressable,
+  View,
+  Image,
+  ToastAndroid,
+  Alert,
+} from 'react-native';
+import { PlainText } from './PlainText';
+import { SmallText } from './SmallText';
+import {
+  AddPlaylist,
+  getIndexQuality,
+  PlayOneSong,
+} from '../../MusicPlayerFunctions';
+import { useTheme } from '@react-navigation/native';
+import { memo, useContext, useState, useEffect } from 'react';
+import Context from '../../Context/Context';
 import TrackPlayer from 'react-native-track-player';
-import FormatTitleAndArtist, { truncateText } from "../../Utils/FormatTitleAndArtist";
-import FormatArtist from "../../Utils/FormatArtists";
-import { EachSongMenuButton } from "../MusicPlayer/EachSongMenuButton";
+import FormatTitleAndArtist, {
+  truncateText,
+} from '../../Utils/FormatTitleAndArtist';
+import FormatArtist from '../../Utils/FormatArtists';
+import { EachSongMenuButton } from '../MusicPlayer/EachSongMenuButton';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { StorageManager } from '../../Utils/StorageManager';
 import EventRegister from '../../Utils/EventRegister';
@@ -18,11 +31,38 @@ import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
 import queueManager from '../../Utils/QueueManager';
 import { DownloadProgressIndicator } from '../Download/DownloadProgressIndicator';
 
-export const EachSongCard = memo(function EachSongCard({ title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', truncateTitle = false, onDeleteComplete, activeTrackId, isPlaying, item, onLongPress, localSongPath, isLocal = false, allSongs = [] }) {
+export const EachSongCard = memo(function EachSongCard({
+  title,
+  artist,
+  image,
+  id,
+  url,
+  duration,
+  language,
+  artistID,
+  isLibraryLiked,
+  width,
+  titleandartistwidth,
+  isFromPlaylist,
+  isFromAlbum = false,
+  Data,
+  index,
+  showNumber = false,
+  source = 'saavn',
+  truncateTitle = false,
+  onDeleteComplete,
+  activeTrackId,
+  isPlaying,
+  item,
+  onLongPress,
+  localSongPath,
+  isLocal = false,
+  allSongs = [],
+}) {
   const theme = useTheme();
   const { colors } = theme;
-  const width1 = Dimensions.get("window").width;
-  const { updateTrack } = useContext(Context)
+  const width1 = Dimensions.get('window').width;
+  const { updateTrack } = useContext(Context);
   // Removed hooks to prevent excessive listeners
   // If isLocal is true (from Downloads page), songs are definitely downloaded
   const [isDownloaded, setIsDownloaded] = useState(isLocal);
@@ -34,10 +74,10 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
   let safeImageUri = '';
 
   try {
-    if (id === (activeTrackId ?? "") && isPlaying) {
-      imageSource = require("../../Images/playing.gif");
-    } else if (id === (activeTrackId ?? "") && !isPlaying) {
-      imageSource = require("../../Images/songPaused.gif");
+    if (id === (activeTrackId ?? '') && isPlaying) {
+      imageSource = require('../../Images/playing.gif');
+    } else if (id === (activeTrackId ?? '') && !isPlaying) {
+      imageSource = require('../../Images/songPaused.gif');
     } else {
       if (typeof image === 'string') {
         safeImageUri = image;
@@ -45,7 +85,9 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
         // Try to find highest quality or take last
         if (typeof image[0] === 'object') {
           // YT Music style with quality property
-          const maxRes = image.find(img => img.quality === 'max' || img.quality === 'hd');
+          const maxRes = image.find(
+            (img) => img.quality === 'max' || img.quality === 'hd'
+          );
           if (maxRes && maxRes.url) {
             safeImageUri = maxRes.url;
           } else {
@@ -60,7 +102,9 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
           }
         } else if (typeof image[0] === 'string') {
           // Array of strings (Saavn style - ascending)
-          const lastValid = image.filter(i => i && typeof i === 'string' && i.trim() !== '').pop();
+          const lastValid = image
+            .filter((i) => i && typeof i === 'string' && i.trim() !== '')
+            .pop();
           safeImageUri = lastValid || '';
         }
       } else if (image && typeof image === 'object') {
@@ -76,7 +120,9 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
 
   useEffect(() => {
     // If already marked as local (from Downloads page), skip the async check
-    if (isLocal) return;
+    if (isLocal) {
+      return;
+    }
 
     const checkDownloadStatus = async () => {
       if (id) {
@@ -99,27 +145,36 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
     let downloadProgressListener = null;
 
     try {
-      downloadListener = EventRegister.addEventListener('download-complete', (songId) => {
-        if (songId === id) {
-          setIsDownloaded(true);
-          setDownloadInProgress(false);
-          setDownloadProgress(100);
+      downloadListener = EventRegister.addEventListener(
+        'download-complete',
+        (songId) => {
+          if (songId === id) {
+            setIsDownloaded(true);
+            setDownloadInProgress(false);
+            setDownloadProgress(100);
+          }
         }
-      });
+      );
 
-      downloadStartedListener = EventRegister.addEventListener('download-started', (songId) => {
-        if (songId === id) {
-          setDownloadInProgress(true);
-          setDownloadProgress(0);
+      downloadStartedListener = EventRegister.addEventListener(
+        'download-started',
+        (songId) => {
+          if (songId === id) {
+            setDownloadInProgress(true);
+            setDownloadProgress(0);
+          }
         }
-      });
+      );
 
       // Listen for progress updates
-      downloadProgressListener = EventRegister.addEventListener('download-progress', ({ songId, progress }) => {
-        if (songId === id) {
-          setDownloadProgress(progress);
+      downloadProgressListener = EventRegister.addEventListener(
+        'download-progress',
+        ({ songId, progress }) => {
+          if (songId === id) {
+            setDownloadProgress(progress);
+          }
         }
-      });
+      );
     } catch (error) {
       console.error('Error setting up download listeners:', error);
     }
@@ -142,53 +197,76 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
   }, [id]);
 
   const formatText = (text) => {
-    if (!text) return "Unknown";
+    if (!text) {
+      return 'Unknown';
+    }
     try {
       const formattedText = FormatTitleAndArtist(String(text));
-      if (!formattedText) return "Unknown";
-      return formattedText.length > 15 ? formattedText.substring(0, 20) + "..." : formattedText;
+      if (!formattedText) {
+        return 'Unknown';
+      }
+      return formattedText.length > 15
+        ? formattedText.substring(0, 20) + '...'
+        : formattedText;
     } catch (error) {
       console.warn('Error formatting text:', error);
-      return "Unknown";
+      return 'Unknown';
     }
-  }
+  };
 
   // Format duration from seconds to MM:SS format (like OuterTune)
   const formatDuration = (seconds) => {
-    if (!seconds || seconds === 0 || seconds === '0') return '';
+    if (!seconds || seconds === 0 || seconds === '0') {
+      return '';
+    }
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return ` • ${mins}:${secs.toString().padStart(2, '0')}`;
-  }
+  };
 
   async function AddSongToPlayer() {
     // Handle local/downloaded songs - queue all downloaded songs with proper metadata
     if (isLocal && allSongs.length > 0) {
       // Helper to check if artwork is valid (not a placeholder)
       const isValidArtwork = (art) => {
-        if (!art || typeof art !== 'string') return false;
-        if (art.includes('htmlcolorcodes.com') || art.includes('placeholder')) return false;
-        return art.startsWith('http') || art.startsWith('file://') || art.startsWith('/') || art.startsWith('data:');
+        if (!art || typeof art !== 'string') {
+          return false;
+        }
+        if (art.includes('htmlcolorcodes.com') || art.includes('placeholder')) {
+          return false;
+        }
+        return (
+          art.startsWith('http') ||
+          art.startsWith('file://') ||
+          art.startsWith('/') ||
+          art.startsWith('data:')
+        );
       };
 
       // Order songs starting from clicked index
       const orderedSongs = [
         ...allSongs.slice(index),
-        ...allSongs.slice(0, index)
+        ...allSongs.slice(0, index),
       ];
 
       const formattedTracks = [];
       for (const s of orderedSongs) {
         const sPath = s.url || s.localSongPath || s.filePath;
-        if (!sPath) continue;
+        if (!sPath) {
+          continue;
+        }
 
-        const fileUrl = typeof sPath === 'string' && sPath.startsWith('file://')
-          ? sPath
-          : `file://${sPath}`;
+        const fileUrl =
+          typeof sPath === 'string' && sPath.startsWith('file://')
+            ? sPath
+            : `file://${sPath}`;
 
         // Use valid artwork, filtering out placeholders
-        const sArtwork = isValidArtwork(s.artwork) ? s.artwork :
-          (isValidArtwork(s.image) ? s.image : null);
+        const sArtwork = isValidArtwork(s.artwork)
+          ? s.artwork
+          : isValidArtwork(s.image)
+          ? s.image
+          : null;
 
         formattedTracks.push({
           id: s.id,
@@ -200,7 +278,7 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
           duration: s.duration || 0,
           isLocal: true,
           isDownloaded: true,
-          sourceType: 'download'
+          sourceType: 'download',
         });
       }
 
@@ -211,7 +289,10 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
           await TrackPlayer.play();
           updateTrack();
         } catch (playError) {
-          console.error('[Downloads] Error in TrackPlayer operations:', playError);
+          console.error(
+            '[Downloads] Error in TrackPlayer operations:',
+            playError
+          );
           ToastAndroid.show('Error playing song', ToastAndroid.SHORT);
         }
         return;
@@ -224,18 +305,30 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
 
       // If this playlist is from YTMusic, play only the clicked song immediately,
       // then queue a small batch of next songs in background.
-      const isYtMusicPlaylist = current && ((current.source === 'ytmusic') || (typeof current.id === 'string' && current.id.length === 11));
+      const isYtMusicPlaylist =
+        current &&
+        (current.source === 'ytmusic' ||
+          (typeof current.id === 'string' && current.id.length === 11));
 
       // SPOTIFY PLAYLIST SUPPORT: Detect Spotify playlists for optimistic UI
-      const isSpotifyPlaylist = current && (current.source === 'spotify' || current.spotifyId);
+      const isSpotifyPlaylist =
+        current && (current.source === 'spotify' || current.spotifyId);
 
       // DAB PLAYLIST SUPPORT: Detect DAB playlists for optimistic UI
-      const isDabPlaylist = current && (current.source === 'dab' || current.isDabTrack);
+      const isDabPlaylist =
+        current && (current.source === 'dab' || current.isDabTrack);
 
-      if ((isYtMusicPlaylist || isSpotifyPlaylist || isDabPlaylist) && current) {
+      if (
+        (isYtMusicPlaylist || isSpotifyPlaylist || isDabPlaylist) &&
+        current
+      ) {
         // Use the new AddPlaylist logic which handles slicing and lazy loading
         // Pass the full songs array and the ID of the song to start from
-        const sourceType = isDabPlaylist ? 'DAB' : (isSpotifyPlaylist ? 'Spotify' : 'YTMusic');
+        const sourceType = isDabPlaylist
+          ? 'DAB'
+          : isSpotifyPlaylist
+          ? 'Spotify'
+          : 'YTMusic';
         // Pass the raw songs array - AddPlaylist processes it
         await AddPlaylist(songs, current.id || current.videoId);
 
@@ -244,27 +337,33 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
       }
 
       // Non-YTMusic playlist: keep existing Saavn-style behavior
-      const ForMusicPlayer = []
-      const quality = await getIndexQuality()
+      const ForMusicPlayer = [];
+      const quality = await getIndexQuality();
+
+      const getTrackUrl = (sources) => {
+        if (!Array.isArray(sources) || sources.length === 0) {
+          return '';
+        }
+
+        const preferredEntry =
+          sources[quality] || sources[sources.length - 1] || sources[0];
+        if (!preferredEntry || typeof preferredEntry !== 'object') {
+          return '';
+        }
+
+        return (
+          preferredEntry.url || preferredEntry.link || preferredEntry.uri || ''
+        );
+      };
 
       for (let i = index; i < songs.length; i++) {
-        const e = songs[i]
-        if (!e) continue;
+        const e = songs[i];
+        if (!e) {
+          continue;
+        }
 
-        let songUrl = "";
-
-        if (e.downloadUrl && Array.isArray(e.downloadUrl) && e.downloadUrl.length > quality && e.downloadUrl[quality]?.url) {
-          songUrl = e.downloadUrl[quality].url;
-        }
-        else if (e.download_url && Array.isArray(e.download_url) && e.download_url.length > quality && e.download_url[quality]?.url) {
-          songUrl = e.download_url[quality].url;
-        }
-        else if (e.downloadUrl && Array.isArray(e.downloadUrl) && e.downloadUrl.length > 0 && e.downloadUrl[0]?.url) {
-          songUrl = e.downloadUrl[0].url;
-        }
-        else if (e.download_url && Array.isArray(e.download_url) && e.download_url.length > 0 && e.download_url[0]?.url) {
-          songUrl = e.download_url[0].url;
-        }
+        const songUrl =
+          getTrackUrl(e.downloadUrl) || getTrackUrl(e.download_url);
 
         if (!songUrl) {
           continue;
@@ -279,11 +378,15 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
               artworkUri = e.image.uri;
             } else if (typeof e.image.url === 'string') {
               artworkUri = e.image.url;
+            } else if (typeof e.image.link === 'string') {
+              artworkUri = e.image.link;
             } else if (Array.isArray(e.image) && e.image.length > 0) {
               if (typeof e.image[0] === 'string') {
                 artworkUri = e.image[0];
               } else if (e.image[0] && typeof e.image[0].url === 'string') {
                 artworkUri = e.image[0].url;
+              } else if (e.image[0] && typeof e.image[0].link === 'string') {
+                artworkUri = e.image[0].link;
               }
             }
           }
@@ -294,25 +397,27 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
         ForMusicPlayer.push({
           url: songUrl,
           title: formatText(e?.name),
-          artist: formatText(FormatArtist(e?.artists?.primary)),
+          artist: formatText(
+            e?.primaryArtists || FormatArtist(e?.artists?.primary)
+          ),
           artwork: artworkUri,
           image: artworkUri,
           duration: e?.duration,
           id: e?.id,
           language: e?.language,
           downloadUrl: e?.downloadUrl || e?.download_url || [],
-        })
+        });
       }
 
       if (ForMusicPlayer.length > 0) {
-        await AddPlaylist(ForMusicPlayer)
-        updateTrack()
+        await AddPlaylist(ForMusicPlayer);
+        updateTrack();
       }
     } else if (isLibraryLiked) {
-      const Final = []
+      const Final = [];
 
       for (let i = index; i < Data.length; i++) {
-        const e = Data[i]
+        const e = Data[i];
 
         let artworkUri = '';
         try {
@@ -368,11 +473,11 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
           album: e?.album,
           artists: e?.artists,
           releaseDate: e?.releaseDate,
-          explicitContent: e?.explicitContent
-        })
+          explicitContent: e?.explicitContent,
+        });
       }
 
-      await AddPlaylist(Final)
+      await AddPlaylist(Final);
     } else {
       // Handle single song playback
       if (source === 'ytmusic') {
@@ -384,7 +489,7 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
           artwork: safeImageUri,
           image: safeImageUri,
           duration: duration,
-          id,  // This is the video ID
+          id, // This is the video ID
           language,
           artistID,
           downloadUrl: id, // Store video ID for potential downloads
@@ -398,8 +503,8 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
             album: Data.data.results[index].album,
             artists: Data.data.results[index].artists,
             releaseDate: Data.data.results[index].releaseDate,
-            explicitContent: Data.data.results[index].explicitContent
-          })
+            explicitContent: Data.data.results[index].explicitContent,
+          }),
         };
         PlayOneSong(song);
         return;
@@ -422,11 +527,15 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
             album: Data.data.results[index].album,
             explicit: Data.data.results[index].explicit,
             previewUrl: Data.data.results[index].previewUrl,
-          })
+          }),
         };
         PlayOneSong(song);
         return;
-      } else if (source === 'dab' || item?.isDabTrack || (!isNaN(url) && String(url).length > 5)) {
+      } else if (
+        source === 'dab' ||
+        item?.isDabTrack ||
+        (!isNaN(url) && String(url).length > 5)
+      ) {
         // Handle DAB Music tracks
         const song = {
           url: url, // Numeric ID for DAB
@@ -446,22 +555,31 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
             audioQuality: Data.data.results[index].audioQuality,
             isHiRes: Data.data.results[index].isHiRes,
             qualityLabel: Data.data.results[index].qualityLabel,
-          })
+          }),
         };
         PlayOneSong(song);
         return;
       } else {
         // Handle Saavn songs (existing logic)
-        const quality = await getIndexQuality()
+        const quality = await getIndexQuality();
 
         let songUrl;
         // Try `url` prop first, then fallback to `item` data
-        const downloadUrlSource = url || item?.downloadUrl || item?.download_url;
+        const downloadUrlSource =
+          url || item?.downloadUrl || item?.download_url;
 
         if (downloadUrlSource) {
-          if (Array.isArray(downloadUrlSource) && downloadUrlSource.length > quality && downloadUrlSource[quality]?.url) {
+          if (
+            Array.isArray(downloadUrlSource) &&
+            downloadUrlSource.length > quality &&
+            downloadUrlSource[quality]?.url
+          ) {
             songUrl = downloadUrlSource[quality].url;
-          } else if (Array.isArray(downloadUrlSource) && downloadUrlSource.length > 0 && downloadUrlSource[0]?.url) {
+          } else if (
+            Array.isArray(downloadUrlSource) &&
+            downloadUrlSource.length > 0 &&
+            downloadUrlSource[0]?.url
+          ) {
             songUrl = downloadUrlSource[0].url;
           } else if (typeof downloadUrlSource === 'string') {
             songUrl = downloadUrlSource;
@@ -469,10 +587,14 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
         }
 
         if (!songUrl) {
-          console.warn(`[Saavn Playback] No valid URL found for song: "${title}" (ID: ${id}). url prop:`, url, 'item.downloadUrl:', item?.downloadUrl);
+          console.warn(
+            `[Saavn Playback] No valid URL found for song: "${title}" (ID: ${id}). url prop:`,
+            url,
+            'item.downloadUrl:',
+            item?.downloadUrl
+          );
           return;
         }
-
 
         const song = {
           url: songUrl,
@@ -495,10 +617,10 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
             album: Data.data.results[index].album,
             artists: Data.data.results[index].artists,
             releaseDate: Data.data.results[index].releaseDate,
-            explicitContent: Data.data.results[index].explicitContent
-          })
-        }
-        PlayOneSong(song)
+            explicitContent: Data.data.results[index].explicitContent,
+          }),
+        };
+        PlayOneSong(song);
       }
     }
 
@@ -511,16 +633,36 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
         if (albumData?.data?.songs?.length > 0) {
           const quality = await getIndexQuality();
           const albumSongs = albumData.data.songs
-            .filter(e => e.id !== id)
-            .map(e => {
+            .filter((e) => e.id !== id)
+            .map((e) => {
               let songUrl = '';
-              if (e.downloadUrl && Array.isArray(e.downloadUrl) && e.downloadUrl.length > quality && e.downloadUrl[quality]?.url) {
+              if (
+                e.downloadUrl &&
+                Array.isArray(e.downloadUrl) &&
+                e.downloadUrl.length > quality &&
+                e.downloadUrl[quality]?.url
+              ) {
                 songUrl = e.downloadUrl[quality].url;
-              } else if (e.download_url && Array.isArray(e.download_url) && e.download_url.length > quality && e.download_url[quality]?.url) {
+              } else if (
+                e.download_url &&
+                Array.isArray(e.download_url) &&
+                e.download_url.length > quality &&
+                e.download_url[quality]?.url
+              ) {
                 songUrl = e.download_url[quality].url;
-              } else if (e.downloadUrl && Array.isArray(e.downloadUrl) && e.downloadUrl.length > 0 && e.downloadUrl[0]?.url) {
+              } else if (
+                e.downloadUrl &&
+                Array.isArray(e.downloadUrl) &&
+                e.downloadUrl.length > 0 &&
+                e.downloadUrl[0]?.url
+              ) {
                 songUrl = e.downloadUrl[0].url;
-              } else if (e.download_url && Array.isArray(e.download_url) && e.download_url.length > 0 && e.download_url[0]?.url) {
+              } else if (
+                e.download_url &&
+                Array.isArray(e.download_url) &&
+                e.download_url.length > 0 &&
+                e.download_url[0]?.url
+              ) {
                 songUrl = e.download_url[0].url;
               }
               let artworkUri = '';
@@ -549,7 +691,7 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
                 id: e?.id,
                 language: e?.language,
                 downloadUrl: e?.downloadUrl || e?.download_url || [],
-                albumId: albumId
+                albumId: albumId,
               };
             });
           if (albumSongs.length > 0) {
@@ -569,20 +711,50 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
         const artistArr = songObj?.artists?.primary || [];
         for (const artist of artistArr) {
           const artistId = artist.id;
-          if (!artistId) continue;
-          const artistSongsData = await getArtistSongsPaginated(artistId, 1, 10);
+          if (!artistId) {
+            continue;
+          }
+          const artistSongsData = await getArtistSongsPaginated(
+            artistId,
+            1,
+            10
+          );
           const artistSongs = (artistSongsData?.data?.songs || [])
-            .filter(e => e.id !== id && (!songObj.album || e.album?.id !== songObj.album.id)) // avoid current and album songs
-            .map(e => {
+            .filter(
+              (e) =>
+                e.id !== id &&
+                (!songObj.album || e.album?.id !== songObj.album.id)
+            ) // avoid current and album songs
+            .map((e) => {
               let songUrl = '';
               const quality = 4; // fallback to high quality if not user-selected
-              if (e.downloadUrl && Array.isArray(e.downloadUrl) && e.downloadUrl.length > quality && e.downloadUrl[quality]?.url) {
+              if (
+                e.downloadUrl &&
+                Array.isArray(e.downloadUrl) &&
+                e.downloadUrl.length > quality &&
+                e.downloadUrl[quality]?.url
+              ) {
                 songUrl = e.downloadUrl[quality].url;
-              } else if (e.download_url && Array.isArray(e.download_url) && e.download_url.length > quality && e.download_url[quality]?.url) {
+              } else if (
+                e.download_url &&
+                Array.isArray(e.download_url) &&
+                e.download_url.length > quality &&
+                e.download_url[quality]?.url
+              ) {
                 songUrl = e.download_url[quality].url;
-              } else if (e.downloadUrl && Array.isArray(e.downloadUrl) && e.downloadUrl.length > 0 && e.downloadUrl[0]?.url) {
+              } else if (
+                e.downloadUrl &&
+                Array.isArray(e.downloadUrl) &&
+                e.downloadUrl.length > 0 &&
+                e.downloadUrl[0]?.url
+              ) {
                 songUrl = e.downloadUrl[0].url;
-              } else if (e.download_url && Array.isArray(e.download_url) && e.download_url.length > 0 && e.download_url[0]?.url) {
+              } else if (
+                e.download_url &&
+                Array.isArray(e.download_url) &&
+                e.download_url.length > 0 &&
+                e.download_url[0]?.url
+              ) {
                 songUrl = e.download_url[0].url;
               }
               let artworkUri = '';
@@ -611,7 +783,7 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
                 id: e?.id,
                 language: e?.language,
                 downloadUrl: e?.downloadUrl || e?.download_url || [],
-                albumId: e?.album?.id || null
+                albumId: e?.album?.id || null,
               };
             });
           if (artistSongs.length > 0) {
@@ -623,7 +795,7 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
       }
     }
 
-    updateTrack()
+    updateTrack();
   }
 
   const handleDownload = async () => {
@@ -643,7 +815,7 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
       if (!permissionGranted) {
         Alert.alert(
           'Permission Denied',
-          'Storage permission is required to download songs. Please grant it in your device settings.',
+          'Storage permission is required to download songs. Please grant it in your device settings.'
         );
         return;
       }
@@ -658,8 +830,8 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
         title,
         artist,
         url,
-        image: typeof image === 'string' ? image : (image?.uri || safeImageUri),
-        artwork: typeof image === 'string' ? image : (image?.uri || safeImageUri),
+        image: typeof image === 'string' ? image : image?.uri || safeImageUri,
+        artwork: typeof image === 'string' ? image : image?.uri || safeImageUri,
         duration,
         language,
         artistID,
@@ -676,7 +848,10 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
       }
     } catch (error) {
       console.error('Download failed:', error);
-      ToastAndroid.show(`Download failed for ${title}: ${error.message}`, ToastAndroid.LONG);
+      ToastAndroid.show(
+        `Download failed for ${title}: ${error.message}`,
+        ToastAndroid.LONG
+      );
     } finally {
       setDownloadInProgress(false);
     }
@@ -707,10 +882,14 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
       <Pressable
         onPress={AddSongToPlayer}
         onLongPress={() => {
-          if (onLongPress) onLongPress();
+          if (onLongPress) {
+            onLongPress();
+          }
         }}
         android_ripple={{
-          color: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)',
+          color: theme.dark
+            ? 'rgba(255, 255, 255, 0.15)'
+            : 'rgba(0, 0, 0, 0.05)',
           borderless: false,
         }}
         style={{
@@ -718,8 +897,10 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
           alignItems: 'center',
           paddingVertical: 8,
           paddingHorizontal: 12,
-          backgroundColor: id === activeTrackId ? colors.playingCard : 'transparent',
-        }}>
+          backgroundColor:
+            id === activeTrackId ? colors.playingCard : 'transparent',
+        }}
+      >
         {showNumber && (
           <View style={{ marginRight: 10 }}>
             <PlainText text={index + 1} />
@@ -738,14 +919,24 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
         <View
           style={{
             flex: 1,
-          }}>
+          }}
+        >
           <PlainText
-            text={truncateTitle ? truncateText(formatText(title), isFromAlbum ? 15 : isFromPlaylist ? 15 : 15) : formatText(title)}
+            text={
+              truncateTitle
+                ? truncateText(
+                    formatText(title),
+                    isFromAlbum ? 15 : isFromPlaylist ? 15 : 15
+                  )
+                : formatText(title)
+            }
             songId={id}
             isSongTitle={true}
             isCurrentlyPlaying={id === activeTrackId}
             style={{
-              width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.65 : isFromPlaylist ? 0.63 : 0.66),
+              width: titleandartistwidth
+                ? titleandartistwidth
+                : width1 * (isFromAlbum ? 0.65 : isFromPlaylist ? 0.63 : 0.66),
               marginBottom: 2,
               color: theme.dark ? colors.text : '#333333',
             }}
@@ -753,10 +944,15 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
             ellipsizeMode="tail"
           />
           <SmallText
-            text={truncateText(formatText(artist), isFromAlbum ? 30 : isFromPlaylist ? 32 : 35)}
+            text={truncateText(
+              formatText(artist),
+              isFromAlbum ? 30 : isFromPlaylist ? 32 : 35
+            )}
             isArtistName={true}
             style={{
-              width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.63 : isFromPlaylist ? 0.59 : 0.63),
+              width: titleandartistwidth
+                ? titleandartistwidth
+                : width1 * (isFromAlbum ? 0.63 : isFromPlaylist ? 0.59 : 0.63),
               color: theme.dark ? colors.textSecondary : '#666666',
             }}
             numberOfLines={1}
@@ -769,7 +965,8 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
             justifyContent: 'flex-end',
             alignItems: 'center',
             minWidth: isFromAlbum ? 70 : isFromPlaylist ? 70 : 65,
-          }}>
+          }}
+        >
           <Pressable
             onPress={(e) => {
               e.stopPropagation();
@@ -778,7 +975,8 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
             style={{
               padding: 4,
               marginRight: isFromAlbum ? 5 : isFromPlaylist ? 5 : 5,
-            }}>
+            }}
+          >
             {isDownloaded ? (
               <Octicons name="check-circle" size={20} color="#1DB954" />
             ) : downloadInProgress ? (
@@ -789,7 +987,11 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
                 showPercentage={false}
               />
             ) : (
-              <Octicons name="download" size={20} color={theme.dark ? '#ffffff' : '#333333'} />
+              <Octicons
+                name="download"
+                size={20}
+                color={theme.dark ? '#ffffff' : '#333333'}
+              />
             )}
           </Pressable>
 
@@ -807,7 +1009,10 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
               artistID,
               localSongPath,
               source: item?.source || source || 'saavn',
-              spotifyId: (source === 'spotify' || item?.source === 'spotify') ? id : undefined,
+              spotifyId:
+                source === 'spotify' || item?.source === 'spotify'
+                  ? id
+                  : undefined,
               isDabTrack: item?.isDabTrack || source === 'dab' || false,
             }}
             isFromPlaylist={isFromPlaylist}
@@ -821,4 +1026,4 @@ export const EachSongCard = memo(function EachSongCard({ title, artist, image, i
       </Pressable>
     </>
   );
-})
+});

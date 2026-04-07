@@ -18,18 +18,20 @@ const ArtistTabs = ({ activeTab, onTabChange }) => {
   const tabs = [
     { key: 'songs', label: 'Songs', icon: 'musical-notes' },
     { key: 'albums', label: 'Albums', icon: 'albums' },
-    { key: 'bio', label: 'Bio', icon: 'person' }
+    { key: 'bio', label: 'Bio', icon: 'person' },
   ];
 
   return (
-    <View style={{
-      flexDirection: 'row',
-      backgroundColor: theme.colors.card,
-      marginHorizontal: 20,
-      marginTop: 20,
-      borderRadius: 12,
-      padding: 4,
-    }}>
+    <View
+      style={{
+        flexDirection: 'row',
+        backgroundColor: theme.colors.card,
+        marginHorizontal: 20,
+        marginTop: 20,
+        borderRadius: 12,
+        padding: 4,
+      }}
+    >
       {tabs.map((tab) => (
         <Pressable
           key={tab.key}
@@ -39,7 +41,8 @@ const ArtistTabs = ({ activeTab, onTabChange }) => {
             paddingVertical: 12,
             paddingHorizontal: 16,
             borderRadius: 8,
-            backgroundColor: activeTab === tab.key ? theme.colors.primary : 'transparent',
+            backgroundColor:
+              activeTab === tab.key ? theme.colors.primary : 'transparent',
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',

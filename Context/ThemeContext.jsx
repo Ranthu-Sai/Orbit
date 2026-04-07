@@ -9,7 +9,7 @@ import {
   GetColorScheme,
   SetColorScheme,
   GetFontSizeValue,
-  SetFontSizeValue
+  SetFontSizeValue,
 } from '../LocalStorage/AppSettings';
 import { getColorScheme, DEFAULT_COLOR_SCHEME } from '../Theme/colorSchemes';
 
@@ -22,14 +22,22 @@ export const ThemeProvider = ({ children }) => {
   const [paperTheme, setPaperTheme] = useState(PaperDarkTheme);
   const [themeMode, setThemeMode] = useState('dark');
   const [colorSchemeName, setColorSchemeName] = useState(DEFAULT_COLOR_SCHEME);
-  const [colorScheme, setColorScheme] = useState(getColorScheme(DEFAULT_COLOR_SCHEME));
+  const [colorScheme, setColorScheme] = useState(
+    getColorScheme(DEFAULT_COLOR_SCHEME)
+  );
   const [fontSize, setFontSize] = useState('Medium');
   const [isThemeLoaded, setIsThemeLoaded] = useState(false);
 
   // Apply color scheme and font size to theme
-  const applySettingsToTheme = (baseTheme, paperBaseTheme, scheme, fontSizeValue) => {
+  const applySettingsToTheme = (
+    baseTheme,
+    paperBaseTheme,
+    scheme,
+    fontSizeValue
+  ) => {
     // Calculate font size multiplier based on setting
-    const fontSizeMultiplier = fontSizeValue === 'Small' ? 0.8 : fontSizeValue === 'Large' ? 1.2 : 1.0;
+    const fontSizeMultiplier =
+      fontSizeValue === 'Small' ? 0.8 : fontSizeValue === 'Large' ? 1.2 : 1.0;
 
     // Apply to navigation theme
     const navigationTheme = {
@@ -42,8 +50,8 @@ export const ThemeProvider = ({ children }) => {
         textActive: scheme.textActive,
         playingColor: scheme.accent,
         fontSize: baseTheme.colors.fontSize * fontSizeMultiplier,
-        headingSize: baseTheme.colors.headingSize * fontSizeMultiplier
-      }
+        headingSize: baseTheme.colors.headingSize * fontSizeMultiplier,
+      },
     };
 
     // Apply to paper theme
@@ -57,8 +65,8 @@ export const ThemeProvider = ({ children }) => {
         tabBarActive: scheme.tabActive,
         notification: scheme.accent,
         textActive: scheme.textActive,
-        playingColor: scheme.accent
-      }
+        playingColor: scheme.accent,
+      },
     };
 
     return { navigationTheme, paperTheme };
@@ -84,8 +92,14 @@ export const ThemeProvider = ({ children }) => {
 
         // Apply theme with appropriate colors and font size
         const baseTheme = savedTheme === 'light' ? lightTheme : darkTheme;
-        const paperBaseTheme = savedTheme === 'light' ? PaperLightTheme : PaperDarkTheme;
-        const { navigationTheme, paperTheme } = applySettingsToTheme(baseTheme, paperBaseTheme, scheme, savedFontSize);
+        const paperBaseTheme =
+          savedTheme === 'light' ? PaperLightTheme : PaperDarkTheme;
+        const { navigationTheme, paperTheme } = applySettingsToTheme(
+          baseTheme,
+          paperBaseTheme,
+          scheme,
+          savedFontSize
+        );
 
         setTheme(navigationTheme);
         setPaperTheme(paperTheme);
@@ -95,7 +109,12 @@ export const ThemeProvider = ({ children }) => {
         console.error('Error loading preferences:', error);
         // Default to dark theme with default color scheme and medium font if there's an error
         const defaultScheme = getColorScheme(DEFAULT_COLOR_SCHEME);
-        const { navigationTheme, paperTheme } = applySettingsToTheme(darkTheme, PaperDarkTheme, defaultScheme, 'Medium');
+        const { navigationTheme, paperTheme } = applySettingsToTheme(
+          darkTheme,
+          PaperDarkTheme,
+          defaultScheme,
+          'Medium'
+        );
         setTheme(navigationTheme);
         setPaperTheme(paperTheme);
         setThemeMode('dark');
@@ -113,8 +132,14 @@ export const ThemeProvider = ({ children }) => {
   const toggleTheme = async () => {
     const newThemeMode = themeMode === 'dark' ? 'light' : 'dark';
     const baseTheme = newThemeMode === 'dark' ? darkTheme : lightTheme;
-    const paperBaseTheme = newThemeMode === 'dark' ? PaperDarkTheme : PaperLightTheme;
-    const { navigationTheme, paperTheme } = applySettingsToTheme(baseTheme, paperBaseTheme, colorScheme, fontSize);
+    const paperBaseTheme =
+      newThemeMode === 'dark' ? PaperDarkTheme : PaperLightTheme;
+    const { navigationTheme, paperTheme } = applySettingsToTheme(
+      baseTheme,
+      paperBaseTheme,
+      colorScheme,
+      fontSize
+    );
 
     setThemeMode(newThemeMode);
     setTheme(navigationTheme);
@@ -128,8 +153,14 @@ export const ThemeProvider = ({ children }) => {
   const changeColorScheme = async (newSchemeName) => {
     const scheme = getColorScheme(newSchemeName);
     const baseTheme = themeMode === 'dark' ? darkTheme : lightTheme;
-    const paperBaseTheme = themeMode === 'dark' ? PaperDarkTheme : PaperLightTheme;
-    const { navigationTheme, paperTheme } = applySettingsToTheme(baseTheme, paperBaseTheme, scheme, fontSize);
+    const paperBaseTheme =
+      themeMode === 'dark' ? PaperDarkTheme : PaperLightTheme;
+    const { navigationTheme, paperTheme } = applySettingsToTheme(
+      baseTheme,
+      paperBaseTheme,
+      scheme,
+      fontSize
+    );
 
     setColorSchemeName(newSchemeName);
     setColorScheme(scheme);
@@ -143,8 +174,14 @@ export const ThemeProvider = ({ children }) => {
   // Change font size
   const changeFontSize = async (newFontSize) => {
     const baseTheme = themeMode === 'dark' ? darkTheme : lightTheme;
-    const paperBaseTheme = themeMode === 'dark' ? PaperDarkTheme : PaperLightTheme;
-    const { navigationTheme, paperTheme } = applySettingsToTheme(baseTheme, paperBaseTheme, colorScheme, newFontSize);
+    const paperBaseTheme =
+      themeMode === 'dark' ? PaperDarkTheme : PaperLightTheme;
+    const { navigationTheme, paperTheme } = applySettingsToTheme(
+      baseTheme,
+      paperBaseTheme,
+      colorScheme,
+      newFontSize
+    );
 
     setFontSize(newFontSize);
     setTheme(navigationTheme);
@@ -153,8 +190,6 @@ export const ThemeProvider = ({ children }) => {
     // Save the font size preference
     await SetFontSizeValue(newFontSize);
   };
-  
-
 
   // Context value
   const contextValue = {
@@ -167,7 +202,7 @@ export const ThemeProvider = ({ children }) => {
     toggleTheme,
     changeColorScheme,
     changeFontSize,
-    isThemeLoaded
+    isThemeLoaded,
   };
 
   // Support both function as children (render props) and regular children
@@ -189,7 +224,7 @@ ThemeContext.defaultProps = {
   toggleTheme: async () => {},
   changeColorScheme: async () => {},
   changeFontSize: async () => {},
-  isThemeLoaded: false
+  isThemeLoaded: false,
 };
 
 // Custom hook to use the theme context
@@ -197,7 +232,9 @@ export const useThemeContext = () => {
   const context = useContext(ThemeContext);
   if (context === undefined) {
     // Return fallback theme instead of throwing error
-    console.warn('useThemeContext was used outside a ThemeProvider, using fallback theme');
+    console.warn(
+      'useThemeContext was used outside a ThemeProvider, using fallback theme'
+    );
     return {
       theme: darkTheme,
       paperTheme: PaperDarkTheme,
@@ -208,7 +245,7 @@ export const useThemeContext = () => {
       toggleTheme: async () => {},
       changeColorScheme: async () => {},
       changeFontSize: async () => {},
-      isThemeLoaded: false
+      isThemeLoaded: false,
     };
   }
   return context;
@@ -229,7 +266,7 @@ export const useThemeContextSafe = () => {
       toggleTheme: async () => {},
       changeColorScheme: async () => {},
       changeFontSize: async () => {},
-      isThemeLoaded: false
+      isThemeLoaded: false,
     };
   }
   return context;

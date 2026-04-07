@@ -1,11 +1,18 @@
-import { Dimensions } from "react-native";
+import { Dimensions } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import { StyleSheet } from 'react-native';
-import { useEffect, useState } from "react";
-import { GetFontSizeValue } from "../../LocalStorage/AppSettings";
+import { useEffect, useState } from 'react';
+import { GetFontSizeValue } from '../../LocalStorage/AppSettings';
 // Removed TrackPlayer hooks to prevent excessive pending callbacks
 
-export const PlainText = ({ text, style, numberOfLine, songId, isSongTitle, isCurrentlyPlaying }) => {
+export const PlainText = ({
+  text,
+  style,
+  numberOfLine,
+  songId,
+  isSongTitle,
+  isCurrentlyPlaying,
+}) => {
   const width = Dimensions.get('window').width;
   const [Size, setSize] = useState(width * 0.035);
   // isCurrentlyPlaying is now passed from parent to avoid excessive TrackPlayer listeners
@@ -13,12 +20,12 @@ export const PlainText = ({ text, style, numberOfLine, songId, isSongTitle, isCu
 
   async function getFont() {
     const data = await GetFontSizeValue();
-    if (data === "Medium") {
+    if (data === 'Medium') {
       setSize(width * 0.035);
-    } else if (data === "Small") {
-      setSize(width * 0.030);
+    } else if (data === 'Small') {
+      setSize(width * 0.03);
     } else {
-      setSize(width * 0.040);
+      setSize(width * 0.04);
     }
   }
 
@@ -29,7 +36,9 @@ export const PlainText = ({ text, style, numberOfLine, songId, isSongTitle, isCu
   const theme = useTheme();
 
   // Determine text color - green for current song, otherwise use theme text color or style color
-  const textColor = isCurrentSong ? '#1DB954' : (style?.color || theme.colors.text);
+  const textColor = isCurrentSong
+    ? '#1DB954'
+    : style?.color || theme.colors.text;
 
   // Handle numberOfLine prop properly for React Native
   const textProps = {};
