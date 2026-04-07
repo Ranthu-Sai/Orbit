@@ -51,7 +51,7 @@ export const SearchPage = ({ navigation }) => {
   const [Loading, setLoading] = useState(false);
   const [Data, setData] = useState({ data: { results: [] } });
   const [searchHistory, setSearchHistory] = useState([]);
-  const [selectedSource, setSelectedSource] = useState('saavn');
+  const [selectedSource, setSelectedSource] = useState('ytmusic');
   const [modalVisible, setModalVisible] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [quickResults, setQuickResults] = useState([]);

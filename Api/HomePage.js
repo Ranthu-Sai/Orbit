@@ -8,10 +8,10 @@ async function getHomePageData(languages, forceRefresh = false) {
 
   // Define the fetch function that will be called if cache miss
   const fetchFunction = async () => {
-    const primaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/modules?language=${languages}${
+    const primaryUrl = `https://saavn.sumit.co/api/modules?language=${languages}${
       forceRefresh ? `&_t=${Date.now()}` : ''
     }`;
-    const secondaryUrl = `https://saavn.dev/api/modules?language=${languages}`;
+    const secondaryUrl = `https://saavn.sumit.co/api/modules?language=${languages}`;
 
     const config = {
       method: 'get',

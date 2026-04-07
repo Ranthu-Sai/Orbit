@@ -119,7 +119,9 @@ export default function AlbumsDisplay({ data, limit, Searchtext, source }) {
                     margin: 0,
                   }}
                   image={imageUrl}
-                  artists={FormatArtist(item.item?.artists?.primary)}
+                  artists={FormatArtist(
+                    item.item?.artists?.primary || item.item?.primaryArtists
+                  )}
                   name={item?.item?.name ?? ''}
                   id={item?.item?.id ?? ''}
                   source={source || 'Search'} // Pass source

@@ -65,27 +65,13 @@ const formatArtistData = (artistData) => {
  * Helper to safely get song URL
  */
 const getSongUrl = (song, quality) => {
-  if (song.downloadUrl?.length > quality && song.downloadUrl[quality]?.url) {
-    return song.downloadUrl[quality].url;
-  }
-  if (song.downloadUrl?.length > quality && song.downloadUrl[quality]?.link) {
-    return song.downloadUrl[quality].link;
-  }
-  if (song.download_url?.length > quality && song.download_url[quality]?.url) {
-    return song.download_url[quality].url;
-  }
-  if (song.download_url?.length > quality && song.download_url[quality]?.link) {
-    return song.download_url[quality].link;
-  }
-  // Fallback to any available URL
-  const urls = song.downloadUrl || song.download_url || [];
-  for (const item of urls) {
-    if (item?.url) {
-      return item.url;
-    }
-    if (item?.link) {
-      return item.link;
-    }
+  const downloadUrls = song.downloadUrl || song.download_url || [];
+  if (Array.isArray(downloadUrls) && downloadUrls.length > 0) {
+    const entry =
+      downloadUrls[quality] ||
+      downloadUrls[downloadUrls.length - 1] ||
+      downloadUrls[0];
+    return entry?.url || entry?.link || '';
   }
   return '';
 };
@@ -367,8 +353,18 @@ export const AlbumHeader = ({
             song.name || song.title || song.song || ''
           ),
           artist: FormatTitleAndArtist(formatArtistData(artistData)),
-          artwork: song.image?.[2]?.url || song.images?.[2]?.url || '',
-          image: song.image?.[2]?.url || song.images?.[2]?.url || '',
+          artwork:
+            song.image?.[2]?.url ||
+            song.image?.[0]?.url ||
+            song.images?.[2]?.url ||
+            song.image ||
+            '',
+          image:
+            song.image?.[2]?.url ||
+            song.image?.[0]?.url ||
+            song.images?.[2]?.url ||
+            song.image ||
+            '',
           duration: song.duration || 0,
           id: song.id || song.videoId || '',
           language: song.language || '',

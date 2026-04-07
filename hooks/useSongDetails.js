@@ -259,7 +259,7 @@ const useSongDetails = (track) => {
 
         // For online tracks, fetch from API
         const response = await axios.get(
-          `https://jiosaavn-api-privatecvc2.vercel.app/songs?id=${track.id}`
+          `https://saavn.sumit.co/api/songs/${track.id}`
         );
 
         if (response.data && response.data.success) {

@@ -54,8 +54,8 @@ async function getAlbumData(id) {
 
   // Define the fetch function for JioSaavn API with fallback
   const fetchFunction = async () => {
-    const primaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/albums?id=${id}`;
-    const secondaryUrl = `https://saavn.dev/api/albums?id=${id}`;
+    const primaryUrl = `https://saavn.sumit.co/api/albums?id=${id}`;
+    const secondaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/albums?id=${id}`;
     const config = {
       method: 'get',
       maxBodyLength: Infinity,
@@ -85,7 +85,7 @@ async function getSearchAlbumData(searchText, page, limit) {
   // Define the fetch function with fallback
   const fetchFunction = async () => {
     const primaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/search/albums?query=${searchText}&page=${page}&limit=${limit}`;
-    const secondaryUrl = `https://saavn.dev/api/search/albums?query=${searchText}&page=${page}&limit=${limit}`;
+    const secondaryUrl = `https://saavn.sumit.co/api/search/albums?query=${searchText}&page=${page}&limit=${limit}`;
     const config = {
       method: 'get',
       maxBodyLength: Infinity,

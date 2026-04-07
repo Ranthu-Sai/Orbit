@@ -8,11 +8,7 @@ import {
 } from 'react-native';
 import { PlainText } from './PlainText';
 import { SmallText } from './SmallText';
-import {
-  AddPlaylist,
-  getIndexQuality,
-  PlayOneSong,
-} from '../../MusicPlayerFunctions';
+import { AddPlaylist, getIndexQuality, PlayOneSong } from '../../MusicPlayerFunctions';
 import { useTheme } from '@react-navigation/native';
 import { memo, useContext, useState, useEffect } from 'react';
 import Context from '../../Context/Context';
@@ -48,7 +44,7 @@ export const EachSongCard = memo(function EachSongCard({
   Data,
   index,
   showNumber = false,
-  source = 'saavn',
+  source = 'ytmusic',
   truncateTitle = false,
   onDeleteComplete,
   activeTrackId,
@@ -445,8 +441,9 @@ export const EachSongCard = memo(function EachSongCard({
           if (typeof e.url === 'string') {
             songUrl = e.url;
           } else if (Array.isArray(e.url) && e.url.length > 0) {
-            const quality = await getIndexQuality();
-            songUrl = e.url[quality]?.url || e.url[0]?.url || '';
+            const qualityIdx = await getIndexQuality();
+            const entry = e.url[qualityIdx] || e.url[0];
+            songUrl = entry?.url || entry?.link || entry?.uri || '';
           }
         }
 
@@ -569,18 +566,15 @@ export const EachSongCard = memo(function EachSongCard({
           url || item?.downloadUrl || item?.download_url;
 
         if (downloadUrlSource) {
-          if (
-            Array.isArray(downloadUrlSource) &&
-            downloadUrlSource.length > quality &&
-            downloadUrlSource[quality]?.url
-          ) {
-            songUrl = downloadUrlSource[quality].url;
-          } else if (
-            Array.isArray(downloadUrlSource) &&
-            downloadUrlSource.length > 0 &&
-            downloadUrlSource[0]?.url
-          ) {
-            songUrl = downloadUrlSource[0].url;
+          if (Array.isArray(downloadUrlSource) && downloadUrlSource.length > 0) {
+            const entry =
+              downloadUrlSource[quality] ||
+              downloadUrlSource[downloadUrlSource.length - 1] ||
+              downloadUrlSource[0];
+
+            if (entry) {
+              songUrl = entry.link || entry.url || entry.uri;
+            }
           } else if (typeof downloadUrlSource === 'string') {
             songUrl = downloadUrlSource;
           }
@@ -636,49 +630,21 @@ export const EachSongCard = memo(function EachSongCard({
             .filter((e) => e.id !== id)
             .map((e) => {
               let songUrl = '';
-              if (
-                e.downloadUrl &&
-                Array.isArray(e.downloadUrl) &&
-                e.downloadUrl.length > quality &&
-                e.downloadUrl[quality]?.url
-              ) {
-                songUrl = e.downloadUrl[quality].url;
-              } else if (
-                e.download_url &&
-                Array.isArray(e.download_url) &&
-                e.download_url.length > quality &&
-                e.download_url[quality]?.url
-              ) {
-                songUrl = e.download_url[quality].url;
-              } else if (
-                e.downloadUrl &&
-                Array.isArray(e.downloadUrl) &&
-                e.downloadUrl.length > 0 &&
-                e.downloadUrl[0]?.url
-              ) {
-                songUrl = e.downloadUrl[0].url;
-              } else if (
-                e.download_url &&
-                Array.isArray(e.download_url) &&
-                e.download_url.length > 0 &&
-                e.download_url[0]?.url
-              ) {
-                songUrl = e.download_url[0].url;
+              if (e.downloadUrl && Array.isArray(e.downloadUrl) && e.downloadUrl.length > 0) {
+                const entry = e.downloadUrl[quality] || e.downloadUrl[0];
+                songUrl = entry?.url || entry?.link || entry?.uri || '';
+              } else if (e.download_url && Array.isArray(e.download_url) && e.download_url.length > 0) {
+                const entry = e.download_url[quality] || e.download_url[0];
+                songUrl = entry?.url || entry?.link || entry?.uri || '';
               }
               let artworkUri = '';
               if (typeof e?.image === 'string') {
                 artworkUri = e.image;
               } else if (e?.image && typeof e.image === 'object') {
-                if (typeof e.image.uri === 'string') {
-                  artworkUri = e.image.uri;
-                } else if (typeof e.image.url === 'string') {
-                  artworkUri = e.image.url;
-                } else if (Array.isArray(e.image) && e.image.length > 0) {
-                  if (typeof e.image[0] === 'string') {
-                    artworkUri = e.image[0];
-                  } else if (e.image[0] && typeof e.image[0].url === 'string') {
-                    artworkUri = e.image[0].url;
-                  }
+                artworkUri = e.image.url || e.image.link || e.image.uri || '';
+                if (!artworkUri && Array.isArray(e.image) && e.image.length > 0) {
+                  const firstImg = e.image[0];
+                  artworkUri = typeof firstImg === 'string' ? firstImg : firstImg?.url || firstImg?.link || firstImg?.uri || '';
                 }
               }
               return {
@@ -727,50 +693,22 @@ export const EachSongCard = memo(function EachSongCard({
             ) // avoid current and album songs
             .map((e) => {
               let songUrl = '';
-              const quality = 4; // fallback to high quality if not user-selected
-              if (
-                e.downloadUrl &&
-                Array.isArray(e.downloadUrl) &&
-                e.downloadUrl.length > quality &&
-                e.downloadUrl[quality]?.url
-              ) {
-                songUrl = e.downloadUrl[quality].url;
-              } else if (
-                e.download_url &&
-                Array.isArray(e.download_url) &&
-                e.download_url.length > quality &&
-                e.download_url[quality]?.url
-              ) {
-                songUrl = e.download_url[quality].url;
-              } else if (
-                e.downloadUrl &&
-                Array.isArray(e.downloadUrl) &&
-                e.downloadUrl.length > 0 &&
-                e.downloadUrl[0]?.url
-              ) {
-                songUrl = e.downloadUrl[0].url;
-              } else if (
-                e.download_url &&
-                Array.isArray(e.download_url) &&
-                e.download_url.length > 0 &&
-                e.download_url[0]?.url
-              ) {
-                songUrl = e.download_url[0].url;
+              const qualityPref = 4; // High quality fallback
+              if (e.downloadUrl && Array.isArray(e.downloadUrl) && e.downloadUrl.length > 0) {
+                const entry = e.downloadUrl[qualityPref] || e.downloadUrl[0];
+                songUrl = entry?.url || entry?.link || entry?.uri || '';
+              } else if (e.download_url && Array.isArray(e.download_url) && e.download_url.length > 0) {
+                const entry = e.download_url[qualityPref] || e.download_url[0];
+                songUrl = entry?.url || entry?.link || entry?.uri || '';
               }
               let artworkUri = '';
               if (typeof e?.image === 'string') {
                 artworkUri = e.image;
               } else if (e?.image && typeof e.image === 'object') {
-                if (typeof e.image.uri === 'string') {
-                  artworkUri = e.image.uri;
-                } else if (typeof e.image.url === 'string') {
-                  artworkUri = e.image.url;
-                } else if (Array.isArray(e.image) && e.image.length > 0) {
-                  if (typeof e.image[0] === 'string') {
-                    artworkUri = e.image[0];
-                  } else if (e.image[0] && typeof e.image[0].url === 'string') {
-                    artworkUri = e.image[0].url;
-                  }
+                artworkUri = e.image.url || e.image.link || e.image.uri || '';
+                if (!artworkUri && Array.isArray(e.image) && e.image.length > 0) {
+                  const firstImg = e.image[0];
+                  artworkUri = typeof firstImg === 'string' ? firstImg : firstImg?.url || firstImg?.link || firstImg?.uri || '';
                 }
               }
               return {

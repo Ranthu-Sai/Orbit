@@ -77,8 +77,8 @@ android {
         applicationId "com.orbit.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 4
-        versionName "3.0.1"
+        versionCode 5
+        versionName "3.0.3"
         multiDexEnabled true
         
         // Java 8 Desugaring Support

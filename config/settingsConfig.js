@@ -27,9 +27,8 @@ export const settingsConfig = {
 
   // Home Feed Source options
   homeFeedSources: [
-    { label: 'Hybrid (Both)', value: 'Hybrid' },
-    { label: 'Saavn Only', value: 'Saavn' },
-    { label: 'YTMusic Only', value: 'YTMusic' },
+    { label: 'Saavn (Unavailable)', value: 'Saavn' },
+    { label: 'YTMusic (Works)', value: 'YTMusic' },
   ],
 
   // Lyrics provider options
@@ -54,7 +53,7 @@ export const settingsConfig = {
     themePreference: 'dark',
     colorScheme: 'default',
     musicSource: 'Ytmusic',
-    homeFeedSource: 'Hybrid',
+    homeFeedSource: 'YTMusic',
     ytmQuality: 'Auto',
     lyricsProvider: 'LrcLib',
     lyricsAnimationStyle: 'Smooth',

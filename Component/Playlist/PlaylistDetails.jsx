@@ -5,7 +5,9 @@ import { Spacer } from '../Global/Spacer';
 import { PlayButton } from './PlayButton';
 import LinearGradient from 'react-native-linear-gradient';
 import { useThemeContext } from '../../Context/ThemeContext';
-import { AddPlaylist, getIndexQuality } from '../../MusicPlayerFunctions';
+import { AddPlaylist,  getIndexQuality,
+  PlayOneSong,
+} from '../../MusicPlayerFunctions';
 import { useContext, useState, useEffect } from 'react';
 import Context from '../../Context/Context';
 import { LikedPlaylist } from './LikedPlaylist';
@@ -17,7 +19,7 @@ import TrackPlayer from 'react-native-track-player';
 import { DownloadButton } from '../Global/DownloadButton';
 
 // API base URL
-const API_BASE_URL = 'https://jiosaavn-api-privatecvc2.vercel.app';
+const API_BASE_URL = 'https://saavn.sumit.co/api';
 
 // Reduce truncate limit further to avoid layout issues
 const truncateText = (text, limit = 20) => {
@@ -382,14 +384,14 @@ export const PlaylistDetails = ({
           artwork:
             e?.image?.[2]?.link ||
             e?.image?.[2]?.url ||
-            e?.images?.[2]?.link ||
-            e?.images?.[2]?.url ||
+            e?.image?.[2]?.uri ||
+            (Array.isArray(e?.image) ? e.image[e.image.length - 1]?.url || e.image[e.image.length - 1]?.link : '') ||
             '',
           image:
             e?.image?.[2]?.link ||
             e?.image?.[2]?.url ||
-            e?.images?.[2]?.link ||
-            e?.images?.[2]?.url ||
+            e?.image?.[2]?.uri ||
+            (Array.isArray(e?.image) ? e.image[e.image.length - 1]?.url || e.image[e.image.length - 1]?.link : '') ||
             '',
           duration: e?.duration || 0,
           id: e?.id || `unknown-${i}`,

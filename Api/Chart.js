@@ -8,8 +8,8 @@ async function getChartData(id) {
 
   // Define the fetch function with fallback
   const fetchFunction = async () => {
-    const primaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/charts?id=${id}`;
-    const secondaryUrl = `https://saavn.dev/api/charts?id=${id}`;
+    const primaryUrl = `https://saavn.sumit.co/api/charts?id=${id}`;
+    const secondaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/charts?id=${id}`;
     const config = {
       method: 'get',
       maxBodyLength: Infinity,

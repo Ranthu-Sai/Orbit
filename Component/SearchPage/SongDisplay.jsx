@@ -7,7 +7,7 @@ import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
 import { useTheme } from '@react-navigation/native';
 
-export default function SongDisplay({ data, source = 'saavn' }) {
+export default function SongDisplay({ data, source = 'ytmusic' }) {
   const theme = useTheme();
   const activeTrack = useActiveTrack();
   const playbackState = usePlaybackState();
@@ -63,14 +63,20 @@ export default function SongDisplay({ data, source = 'saavn' }) {
               duration={item?.duration}
               image={
                 item?.image?.[2]?.url ??
+                item?.image?.[2]?.link ??
                 item?.image?.[0]?.url ??
+                item?.image?.[0]?.link ??
                 item?.artwork ??
                 ''
               }
               id={item?.id}
               width={width * 0.95}
               title={item?.name || item?.title}
-              artist={FormatArtist(item?.artists?.primary) || item?.artist}
+              artist={
+                FormatArtist(item?.artists?.primary) ||
+                item?.primaryArtists ||
+                item?.artist
+              }
               url={item?.downloadUrl} // This is used for Saavn downloads
               showNumber={false}
               source={item?.source || source || 'saavn'} // Preserve item's original source (dab, ytmusic, saavn)

@@ -56,15 +56,19 @@ const extractArtwork = (song) => {
   }
   // Array format (Saavn/OuterTune)
   else if (song.image && Array.isArray(song.image)) {
-    const bestImage = song.image[song.image.length - 1] || song.image[0];
+    const bestImage =
+      song.image[2] ||
+      song.image[song.image.length - 1] ||
+      song.image[0];
     artworkUrl =
       bestImage?.url ||
       bestImage?.link ||
+      bestImage?.uri ||
       (typeof bestImage === 'string' ? bestImage : '');
   }
   // Single Image Object format
   else if (song.image && typeof song.image === 'object') {
-    artworkUrl = song.image.url || song.image.uri || '';
+    artworkUrl = song.image.url || song.image.link || song.image.uri || '';
   }
   // Thumbnail format (YTMusic)
   else if (song.thumbnail) {
@@ -850,15 +854,17 @@ async function AddPlaylist(songs, startSongId = null) {
       } else {
         // Standard file/download URL logic (Saavn, etc.)
         if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
-          updatedSong.url =
-            song.downloadUrl[qualityIndex]?.url ||
-            song.downloadUrl.find((d) => d?.url)?.url ||
-            song.url;
+          const entry =
+            song.downloadUrl[qualityIndex] ||
+            song.downloadUrl[song.downloadUrl.length - 1] ||
+            song.downloadUrl[0];
+          updatedSong.url = entry?.url || entry?.link || song.url;
         } else if (song.download_url && Array.isArray(song.download_url)) {
-          updatedSong.url =
-            song.download_url[qualityIndex]?.url ||
-            song.download_url.find((d) => d?.url)?.url ||
-            song.url;
+          const entry =
+            song.download_url[qualityIndex] ||
+            song.download_url[song.download_url.length - 1] ||
+            song.download_url[0];
+          updatedSong.url = entry?.url || entry?.link || song.url;
         }
         playbackUrl = updatedSong.url;
       }

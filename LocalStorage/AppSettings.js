@@ -217,10 +217,10 @@ async function GetHomeFeedSource() {
     if (value !== null) {
       return value;
     } else {
-      return 'Hybrid'; // Default home feed source
+      return 'YTMusic'; // Default home feed source
     }
   } catch (e) {
-    return 'Hybrid'; // Fallback to Hybrid
+    return 'YTMusic'; // Fallback to YTMusic
   }
 }
 

@@ -20,7 +20,7 @@ const SearchSuggestions = ({
   suggestions = [],
   quickResults = [],
   onSuggestionPress,
-  source = 'saavn',
+   source = 'ytmusic',
 }) => {
   const { colors } = useTheme();
   const navigation = useNavigation();
@@ -99,17 +99,23 @@ const SearchSuggestions = ({
               duration={song?.duration}
               image={
                 song?.image?.[2]?.url ??
+                song?.image?.[2]?.link ??
                 song?.image?.[0]?.url ??
+                song?.image?.[0]?.link ??
                 song?.artwork ??
                 ''
               }
               id={song?.id}
               width={width - 30} // Account for paddingHorizontal: 15
               title={song?.name || song?.title}
-              artist={FormatArtist(song?.artists?.primary) || song?.artist}
+              artist={
+                FormatArtist(song?.artists?.primary) ||
+                song?.primaryArtists ||
+                song?.artist
+              }
               url={song?.downloadUrl}
               showNumber={false}
-              source={song?.source || source || 'saavn'}
+              source={song?.source || source || 'ytmusic'}
               item={song}
               Data={{ data: { results: quickResults } }}
               index={index}

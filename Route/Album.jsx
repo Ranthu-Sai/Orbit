@@ -349,7 +349,9 @@ export const Album = ({ route }) => {
     () => (
       <AlbumHeader
         imageUrl={
-          Data?.data?.image?.[2]?.url || Data?.data?.image?.[0]?.url || ''
+          (Array.isArray(Data?.data?.image)
+            ? Data?.data?.image?.[2]?.url || Data?.data?.image?.[0]?.url
+            : Data?.data?.image) || ''
         }
         title={Data?.data?.name || 'Album'}
         songCount={songsArray.length}
