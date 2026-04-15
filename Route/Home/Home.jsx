@@ -194,13 +194,18 @@ export const Home = () => {
       setIsConnected(!networkState.isConnected);
       setOffline(!networkState.isConnected);
 
-      if (networkState.isConnected) {
-        // Step 3: Fetch fresh data
-        const Languages = await GetLanguageValue();
-        const [data, homefeedResult] = await Promise.allSettled([
-          getHomePageData(Languages, forceRefresh),
-          getYTMusicHomeFeed(15, forceRefresh),
-        ]);
+if (networkState.isConnected) {
+      // Step 3: Fetch fresh data
+      const Languages = await GetLanguageValue();
+
+      // Only fetch YTMusic homefeed for Hybrid or Saavn modes
+      // (YTMusic mode has its own component that handles fetching via InnerTubeClient.getHome cache)
+      const fetchPromises = [getHomePageData(Languages, forceRefresh)];
+      if (homeFeedSource !== 'YTMusic') {
+        fetchPromises.push(getYTMusicHomeFeed(15, forceRefresh));
+      }
+
+      const [data, homefeedResult] = await Promise.allSettled(fetchPromises);
 
         if (!isMounted.current) {
           return;
@@ -242,10 +247,11 @@ export const Home = () => {
           CacheManager.set(cacheKey, fetchedData, CACHE_TTL.HOME_DATA);
         }
 
-        if (
-          homefeedResult.status === 'fulfilled' &&
-          homefeedResult.value?.data
-        ) {
+if (
+      homefeedResult &&
+      homefeedResult.status === 'fulfilled' &&
+      homefeedResult.value?.data
+    ) {
           const homefeed = homefeedResult.value.data || {
             playlists: [],
             albums: [],

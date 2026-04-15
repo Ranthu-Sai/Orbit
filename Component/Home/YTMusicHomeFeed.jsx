@@ -291,50 +291,53 @@ const ArtistSection = ({ title, items }) => {
 export const YTMusicHomeFeed = forwardRef(
   ({ refreshing, onRefreshComplete }, ref) => {
     const { colors } = useTheme();
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [sections, setSections] = useState([]);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [userName, setUserName] = useState('');
     const isMounted = useRef(true);
+    const hasInitiallyLoaded = useRef(false);
 
     // Lazy loading state - show 3 sections initially, load 2 more on scroll
     const INITIAL_SECTIONS = 3;
     const SECTIONS_PER_LOAD = 2;
     const [visibleCount, setVisibleCount] = useState(INITIAL_SECTIONS);
 
-    const fetchHomeData = async (forceRefresh = false) => {
-      try {
-        if (!forceRefresh) {
-          setLoading(true);
+const fetchHomeData = async (forceRefresh = false) => {
+    try {
+      const cacheKey = generateCacheKey(CACHE_KEYS.HOME, 'ytmusic_sections');
+
+      // Always fetch Quick Picks (they have their own cache in LocalRecommendationService)
+      const quickPicksPromise =
+        localRecommendationService.getQuickPicks(forceRefresh);
+
+      // Check cache for sections (24hr TTL) - NOT Quick Picks
+      // RAM check is instant, disk check is ~50-100ms
+      // Don't show loading state until cache miss is confirmed
+      let cachedSections = null;
+      if (!forceRefresh) {
+        // Try RAM cache first (instant)
+        cachedSections = CacheManager.get(cacheKey);
+        if (cachedSections) {
+          // RAM hit - use cached data immediately, no loading state
+        } else {
+          // Try disk cache (50-100ms) - still don't show skeleton
+          cachedSections = await CacheManager.getAsync(cacheKey);
         }
+      }
 
-        const cacheKey = generateCacheKey(CACHE_KEYS.HOME, 'ytmusic_sections');
+      // Clear cache on force refresh
+      if (forceRefresh) {
+        CacheManager.invalidate(cacheKey);
+        await localRecommendationService.clearCache();
+      }
 
-        // Always fetch Quick Picks (they have their own cache in LocalRecommendationService)
-        const quickPicksPromise =
-          localRecommendationService.getQuickPicks(forceRefresh);
+      // Only show loading and fetch from API if no cache
+      if (!cachedSections) {
+        setLoading(true); // Show skeleton only after confirmed cache miss
+      }
 
-        // Check disk cache for sections (24hr TTL) - NOT Quick Picks
-        let cachedSections = null;
-        if (!forceRefresh) {
-          // Try RAM cache first
-          cachedSections = CacheManager.get(cacheKey);
-          if (cachedSections) {
-          } else {
-            // Try disk cache
-            cachedSections = await CacheManager.getAsync(cacheKey);
-            if (cachedSections) {
-            }
-          }
-        }
-
-        // Clear cache on force refresh
-        if (forceRefresh) {
-          CacheManager.invalidate(cacheKey);
-          await localRecommendationService.clearCache();
-        }
-
-        let processedSections = cachedSections;
+      let processedSections = cachedSections;
 
         // Fetch from API if no cache or force refresh
         if (!processedSections) {
@@ -478,6 +481,7 @@ export const YTMusicHomeFeed = forwardRef(
       } finally {
         if (isMounted.current) {
           setLoading(false);
+          hasInitiallyLoaded.current = true;
         }
       }
     };
@@ -596,8 +600,8 @@ export const YTMusicHomeFeed = forwardRef(
           </View>
         )}
 
-        {/* Empty State */}
-        {sections.length === 0 && !loading && (
+        {/* Empty State - only show after initial load has completed and failed */}
+        {sections.length === 0 && !loading && hasInitiallyLoaded.current && (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, { color: colors.text }]}>
               No content available from YouTube Music.

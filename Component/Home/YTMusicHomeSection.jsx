@@ -124,6 +124,7 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
   const [ytMusicItems, setYtMusicItems] = useState([]); // Changed from ytMusicSongs to ytMusicItems
   const [loading, setLoading] = useState(true);
   const [hasData, setHasData] = useState(false);
+  const hasInitiallyLoaded = useRef(false);
 
   // Expose refresh method to parent
   useImperativeHandle(ref, () => ({
@@ -321,6 +322,7 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
     } finally {
       // Always set loading to false when done, regardless of forceRefresh
       setLoading(false);
+      hasInitiallyLoaded.current = true;
     }
   };
 
@@ -484,8 +486,8 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
           return renderSingleSection(sectionTitle, actualIndex);
         })}
 
-        {/* Show empty state if no content and not loading */}
-        {!loading && sectionTitles.length === 0 && (
+        {/* Show empty state only after initial load has completed and failed */}
+        {!loading && sectionTitles.length === 0 && hasInitiallyLoaded.current && (
           <PaddingConatiner>
             <View
               style={{

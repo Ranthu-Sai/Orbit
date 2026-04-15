@@ -90,8 +90,8 @@ class YouTubeMusicService {
     return await InnerTubeClient.getSearchSuggestions(query);
   }
 
-  static async getHomeFeed(limit = 10, _forceRefresh = false) {
-    return await InnerTubeClient.getHome(limit);
+  static async getHomeFeed(limit = 10, forceRefresh = false) {
+    return await InnerTubeClient.getHome(limit, forceRefresh);
   }
 
   static async getPlaylist(playlistId) {

@@ -6,6 +6,11 @@
  */
 
 import { enhanceYTMusicArtwork } from '../Utils/ArtworkEnhancer';
+import { getCachedData, CACHE_GROUPS } from './CacheManager';
+
+// Cache constants for home feed
+const HOME_FEED_CACHE_KEY = 'ytmusic_home_sections_unified';
+const HOME_FEED_CACHE_TTL_MINUTES = 1440; // 24 hours
 
 const INNERTUBE_API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
 const INNERTUBE_API_URL = 'https://music.youtube.com/youtubei/v1';
@@ -192,145 +197,186 @@ class InnerTubeClient {
       return null;
     }
   }
-  /**
-   * Get Home Feed with continuation support
-   * Fetches sections by following continuation tokens and chips (like OuterTune)
-   * @param {number} sectionLimit - Maximum number of sections to fetch
-   */
-  static async getHome(sectionLimit = 20) {
-    let authCookies = null;
+/**
+ * Get Home Feed - cache-aware wrapper
+ * Checks cache first, fetches fresh if cache miss or forceRefresh
+ * @param {number} sectionLimit - Maximum number of sections to fetch
+ * @param {boolean} forceRefresh - Skip cache if true
+ * @returns {Promise<Array>} Array of home feed sections
+ */
+static async getHome(sectionLimit = 20, forceRefresh = false) {
+  if (forceRefresh) {
+    // Skip cache on force refresh
+    return await InnerTubeClient.getHomeWithContinuation(sectionLimit);
+  }
 
-    // Try to get auth cookies for personalized content
-    try {
-      const ytAuthService = require('../Utils/YouTubeAuthService').default;
-      if (ytAuthService.isAuth()) {
-        authCookies = await ytAuthService.getCookies();
-      }
-    } catch (e) {}
+  try {
+    const cachedResult = await getCachedData(
+      HOME_FEED_CACHE_KEY,
+      async () => {
+        // Fetch fresh data and wrap in success object for getCachedData
+        const data = await InnerTubeClient.getHomeWithContinuation(sectionLimit);
+        return { sections: data, success: true };
+      },
+      HOME_FEED_CACHE_TTL_MINUTES,
+      CACHE_GROUPS.HOME,
+      false // forceRefresh handled above
+    );
 
-    // Get user's language and country preference from settings
-    // Note: Language affects UI text, songs are based on listening HISTORY (visitorData)
-    // Use an account with listening history for personalized recommendations
-    let userLanguage = 'SYSTEM_DEFAULT';
-    let userCountry = 'SYSTEM_DEFAULT';
-    try {
-      const AsyncStorage =
-        require('@react-native-async-storage/async-storage').default;
-      const storedLang = await AsyncStorage.getItem('ytmusic_language');
-      const storedCountry = await AsyncStorage.getItem('ytmusic_country');
-      if (storedLang) {
-        userLanguage = storedLang;
-      }
-      if (storedCountry) {
-        userCountry = storedCountry;
-      }
-    } catch (e) {}
+    // getCachedData returns the data from fetchFunction directly on cache miss
+    // On cache hit, it returns the cached data
+    if (cachedResult && Array.isArray(cachedResult)) {
+      return cachedResult;
+    }
+    if (cachedResult?.sections && Array.isArray(cachedResult.sections)) {
+      return cachedResult.sections;
+    }
+    // Fallback to fresh fetch
+    return await InnerTubeClient.getHomeWithContinuation(sectionLimit);
+  } catch (error) {
+    console.warn('YTMusic home cache error, fetching fresh:', error.message);
+    return await InnerTubeClient.getHomeWithContinuation(sectionLimit);
+  }
+}
 
-    // Initial request with user's language preference
-    const data = await this.request(
+/**
+ * Internal method - does the actual API fetching with continuation
+ * @param {number} sectionLimit - Maximum number of sections to fetch
+ */
+static async getHomeWithContinuation(sectionLimit = 20) {
+  let authCookies = null;
+
+  // Try to get auth cookies for personalized content
+  try {
+    const ytAuthService = require('../Utils/YouTubeAuthService').default;
+    if (ytAuthService.isAuth()) {
+      authCookies = await ytAuthService.getCookies();
+    }
+  } catch (e) {}
+
+  // Get user's language and country preference from settings
+  // Note: Language affects UI text, songs are based on listening HISTORY (visitorData)
+  // Use an account with listening history for personalized recommendations
+  let userLanguage = 'SYSTEM_DEFAULT';
+  let userCountry = 'SYSTEM_DEFAULT';
+  try {
+    const AsyncStorage =
+      require('@react-native-async-storage/async-storage').default;
+    const storedLang = await AsyncStorage.getItem('ytmusic_language');
+    const storedCountry = await AsyncStorage.getItem('ytmusic_country');
+    if (storedLang) {
+      userLanguage = storedLang;
+    }
+    if (storedCountry) {
+      userCountry = storedCountry;
+    }
+  } catch (e) {}
+
+  // Initial request with user's language preference
+  const data = await this.request(
+    'browse',
+    { browseId: 'FEmusic_home' },
+    userCountry,
+    authCookies,
+    userLanguage
+  );
+
+  // Parse initial sections, chips, and continuation token
+  let { sections, chips, continuation } =
+    this.parseHomeWithContinuation(data);
+  let allSections = [...sections];
+  const seenTitles = new Set(sections.map((s) => s.title));
+
+  // 1. Follow continuations iteratively (Main Home Feed)
+  let continuationCount = 0;
+  const MAX_CONTINUATIONS = 5;
+
+  while (
+    continuation &&
+    allSections.length < sectionLimit &&
+    continuationCount < MAX_CONTINUATIONS
+  ) {
+    const contData = await this.request(
       'browse',
-      { browseId: 'FEmusic_home' },
+      { continuation },
       userCountry,
       authCookies,
       userLanguage
     );
+    const contResult = this.parseHomeContinuation(contData);
 
-    // Parse initial sections, chips, and continuation token
-    let { sections, chips, continuation } =
-      this.parseHomeWithContinuation(data);
-    let allSections = [...sections];
-    const seenTitles = new Set(sections.map((s) => s.title));
+    let addedInThisCont = 0;
+    contResult.sections.forEach((section) => {
+      if (section.title && !seenTitles.has(section.title)) {
+        seenTitles.add(section.title);
+        allSections.push(section);
+        addedInThisCont++;
+      }
+    });
+    continuation = contResult.continuation;
+    continuationCount++;
 
-    // 1. Follow continuations iteratively (Main Home Feed)
-    let continuationCount = 0;
-    const MAX_CONTINUATIONS = 5;
+    if (addedInThisCont === 0) {
+      break;
+    } // Stop if no new sections found
+  }
 
-    while (
-      continuation &&
-      allSections.length < sectionLimit &&
-      continuationCount < MAX_CONTINUATIONS
-    ) {
-      const contData = await this.request(
-        'browse',
-        { continuation },
-        userCountry,
-        authCookies,
-        userLanguage
-      );
-      const contResult = this.parseHomeContinuation(contData);
+  // 2. Fetch from chips (additional variety like OuterTune)
+  if (chips && chips.length > 0 && allSections.length < sectionLimit) {
+    const chipsToFetch = [];
 
-      let addedInThisCont = 0;
-      contResult.sections.forEach((section) => {
+    // Prioritize the "Music" chip if found (contains personalized "Albums for you")
+    const musicChip = chips.find((c) =>
+      c.title.toLowerCase().includes('music')
+    );
+    if (musicChip) {
+      chipsToFetch.push(musicChip);
+    }
+
+    // Add other chips up to limit
+    chips.forEach((c) => {
+      if (c !== musicChip && chipsToFetch.length < 8) {
+        chipsToFetch.push(c);
+      }
+    });
+
+    const chipPromises = chipsToFetch.map(async (chip, idx) => {
+      if (!chip.params) {
+        return [];
+      }
+
+      try {
+        const chipData = await this.request(
+          'browse',
+          {
+            browseId: 'FEmusic_home',
+            params: chip.params,
+          },
+          userCountry,
+          authCookies,
+          userLanguage
+        );
+
+        const chipResult = this.parseHomeWithContinuation(chipData);
+        return chipResult.sections;
+      } catch (e) {
+        return [];
+      }
+    });
+
+    const chipResultsArr = await Promise.all(chipPromises);
+
+    chipResultsArr.forEach((chipSections) => {
+      chipSections.forEach((section) => {
         if (section.title && !seenTitles.has(section.title)) {
           seenTitles.add(section.title);
           allSections.push(section);
-          addedInThisCont++;
         }
       });
-      continuation = contResult.continuation;
-      continuationCount++;
-
-      if (addedInThisCont === 0) {
-        break;
-      } // Stop if no new sections found
-    }
-
-    // 2. Fetch from chips (additional variety like OuterTune)
-    if (chips && chips.length > 0 && allSections.length < sectionLimit) {
-      const chipsToFetch = [];
-
-      // Prioritize the "Music" chip if found (contains personalized "Albums for you")
-      const musicChip = chips.find((c) =>
-        c.title.toLowerCase().includes('music')
-      );
-      if (musicChip) {
-        chipsToFetch.push(musicChip);
-      }
-
-      // Add other chips up to limit
-      chips.forEach((c) => {
-        if (c !== musicChip && chipsToFetch.length < 8) {
-          chipsToFetch.push(c);
-        }
-      });
-
-      const chipPromises = chipsToFetch.map(async (chip, idx) => {
-        if (!chip.params) {
-          return [];
-        }
-
-        try {
-          const chipData = await this.request(
-            'browse',
-            {
-              browseId: 'FEmusic_home',
-              params: chip.params,
-            },
-            userCountry,
-            authCookies,
-            userLanguage
-          );
-
-          const chipResult = this.parseHomeWithContinuation(chipData);
-          return chipResult.sections;
-        } catch (e) {
-          return [];
-        }
-      });
-
-      const chipResultsArr = await Promise.all(chipPromises);
-
-      chipResultsArr.forEach((chipSections) => {
-        chipSections.forEach((section) => {
-          if (section.title && !seenTitles.has(section.title)) {
-            seenTitles.add(section.title);
-            allSections.push(section);
-          }
-        });
-      });
-    }
-    return allSections;
+    });
   }
+  return allSections;
+}
 
   /**
    * Get Search Results

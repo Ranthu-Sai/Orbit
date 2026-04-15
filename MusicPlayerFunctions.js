@@ -95,13 +95,12 @@ export const setupPlayer = async () => {
   try {
     if (!isPlayerInitialized) {
       try {
-        await TrackPlayer.setupPlayer({
-          android: {
-            appKilledPlaybackBehavior: 'ContinuePlayback',
-            alwaysPauseOnInterruption: false,
-          },
-          autoHandleInterruptions: true,
-          autoUpdateMetadata: true,
+await TrackPlayer.setupPlayer({
+            android: {
+                appKilledPlaybackBehavior: 'ContinuePlayback',
+                alwaysPauseOnInterruption: false,
+            },
+            autoUpdateMetadata: true,
         });
         // NOTE: Remote control listeners (play, pause, next, previous) are registered in service.js
         // to avoid duplicate event listeners. DO NOT add them here.

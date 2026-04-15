@@ -11,15 +11,14 @@ let isPlayerInitialized = false;
 export const PlaybackService = async function () {
   try {
     if (!isPlayerInitialized) {
-      await TrackPlayer.setupPlayer({
+await TrackPlayer.setupPlayer({
         android: {
-          appKilledPlaybackBehavior: 'ContinuePlayback',
-          alwaysPauseOnInterruption: false,
+            appKilledPlaybackBehavior: 'ContinuePlayback',
+            alwaysPauseOnInterruption: false,
         },
-        autoHandleInterruptions: true,
         autoUpdateMetadata: true,
         waitForBuffer: true,
-      });
+    });
       isPlayerInitialized = true;
     }
 
