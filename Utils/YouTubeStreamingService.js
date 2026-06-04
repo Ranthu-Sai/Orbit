@@ -109,16 +109,47 @@ class YouTubeStreamingService {
       if (cookies) {
       }
 
-      // Call appropriate native method based on use case
-      // - getStreamUrlForDownload: Prioritizes M4A for metadata embedding (always best quality)
-      // - getStreamUrl: Respects autoQuality preference (Auto = fast, High = best quality)
-      const result = preferM4A
-        ? await NativeStreaming.getStreamUrlForDownload(videoId, cookies || '')
-        : await NativeStreaming.getStreamUrl(
-            videoId,
-            cookies || '',
-            autoQuality
+      let result = null;
+
+      // Try InnerTube JS API first for streaming to avoid native extractor issues
+      if (!preferM4A) {
+        try {
+          const InnerTubeClient = require('../Api/InnertubeClient').default;
+          const innertubeResult = await InnerTubeClient.getPlayerResponse(videoId);
+          if (innertubeResult && innertubeResult.url) {
+            result = {
+              url: innertubeResult.url,
+              thumbnail: innertubeResult.thumbnail,
+              duration: innertubeResult.duration,
+              title: innertubeResult.title,
+              author: innertubeResult.author,
+              format: 'opus',
+              mimeType: innertubeResult.mimeType || 'audio/webm',
+              bitrate: innertubeResult.bitrate,
+            };
+          }
+        } catch (innertubeErr) {
+          console.warn(
+            `⚠️ InnerTube JS player failed for ${videoId}:`,
+            innertubeErr.message
           );
+        }
+      }
+
+      // Fallback to Native NewPipe (or use directly for downloads)
+      if (!result) {
+        const nativeResult = preferM4A
+          ? await NativeStreaming.getStreamUrlForDownload(videoId, cookies || '')
+          : await NativeStreaming.getStreamUrl(
+              videoId,
+              cookies || '',
+              autoQuality
+            );
+
+        if (nativeResult && nativeResult.url) {
+          result = nativeResult;
+        }
+      }
 
       // Verbose logging removed for cleaner console
 
@@ -154,7 +185,7 @@ class YouTubeStreamingService {
         };
       }
 
-      throw new Error('Native module returned empty result');
+      throw new Error('All stream resolution strategies returned empty result');
     } catch (error) {
       console.error(`❌ Native Streaming failed for ${videoId}:`, error);
       return null;

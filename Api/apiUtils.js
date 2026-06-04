@@ -9,37 +9,74 @@ import axios from 'axios';
  * @returns {Promise<object>} The data from the successful API response.
  * @throws {Error} If both primary and secondary API requests fail.
  */
-export async function requestWithFallback(primaryUrl, secondaryUrl, config) {
-  try {
-    const response = await axios.request({ ...config, url: primaryUrl });
+const API_HOSTS = [
+  'https://jiosaavn-c451wwyru-sumit-kolhes-projects-94a4846a.vercel.app',
+  'https://jio-saavan-api.vercel.app',
+  'https://nepotuneapi.vercel.app',
+  'https://jiosaavn-api-privatecvc2.vercel.app',
+  'https://saavn.sumit.co/api',
+];
 
-    // The private API can return a 200 OK status with an internal error message.
-    // We treat these cases as failures to trigger the fallback.
-    if (response.data?.success === false || response.data?.data === 'NO_DATA') {
-      throw new Error(
-        `Primary API responded with success=false or NO_DATA: ${
-          response.data.message || ''
-        }`
-      );
+function getUrlsToTry(primaryUrl, secondaryUrl) {
+  const urls = [];
+  const addUrlAndFallbacks = (url) => {
+    if (!url) return;
+    
+    // Extract path generically
+    let path = '';
+    const cleanUrl = url.replace('https://', '').replace('http://', '');
+    const slashIndex = cleanUrl.indexOf('/');
+    if (slashIndex !== -1) {
+      path = cleanUrl.substring(slashIndex);
+    } else {
+      urls.push(url);
+      return;
     }
-    return response.data;
-  } catch (primaryError) {
-    console.warn(
-      `Primary API request to ${primaryUrl} failed. Falling back to secondary.`,
-      primaryError.message
-    );
+
+    // Normalize path by stripping /api prefix if it exists
+    if (path.startsWith('/api/')) {
+      path = path.substring(4);
+    }
+    
+    API_HOSTS.forEach((host) => {
+      const targetUrl = `${host}${path}`;
+      if (!urls.includes(targetUrl)) {
+        urls.push(targetUrl);
+      }
+    });
+  };
+
+  addUrlAndFallbacks(primaryUrl);
+  addUrlAndFallbacks(secondaryUrl);
+  return urls;
+}
+
+export async function requestWithFallback(primaryUrl, secondaryUrl, config) {
+  const urlsToTry = getUrlsToTry(primaryUrl, secondaryUrl);
+  let lastError = null;
+
+  for (let i = 0; i < urlsToTry.length; i++) {
+    const url = urlsToTry[i];
     try {
-      const response = await axios.request({ ...config, url: secondaryUrl });
+      const response = await axios.request({ ...config, url });
+
+      if (response.data?.success === false || response.data?.data === 'NO_DATA') {
+        throw new Error(
+          `API responded with success=false or NO_DATA: ${
+            response.data.message || ''
+          }`
+        );
+      }
       return response.data;
-    } catch (secondaryError) {
-      console.error(
-        `Secondary API request to ${secondaryUrl} also failed.`,
-        secondaryError.message
+    } catch (error) {
+      console.warn(
+        `API request to ${url} failed. Trying next fallback if available. Error:`,
+        error.message
       );
-      // If secondary API fails with network error (domain not found, timeout, etc.)
-      // and primary API had a different kind of error, we should still throw the primary error
-      // But if primary API succeeded, we wouldn't reach this catch block
-      throw primaryError;
+      lastError = error;
     }
   }
+
+  console.error('All API fallbacks failed.');
+  throw lastError || new Error('All API requests failed');
 }

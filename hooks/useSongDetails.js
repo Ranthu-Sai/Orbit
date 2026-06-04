@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { formatDuration } from '../Utils/SongFormatters';
+import { requestWithFallback } from '../Api/apiUtils';
 
 // Helper function to format artists
 const formatArtists = (artists) => {
@@ -258,12 +259,13 @@ const useSongDetails = (track) => {
         }
 
         // For online tracks, fetch from API
-        const response = await axios.get(
-          `https://saavn.sumit.co/api/songs/${track.id}`
+        const responseData = await requestWithFallback(
+          `https://jiosaavn-api-privatecvc2.vercel.app/songs/${track.id}`,
+          `https://jio-saavan-api.vercel.app/songs/${track.id}`
         );
 
-        if (response.data && response.data.success) {
-          const data = response.data.data?.[0]; // Get first item from array
+        if (responseData && responseData.success) {
+          const data = responseData.data?.[0]; // Get first item from array
           if (!data) {
             throw new Error('No song data found');
           }
