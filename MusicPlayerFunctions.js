@@ -1,5 +1,5 @@
 import TrackPlayer from 'react-native-track-player';
-import { setRepeatMode } from 'react-native-track-player/lib/trackPlayer';
+
 import { GetPlaybackQuality } from './LocalStorage/AppSettings';
 import NetInfo from '@react-native-community/netinfo';
 import {
@@ -1538,7 +1538,7 @@ async function SkipToTrack(trackIndex) {
   }
 }
 async function SetRepeatMode(mode) {
-  await setRepeatMode(mode);
+  await TrackPlayer.setRepeatMode(mode);
 }
 
 async function getIndexQuality() {

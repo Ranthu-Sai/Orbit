@@ -1,10 +1,39 @@
-import { getApp } from '@react-native-firebase/app';
+import getApp from '@react-native-firebase/app';
 import {
   getAnalytics,
   FirebaseAnalyticsTypes,
 } from '@react-native-firebase/analytics';
 
-const analyticsInstance: FirebaseAnalyticsTypes.Module = getAnalytics(getApp());
+// Lazily initialize analyticsInstance. Avoid calling native APIs at module
+// load time because that can throw if the native Firebase modules are not
+// available (causes the runtime fatal error: firebase.app()).
+let analyticsInstance: FirebaseAnalyticsTypes.Module | null = null;
+
+function getAnalyticsIfAvailable(): FirebaseAnalyticsTypes.Module | null {
+  if (analyticsInstance) {
+    return analyticsInstance;
+  }
+  try {
+    // Try getting analytics without providing an app (works with many package versions).
+    analyticsInstance = getAnalytics();
+    return analyticsInstance;
+  } catch (error) {
+    // Fallback: if the imported module is callable, call it to obtain an app.
+    try {
+      if (typeof (getApp as any) === 'function') {
+        const app = (getApp as any)();
+        analyticsInstance = getAnalytics(app as any);
+        return analyticsInstance;
+      }
+    } catch (e) {
+      // ignore and fall through
+    }
+
+    // Native Firebase not available — return null and let callers silently no-op.
+    analyticsInstance = null;
+    return null;
+  }
+}
 
 // Analytics event types
 export enum AnalyticsEvents {
@@ -34,7 +63,11 @@ class AnalyticsService {
    */
   setAnalyticsCollectionEnabled = async (enabled: boolean) => {
     try {
-      await analyticsInstance.setAnalyticsCollectionEnabled(enabled);
+      const instance = getAnalyticsIfAvailable();
+      if (!instance) {
+        return;
+      }
+      await instance.setAnalyticsCollectionEnabled(enabled);
     } catch (error) {
       // Silent error handling for analytics
     }
@@ -47,7 +80,11 @@ class AnalyticsService {
    */
   logScreenView = async (screenName: string, screenClass?: string) => {
     try {
-      await analyticsInstance.logScreenView({
+      const instance = getAnalyticsIfAvailable();
+      if (!instance) {
+        return;
+      }
+      await instance.logScreenView({
         screen_name: screenName,
         screen_class: screenClass || screenName,
       });
@@ -63,7 +100,11 @@ class AnalyticsService {
    */
   logEvent = async (eventName: string, params?: Record<string, any>) => {
     try {
-      await analyticsInstance.logEvent(eventName, params);
+      const instance = getAnalyticsIfAvailable();
+      if (!instance) {
+        return;
+      }
+      await instance.logEvent(eventName, params);
     } catch (error) {
       // Silent error handling for analytics
     }
@@ -76,7 +117,11 @@ class AnalyticsService {
    */
   setUserProperty = async (name: string, value: string) => {
     try {
-      await analyticsInstance.setUserProperty(name, value);
+      const instance = getAnalyticsIfAvailable();
+      if (!instance) {
+        return;
+      }
+      await instance.setUserProperty(name, value);
     } catch (error) {
       // Silent error handling for analytics
     }

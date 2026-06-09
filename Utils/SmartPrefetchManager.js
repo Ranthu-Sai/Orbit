@@ -95,9 +95,6 @@ class SmartPrefetchManager {
     this.queueUpdateListener = DeviceEventEmitter.addListener(
       'queue-updated',
       async () => {
-        console.log(
-          '🔄 SmartPrefetch: Queue updated - checking if prefetch retry needed'
-        );
         try {
           const currentIndex = await TrackPlayer.getActiveTrackIndex();
           if (currentIndex === undefined) {
@@ -113,11 +110,6 @@ class SmartPrefetchManager {
             this.needsStream(nextTrack) &&
             !this.prefetchedTracks.has(nextTrack.id)
           ) {
-            console.log(
-              `🔄 SmartPrefetch: Retrying N+1 prefetch at index ${
-                currentIndex + 1
-              }`
-            );
             await this._prefetchTrackAtIndex(currentIndex + 1);
 
             // Also try N+2
@@ -127,11 +119,6 @@ class SmartPrefetchManager {
               this.needsStream(next2Track) &&
               !this.prefetchedTracks.has(next2Track.id)
             ) {
-              console.log(
-                `🔄 SmartPrefetch: Retrying N+2 prefetch at index ${
-                  currentIndex + 2
-                }`
-              );
               await this._prefetchTrackAtIndex(currentIndex + 2);
             }
           }
@@ -143,7 +130,6 @@ class SmartPrefetchManager {
 
     this.isInitialized = true;
     this.errorHandlerRegistered = true;
-    console.log('✨ SmartPrefetchManager initialized (FIXED VERSION)');
   }
 
   // ==========================================
@@ -217,7 +203,6 @@ class SmartPrefetchManager {
         // Validate we're still on the same track
         const nowPlaying = await TrackPlayer.getActiveTrackIndex();
         if (nowPlaying === this.currentTrackIndex) {
-          console.log('🎵 Prefetching next song (N+1)...');
           this._prefetchTrackAtIndex(nowPlaying + 1).catch((err) => {
             // Only log real errors, not expected ones like 'track doesn't exist'
             if (
@@ -306,16 +291,6 @@ class SmartPrefetchManager {
       shouldPrefetch = true; // Optimistically try to prefetch
     }
 
-    // Log event for debugging (only for streaming sources)
-    if (shouldPrefetch) {
-      console.log('🔔 SmartPrefetch: Track changed event', {
-        index: event.index,
-        trackId: track?.id,
-        source: detectedSource,
-        title: track?.title?.substring(0, 30),
-      });
-    }
-
     if (event.index !== undefined && event.index !== null && shouldPrefetch) {
       this._cancelPendingPrefetch();
 
@@ -342,8 +317,6 @@ class SmartPrefetchManager {
     // CRITICAL: Skip cleanup if we're in recovery mode to prevent index shifts
     if (!this.isRecovering) {
       effectiveIndex = await this._cleanupOldTracks(event.index);
-    } else {
-      console.log('⏳ Skipping queue cleanup - recovery in progress');
     }
 
     this.currentTrackIndex = effectiveIndex;
@@ -361,29 +334,22 @@ class SmartPrefetchManager {
         nextTrack._needsSpotifyMapping ||
         nextTrack.url?.startsWith('spotify://'));
 
-    console.log(
-      `🎵 Track Changed: Starting prefetch (${
-        isSpotifyPlaylist ? 'Spotify parallel' : 'sequential'
-      })`
-    );
-
     if (isSpotifyPlaylist) {
       // 🚀 PARALLEL PREFETCH for Spotify: N+1 and N+2 simultaneously
       // This reduces total prefetch time from ~4s to ~2s (2 network calls per track)
-      console.log('🎵 Spotify playlist: Starting parallel N+1/N+2 prefetch');
       Promise.all([
         this._prefetchTrackAtIndex(currentIdx + 1).catch((e) =>
           e.message?.includes("doesn't exist")
             ? null
-            : console.log('N+1:', e.message)
+            : null
         ),
         this._prefetchTrackAtIndex(currentIdx + 2).catch((e) =>
           e.message?.includes("doesn't exist")
             ? null
-            : console.log('N+2:', e.message)
+            : null
         ),
       ]).then(() => {
-        console.log('✅ Spotify parallel prefetch complete');
+        // Parallel prefetch complete
       });
     } else {
       // 🎵 SEQUENTIAL PREFETCH: N+1 first, then N+2 after N+1 completes
@@ -398,22 +364,14 @@ class SmartPrefetchManager {
             // Get FRESH current index - queue may have been rearranged
             const freshIdx = await TrackPlayer.getActiveTrackIndex();
             if (freshIdx !== null && freshIdx !== undefined) {
-              console.log(`🎵 N+1 done, starting N+2 at index ${freshIdx + 2}`);
               await this._prefetchTrackAtIndex(freshIdx + 2);
-              console.log('✅ N+2 prefetch complete');
             }
           } catch (err) {
             // Silence expected errors
-            if (!err.message?.includes("doesn't exist")) {
-              console.log('N+2 prefetch skipped:', err.message);
-            }
           }
         });
       } catch (err) {
         // Silence expected errors
-        if (!err.message?.includes("doesn't exist")) {
-          console.log('N+1 prefetch error:', err.message);
-        }
       }
     }
   }
@@ -425,7 +383,6 @@ class SmartPrefetchManager {
   async _prefetchNextFromCurrent() {
     const currentIdx = await TrackPlayer.getActiveTrackIndex();
     if (currentIdx !== null && currentIdx !== undefined) {
-      console.log(`🎵 Prefetching N+1 at index ${currentIdx + 1}`);
       await this._prefetchTrackAtIndex(currentIdx + 1);
     }
   }
@@ -450,9 +407,6 @@ class SmartPrefetchManager {
 
     // STOP if looping too fast (Max 3 retries in 5 seconds)
     if (this.consecutiveErrors > 3) {
-      console.error(
-        '⚡ CIRCUIT BREAKER TRIPPED: Stopping playback to prevent freeze.'
-      );
       await TrackPlayer.pause();
       this.consecutiveErrors = 0;
       this.isRecovering = false;
@@ -466,28 +420,21 @@ class SmartPrefetchManager {
       const currentTrack = await TrackPlayer.getActiveTrack();
 
       if (!currentTrack) {
-        console.log('⚠️ No current track during error');
         this.isRecovering = false;
         return;
       }
 
       // Check if track needs stream (has placeholder URL)
       if (this.needsStream(currentTrack)) {
-        console.log(
-          `🔄 Auto-recovery: fetching stream for: ${currentTrack.title}`
-        );
-
         // Fetch stream on-demand
         const streamData = await this.fetchOnDemand(currentTrack.id);
 
         if (streamData && streamData.url) {
           // Replace current track with valid URL using ID-based lookup
           await this._replaceAndPlayTrackById(currentTrack, streamData);
-          console.log('✅ Auto-recovery successful');
           this.consecutiveErrors = 0; // Reset on success
         } else {
           // Failed to get stream - skip to next
-          console.log('⚠️ Recovery failed, skipping to next track');
           await this._skipToNextValidTrackById(currentTrack.id);
         }
       }
@@ -560,7 +507,6 @@ class SmartPrefetchManager {
       // Skip if already prefetched and not expired
       const cached = this.getPrefetchedStream(track.id);
       if (cached) {
-        console.log(`✅ Track ${index} already prefetched: ${track.title}`);
         // Still replace in queue if needed
         await this._replaceTrackInQueue(index, track, cached);
         return;
@@ -568,13 +514,11 @@ class SmartPrefetchManager {
 
       // Skip if already prefetching this track
       if (this.prefetchInProgress.has(track.id)) {
-        console.log(`⏳ Track ${index} prefetch already in progress`);
         return;
       }
 
       this.prefetchInProgress.add(track.id);
 
-      console.log(`🔄 Prefetching track ${index}: ${track.title}`);
 
       let streamData = null;
 
@@ -585,9 +529,6 @@ class SmartPrefetchManager {
         track._needsSpotifyMapping ||
         track.url?.startsWith('spotify://')
       ) {
-        console.log(
-          `🎵 Spotify track detected, mapping to YTMusic: ${track.title}`
-        );
         try {
           const YouTubeMusicService = require('./YouTubeMusicService').default;
           const ytMusicResult = await YouTubeMusicService.searchAndStream(
@@ -602,9 +543,6 @@ class SmartPrefetchManager {
               videoId: ytMusicResult.videoId,
               mappedFromSpotify: true,
             };
-            console.log(
-              `✅ Spotify → YTMusic mapped for prefetch: ${track.title} → ${ytMusicResult.videoId}`
-            );
           } else {
             console.error(
               `❌ Failed to map Spotify track to YTMusic: ${track.title}`
@@ -623,7 +561,6 @@ class SmartPrefetchManager {
         track._needsDabStream ||
         track.url?.startsWith('dab://')
       ) {
-        console.log(`🎵 DAB track detected, fetching stream: ${track.title}`);
         try {
           const dabMusicService = require('./DabMusicService').default;
           await dabMusicService.initialize();
@@ -634,7 +571,6 @@ class SmartPrefetchManager {
               url: dabStreamUrl,
               headers: {},
             };
-            console.log(`✅ DAB stream fetched for prefetch: ${track.title}`);
           }
         } catch (error) {
           console.error(`❌ DAB stream error for prefetch: ${error.message}`);
@@ -660,9 +596,6 @@ class SmartPrefetchManager {
             if (trackAtIndex && trackAtIndex.id === track.id) {
               if (this.needsStream(trackAtIndex)) {
                 await this._replaceTrackInQueue(index, track, streamData);
-                console.log(
-                  `✅ Prefetched & replaced track ${index}: ${track.title}`
-                );
               }
               return;
             }
@@ -677,12 +610,9 @@ class SmartPrefetchManager {
               this.needsStream(currentQueue[currentIndex])
             ) {
               await this._replaceTrackInQueue(currentIndex, track, streamData);
-              console.log(
-                `✅ Prefetched & replaced track ${currentIndex}: ${track.title}`
-              );
             }
           } catch (e) {
-            console.log('Queue replacement failed:', e.message);
+            // Queue replacement failed
           }
         });
       }
@@ -730,9 +660,6 @@ class SmartPrefetchManager {
 
       // Skip if already has valid URL (already replaced)
       if (!this.needsStream(trackAtIndex)) {
-        console.log(
-          `⏭️ Track ${actualIndex} already has URL, skipping replacement`
-        );
         return;
       }
 
@@ -741,8 +668,6 @@ class SmartPrefetchManager {
       // Remove old track and insert new one at ACTUAL index (found by ID)
       await TrackPlayer.remove(actualIndex);
       await TrackPlayer.add(updatedTrack, actualIndex);
-
-      console.log(`🔄 Replaced track at index ${actualIndex}`);
     } catch (error) {
       console.error('Error replacing track:', error.message);
     }
@@ -795,10 +720,6 @@ class SmartPrefetchManager {
       // Skip to it and play
       await TrackPlayer.skip(currentIndex);
       await TrackPlayer.play();
-
-      console.log(
-        `✅ Replaced and playing track at index ${currentIndex} (ID: ${originalTrack.id})`
-      );
     } catch (error) {
       console.error('Error in replaceAndPlayTrackById:', error.message);
       // Last resort - try to just play
@@ -841,7 +762,6 @@ class SmartPrefetchManager {
 
       if (failedIndex === -1) {
         // Track already removed - just try to play current
-        console.log('⏭️ Failed track already removed, playing current');
         await TrackPlayer.play();
         return;
       }
@@ -853,7 +773,6 @@ class SmartPrefetchManager {
       const newQueue = await TrackPlayer.getQueue();
 
       if (newQueue.length === 0) {
-        console.log('⏹️ Queue empty after removing failed track');
         await TrackPlayer.stop();
         return;
       }
@@ -1007,15 +926,11 @@ class SmartPrefetchManager {
       }
 
       if (removeIndices.length > 0) {
-        console.log(
-          `🧹 Queue Cleanup: Removing ${removeIndices.length} old tracks...`
-        );
         await TrackPlayer.remove(removeIndices);
 
         // Update current track index after removal
         this.currentTrackIndex = 5; // After cleanup, current is always at index 5
 
-        console.log('✅ Queue cleaned. Current track now at index 5');
         return 5;
       }
       return currentIndex;
@@ -1063,12 +978,9 @@ class SmartPrefetchManager {
    * Handles Spotify (maps to YTMusic) and DAB tracks
    */
   async fetchOnDemand(trackId) {
-    console.log(`🎯 On-demand fetch for: ${trackId}`);
-
     // Check prefetch cache first
     const cached = this.getPrefetchedStream(trackId);
     if (cached) {
-      console.log(`✅ Using prefetched stream for: ${trackId}`);
       return cached;
     }
 
@@ -1078,16 +990,12 @@ class SmartPrefetchManager {
       const queue = await TrackPlayer.getQueue();
       track = queue.find((t) => t.id === trackId);
     } catch (e) {
-      console.warn('Could not get queue for track lookup');
+      // ignore
     }
 
     // Fetch with retry
     for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
       try {
-        console.log(
-          `🔄 Fetch attempt ${attempt}/${MAX_RETRY_ATTEMPTS} for: ${trackId}`
-        );
-
         let streamData = null;
 
         // SPOTIFY HANDLING: Map to YTMusic first
@@ -1098,9 +1006,6 @@ class SmartPrefetchManager {
             track._needsSpotifyMapping ||
             track.url?.startsWith('spotify://'))
         ) {
-          console.log(
-            `🎵 On-demand: Mapping Spotify track to YTMusic: ${track.title}`
-          );
           const YouTubeMusicService = require('./YouTubeMusicService').default;
           const ytMusicResult = await YouTubeMusicService.searchAndStream(
             track.title || track.name,
@@ -1124,7 +1029,6 @@ class SmartPrefetchManager {
             track._needsDabStream ||
             track.url?.startsWith('dab://'))
         ) {
-          console.log(`🎵 On-demand: Fetching DAB stream: ${track.title}`);
           const dabMusicService = require('./DabMusicService').default;
           await dabMusicService.initialize();
           const dabStreamUrl = await dabMusicService.getStreamUrl(trackId);
@@ -1144,7 +1048,6 @@ class SmartPrefetchManager {
         if (streamData && streamData.url) {
           // Cache it
           this._cacheStream(trackId, streamData);
-          console.log(`✅ On-demand fetch successful for: ${trackId}`);
           return streamData;
         }
       } catch (error) {
@@ -1171,7 +1074,6 @@ class SmartPrefetchManager {
     this.prefetchedTracks.clear();
     this.prefetchInProgress.clear();
     this.currentTrackIndex = -1;
-    console.log('🗑️ Prefetch cache cleared');
   }
 }
 

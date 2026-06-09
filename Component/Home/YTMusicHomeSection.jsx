@@ -4,6 +4,7 @@ import {
   useMemo,
   forwardRef,
   useImperativeHandle,
+  useRef,
 } from 'react';
 import { View, Text, Dimensions, FlatList } from 'react-native';
 import { Heading } from '../Global/Heading';

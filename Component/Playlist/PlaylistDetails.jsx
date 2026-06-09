@@ -17,9 +17,7 @@ import FormatTitleAndArtist from '../../Utils/FormatTitleAndArtist';
 import { CacheManager } from '../../Utils/CacheManager';
 import TrackPlayer from 'react-native-track-player';
 import { DownloadButton } from '../Global/DownloadButton';
-
-// API base URL
-const API_BASE_URL = 'https://saavn.sumit.co/api';
+import { requestWithFallback } from '../../Api/apiUtils';
 
 // Reduce truncate limit further to avoid layout issues
 const truncateText = (text, limit = 20) => {
@@ -275,9 +273,10 @@ export const PlaylistDetails = ({
 
     const fetchPlaylistData = async () => {
       try {
-        // Your existing fetch logic here
-        const response = await fetch(`${API_BASE_URL}/playlists/${playlistId}`);
-        const data = await response.json();
+        const data = await requestWithFallback(
+          `https://jiosaavn-api-privatecvc2.vercel.app/playlists/${playlistId}`,
+          `https://jio-saavan-api.vercel.app/playlists/${playlistId}`
+        );
 
         setPlaylistData(data);
         // Cache the fresh data
