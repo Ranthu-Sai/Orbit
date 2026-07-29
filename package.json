@@ -10,7 +10,7 @@
     "test": "jest --passWithNoTests"
   },
   "dependencies": {
-    "@gorhom/bottom-sheet": "^4",
+    "@gorhom/bottom-sheet": "^4.6.4",
     "@react-native-async-storage/async-storage": "^1.22.3",
     "@react-native-clipboard/clipboard": "^1.13.2",
     "@react-native-community/netinfo": "^11.4.1",
@@ -90,7 +90,6 @@
     "follow-redirects": "^1.16.0",
     "fast-xml-parser": "5.8.0",
     "flatted": "3.4.2",
-    "glob": "10.5.0",
     "js-yaml": "4.2.0",
     "minimatch": "^3.1.5",
     "on-headers": "1.1.0",
