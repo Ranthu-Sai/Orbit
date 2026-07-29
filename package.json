@@ -38,7 +38,7 @@
     "react-native-blob-util": "^0.19.8",
     "react-native-config": "^1.5.5",
     "react-native-device-info": "^10.13.1",
-    "react-native-draggable-flatlist": "^4.0.1",
+    "react-native-draggable-flatlist": "^4.0.3",
     "react-native-fast-image": "^8.6.3",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "^2.14.1",

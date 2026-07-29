@@ -20,7 +20,6 @@ import BottomSheet, {
 } from '@gorhom/bottom-sheet';
 import { Easing } from 'react-native-reanimated';
 import { MinimizedMusic } from './MinimizedMusic';
-import { FullScreenMusic } from './FullScreenMusic';
 import Context from '../../Context/Context';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import { useActiveTrack, usePlaybackState } from 'react-native-track-player';
@@ -461,11 +460,16 @@ const BottomSheetMusic = React.memo(({ color }) => {
             loadingSong={loadingSong}
           />
         ) : (
-          <FullScreenMusic
-            color={color || colors.musicPlayerBg}
-            Index={Index}
-            setIndex={updateIndex}
-          />
+          (() => {
+            const { FullScreenMusic } = require('./FullScreenMusic');
+            return (
+              <FullScreenMusic
+                color={color || colors.musicPlayerBg}
+                Index={Index}
+                setIndex={updateIndex}
+              />
+            );
+          })()
         )}
       </BottomSheetView>
     </BottomSheet>
