@@ -197,6 +197,8 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
   return (
     <GlassBox
       id="bottom-tab"
+      rectInset={0.5}
+      borderOutside
       gradientConfig={{
         x1: '0%', y1: '0%', x2: '5%', y2: '172%',
         stops: [
