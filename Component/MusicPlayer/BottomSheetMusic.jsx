@@ -433,14 +433,14 @@ const BottomSheetMusic = React.memo(({ color }) => {
         backgroundColor: 'rgba(0,0,0,0)',
       }}
       backgroundStyle={{
-        backgroundColor: color || colors.musicPlayerBg,
+        backgroundColor: Index === 1 ? (color || colors.musicPlayerBg) : 'transparent',
       }}
       handleHeight={20}
       handleStyle={{
         position: 'absolute',
         height: 20,
       }}
-      snapPoints={[155, '100%']}
+      snapPoints={[170, '100%']}
       ref={bottomSheetRef}
       index={Index}
       onChange={handleSheetChanges}

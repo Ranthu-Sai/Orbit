@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
+import { GlassBox } from '../Global/GlassBox';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import {
   GestureDetector,
@@ -155,7 +156,7 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
   const [isOffline, setIsOffline] = useState(false);
   const [localTracks, setLocalTracks] = useState([]);
   const navigation = useNavigation();
-  const { colors } = useTheme(); // Get theme colors
+  const { colors, dark } = useTheme(); // Get theme colors
 
   // Check network status
   useEffect(() => {
@@ -444,6 +445,7 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
   }
 
   const size = Dimensions.get('window').height;
+  const screenWidth = Dimensions.get('window').width;
   const currentPlaying = useActiveTrack();
 
   // OPTIMISTIC UI: Use loadingSong if available, otherwise use currentPlaying
@@ -454,102 +456,111 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
   const artworkSource = displaySong?.artwork || displaySong?.image;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <Animated.View
-        entering={FadeIn}
+    <GestureHandlerRootView style={{ width: screenWidth * 0.90, alignSelf: 'center', height: 70 }}>
+      <GlassBox
+        id="minimized-music"
+        rectInset={0.5}
+        borderOutside
+        gradientConfig={{
+          x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+          stops: [
+            { offset: '0%', opacity: 0.5 },
+            { offset: '100%', opacity: 0.1 },
+          ],
+        }}
         style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          height: 80,
-          paddingHorizontal: 15,
-          paddingVertical: 15,
-          alignItems: 'center',
-          gap: 10,
-          backgroundColor: color || colors.musicPlayerBg,
+          flex: 1,
+          borderRadius: 35,
+          backgroundColor: color === 'transparent' ? (dark ? 'rgba(30, 30, 30, 0.90)' : 'rgba(255, 255, 255, 0.85)') : (color || colors.musicPlayerBg),
         }}
       >
-        <GestureDetector gesture={pan}>
-          <View
-            style={{
-              flexDirection: 'row',
-              flex: 1,
-            }}
-          >
-            <FastImage
-              source={
-                typeof getHighQualityArtwork(artworkSource, displaySong) ===
-                'string'
-                  ? { uri: getHighQualityArtwork(artworkSource, displaySong) }
-                  : getHighQualityArtwork(artworkSource, displaySong)
-              }
-              style={{
-                height: size * 0.09 - 25,
-                width: size * 0.09 - 25,
-                borderRadius: 8,
-                marginRight: 6,
-                alignSelf: 'center',
-              }}
-            />
-            <View
-              style={{
-                flex: 1,
-                height: size * 0.1 - 25,
-                justifyContent: 'center',
-                paddingRight: 2,
-                minWidth: 0,
-                marginLeft: 2,
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <PlainText
-                  text={displaySong?.title ?? 'No music :('}
-                  style={{
-                    color: colors.text,
-                    fontSize: 13,
-                    flexShrink: 1,
-                  }}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                />
-              </View>
-              <SmallText
-                text={
-                  displaySong?.artist && displaySong.artist.length > 20
-                    ? displaySong.artist.substring(0, 20) + '...'
-                    : displaySong?.artist ?? 'Explore now!'
-                }
-                maxLine={1}
-                style={{
-                  color: colors.textSecondary,
-                  fontSize: 10,
-                  marginTop: 1,
-                  includeFontPadding: false,
-                }}
-              />
-            </View>
-          </View>
-        </GestureDetector>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {isLoadingStream ? (
-            // OPTIMISTIC UI: Show loading indicator while stream is being fetched
+        <Animated.View
+          entering={FadeIn}
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            flex: 1,
+            paddingHorizontal: 15,
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          <GestureDetector gesture={pan}>
             <View
               style={{
                 flexDirection: 'row',
-                gap: 10,
+                flex: 1,
                 alignItems: 'center',
-                paddingHorizontal: 10,
               }}
             >
-              <ActivityIndicator
-                size={24}
-                color={colors.primary || '#1DB954'}
+              <FastImage
+                source={
+                  typeof getHighQualityArtwork(artworkSource, displaySong) ===
+                  'string'
+                    ? { uri: getHighQualityArtwork(artworkSource, displaySong) }
+                    : getHighQualityArtwork(artworkSource, displaySong)
+                }
+                style={{
+                  height: 46,
+                  width: 46,
+                  borderRadius: 23, // fully rounded like pill art reference or slightly rounded
+                  marginRight: 10,
+                }}
               />
-            </View>
-          ) : (
-            <>
-              <View style={{ marginRight: 0 }}>
-                <LikeSongButton size={20} color={colors.icon} />
+              <View
+                style={{
+                  flex: 1,
+                  justifyContent: 'center',
+                  paddingRight: 2,
+                  minWidth: 0,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <PlainText
+                    text={displaySong?.title ?? 'No music :('}
+                    style={{
+                      color: colors.text,
+                      fontSize: 13,
+                      flexShrink: 1,
+                      fontWeight: 'bold',
+                    }}
+                    numberOfLine={1}
+                    ellipsizeMode="tail"
+                  />
+                </View>
+                <SmallText
+                  text={
+                    displaySong?.artist && displaySong.artist.length > 20
+                      ? displaySong.artist.substring(0, 20) + '...'
+                      : displaySong?.artist ?? 'Explore now!'
+                  }
+                  maxLine={1}
+                  style={{
+                    color: colors.textSecondary,
+                    fontSize: 11,
+                    marginTop: 2,
+                    includeFontPadding: false,
+                  }}
+                />
               </View>
+            </View>
+          </GestureDetector>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {isLoadingStream ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  gap: 10,
+                  alignItems: 'center',
+                  paddingHorizontal: 10,
+                }}
+              >
+                <ActivityIndicator
+                  size={24}
+                  color={colors.primary || '#1DB954'}
+                />
+              </View>
+            ) : (
               <View
                 style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}
               >
@@ -558,26 +569,38 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
                     isOffline ? playPreviousOfflineSong : PlayPreviousSong
                   }
                 >
-                  <PreviousSongButton color={colors.icon} />
+                  <PreviousSongButton color={colors.text} />
                 </Pressable>
-                <PlayPauseButton isplaying={false} color={colors.icon} />
+                <PlayPauseButton isplaying={false} color={colors.text} />
                 <Pressable
                   onPress={isOffline ? playNextOfflineSong : PlayNextSong}
                 >
-                  <NextSongButton color={colors.icon} />
+                  <NextSongButton color={colors.text} />
                 </Pressable>
               </View>
-            </>
-          )}
+            )}
+          </View>
+        </Animated.View>
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 28,
+            right: 28,
+            height: 1.5,
+            backgroundColor: 'transparent',
+            overflow: 'hidden',
+          }}
+        >
+          <View
+            style={{
+              height: 1.5,
+              width: `${TotalCompletedInpercent()}%`,
+              backgroundColor: colors.primary,
+            }}
+          />
         </View>
-      </Animated.View>
-      <View
-        style={{
-          height: 2,
-          width: `${TotalCompletedInpercent()}%`,
-          backgroundColor: colors.primary,
-        }}
-      />
+      </GlassBox>
     </GestureHandlerRootView>
   );
 });

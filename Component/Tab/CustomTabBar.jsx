@@ -213,9 +213,7 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
       style={[
         styles.mainContainer,
         {
-          backgroundColor: isPlayerActive
-            ? 'transparent'
-            : dark
+          backgroundColor: dark
             ? 'rgba(18, 18, 18, 0.85)'
             : 'rgba(255, 255, 255, 0.85)',
         },
