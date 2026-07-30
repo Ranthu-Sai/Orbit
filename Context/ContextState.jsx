@@ -1,5 +1,5 @@
 import Context from './Context';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { AppState, DeviceEventEmitter } from 'react-native';
 import TrackPlayer, {
   Event,
@@ -285,10 +285,7 @@ const ContextState = (props) => {
           if (event.track?.id) {
             const isStreamingSource =
               event.track.source === 'ytmusic' ||
-              event.track.source === 'spotify' ||
-              event.track.source === 'dab' ||
               event.track.isYTMusic === true ||
-              event.track.mappedFromSpotify === true ||
               (event.track.id?.length === 11 && !event.track.isLocalMusic);
 
             if (isStreamingSource) {
@@ -524,33 +521,49 @@ const ContextState = (props) => {
       }
     };
   }, []);
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(
+    () => ({
+      currentPlaying,
+      Repeat,
+      setRepeat,
+      updateTrack,
+      Index,
+      setIndex,
+      QueueIndex,
+      setQueueIndex,
+      setVisible,
+      Queue,
+      previousScreen,
+      setPreviousScreen,
+      musicPreviousScreen,
+      setMusicPreviousScreen,
+      currentPlaylistData,
+      setCurrentPlaylistData,
+      updateLikedPlaylist,
+      likedPlaylists,
+      isPlaylistActive,
+      setIsPlaylistActive,
+      fullScreenNavigationTarget,
+      setFullScreenNavigationTarget,
+    }),
+    [
+      currentPlaying,
+      Repeat,
+      Index,
+      QueueIndex,
+      Queue,
+      previousScreen,
+      musicPreviousScreen,
+      currentPlaylistData,
+      likedPlaylists,
+      isPlaylistActive,
+      fullScreenNavigationTarget,
+    ]
+  );
+
   return (
-    <Context.Provider
-      value={{
-        currentPlaying,
-        Repeat,
-        setRepeat,
-        updateTrack,
-        Index,
-        setIndex,
-        QueueIndex,
-        setQueueIndex,
-        setVisible,
-        Queue,
-        previousScreen,
-        setPreviousScreen,
-        musicPreviousScreen,
-        setMusicPreviousScreen,
-        currentPlaylistData,
-        setCurrentPlaylistData,
-        updateLikedPlaylist,
-        likedPlaylists,
-        isPlaylistActive,
-        setIsPlaylistActive,
-        fullScreenNavigationTarget,
-        setFullScreenNavigationTarget,
-      }}
-    >
+    <Context.Provider value={contextValue}>
       {props.children}
       <EachSongMenuModal setVisible={setVisible} Visible={Visible} />
     </Context.Provider>

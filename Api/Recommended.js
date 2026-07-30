@@ -81,8 +81,8 @@ async function getRecommendedSongs(id) {
 
     // Define the fetch function with fallback
     const fetchFunction = async () => {
-      const primaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/suggestions?id=${id}`;
-      const secondaryUrl = `https://saavn.sumit.co/api/suggestions?id=${id}`;
+      const primaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/api/songs/${id}/suggestions`;
+      const secondaryUrl = `https://saavn.sumit.co/api/songs/${id}/suggestions`;
       const config = {
         method: 'get',
         maxBodyLength: Infinity,

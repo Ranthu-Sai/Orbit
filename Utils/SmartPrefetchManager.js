@@ -171,7 +171,6 @@ class SmartPrefetchManager {
             currentTrack.url.includes('/storage/')));
 
       if (isSaavn || isLocal) {
-        // console.log('⏭️ SmartPrefetch: Skipping Saavn or Local track (direct URL)');
         return;
       }
 
@@ -272,8 +271,7 @@ class SmartPrefetchManager {
         (track.url &&
           (track.url.startsWith('file://') || track.url.includes('/storage/')));
 
-      shouldPrefetch =
-        (isYTMusic || isSpotify || isDab) && !isSaavn && !isLocal;
+      shouldPrefetch = isYTMusic && !isSaavn && !isLocal;
       detectedSource = isLocal
         ? 'local'
         : isYTMusic
@@ -467,18 +465,12 @@ class SmartPrefetchManager {
     let trackId = null; // Track ID for cleanup in finally block
 
     try {
-      // PERFORMANCE: Optimistic check - try to get track at index first
-      // This avoids fetching the entire queue (O(N) bridge call)
-      // console.log(`🔍 Checking track at index ${index} for prefetch`);
       let track = await TrackPlayer.getTrack(index);
       let usingOptimizedMethod = true;
 
       // FALLBACK: If optimized check fails, try full queue fetch
       // This ensures robustness even if getTrack(index) is unreliable
       if (!track) {
-        // Reduced noise: This is expected during initial queue population
-        // console.log(`ℹ️ SmartPrefetch: Track at index ${index} not yet available, will retry.`);
-        // Fallback to getting full queue
         const queue = await TrackPlayer.getQueue();
         if (index >= 0 && index < queue.length) {
           track = queue[index];
@@ -496,11 +488,6 @@ class SmartPrefetchManager {
 
       // Skip if not a YouTube track or already has valid URL
       if (!this.needsStream(track)) {
-        // Only log if it's actually a YouTube track to avoid cluttering logs
-        const isYT = track.source === 'ytmusic' || track.isYTMusic;
-        if (isYT) {
-          // console.log(`⏭️ Track ${ index } (${ track.title }) doesn't need prefetch (already has URL)`);
-        }
         return;
       }
 
@@ -645,8 +632,6 @@ class SmartPrefetchManager {
       if (trackAtIndex && trackAtIndex.id === originalTrack.id) {
         // Matches! Proceed with optimized path
       } else {
-        // Mismatch (queue shifted?) - Fallback to full queue search (slow)
-        // console.log(`⚠️ Track ID mismatch at index ${index}, falling back to full queue search`);
         const queue = await TrackPlayer.getQueue();
         actualIndex = queue.findIndex((t) => t.id === originalTrack.id);
 

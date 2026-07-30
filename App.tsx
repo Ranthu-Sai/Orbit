@@ -1,34 +1,18 @@
 import 'react-native-get-random-values'; // Must be imported before any crypto operations
+import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import {
   NavigationContainer,
   NavigationContainerRef,
 } from '@react-navigation/native';
-import { RootRoute } from './Route/RootRoute.jsx';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ToastAndroid, BackHandler, Linking } from 'react-native';
 import ContextState from './Context/ContextState';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { RouteOnboarding } from './Route/OnboardingScreen/RouteOnboarding';
-import { InitialScreen } from './Route/InitialScreen';
-import { Album } from './Route/Album';
-import ArtistPage from './Route/ArtistPage';
-import ArtistSongs from './Route/ArtistSongs';
-import ArtistItems from './Route/ArtistItems';
-import SectionListPage from './Route/SectionListPage';
-import LoginScreen from './Component/Auth/LoginScreen';
-import { ChangeName } from './Route/Home/ChangeName';
-import { SelectLanguages } from './Route/Home/SelectLanguages';
-// CodePush removed - using Firebase Remote Config for updates
-import { useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// Firebase Analytics is initialized within AnalyticsUtils using the modular API
-// Import analytics service
 import { analyticsService, AnalyticsEvents } from './Utils/AnalyticsUtils';
-// Import ThemeProvider from ThemeContext
 import { ThemeProvider } from './Context/ThemeContext';
 import { StorageManager } from './Utils/StorageManager';
-// Import theme types
 import { darkTheme } from './Theme/darkTheme';
 import { PaperProvider } from 'react-native-paper';
 import { PlayOneSong, setupPlayer } from './MusicPlayerFunctions';
@@ -38,6 +22,20 @@ import dabRecommendationService from './Utils/DABRecommendationService';
 import { LASTFM_API_KEY, LASTFM_API_SECRET } from './Utils/secrets';
 import updateService from './Utils/UpdateService';
 import UpdateModal from './Component/Modals/UpdateModal';
+import SuspenseFallback from './Component/Global/SuspenseFallback';
+
+// Lazy-loaded screen components for faster startup
+const RootRoute = lazy(() => import('./Route/RootRoute.jsx').then(m => ({ default: m.RootRoute })));
+const RouteOnboarding = lazy(() => import('./Route/OnboardingScreen/RouteOnboarding').then(m => ({ default: m.RouteOnboarding })));
+const InitialScreen = lazy(() => import('./Route/InitialScreen').then(m => ({ default: m.InitialScreen })));
+const Album = lazy(() => import('./Route/Album').then(m => ({ default: m.Album })));
+const ArtistPage = lazy(() => import('./Route/ArtistPage'));
+const ArtistSongs = lazy(() => import('./Route/ArtistSongs'));
+const ArtistItems = lazy(() => import('./Route/ArtistItems'));
+const SectionListPage = lazy(() => import('./Route/SectionListPage'));
+const LoginScreen = lazy(() => import('./Component/Auth/LoginScreen'));
+const ChangeName = lazy(() => import('./Route/Home/ChangeName').then(m => ({ default: m.ChangeName })));
+const SelectLanguages = lazy(() => import('./Route/Home/SelectLanguages').then(m => ({ default: m.SelectLanguages })));
 
 type ThemeContextType = {
   theme: typeof darkTheme;
@@ -297,48 +295,48 @@ function App() {
                       const currentRouteName =
                         navigationRef.current?.getCurrentRoute()?.name;
                       if (currentRouteName) {
-                        // Log screen view to Firebase Analytics
                         analyticsService.logScreenView(currentRouteName);
                       }
                     }}
-                    fallback={<InitialScreen navigation={undefined as any} />}
                   >
-                    <Stack.Navigator
-                      screenOptions={{
-                        headerShown: false,
-                        cardStyle: { backgroundColor: theme.colors.background },
-                      }}
-                    >
-                      <Stack.Screen name="Initial" component={InitialScreen} />
-                      <Stack.Screen
-                        name="Onboarding"
-                        component={RouteOnboarding}
-                      />
-                      <Stack.Screen name="MainRoute" component={RootRoute} />
-                      <Stack.Screen name="Album" component={Album} />
-                      <Stack.Screen name="ArtistPage" component={ArtistPage} />
-                      <Stack.Screen
-                        name="ArtistSongs"
-                        component={ArtistSongs}
-                      />
-                      <Stack.Screen
-                        name="ArtistItems"
-                        component={ArtistItems}
-                      />
-                      <Stack.Screen
-                        name="SectionListPage"
-                        component={SectionListPage}
-                      />
-                      <Stack.Screen
-                        name="LoginScreen"
-                        component={LoginScreen}
-                      />
-                      <Stack.Screen name="ChangeName" component={ChangeName} />
-                      <Stack.Screen
-                        name="SelectLanguages"
-                        component={SelectLanguages}
-                      />
-                    </Stack.Navigator>
+                    <Suspense fallback={<SuspenseFallback />}>
+                      <Stack.Navigator
+                        screenOptions={{
+                          headerShown: false,
+                          cardStyle: { backgroundColor: theme.colors.background },
+                        }}
+                      >
+                        <Stack.Screen name="Initial" component={InitialScreen} />
+                        <Stack.Screen
+                          name="Onboarding"
+                          component={RouteOnboarding}
+                        />
+                        <Stack.Screen name="MainRoute" component={RootRoute} />
+                        <Stack.Screen name="Album" component={Album} />
+                        <Stack.Screen name="ArtistPage" component={ArtistPage} />
+                        <Stack.Screen
+                          name="ArtistSongs"
+                          component={ArtistSongs}
+                        />
+                        <Stack.Screen
+                          name="ArtistItems"
+                          component={ArtistItems}
+                        />
+                        <Stack.Screen
+                          name="SectionListPage"
+                          component={SectionListPage}
+                        />
+                        <Stack.Screen
+                          name="LoginScreen"
+                          component={LoginScreen}
+                        />
+                        <Stack.Screen name="ChangeName" component={ChangeName} />
+                        <Stack.Screen
+                          name="SelectLanguages"
+                          component={SelectLanguages}
+                        />
+                      </Stack.Navigator>
+                    </Suspense>
                   </NavigationContainer>
 
                   {/* Global Update Modal */}

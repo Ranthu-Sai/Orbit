@@ -184,6 +184,17 @@ export const SearchPage = ({ navigation }) => {
       return;
     }
 
+    // Generate cache key for this search
+    const cacheKey = `search_${selectedSource}_${ActiveTab}_${text.toLowerCase().trim()}`;
+
+    // Check cache first (5-minute TTL for search results)
+    const cachedResult = CacheManager.get(cacheKey);
+    if (cachedResult) {
+      setData(cachedResult);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setShowSuggestions(false); // Hide suggestions when searching
@@ -271,6 +282,8 @@ export const SearchPage = ({ navigation }) => {
 
       if (data && data.success !== false) {
         setData(data);
+        // Cache search results for 5 minutes
+        CacheManager.set(cacheKey, data, 5 * 60 * 1000);
       } else {
         setData({ data: { results: [] } });
       }

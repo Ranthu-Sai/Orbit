@@ -191,7 +191,7 @@ const QuickPicksSection = ({ title, songs }) => {
 };
 
 // Section for playlists/albums using existing Orbit cards
-const ContentSection = ({ title, items, type }) => {
+const ContentSection = React.memo(({ title, items, type }) => {
   if (!items || items.length === 0) {
     return null;
   }
@@ -209,6 +209,9 @@ const ContentSection = ({ title, items, type }) => {
         keyExtractor={(item, index) =>
           `${type}-${item.id || item.browseId || item.playlistId}-${index}`
         }
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={5}
         renderItem={({ item }) => {
           const thumbnail = getBestThumbnail(item.thumbnails || item.thumbnail);
           const itemTitle = item.title || item.name || '';
@@ -249,10 +252,10 @@ const ContentSection = ({ title, items, type }) => {
       />
     </View>
   );
-};
+});
 
 // Artist section with circular images
-const ArtistSection = ({ title, items }) => {
+const ArtistSection = React.memo(({ title, items }) => {
   const { colors } = useTheme();
 
   if (!items || items.length === 0) {
@@ -272,6 +275,9 @@ const ArtistSection = ({ title, items }) => {
         keyExtractor={(item, index) =>
           `artist-${item.browseId || item.id}-${index}`
         }
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={5}
         renderItem={({ item }) => (
           <EachPlaylistCard
             image={getBestThumbnail(item.thumbnails || item.thumbnail)}
@@ -286,7 +292,7 @@ const ArtistSection = ({ title, items }) => {
       />
     </View>
   );
-};
+});
 
 export const YTMusicHomeFeed = forwardRef(
   ({ refreshing, onRefreshComplete }, ref) => {
