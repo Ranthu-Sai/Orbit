@@ -37,9 +37,10 @@ const ITEM_SPACING = (SCREEN_WIDTH - ITEM_WIDTH) / 2;
 
 export const QuickPicksCarousel = ({ title, songs }) => {
   const theme = useTheme();
-  const scrollX = useRef(new Animated.Value(0)).current;
+  const scrollX = useRef(new Animated.Value(ITEM_WIDTH)).current;
   const flatListRef = useRef(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(1);
+  const initializedRef = useRef(false);
 
   // Flatten the columns structure if songs are passed as 4-item columns (from original QuickPicksSection)
   // Or handle flat array of songs.
@@ -53,6 +54,19 @@ export const QuickPicksCarousel = ({ title, songs }) => {
 
     return songs;
   }, [songs]);
+
+  // Ensure initial scroll position is index 1 once songs load
+  React.useEffect(() => {
+    if (!initializedRef.current && flatSongs && flatSongs.length > 1) {
+      initializedRef.current = true;
+      setCurrentIndex(1);
+      scrollX.setValue(ITEM_WIDTH);
+      flatListRef.current?.scrollToOffset({
+        offset: ITEM_WIDTH,
+        animated: false,
+      });
+    }
+  }, [flatSongs]);
 
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 50,
@@ -135,6 +149,13 @@ export const QuickPicksCarousel = ({ title, songs }) => {
         snapToInterval={ITEM_WIDTH}
         decelerationRate="fast"
         bounces={false}
+        initialScrollIndex={flatSongs.length > 1 ? 1 : 0}
+        contentOffset={{ x: flatSongs.length > 1 ? ITEM_WIDTH : 0, y: 0 }}
+        getItemLayout={(data, index) => ({
+          length: ITEM_WIDTH,
+          offset: ITEM_WIDTH * index,
+          index,
+        })}
         contentContainerStyle={{
           paddingHorizontal: ITEM_SPACING,
         }}

@@ -72,16 +72,15 @@ const TabItem = React.memo(
             {/* Glass effect border */}
             <GlassBox 
               id={`active-tab-${route.key}`}
+              rectInset={0.5}
+              borderOutside
               style={{ flex: 1, backgroundColor: 'transparent' }}
               gradientConfig={{
-                x1: '0%', y1: '0%', x2: '37%', y2: '152%',
+                x1: '0%', y1: '0%', x2: '0%', y2: '100%',
                 stops: [
                   { offset: '0%', opacity: 0.5, color: colors.primary },
-                  { offset: '38%', opacity: 0.5, color: colors.primary },
-                  { offset: '45%', opacity: 0.0, color: colors.primary },
-                  { offset: '55%', opacity: 0.0, color: colors.primary },
-                  { offset: '62%', opacity: 0.6, color: colors.primary },
-                  { offset: '100%', opacity: 0.6, color: colors.primary },
+                  { offset: '50%', opacity: 0.25, color: colors.primary },
+                  { offset: '100%', opacity: 0.5, color: colors.primary },
                 ],
               }}
             />

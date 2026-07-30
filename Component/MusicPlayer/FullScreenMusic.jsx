@@ -32,127 +32,6 @@ import useDynamicArtwork from '../../hooks/useDynamicArtwork.js';
 import { SmartDownloadControl } from '../Download/DownloadControl';
 import { Surface, IconButton } from 'react-native-paper';
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  gradientContainer: {
-    flex: 1,
-    alignItems: 'center',
-    width: '100%',
-    justifyContent: 'space-between',
-    paddingBottom: 0,
-  },
-  bottomGradientWrapper: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '35%',
-    zIndex: 0,
-  },
-  bottomGradient: {
-    flex: 1,
-  },
-  iconContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4, // Reduced gap between icons
-  },
-  iconWrapper: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: 0,
-    padding: 0,
-  },
-  iconButton: {
-    margin: 0,
-    padding: 0,
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // Adjust vertical alignment for the icons
-    transform: [{ translateY: 1 }],
-  },
-  headerContainer: {
-    width: '100%',
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  closeButton: {
-    margin: 0,
-    backgroundColor: 'transparent',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  albumSurface: {
-    elevation: 4,
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginVertical: 16,
-    backgroundColor: 'transparent',
-    zIndex: 2,
-    width: '90%',
-    aspectRatio: 1,
-  },
-  contentContainer: {
-    width: '100%',
-    paddingHorizontal: '4%',
-    justifyContent: 'flex-end',
-    paddingTop: 8,
-    paddingBottom: 24,
-    zIndex: 2,
-  },
-  bottomControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-    marginTop: 16,
-    marginHorizontal: 16,
-    marginBottom: 8,
-  },
-  footerContainer: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    zIndex: 10,
-  },
-  barsButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  backgroundImage: {
-    flex: 1,
-  },
-  fallbackBackground: {
-    flex: 1,
-  },
-  draggableArea: {
-    width: '100%',
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 3,
-  },
-});
 
 export const FullScreenMusic = ({ Index, setIndex }) => {
   const currentPlaying = useActiveTrack();
@@ -499,3 +378,125 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
     </BackButtonHandler>
   );
 };
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  gradientContainer: {
+    flex: 1,
+    alignItems: 'center',
+    width: '100%',
+    justifyContent: 'space-between',
+    paddingBottom: 0,
+  },
+  bottomGradientWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '35%',
+    zIndex: 0,
+  },
+  bottomGradient: {
+    flex: 1,
+  },
+  iconContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4, // Reduced gap between icons
+  },
+  iconWrapper: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: 0,
+    padding: 0,
+  },
+  iconButton: {
+    margin: 0,
+    padding: 0,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Adjust vertical alignment for the icons
+    transform: [{ translateY: 1 }],
+  },
+  headerContainer: {
+    width: '100%',
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  closeButton: {
+    margin: 0,
+    backgroundColor: 'transparent',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  albumSurface: {
+    elevation: 4,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginVertical: 16,
+    backgroundColor: 'transparent',
+    zIndex: 2,
+    width: '90%',
+    aspectRatio: 1,
+  },
+  contentContainer: {
+    width: '100%',
+    paddingHorizontal: '4%',
+    justifyContent: 'flex-end',
+    paddingTop: 8,
+    paddingBottom: 24,
+    zIndex: 2,
+  },
+  bottomControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+    marginTop: 16,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  footerContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    zIndex: 10,
+  },
+  barsButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  backgroundImage: {
+    flex: 1,
+  },
+  fallbackBackground: {
+    flex: 1,
+  },
+  draggableArea: {
+    width: '100%',
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 3,
+  },
+});

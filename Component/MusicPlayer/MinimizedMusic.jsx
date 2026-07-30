@@ -70,10 +70,10 @@ const getHighQualityArtwork = (artworkUrl, track = null) => {
     const artworkToUse = isValidArtwork(artworkUrl)
       ? artworkUrl
       : isValidArtwork(track?.artwork)
-      ? track.artwork
-      : isValidArtwork(track?.image)
-      ? track.image
-      : null;
+        ? track.artwork
+        : isValidArtwork(track?.image)
+          ? track.image
+          : null;
 
     if (artworkToUse) {
       // Handle data: URIs (embedded artwork)
@@ -456,7 +456,7 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
   const artworkSource = displaySong?.artwork || displaySong?.image;
 
   return (
-    <GestureHandlerRootView style={{ width: screenWidth * 0.90, alignSelf: 'center', height: 70 }}>
+    <GestureHandlerRootView style={{ width: screenWidth * 0.84, alignSelf: 'center', height: 70 }}>
       <GlassBox
         id="minimized-music"
         rectInset={0.5}
@@ -496,7 +496,7 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
               <FastImage
                 source={
                   typeof getHighQualityArtwork(artworkSource, displaySong) ===
-                  'string'
+                    'string'
                     ? { uri: getHighQualityArtwork(artworkSource, displaySong) }
                     : getHighQualityArtwork(artworkSource, displaySong)
                 }
