@@ -27,21 +27,21 @@ const TabItem = React.memo(
     const isFocused = state.index === index;
 
     // Hooks must be at the top level of the component
-    const pillStyle = useAnimatedStyle(() => {
-      const activeColor = dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)';
+    const pillContainerStyle = useAnimatedStyle(() => {
       return {
         transform: [
           {
-            scale: withSpring(isFocused ? 1 : 0, {
+            scale: withSpring(isFocused ? 1 : 0.8, {
               damping: 15,
               stiffness: 200,
             }),
           },
         ],
         opacity: withTiming(isFocused ? 1 : 0, { duration: 200 }),
-        backgroundColor: activeColor,
       };
     });
+
+
 
     const labelStyle = useAnimatedStyle(() => {
       return {
@@ -66,8 +66,28 @@ const TabItem = React.memo(
     return (
       <Pressable onPress={onPress} style={styles.touchable}>
         <View style={styles.itemContent}>
+          <Animated.View style={[styles.activeBackground, pillContainerStyle]}>
+            {/* Inner background tint */}
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primary, opacity: 0.15, borderRadius: 27 }]} />
+            {/* Glass effect border */}
+            <GlassBox 
+              id={`active-tab-${route.key}`}
+              style={{ flex: 1, backgroundColor: 'transparent' }}
+              gradientConfig={{
+                x1: '0%', y1: '0%', x2: '37%', y2: '152%',
+                stops: [
+                  { offset: '0%', opacity: 0.5, color: colors.primary },
+                  { offset: '38%', opacity: 0.5, color: colors.primary },
+                  { offset: '45%', opacity: 0.0, color: colors.primary },
+                  { offset: '55%', opacity: 0.0, color: colors.primary },
+                  { offset: '62%', opacity: 0.6, color: colors.primary },
+                  { offset: '100%', opacity: 0.6, color: colors.primary },
+                ],
+              }}
+            />
+          </Animated.View>
+          
           <View style={styles.iconWrapper}>
-            <Animated.View style={[styles.pill, pillStyle]} />
             {GetIcon(label, isFocused, colors)}
           </View>
 
@@ -108,6 +128,8 @@ function GetIcon(label, isFocused, colors) {
     return <ListMusic color={color} size={size} strokeWidth={strokeWidth} />;
   }
 }
+
+import { GlassBox } from '../Global/GlassBox';
 
 export default function CustomTabBar({ state, descriptors, navigation }) {
   const { setIndex, Index, musicPreviousScreen } = useContext(Context);
@@ -173,16 +195,27 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
   }
 
   return (
-    <View
+    <GlassBox
+      id="bottom-tab"
+      gradientConfig={{
+        x1: '0%', y1: '0%', x2: '5%', y2: '172%',
+        stops: [
+          { offset: '0%', opacity: 0.4 },
+          { offset: '38%', opacity: 0.4 },
+          { offset: '45%', opacity: 0.0 },
+          { offset: '55%', opacity: 0.0 },
+          { offset: '62%', opacity: 0.5 },
+          { offset: '100%', opacity: 0.5 },
+        ],
+      }}
       style={[
         styles.mainContainer,
         {
           backgroundColor: isPlayerActive
             ? 'transparent'
             : dark
-            ? 'rgba(18, 18, 18, 0.90)'
-            : 'rgba(255, 255, 255, 0.90)', // Transparent if player provides background
-          borderTopColor: dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+            ? 'rgba(18, 18, 18, 0.85)'
+            : 'rgba(255, 255, 255, 0.85)',
         },
       ]}
     >
@@ -198,21 +231,20 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
           dark={dark}
         />
       ))}
-    </View>
+    </GlassBox>
   );
 }
 
 const styles = StyleSheet.create({
   mainContainer: {
     flexDirection: 'row',
-    height: 70, // Reduced from 80
+    height: 70, 
     alignItems: 'center',
-    paddingBottom: 4, // Spacing for home bar
-    borderTopWidth: 0, // Removed upper border
-    position: 'absolute', // For transparency to work over content if needed, or just standard
-    bottom: 0,
-    left: 0,
-    right: 0,
+    position: 'absolute',
+    bottom: 20,
+    alignSelf: 'center',
+    width: '90%',
+    borderRadius: 35,
     elevation: 0,
   },
   touchable: {
@@ -226,18 +258,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: '100%',
     width: '100%',
-    paddingTop: 8,
   },
   iconWrapper: {
-    width: 64, // Standard M3 pill width
-    height: 32,
+    width: 64, 
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: -2,
   },
-  pill: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 16, // Stadium shape
+  activeBackground: {
+    position: 'absolute',
+    width: '85%',
+    height: 54,
+    borderRadius: 27, // Half of 54 to make a perfect pill
   },
   label: {
     fontSize: 12,

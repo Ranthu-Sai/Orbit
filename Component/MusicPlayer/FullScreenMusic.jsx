@@ -1,5 +1,5 @@
 import React, { useState, useContext, useMemo, useCallback } from 'react';
-import { Dimensions, View, StyleSheet, StatusBar } from 'react-native';
+import { View, StyleSheet, StatusBar } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated from 'react-native-reanimated';
 import { useActiveTrack } from 'react-native-track-player';
@@ -7,7 +7,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { GestureDetector } from 'react-native-gesture-handler';
 import SongInfoModal from './SongInfoModal';
-
 import { Spacer } from '../Global/Spacer';
 import ProgressBar from './ProgressBar';
 import { LikeSongButton } from './LikeSongButton';
@@ -22,14 +21,12 @@ import { useThemeManager } from './ThemeManager';
 import { BlurredBackground } from './Background';
 import { useNavigationHandler, BackButtonHandler } from './NavigationHandler';
 import { useDragToCloseGestureControl } from './GestureControls';
-
 import { useLocalTracks, LocalTracksErrorBoundary } from './LocalTracks';
 import {
   FullScreenMusicMenuButton,
   FullScreenMusicMenuModal,
   useFullScreenMusicMenu,
 } from './FullScreenMusicMenu';
-
 import Context from '../../Context/Context';
 import useDynamicArtwork from '../../hooks/useDynamicArtwork.js';
 import { SmartDownloadControl } from '../Download/DownloadControl';
@@ -52,7 +49,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: Dimensions.get('window').height * 0.35,
+    height: '35%',
     zIndex: 0,
   },
   bottomGradient: {
@@ -106,13 +103,15 @@ const styles = StyleSheet.create({
     marginVertical: 16,
     backgroundColor: 'transparent',
     zIndex: 2,
+    width: '90%',
+    aspectRatio: 1,
   },
   contentContainer: {
     width: '100%',
-    paddingHorizontal: 16,
-    flex: 1,
-    justifyContent: 'flex-start',
+    paddingHorizontal: '4%',
+    justifyContent: 'flex-end',
     paddingTop: 8,
+    paddingBottom: 24,
     zIndex: 2,
   },
   bottomControls: {
@@ -125,19 +124,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 8,
   },
-  bottomBarContainer: {
-    position: 'absolute',
-    right: 20,
+  footerContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
     zIndex: 10,
-    // Positioned very close to the bottom
-    bottom: '2%', // Position 2% from bottom for better placement
-  },
-  infoBarContainer: {
-    position: 'absolute',
-    left: 20,
-    zIndex: 10,
-    // Match the same position as the menu icon
-    bottom: '2%',
   },
   barsButton: {
     width: 40,
@@ -155,13 +147,14 @@ const styles = StyleSheet.create({
   },
   draggableArea: {
     width: '100%',
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
     zIndex: 3,
   },
 });
 
 export const FullScreenMusic = ({ Index, setIndex }) => {
-  const width = Dimensions.get('window').width;
   const currentPlaying = useActiveTrack();
   const { musicPreviousScreen } = useContext(Context);
   const { getArtworkSourceFromHook } = useDynamicArtwork();
@@ -300,12 +293,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
         <GestureDetector gesture={dragToCloseGesture}>
           <View style={styles.draggableArea}>
             <Spacer height={5} />
-            <Surface
-              style={[
-                styles.albumSurface,
-                { width: width * 0.9, height: width * 0.9 },
-              ]}
-            >
+            <Surface style={styles.albumSurface}>
               <AlbumArtworkDisplay
                 currentPlaying={currentPlaying}
                 artworkSource={currentArtworkSource}
@@ -319,7 +307,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
         <View
           style={{
             width: '100%',
-            paddingHorizontal: 16,
+            paddingHorizontal: '4%',
             marginTop: 8,
             marginBottom: 8,
             zIndex: 5,
@@ -374,12 +362,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
         </View>
 
         {/* Non-draggable area - Progress bar and controls */}
-        <View
-          style={[
-            styles.contentContainer,
-            { minHeight: Dimensions.get('window').height * 0.55 },
-          ]}
-        >
+        <View style={styles.contentContainer}>
           <View style={{ marginBottom: 12 }}>
             <ProgressBar />
           </View>
@@ -405,28 +388,24 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
           />
         </View>
 
-        {/* Bottom bar with icons */}
-        <View style={styles.bottomBarContainer}>
-          <View style={styles.barsButton}>
-            <IconButton
-              icon="menu"
-              size={24}
-              iconColor={iconColor}
-              onPress={handleQueueToggle}
-              style={{ margin: 0 }}
-              rippleColor="rgba(255, 255, 255, 0.2)"
-            />
-          </View>
-        </View>
-
-        {/* Info icon on bottom left */}
-        <View style={styles.infoBarContainer}>
+        {/* Footer containing bottom icons */}
+        <View style={[styles.footerContainer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
           <View style={styles.barsButton}>
             <IconButton
               icon="information-outline"
               size={24}
               iconColor={iconColor}
               onPress={handleInfoModalOpen}
+              style={{ margin: 0 }}
+              rippleColor="rgba(255, 255, 255, 0.2)"
+            />
+          </View>
+          <View style={styles.barsButton}>
+            <IconButton
+              icon="menu"
+              size={24}
+              iconColor={iconColor}
+              onPress={handleQueueToggle}
               style={{ margin: 0 }}
               rippleColor="rgba(255, 255, 255, 0.2)"
             />

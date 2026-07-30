@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Dimensions, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useNavigationGestureControl } from './GestureControls';
@@ -11,10 +11,7 @@ export const AlbumArtworkDisplay = ({
   onClose,
   style,
 }) => {
-  const width = Dimensions.get('window').width;
   const theme = useTheme();
-  const imageWidth = width * 0.92;
-  const imageHeight = width * 0.98;
 
   // Only use horizontal swipe gesture for track navigation
   const navigationControl = useNavigationGestureControl();
@@ -29,7 +26,7 @@ export const AlbumArtworkDisplay = ({
             style={[
               styles.artworkContainer,
               {
-                width: imageWidth,
+                width: '100%',
                 aspectRatio: 1, // Ensure square aspect ratio
                 backgroundColor: theme.colors.surfaceVariant,
                 elevation: 4,

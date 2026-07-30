@@ -8,11 +8,8 @@ import TrackPlayer, {
 import { getRecommendedSongs } from '../Api/Recommended';
 import { AddSongsToQueue } from '../MusicPlayerFunctions';
 import FormatArtist from '../Utils/FormatArtists';
-
-import { SetQueueSongs } from '../LocalStorage/storeQueue';
 import { EachSongMenuModal } from '../Component/Global/EachSongMenuModal';
 import { CacheManager as LegacyCacheManager } from '../Utils/CacheManager';
-import { CacheManager } from '../Utils/NavigationCacheManager';
 import historyManager from '../Utils/HistoryManager';
 
 // Repeat constants
@@ -79,12 +76,12 @@ const ContextState = (props) => {
             QueueRef.current.length > 0 &&
             (tracks[0]?.id !== QueueRef.current[0]?.id ||
               tracks[tracks.length - 1]?.id !==
-                QueueRef.current[QueueRef.current.length - 1]?.id));
+              QueueRef.current[QueueRef.current.length - 1]?.id));
 
         if (hasChanged || tracks.length > QueueRef.current.length) {
           setQueue(tracks);
         }
-      } catch (error) {}
+      } catch (error) { }
     });
   }
 
@@ -218,7 +215,7 @@ const ContextState = (props) => {
                   await TrackPlayer.play();
                   return; // Recovery successful, don't skip
                 }
-              } catch (recoveryError) {}
+              } catch (recoveryError) { }
             }
           }
         } catch (error) {
@@ -321,7 +318,7 @@ const ContextState = (props) => {
                       }
                     }
                   });
-                } catch (prefetchError) {}
+                } catch (prefetchError) { }
               });
             }
           }
