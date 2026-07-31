@@ -52,6 +52,9 @@ export default function SongDisplay({ data, source = 'ytmusic' }) {
         keyExtractor={(item, index) => item?.id?.toString() || index.toString()}
         contentContainerStyle={{ paddingBottom: 220 }}
         data={data.data.results}
+        ItemSeparatorComponent={() => (
+          <View style={{ height: 1, backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', marginHorizontal: 15 }} />
+        )}
         renderItem={({ item }) => {
           if (!item || !item.id) {
             return null;

@@ -1,5 +1,6 @@
 import { MainWrapper } from '../Layout/MainWrapper';
 import Tabs from '../Component/Global/Tabs/Tabs';
+import { GlassBox } from '../Component/Global/GlassBox';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { getSearchSongData } from '../Api/Songs';
 import {
@@ -509,9 +510,28 @@ export const SearchPage = ({ navigation }) => {
 
         <Pressable
           onPress={() => setModalVisible(true)}
-          style={[styles.clearButton, { backgroundColor: colors.card }]}
+          style={styles.clearButton}
         >
-          <GitFork size={20} color={colors.text} />
+          <GlassBox
+            id="source-change-button"
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+            gradientConfig={{
+              x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+              stops: [
+                { offset: '0%', opacity: 0.3 },
+                { offset: '50%', opacity: 0.0 },
+                { offset: '100%', opacity: 0.3 },
+              ],
+            }}
+          >
+            <GitFork size={20} color={colors.text} />
+          </GlassBox>
         </Pressable>
       </View>
 

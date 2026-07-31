@@ -24,9 +24,17 @@ export const GlassBox = ({ id, children, style, gradientConfig, rectInset = 1, b
   const extractedRadius = flattenedStyle.borderRadius;
   const defaultRadius = dims.height ? dims.height / 2 : 26;
   const effectiveRadius = extractedRadius !== undefined ? extractedRadius : defaultRadius;
-  const svgRx = extractedRadius !== undefined 
-    ? Math.max(0, extractedRadius - inset2/2) 
-    : (dims.height > inset2 ? (dims.height - inset2) / 2 : 0);
+  
+  // Clamp radius to prevent SVG from distorting it into an ellipse
+  const maxAllowedRadius = dims.width > 0 && dims.height > 0 
+    ? Math.min(dims.width / 2, dims.height / 2) 
+    : defaultRadius;
+    
+  const safeRadius = extractedRadius !== undefined 
+    ? Math.min(extractedRadius, maxAllowedRadius)
+    : defaultRadius;
+
+  const svgRx = Math.max(0, safeRadius - inset2/2);
   const svgRy = svgRx;
 
   const handleLayout = (e) => {

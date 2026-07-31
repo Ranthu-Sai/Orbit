@@ -1490,6 +1490,9 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
         data={upcomingQueue}
         keyExtractor={(item, index) => `${item.id || 'track'}-${index}`}
         renderItem={renderFlatListItem}
+        ItemSeparatorComponent={() => (
+          <View style={{ height: 1, backgroundColor: themeMode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', marginHorizontal: 15 }} />
+        )}
         contentContainerStyle={{
           paddingBottom: 100,
           paddingTop: 8,
@@ -1507,6 +1510,9 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       keyExtractor={(item, index) => `${item.id || 'track'}-${index}`}
       onDragBegin={handleDragStart}
       onDragEnd={handleDragEnd}
+      ItemSeparatorComponent={() => (
+        <View style={{ height: 1, backgroundColor: themeMode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', marginHorizontal: 15 }} />
+      )}
       contentContainerStyle={{
         paddingBottom: 100,
         paddingTop: 8,

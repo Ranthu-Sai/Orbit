@@ -31,6 +31,17 @@ import Context from '../../Context/Context';
 import useDynamicArtwork from '../../hooks/useDynamicArtwork.js';
 import { SmartDownloadControl } from '../Download/DownloadControl';
 import { Surface, IconButton } from 'react-native-paper';
+import { GlassBox } from '../Global/GlassBox';
+
+const circleGradient = {
+  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+  stops: [
+    { offset: '0%', opacity: 0.5 },
+    { offset: '40%', opacity: 0.0 },
+    { offset: '60%', opacity: 0.0 },
+    { offset: '100%', opacity: 0.5 },
+  ],
+};
 
 
 export const FullScreenMusic = ({ Index, setIndex }) => {
@@ -142,29 +153,34 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
             { paddingTop: insets.top + 16, zIndex: 10 },
           ]}
         >
-          <IconButton
-            icon="chevron-down"
-            size={30}
-            onPress={() => setIndex(0)}
-            iconColor={iconColor}
-            style={styles.closeButton}
-            rippleColor="rgba(255, 255, 255, 0.2)"
-          />
-
-          <View style={styles.headerActions}>
-            <LyricsHandler
-              currentPlayingTrack={currentPlaying}
-              isOffline={isOffline}
-              Index={Index}
-              currentArtworkSource={currentArtworkSource}
+          <GlassBox id="collapse-btn" gradientConfig={circleGradient} style={[styles.closeButton, { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }]}>
+            <IconButton
+              icon="chevron-down"
+              size={30}
+              onPress={() => setIndex(0)}
               iconColor={iconColor}
+              style={{ margin: 0 }}
+              rippleColor="rgba(255, 255, 255, 0.2)"
             />
-            <View style={{ width: 2 }} />
-            <FullScreenMusicMenuButton
-              onPress={showMenu}
-              size={25}
-              color={iconColor}
-            />
+          </GlassBox>
+
+          <View style={[styles.headerActions, { gap: 8 }]}>
+            <GlassBox id="lyrics-btn" gradientConfig={circleGradient} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}>
+              <LyricsHandler
+                currentPlayingTrack={currentPlaying}
+                isOffline={isOffline}
+                Index={Index}
+                currentArtworkSource={currentArtworkSource}
+                iconColor={iconColor}
+              />
+            </GlassBox>
+            <GlassBox id="menu-btn" gradientConfig={circleGradient} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}>
+              <FullScreenMusicMenuButton
+                onPress={showMenu}
+                size={25}
+                color={iconColor}
+              />
+            </GlassBox>
           </View>
         </View>
 
@@ -207,34 +223,25 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
               />
             </View>
             <View style={styles.iconContainer}>
-              <View
-                style={[styles.iconWrapper, { transform: [{ translateY: 1 }] }]}
-              >
-                <View style={styles.iconButton}>
-                  <LikeSongButton size={24} color={iconColor} />
-                </View>
+              <View style={[styles.iconWrapper, { width: 52, height: 52, transform: [{ translateY: 1 }] }]}>
+                <GlassBox id="like-btn" gradientConfig={circleGradient} style={{ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' }}>
+                  <LikeSongButton size={26} color={iconColor} />
+                </GlassBox>
               </View>
-              <View
-                style={[styles.iconWrapper, { transform: [{ translateY: 1 }] }]}
-              >
-                <View style={styles.iconButton}>
-                  <SleepTimerButton size={24} iconColor={iconColor} />
-                </View>
+              <View style={[styles.iconWrapper, { width: 52, height: 52, transform: [{ translateY: 1 }] }]}>
+                <GlassBox id="timer-btn" gradientConfig={circleGradient} style={{ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' }}>
+                  <SleepTimerButton size={26} iconColor={iconColor} />
+                </GlassBox>
               </View>
-              <View
-                style={[
-                  styles.iconWrapper,
-                  { marginRight: 0, transform: [{ translateY: 1 }] },
-                ]}
-              >
-                <View style={styles.iconButton}>
+              <View style={[styles.iconWrapper, { width: 52, height: 52, marginRight: 0, transform: [{ translateY: 1 }] }]}>
+                <GlassBox id="download-btn" gradientConfig={circleGradient} style={{ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' }}>
                   <SmartDownloadControl
                     songData={currentPlaying}
                     isOffline={isOffline}
-                    size={28}
+                    size={30}
                     iconColor={iconColor}
                   />
-                </View>
+                </GlassBox>
               </View>
             </View>
           </View>
@@ -269,7 +276,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
 
         {/* Footer containing bottom icons */}
         <View style={[styles.footerContainer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-          <View style={styles.barsButton}>
+          <GlassBox id="info-btn" gradientConfig={circleGradient} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}>
             <IconButton
               icon="information-outline"
               size={24}
@@ -278,8 +285,8 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
               style={{ margin: 0 }}
               rippleColor="rgba(255, 255, 255, 0.2)"
             />
-          </View>
-          <View style={styles.barsButton}>
+          </GlassBox>
+          <GlassBox id="queue-btn" gradientConfig={circleGradient} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}>
             <IconButton
               icon="menu"
               size={24}
@@ -288,7 +295,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
               style={{ margin: 0 }}
               rippleColor="rgba(255, 255, 255, 0.2)"
             />
-          </View>
+          </GlassBox>
         </View>
       </LinearGradient>
     </View>
@@ -373,6 +380,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
           index={queueIndex}
           onChange={handleQueueChange}
           enablePanDownToClose={true}
+          artworkSource={currentArtworkSource}
         />
       </Animated.View>
     </BackButtonHandler>

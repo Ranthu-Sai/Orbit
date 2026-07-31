@@ -7,6 +7,17 @@ import { PreviousSongButton } from './PreviousSongButton';
 import { RepeatSongButton } from './RepeatSongButton';
 import { ShuffleButton } from './ShuffleButton';
 import { Spacer } from '../Global/Spacer';
+import { GlassBox } from '../Global/GlassBox';
+
+const circleGradient = {
+  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+  stops: [
+    { offset: '0%', opacity: 0.5 },
+    { offset: '40%', opacity: 0.0 },
+    { offset: '60%', opacity: 0.0 },
+    { offset: '100%', opacity: 0.5 },
+  ],
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -73,16 +84,22 @@ export const PlaybackControls = ({
       <View style={styles.controlsRow}>
         {/* Shuffle Button - Left Side */}
         <View style={styles.sideButton}>
-          {showShuffle && <ShuffleButton size={buttonSize} color={iconColor} />}
+          {showShuffle && (
+            <GlassBox id="shuffle-btn" gradientConfig={circleGradient} style={{ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' }}>
+              <ShuffleButton size={buttonSize} color={iconColor} />
+            </GlassBox>
+          )}
         </View>
 
         {/* Navigation Controls - Center */}
         <View style={styles.navigationControls}>
           <View style={styles.navigationButton}>
-            <PreviousSongButton
-              size={navigationButtonSize * 1.2}
-              color={iconColor}
-            />
+            <GlassBox id="prev-btn" gradientConfig={circleGradient} style={{ width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' }}>
+              <PreviousSongButton
+                size={navigationButtonSize * 1.2}
+                color={iconColor}
+              />
+            </GlassBox>
           </View>
           <PlayPauseButton
             isFullScreen={true}
@@ -90,17 +107,21 @@ export const PlaybackControls = ({
             color={iconColor}
           />
           <View style={styles.navigationButton}>
-            <NextSongButton
-              size={navigationButtonSize * 1.2}
-              color={iconColor}
-            />
+            <GlassBox id="next-btn" gradientConfig={circleGradient} style={{ width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' }}>
+              <NextSongButton
+                size={navigationButtonSize * 1.2}
+                color={iconColor}
+              />
+            </GlassBox>
           </View>
         </View>
 
         {/* Repeat Button - Right Side */}
         <View style={styles.sideButton}>
           {showRepeat && (
-            <RepeatSongButton size={buttonSize} color={iconColor} />
+            <GlassBox id="repeat-btn" gradientConfig={circleGradient} style={{ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' }}>
+              <RepeatSongButton size={buttonSize} color={iconColor} />
+            </GlassBox>
           )}
         </View>
       </View>

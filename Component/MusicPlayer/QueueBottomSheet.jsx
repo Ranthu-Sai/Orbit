@@ -9,6 +9,8 @@ import BottomSheet from '@gorhom/bottom-sheet';
 import QueueRenderSongs from './QueueRenderSongs';
 import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
+import { BlurredBackground } from './Background';
+import { GlassBox } from '../Global/GlassBox';
 import {
   View,
   StyleSheet,
@@ -28,7 +30,17 @@ import { shuffleQueuePreservingCurrent } from '../../Utils/SmartShuffleUtils';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
+const circleGradient = {
+  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+  stops: [
+    { offset: '0%', opacity: 0.5 },
+    { offset: '40%', opacity: 0.0 },
+    { offset: '60%', opacity: 0.0 },
+    { offset: '100%', opacity: 0.5 },
+  ],
+};
+
+const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true, artworkSource }) => {
   const { theme, themeMode } = useThemeContext();
   const bottomSheetRef = useRef(null);
   const [reorderMode, setReorderMode] = useState(false);
@@ -151,7 +163,6 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
       snapPoints={snapPoints}
       ref={bottomSheetRef}
       style={{
-        backgroundColor: getBackgroundColor(),
         shadowColor: getShadowColor(),
         shadowOffset: {
           width: 0,
@@ -166,8 +177,35 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
       backgroundStyle={{
         backgroundColor: 'transparent',
       }}
+      backgroundComponent={({ style }) => (
+        <View style={[style, { overflow: 'hidden', borderTopLeftRadius: 15, borderTopRightRadius: 15 }]}>
+          {artworkSource ? (
+            <BlurredBackground
+              source={artworkSource}
+              blurRadius={35}
+              overlayGradient={
+                themeMode === 'light'
+                  ? [
+                      'rgba(244,245,252,0.5)',
+                      'rgba(244,245,252,0.6)',
+                      'rgba(244,245,252,0.7)',
+                      'rgba(244,245,252,0.85)'
+                    ]
+                  : [
+                      'rgba(10,10,10,0.5)',
+                      'rgba(10,10,10,0.6)',
+                      'rgba(10,10,10,0.7)',
+                      'rgba(10,10,10,0.85)'
+                    ]
+              }
+            />
+          ) : (
+            <View style={{ flex: 1, backgroundColor: getBackgroundColor() }} />
+          )}
+        </View>
+      )}
       handleStyle={{
-        backgroundColor: getBackgroundColor(),
+        backgroundColor: 'transparent',
         paddingVertical: 10,
         borderTopLeftRadius: 15,
         borderTopRightRadius: 15,
@@ -176,7 +214,7 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
         <View
           style={[
             styles.handleContainer,
-            { backgroundColor: getBackgroundColor() },
+            { backgroundColor: 'transparent' },
           ]}
         >
           <View style={styles.minusIconContainer}>
@@ -184,28 +222,31 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
           </View>
           <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
-              <Pressable
-                onPress={handleSmartShuffle}
-                disabled={isShuffling}
-                style={[
-                  styles.actionButton,
-                  isSmartShuffleActive && styles.smartShuffleActive,
-                ]}
-              >
-                {isShuffling ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={isSmartShuffleActive ? '#FFD700' : getTextColor()}
-                  />
-                ) : (
-                  <Shuffle
-                    size={20}
-                    color={isSmartShuffleActive ? '#FFD700' : getTextColor()}
-                    fill={isSmartShuffleActive ? '#FFD700' : 'transparent'}
-                    strokeWidth={isSmartShuffleActive ? 2.5 : 2}
-                  />
-                )}
-              </Pressable>
+              <GlassBox id="queue-shuffle" gradientConfig={circleGradient} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}>
+                <Pressable
+                  onPress={handleSmartShuffle}
+                  disabled={isShuffling}
+                  style={[
+                    styles.actionButton,
+                    isSmartShuffleActive && styles.smartShuffleActive,
+                    { margin: 0, padding: 0 }
+                  ]}
+                >
+                  {isShuffling ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={isSmartShuffleActive ? '#FFD700' : getTextColor()}
+                    />
+                  ) : (
+                    <Shuffle
+                      size={20}
+                      color={isSmartShuffleActive ? '#FFD700' : getTextColor()}
+                      fill={isSmartShuffleActive ? '#FFD700' : 'transparent'}
+                      strokeWidth={isSmartShuffleActive ? 2.5 : 2}
+                    />
+                  )}
+                </Pressable>
+              </GlassBox>
             </View>
             <View style={styles.headerCenter}>
               <PlainText
@@ -214,16 +255,18 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true }) => {
               />
             </View>
             <View style={styles.headerRight}>
-              <Pressable
-                onPress={() => setReorderMode(!reorderMode)}
-                style={styles.actionButton}
-              >
-                {reorderMode ? (
-                  <ListX size={20} color={getTextColor()} />
-                ) : (
-                  <ListPlus size={20} color={getTextColor()} />
-                )}
-              </Pressable>
+              <GlassBox id="queue-reorder" gradientConfig={circleGradient} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}>
+                <Pressable
+                  onPress={() => setReorderMode(!reorderMode)}
+                  style={[styles.actionButton, { margin: 0, padding: 0 }]}
+                >
+                  {reorderMode ? (
+                    <ListX size={20} color={getTextColor()} />
+                  ) : (
+                    <ListPlus size={20} color={getTextColor()} />
+                  )}
+                </Pressable>
+              </GlassBox>
             </View>
           </View>
           <SmallText
