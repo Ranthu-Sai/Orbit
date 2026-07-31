@@ -765,6 +765,9 @@ export const Playlist = ({
             windowSize={5}
             removeClippedSubviews={true}
             showsVerticalScrollIndicator={true}
+            ItemSeparatorComponent={() => (
+              <View style={{ height: 1, backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', marginHorizontal: 15 }} />
+            )}
           />
         </View>
       )}

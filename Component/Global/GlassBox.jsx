@@ -20,6 +20,15 @@ export const GlassBox = ({ id, children, style, gradientConfig, rectInset = 1, b
   const bgColor = theme.dark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
   const inset2 = rectInset * 2;
 
+  const flattenedStyle = StyleSheet.flatten(style) || {};
+  const extractedRadius = flattenedStyle.borderRadius;
+  const defaultRadius = dims.height ? dims.height / 2 : 26;
+  const effectiveRadius = extractedRadius !== undefined ? extractedRadius : defaultRadius;
+  const svgRx = extractedRadius !== undefined 
+    ? Math.max(0, extractedRadius - inset2/2) 
+    : (dims.height > inset2 ? (dims.height - inset2) / 2 : 0);
+  const svgRy = svgRx;
+
   const handleLayout = (e) => {
     const { width, height } = e.nativeEvent.layout;
     setDims({ width, height });
@@ -39,8 +48,8 @@ export const GlassBox = ({ id, children, style, gradientConfig, rectInset = 1, b
         x={rectInset} y={rectInset}
         width={dims.width > inset2 ? dims.width - inset2 : 0} 
         height={dims.height > inset2 ? dims.height - inset2 : 0}
-        rx={dims.height > inset2 ? (dims.height - inset2) / 2 : 0} 
-        ry={dims.height > inset2 ? (dims.height - inset2) / 2 : 0}
+        rx={svgRx} 
+        ry={svgRy}
         stroke={`url(#${id}-grad)`}
         strokeWidth={1}
         fill="transparent"
@@ -67,8 +76,8 @@ export const GlassBox = ({ id, children, style, gradientConfig, rectInset = 1, b
         x={rectInset + pad} y={rectInset + pad}
         width={dims.width > inset2 ? dims.width - inset2 : 0} 
         height={dims.height > inset2 ? dims.height - inset2 : 0}
-        rx={dims.height > inset2 ? (dims.height - inset2) / 2 : 0} 
-        ry={dims.height > inset2 ? (dims.height - inset2) / 2 : 0}
+        rx={svgRx} 
+        ry={svgRy}
         stroke={`url(#${id}-grad)`}
         strokeWidth={1}
         fill="transparent"
@@ -78,10 +87,7 @@ export const GlassBox = ({ id, children, style, gradientConfig, rectInset = 1, b
 
   // borderOutside mode: SVG rendered in a wrapper with NO borderRadius
   if (borderOutside) {
-    const flattenedStyle = StyleSheet.flatten(style) || {};
     const extractedBg = flattenedStyle.backgroundColor;
-    const extractedRadius = flattenedStyle.borderRadius;
-    const effectiveRadius = extractedRadius || (dims.height ? dims.height / 2 : 26);
 
     return (
       <View
@@ -117,10 +123,8 @@ export const GlassBox = ({ id, children, style, gradientConfig, rectInset = 1, b
       style={[
         {
           backgroundColor: bgColor,
-          borderRadius: dims.height ? dims.height / 2 : 26,
+          borderRadius: effectiveRadius,
           overflow: 'hidden',
-          alignItems: 'center',
-          justifyContent: 'center',
         },
         style,
       ]}

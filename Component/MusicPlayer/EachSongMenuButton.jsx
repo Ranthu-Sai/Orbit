@@ -29,6 +29,7 @@ import {
   enhanceYTMusicArtwork,
   getPrimaryArtworkUrl,
 } from '../../Utils/ArtworkEnhancer';
+import { GlassBox } from '../Global/GlassBox';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -896,15 +897,24 @@ export const EachSongMenuButton = ({
       animationType="fade"
     >
       <Pressable style={styles.modalOverlay} onPress={closeMenu}>
-        <View
+        <GlassBox
+          id="dropdown-menu-container"
           style={[
             styles.menuContainer,
             {
               top: menuPosition.top,
               right: menuPosition.right,
-              backgroundColor: dark ? '#1E1E1E' : '#FFFFFF',
+              backgroundColor: dark ? 'rgba(30, 30, 30, 0.8)' : 'rgba(255, 255, 255, 0.8)',
             },
           ]}
+          gradientConfig={{
+            x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+            stops: [
+              { offset: '0%', opacity: 0.5 },
+              { offset: '50%', opacity: 0.0 },
+              { offset: '100%', opacity: 0.5 },
+            ],
+          }}
         >
           <TouchableOpacity style={styles.menuItem} onPress={addToQueue}>
             <MaterialCommunityIcons
@@ -916,6 +926,7 @@ export const EachSongMenuButton = ({
               Add to queue
             </Text>
           </TouchableOpacity>
+          <View style={{ height: 1, backgroundColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', marginHorizontal: 8 }} />
 
           <TouchableOpacity style={styles.menuItem} onPress={playNext}>
             <MaterialCommunityIcons
@@ -927,6 +938,7 @@ export const EachSongMenuButton = ({
               Play next
             </Text>
           </TouchableOpacity>
+          <View style={{ height: 1, backgroundColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', marginHorizontal: 8 }} />
 
           <TouchableOpacity style={styles.menuItem} onPress={addToPlaylist}>
             <MaterialCommunityIcons
@@ -938,6 +950,7 @@ export const EachSongMenuButton = ({
               Add to playlist
             </Text>
           </TouchableOpacity>
+          <View style={{ height: 1, backgroundColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', marginHorizontal: 8 }} />
 
           {!isDownloaded && (
             <TouchableOpacity style={styles.menuItem} onPress={downloadSong}>
@@ -960,7 +973,7 @@ export const EachSongMenuButton = ({
               </Text>
             </TouchableOpacity>
           )}
-        </View>
+        </GlassBox>
       </Pressable>
     </Modal>
   );
@@ -973,28 +986,36 @@ export const EachSongMenuButton = ({
           ref={buttonRef}
           onPress={handlePress}
           style={{
-            padding: paddingSize,
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: isFromAlbum ? 38 : 32,
-            height: isFromAlbum ? 38 : 32,
-            backgroundColor: 'transparent',
-            borderRadius: 16,
-            elevation: 0,
             marginRight: getMarginRight(),
-          }}
-          android_ripple={{
-            color: 'rgba(255, 255, 255, 0.2)',
-            borderless: true,
-            radius: isFromAlbum ? 18 : 20,
           }}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <MaterialCommunityIcons
-            name="dots-vertical"
-            size={isFromAlbum ? 24 : 20}
-            color={colors.text}
-          />
+          <GlassBox
+            id={`menu-${song?.id || 'unknown'}`}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+            gradientConfig={{
+              x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+              stops: [
+                { offset: '0%', opacity: 0.5 },
+                { offset: '25%', opacity: 0.5 },
+                { offset: '50%', opacity: 0.0 },
+                { offset: '75%', opacity: 0.5 },
+                { offset: '100%', opacity: 0.5 },
+              ],
+            }}
+          >
+            <MaterialCommunityIcons
+              name="dots-vertical"
+              size={20}
+              color={colors.text}
+            />
+          </GlassBox>
         </Pressable>
       </View>
 

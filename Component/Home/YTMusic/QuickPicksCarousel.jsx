@@ -132,7 +132,8 @@ export const QuickPicksCarousel = ({ title, songs }) => {
 
   const currentSong = flatSongs[currentIndex];
   const currentTitle = currentSong?.title || currentSong?.name || 'Unknown';
-  const currentArtist = currentSong?.artist || currentSong?.artists?.[0]?.name || 'Unknown Artist';
+  const rawArtist = currentSong?.artist || currentSong?.artists?.[0]?.name || 'Unknown Artist';
+  const currentArtist = rawArtist.length > 35 ? rawArtist.substring(0, 35) + '...' : rawArtist;
 
   return (
     <View style={styles.container}>
@@ -224,12 +225,14 @@ export const QuickPicksCarousel = ({ title, songs }) => {
                   }
                 }}
               >
-                <View style={[styles.imageContainer, { backgroundColor: theme.colors.surfaceVariant, borderWidth: 1, borderColor: theme.dark ? 'white' : 'black' }]}>
-                  <FastImage
-                    source={{ uri: imageUrl }}
-                    style={styles.image}
-                    resizeMode={FastImage.resizeMode.cover}
-                  />
+                <View style={styles.shadowWrapper}>
+                  <View style={[styles.imageContainer, { backgroundColor: theme.colors.surfaceVariant, borderWidth: 1, borderColor: theme.dark ? 'white' : 'black' }]}>
+                    <FastImage
+                      source={{ uri: imageUrl }}
+                      style={styles.image}
+                      resizeMode={FastImage.resizeMode.cover}
+                    />
+                  </View>
                 </View>
               </TouchableOpacity>
             </Animated.View>
@@ -254,8 +257,8 @@ export const QuickPicksCarousel = ({ title, songs }) => {
 
       <View style={styles.controlsContainer}>
         <TouchableOpacity onPress={handleSkipBackward}>
-          <GlassBox 
-            id="prev" 
+          <GlassBox
+            id="prev"
             style={styles.iconButton}
             gradientConfig={{
               x1: '0%', y1: '0%', x2: '100%', y2: '100%',
@@ -273,8 +276,8 @@ export const QuickPicksCarousel = ({ title, songs }) => {
         </TouchableOpacity>
 
         <TouchableOpacity onPress={handlePlayCurrent}>
-          <GlassBox 
-            id="play" 
+          <GlassBox
+            id="play"
             style={styles.playButton}
             gradientConfig={{
               x1: '0%', y1: '0%', x2: '12%', y2: '172%',
@@ -294,8 +297,8 @@ export const QuickPicksCarousel = ({ title, songs }) => {
         </TouchableOpacity>
 
         <TouchableOpacity onPress={handleSkipForward}>
-          <GlassBox 
-            id="next" 
+          <GlassBox
+            id="next"
             style={styles.iconButton}
             gradientConfig={{
               x1: '0%', y1: '0%', x2: '100%', y2: '100%',
@@ -332,17 +335,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  shadowWrapper: {
+    elevation: 25,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 20,
+    borderRadius: 12,
+  },
   imageContainer: {
     width: ITEM_WIDTH,
     aspectRatio: 1,
     borderRadius: 12,
     overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
-    elevation: 10,
   },
   image: {
     width: '100%',

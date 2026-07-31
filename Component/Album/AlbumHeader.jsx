@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ToastAndroid,
   DeviceEventEmitter,
+  TouchableOpacity,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import {
@@ -21,6 +22,8 @@ import {
   DeleteALikedAlbum,
 } from '../../LocalStorage/StoreLikedAlbums';
 import { DownloadButton } from '../Global/DownloadButton';
+import { GlassBox } from '../Global/GlassBox';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AddPlaylist, getIndexQuality } from '../../MusicPlayerFunctions';
 import Context from '../../Context/Context';
 import FormatArtist from '../../Utils/FormatArtists';
@@ -511,20 +514,24 @@ export const AlbumHeader = ({
           {/* Info Row: Qobuz-style chips for Track Count, Duration, Quality */}
           <View style={styles.infoRow}>
             {/* Track Count Chip */}
-            <View
-              style={[
-                styles.infoChip,
-                {
-                  backgroundColor: theme.dark
-                    ? 'rgba(255,255,255,0.1)'
-                    : 'rgba(0,0,0,0.08)',
-                },
-              ]}
+            <GlassBox
+              id="album-track-count"
+              style={styles.infoChip}
+              gradientConfig={{
+                x1: '0%', y1: '0%', x2: '12%', y2: '170%',
+                stops: [
+                  { offset: '0%', opacity: 0.5 },
+                  { offset: '25%', opacity: 0.5 },
+                  { offset: '50%', opacity: 0.0 },
+                  { offset: '75%', opacity: 0.5 },
+                  { offset: '100%', opacity: 0.5 },
+                ],
+              }}
             >
               <Text style={[styles.infoChipText, { color: theme.colors.text }]}>
                 {songCount} {songCount === 1 ? 'track' : 'tracks'}
               </Text>
-            </View>
+            </GlassBox>
 
             {/* Duration Chip */}
             {totalDuration > 0 && (
@@ -561,46 +568,65 @@ export const AlbumHeader = ({
           {/* Action Icons Row: Like, Download, More */}
           <View style={styles.actionIconsRow}>
             {/* Like Button */}
-            <IconButton
-              icon={isLiked ? 'heart' : 'heart-outline'}
-              iconColor={
-                isLiked ? '#E91E63' : theme.dark ? '#FFFFFF' : theme.colors.text
-              }
-              size={22}
-              onPress={handleLikePress}
-              style={styles.actionIcon}
-            />
+            <TouchableOpacity onPress={handleLikePress}>
+              <GlassBox
+                id="album-like"
+                style={styles.glassIconContainer}
+                gradientConfig={{
+                  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+                  stops: [
+                    { offset: '0%', opacity: 0.5 },
+                    { offset: '25%', opacity: 0.5 },
+                    { offset: '50%', opacity: 0.0 },
+                    { offset: '75%', opacity: 0.5 },
+                    { offset: '100%', opacity: 0.5 },
+                  ],
+                }}
+              >
+                <Icon
+                  name={isLiked ? 'heart' : 'heart-outline'}
+                  color={isLiked ? '#E91E63' : theme.dark ? '#FFFFFF' : theme.colors.text}
+                  size={22}
+                />
+              </GlassBox>
+            </TouchableOpacity>
 
             {/* Download Button */}
             {isDownloading ? (
-              <View
-                style={[
-                  styles.actionIcon,
-                  {
-                    padding: 8,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  },
-                ]}
-              >
+              <View style={[styles.glassIconContainer, { borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
                 <ActivityIndicator size={18} color={theme.colors.primary} />
               </View>
             ) : allDownloaded ? (
-              <IconButton
-                icon="check-circle"
-                iconColor="#4CAF50"
-                size={22}
-                disabled
-                style={styles.actionIcon}
-              />
+              <View style={[styles.glassIconContainer, { borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
+                <Icon
+                  name="check-circle"
+                  color="#4CAF50"
+                  size={22}
+                />
+              </View>
             ) : (
-              <IconButton
-                icon="download-outline"
-                iconColor={theme.dark ? '#FFFFFF' : theme.colors.text}
-                size={22}
-                onPress={handleDownloadAllPress}
-                style={styles.actionIcon}
-              />
+              <TouchableOpacity onPress={handleDownloadAllPress}>
+                <GlassBox
+                  id="album-download"
+                  style={styles.glassIconContainer}
+                  gradientConfig={{
+                    x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+                    stops: [
+                      { offset: '0%', opacity: 0.5 },
+                      { offset: '25%', opacity: 0.5 },
+                      { offset: '50%', opacity: 0.0 },
+                      { offset: '75%', opacity: 0.5 },
+                      { offset: '100%', opacity: 0.5 },
+                    ],
+                  }}
+                >
+                  <Icon
+                    name="download-outline"
+                    color={theme.dark ? '#FFFFFF' : theme.colors.text}
+                    size={22}
+                  />
+                </GlassBox>
+              </TouchableOpacity>
             )}
           </View>
         </View>
@@ -609,37 +635,54 @@ export const AlbumHeader = ({
       {/* Bottom Section: Play & Shuffle Buttons */}
       <View style={styles.buttonRow}>
         {/* Play Button */}
-        <Button
-          mode="contained"
-          icon={isPlaying ? 'pause' : 'play'}
-          onPress={handlePlayPress}
-          loading={isLoading}
-          disabled={isLoading}
-          style={[styles.playButton, { backgroundColor: theme.colors.primary }]}
-          labelStyle={[styles.buttonLabel, { color: '#FFFFFF' }]}
-          contentStyle={styles.buttonContent}
-        >
-          {isPlaying ? 'Pause' : 'Play'}
-        </Button>
+        <View style={{ flex: 1 }}>
+          <Button
+            mode="contained"
+            icon={isPlaying ? 'pause' : 'play'}
+            onPress={handlePlayPress}
+            loading={isLoading}
+            disabled={isLoading}
+            style={[styles.playButton, { backgroundColor: theme.colors.primary }]}
+            labelStyle={[styles.buttonLabel, { color: '#FFFFFF' }]}
+            contentStyle={styles.buttonContent}
+          >
+            {isPlaying ? 'Pause' : 'Play'}
+          </Button>
+        </View>
 
         {/* Shuffle Button */}
-        <Button
-          mode="outlined"
-          icon="shuffle"
-          onPress={handleShufflePress}
-          disabled={isLoading}
-          style={[
-            styles.shuffleButton,
-            { borderColor: theme.dark ? '#FFFFFF' : theme.colors.primary },
-          ]}
-          labelStyle={[
-            styles.buttonLabel,
-            { color: theme.dark ? '#FFFFFF' : theme.colors.primary },
-          ]}
-          contentStyle={styles.buttonContent}
-        >
-          Shuffle
-        </Button>
+        <TouchableOpacity onPress={handleShufflePress} style={{ flex: 1 }} disabled={isLoading}>
+          <GlassBox
+            id="album-shuffle"
+            style={styles.glassShuffleButton}
+            gradientConfig={{
+              x1: '6%', y1: '0%', x2: '12%', y2: '172%',
+              stops: [
+                { offset: '0%', opacity: 0.5 },
+                { offset: '25%', opacity: 0.5 },
+                { offset: '40%', opacity: 0.0 },
+                { offset: '50%', opacity: 0.0 },
+                { offset: '65%', opacity: 0.5 },
+                { offset: '100%', opacity: 0.5 },
+              ],
+            }}
+          >
+            <Icon
+              name="shuffle"
+              color={theme.dark ? '#FFFFFF' : theme.colors.primary}
+              size={20}
+              style={{ marginRight: 8 }}
+            />
+            <Text
+              style={[
+                styles.buttonLabel,
+                { color: theme.dark ? '#FFFFFF' : theme.colors.primary },
+              ]}
+            >
+              Shuffle
+            </Text>
+          </GlassBox>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -690,13 +733,28 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   playButton: {
-    flex: 1,
+    width: '100%',
     borderRadius: 24,
   },
   shuffleButton: {
     flex: 1,
     borderRadius: 24,
     borderWidth: 1,
+  },
+  glassShuffleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 44,
+    borderRadius: 24,
+    width: '100%',
+  },
+  glassIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   buttonLabel: {
     fontWeight: '600',

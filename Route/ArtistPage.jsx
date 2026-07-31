@@ -10,6 +10,7 @@ import {
   Share,
   StatusBar,
   BackHandler,
+  TouchableOpacity,
 } from 'react-native';
 import { Text, IconButton, Button } from 'react-native-paper';
 import {
@@ -26,6 +27,7 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useActiveTrack, usePlaybackState } from 'react-native-track-player';
 
 import { ArtistPageSkeleton } from '../Component/Artist/ArtistPageSkeleton';
+import { GlassBox } from '../Component/Global/GlassBox';
 import { EachSongCard } from '../Component/Global/EachSongCard';
 import { SmallText } from '../Component/Global/SmallText';
 import { AddPlaylist } from '../MusicPlayerFunctions';
@@ -377,29 +379,40 @@ const ArtistPage = () => {
 
             {/* Action Buttons */}
             <View style={styles.actionButtons}>
-              <Button
-                mode="contained"
-                icon="shuffle"
+              <TouchableOpacity
                 onPress={shufflePlay}
                 style={[
-                  styles.shuffleButton,
+                  styles.customShuffleButton,
                   { backgroundColor: theme.colors.primary },
                 ]}
-                labelStyle={[styles.buttonLabel, { color: '#fff' }]}
-                contentStyle={styles.buttonContent}
               >
-                Shuffle
-              </Button>
-              <Button
-                mode="outlined"
-                icon="radio"
-                onPress={playRadio}
-                style={styles.radioButton}
-                labelStyle={[styles.buttonLabel, { color: '#fff' }]}
-                contentStyle={styles.buttonContent}
-              >
-                Radio
-              </Button>
+                <Ionicons name="shuffle" size={20} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={[styles.buttonLabel, { color: '#fff', fontSize: 16, fontWeight: '600' }]}>
+                  Shuffle
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={playRadio} style={{ flex: 1 }}>
+                <GlassBox
+                  id="artist-radio"
+                  style={styles.glassRadioButton}
+                  gradientConfig={{
+                    x1: '0%', y1: '0%', x2: '12%', y2: '172%',
+                    stops: [
+                      { offset: '0%', opacity: 0.5 },
+                      { offset: '25%', opacity: 0.5 },
+                      { offset: '40%', opacity: 0.0 },
+                      { offset: '50%', opacity: 0.0 },
+                      { offset: '65%', opacity: 0.5 },
+                      { offset: '100%', opacity: 0.5 },
+                    ],
+                  }}
+                >
+                  <Ionicons name="radio" size={20} color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={[styles.buttonLabel, { color: '#fff', fontSize: 16, fontWeight: '600' }]}>
+                    Radio
+                  </Text>
+                </GlassBox>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -964,10 +977,26 @@ const styles = StyleSheet.create({
   },
   actionButtons: { flexDirection: 'row', gap: 12, marginTop: 24 },
   shuffleButton: { flex: 1, borderRadius: 32 },
+  customShuffleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: 32,
+  },
   radioButton: {
     flex: 1,
     borderRadius: 32,
     borderColor: 'rgba(255,255,255,0.5)',
+  },
+  glassRadioButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: 32,
+    width: '100%',
   },
   buttonLabel: { fontSize: 16, fontWeight: '600', color: '#000' },
   buttonContent: { height: 48 },

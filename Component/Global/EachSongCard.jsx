@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { PlainText } from './PlainText';
 import { SmallText } from './SmallText';
+import { GlassBox } from './GlassBox';
 import { AddPlaylist, getIndexQuality, PlayOneSong } from '../../MusicPlayerFunctions';
 import { useTheme } from '@react-navigation/native';
 import { memo, useContext, useState, useEffect } from 'react';
@@ -911,26 +912,46 @@ export const EachSongCard = memo(function EachSongCard({
               handleDownload();
             }}
             style={{
-              padding: 4,
-              marginRight: isFromAlbum ? 5 : isFromPlaylist ? 5 : 5,
+              marginRight: isFromAlbum ? 10 : isFromPlaylist ? 10 : 10,
             }}
           >
-            {isDownloaded ? (
-              <Octicons name="check-circle" size={20} color="#1DB954" />
-            ) : downloadInProgress ? (
-              <DownloadProgressIndicator
-                progress={downloadProgress}
-                size={20}
-                thickness={2}
-                showPercentage={false}
-              />
-            ) : (
-              <Octicons
-                name="download"
-                size={20}
-                color={theme.dark ? '#ffffff' : '#333333'}
-              />
-            )}
+            <GlassBox
+              id={`download-${id}`}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              gradientConfig={{
+                x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+                stops: [
+                  { offset: '0%', opacity: 0.5 },
+                  { offset: '25%', opacity: 0.5 },
+                  { offset: '50%', opacity: 0.0 },
+                  { offset: '75%', opacity: 0.5 },
+                  { offset: '100%', opacity: 0.5 },
+                ],
+              }}
+            >
+              {isDownloaded ? (
+                <Octicons name="check-circle" size={18} color="#1DB954" />
+              ) : downloadInProgress ? (
+                <DownloadProgressIndicator
+                  progress={downloadProgress}
+                  size={18}
+                  thickness={2}
+                  showPercentage={false}
+                />
+              ) : (
+                <Octicons
+                  name="download"
+                  size={18}
+                  color={theme.dark ? '#ffffff' : '#333333'}
+                />
+              )}
+            </GlassBox>
           </Pressable>
 
           <EachSongMenuButton

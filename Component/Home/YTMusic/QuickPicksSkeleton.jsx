@@ -3,18 +3,15 @@ import {
   View,
   Animated,
   Dimensions,
-  ScrollView,
   StyleSheet,
 } from 'react-native';
-import { useTheme } from '@react-navigation/native';
+import { useTheme } from 'react-native-paper';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const ITEM_WIDTH = SCREEN_WIDTH * 0.7;
 
-/**
- * QuickPicksSkeleton - Skeleton for the 4-row song sections
- */
 export const QuickPicksSkeleton = () => {
-  const { dark } = useTheme();
+  const theme = useTheme();
   const shimmerAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -41,112 +38,141 @@ export const QuickPicksSkeleton = () => {
     outputRange: [0.3, 0.6, 0.3],
   });
 
-  const SONG_WIDTH = SCREEN_WIDTH * 0.85;
+  const skeletonColor = theme.dark ? '#2a2a2a' : '#e0e0e0';
 
   return (
     <View style={styles.container}>
-      {/* Heading skeleton */}
+      {/* Title */}
       <Animated.View
         style={[
-          styles.headingSkeleton,
+          styles.titleSkeleton,
           {
-            backgroundColor: dark ? '#2a2a2a' : '#e0e0e0',
+            backgroundColor: skeletonColor,
             opacity: shimmerOpacity,
           },
         ]}
       />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {[...Array(2)].map((_, colIndex) => (
-          <View key={colIndex} style={[styles.column, { width: SONG_WIDTH }]}>
-            {[...Array(4)].map((_, songIndex) => (
-              <View key={songIndex} style={styles.songCard}>
-                <Animated.View
-                  style={[
-                    styles.songImage,
-                    {
-                      backgroundColor: dark ? '#2a2a2a' : '#e0e0e0',
-                      opacity: shimmerOpacity,
-                    },
-                  ]}
-                />
-                <View style={styles.textContainer}>
-                  <Animated.View
-                    style={[
-                      styles.songTitle,
-                      {
-                        backgroundColor: dark ? '#2a2a2a' : '#e0e0e0',
-                        opacity: shimmerOpacity,
-                      },
-                    ]}
-                  />
-                  <Animated.View
-                    style={[
-                      styles.songArtist,
-                      {
-                        backgroundColor: dark ? '#252525' : '#d0d0d0',
-                        opacity: shimmerOpacity,
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-            ))}
-          </View>
-        ))}
-      </ScrollView>
+      {/* Carousel Card */}
+      <View style={styles.cardContainer}>
+        <Animated.View
+          style={[
+            styles.imageSkeleton,
+            {
+              backgroundColor: skeletonColor,
+              opacity: shimmerOpacity,
+            },
+          ]}
+        />
+      </View>
+
+      {/* Info Container */}
+      <View style={styles.infoContainer}>
+        <Animated.View
+          style={[
+            styles.textSkeleton,
+            {
+              width: '50%',
+              height: 18,
+              marginBottom: 8,
+              backgroundColor: skeletonColor,
+              opacity: shimmerOpacity,
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.textSkeleton,
+            {
+              width: '30%',
+              height: 14,
+              backgroundColor: skeletonColor,
+              opacity: shimmerOpacity,
+            },
+          ]}
+        />
+      </View>
+
+      {/* Controls Container */}
+      <View style={styles.controlsContainer}>
+        <Animated.View
+          style={[
+            styles.iconButtonSkeleton,
+            {
+              backgroundColor: skeletonColor,
+              opacity: shimmerOpacity,
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.playButtonSkeleton,
+            {
+              backgroundColor: skeletonColor,
+              opacity: shimmerOpacity,
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.iconButtonSkeleton,
+            {
+              backgroundColor: skeletonColor,
+              opacity: shimmerOpacity,
+            },
+          ]}
+        />
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 12,
-    marginBottom: 8,
+    marginVertical: 16,
+    width: '100%',
   },
-  headingSkeleton: {
-    height: 22,
-    width: 140,
+  titleSkeleton: {
+    height: 24,
+    width: 120,
     borderRadius: 4,
     marginBottom: 16,
-    marginHorizontal: 13,
+    marginHorizontal: 20,
   },
-  scrollContent: {
-    paddingLeft: 0,
-    paddingRight: 10,
+  cardContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
   },
-  column: {
-    marginRight: 8,
+  imageSkeleton: {
+    width: ITEM_WIDTH,
+    aspectRatio: 1,
+    borderRadius: 12,
   },
-  songCard: {
+  infoContainer: {
+    alignItems: 'center',
+    marginTop: 16,
+    paddingHorizontal: 32,
+  },
+  textSkeleton: {
+    borderRadius: 4,
+  },
+  controlsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    justifyContent: 'center',
+    marginTop: 20,
+    gap: 24,
   },
-  songImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 4,
-    marginRight: 10,
+  iconButtonSkeleton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
   },
-  textContainer: {
-    flex: 1,
-  },
-  songTitle: {
-    height: 14,
-    width: '60%',
-    borderRadius: 3,
-    marginBottom: 6,
-  },
-  songArtist: {
-    height: 11,
-    width: '40%',
-    borderRadius: 3,
+  playButtonSkeleton: {
+    width: 140,
+    height: 52,
+    borderRadius: 30,
   },
 });
 
