@@ -440,7 +440,7 @@ const BottomSheetMusic = React.memo(({ color }) => {
         position: 'absolute',
         height: 20,
       }}
-      snapPoints={[166, '100%']}
+      snapPoints={[164, '100%']}
       ref={bottomSheetRef}
       index={Index}
       onChange={handleSheetChanges}

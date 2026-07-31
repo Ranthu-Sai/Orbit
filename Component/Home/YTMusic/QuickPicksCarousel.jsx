@@ -175,13 +175,25 @@ export const QuickPicksCarousel = ({ title, songs }) => {
 
           const scale = scrollX.interpolate({
             inputRange,
-            outputRange: [0.85, 1, 0.85],
+            outputRange: [0.8, 1, 0.8],
+            extrapolate: 'clamp',
+          });
+
+          const translateX = scrollX.interpolate({
+            inputRange,
+            outputRange: [-ITEM_WIDTH * 0.55, 0, ITEM_WIDTH * 0.55], // pull inwards
+            extrapolate: 'clamp',
+          });
+
+          const zIndex = scrollX.interpolate({
+            inputRange,
+            outputRange: [0, 100, 0],
             extrapolate: 'clamp',
           });
 
           const opacity = scrollX.interpolate({
             inputRange,
-            outputRange: [0.6, 1, 0.6],
+            outputRange: [0.5, 1, 0.5],
             extrapolate: 'clamp',
           });
 
@@ -192,8 +204,9 @@ export const QuickPicksCarousel = ({ title, songs }) => {
               style={[
                 styles.cardContainer,
                 {
-                  transform: [{ scale }],
+                  transform: [{ scale }, { translateX }],
                   opacity,
+                  zIndex,
                 },
               ]}
             >
@@ -211,7 +224,7 @@ export const QuickPicksCarousel = ({ title, songs }) => {
                   }
                 }}
               >
-                <View style={[styles.imageContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
+                <View style={[styles.imageContainer, { backgroundColor: theme.colors.surfaceVariant, borderWidth: 1, borderColor: theme.dark ? 'white' : 'black' }]}>
                   <FastImage
                     source={{ uri: imageUrl }}
                     style={styles.image}
@@ -326,13 +339,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 15,
+    elevation: 10,
   },
   image: {
     width: '100%',
     height: '100%',
+    transform: [{ scale: 1.35 }],
   },
   infoContainer: {
     alignItems: 'center',

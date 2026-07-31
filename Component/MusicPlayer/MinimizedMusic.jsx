@@ -1,10 +1,11 @@
-import { ActivityIndicator, Dimensions, View } from 'react-native';
+import { ActivityIndicator, Dimensions, View, Animated as RNAnimated, Easing as RNEasing } from 'react-native';
 import React, {
   memo,
   useContext,
   useCallback,
   useState,
   useEffect,
+  useRef,
 } from 'react';
 import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
@@ -20,7 +21,7 @@ import { NextSongButton } from './NextSongButton';
 import { PreviousSongButton } from './PreviousSongButton';
 import { LikeSongButton } from './LikeSongButton';
 import FastImage from 'react-native-fast-image';
-import { useActiveTrack, useProgress } from 'react-native-track-player';
+import { useActiveTrack, useProgress, usePlaybackState } from 'react-native-track-player';
 import { PlayNextSong, PlayPreviousSong } from '../../MusicPlayerFunctions';
 import Context from '../../Context/Context';
 import TrackPlayer from 'react-native-track-player';
@@ -28,6 +29,7 @@ import { Pressable } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Svg, { Circle } from 'react-native-svg';
 
 // Function to get high quality artwork URL
 const getHighQualityArtwork = (artworkUrl, track = null) => {
@@ -447,6 +449,30 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
   const size = Dimensions.get('window').height;
   const screenWidth = Dimensions.get('window').width;
   const currentPlaying = useActiveTrack();
+  const playerState = usePlaybackState();
+  const isPlaying = playerState && (playerState.state === 'playing' || playerState.state === 6);
+
+  const spinValue = useRef(new RNAnimated.Value(0)).current;
+
+  useEffect(() => {
+    if (isPlaying) {
+      RNAnimated.loop(
+        RNAnimated.timing(spinValue, {
+          toValue: 1,
+          duration: 10000,
+          easing: RNEasing.linear,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      spinValue.stopAnimation();
+    }
+  }, [isPlaying]);
+
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   // OPTIMISTIC UI: Use loadingSong if available, otherwise use currentPlaying
   const displaySong = loadingSong || currentPlaying;
@@ -462,10 +488,14 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
         rectInset={0.5}
         borderOutside
         gradientConfig={{
-          x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+          x1: '0%', y1: '0%', x2: '5%', y2: '172%',
           stops: [
-            { offset: '0%', opacity: 0.5 },
-            { offset: '100%', opacity: 0.1 },
+            { offset: '0%', opacity: 0.4 },
+            { offset: '38%', opacity: 0.4 },
+            { offset: '45%', opacity: 0.0 },
+            { offset: '55%', opacity: 0.0 },
+            { offset: '62%', opacity: 0.5 },
+            { offset: '100%', opacity: 0.5 },
           ],
         }}
         style={{
@@ -480,7 +510,8 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
             flexDirection: 'row',
             justifyContent: 'space-between',
             flex: 1,
-            paddingHorizontal: 15,
+            paddingLeft: 15,
+            paddingRight: 8,
             alignItems: 'center',
             gap: 10,
           }}
@@ -493,20 +524,38 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
                 alignItems: 'center',
               }}
             >
-              <FastImage
-                source={
-                  typeof getHighQualityArtwork(artworkSource, displaySong) ===
-                    'string'
-                    ? { uri: getHighQualityArtwork(artworkSource, displaySong) }
-                    : getHighQualityArtwork(artworkSource, displaySong)
-                }
-                style={{
-                  height: 46,
-                  width: 46,
-                  borderRadius: 23, // fully rounded like pill art reference or slightly rounded
-                  marginRight: 10,
-                }}
-              />
+              <View style={{ justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                <Svg height="52" width="52" style={{ position: 'absolute' }}>
+                  <Circle
+                    cx="26"
+                    cy="26"
+                    r="24"
+                    stroke={colors.primary || '#1DB954'}
+                    strokeWidth="2"
+                    fill="transparent"
+                    strokeDasharray={`${2 * Math.PI * 24}`}
+                    strokeDashoffset={`${2 * Math.PI * 24 - (2 * Math.PI * 24 * TotalCompletedInpercent()) / 100}`}
+                    strokeLinecap="round"
+                    rotation="-90"
+                    origin="26, 26"
+                  />
+                </Svg>
+                <RNAnimated.View style={{ transform: [{ rotate: spin }] }}>
+                  <FastImage
+                    source={
+                      typeof getHighQualityArtwork(artworkSource, displaySong) ===
+                        'string'
+                        ? { uri: getHighQualityArtwork(artworkSource, displaySong) }
+                        : getHighQualityArtwork(artworkSource, displaySong)
+                    }
+                    style={{
+                      height: 46,
+                      width: 46,
+                      borderRadius: 23,
+                    }}
+                  />
+                </RNAnimated.View>
+              </View>
               <View
                 style={{
                   flex: 1,
@@ -562,7 +611,7 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
               </View>
             ) : (
               <View
-                style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}
+                style={{ flexDirection: 'row', gap: 2, alignItems: 'center' }}
               >
                 <Pressable
                   onPress={
@@ -581,25 +630,6 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
             )}
           </View>
         </Animated.View>
-        <View
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 28,
-            right: 28,
-            height: 1.5,
-            backgroundColor: 'transparent',
-            overflow: 'hidden',
-          }}
-        >
-          <View
-            style={{
-              height: 1.5,
-              width: `${TotalCompletedInpercent()}%`,
-              backgroundColor: colors.primary,
-            }}
-          />
-        </View>
       </GlassBox>
     </GestureHandlerRootView>
   );
