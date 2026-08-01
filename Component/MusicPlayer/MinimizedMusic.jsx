@@ -1,4 +1,4 @@
-import { ActivityIndicator, Dimensions, View, Animated as RNAnimated, Easing as RNEasing } from 'react-native';
+import { ActivityIndicator, Dimensions, View, Animated as RNAnimated, Easing as RNEasing, StyleSheet } from 'react-native';
 import React, {
   memo,
   useContext,
@@ -11,6 +11,7 @@ import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
 import { GlassBox } from '../Global/GlassBox';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { BlurView } from '@react-native-community/blur';
 import {
   GestureDetector,
   Gesture,
@@ -501,9 +502,17 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
         style={{
           flex: 1,
           borderRadius: 35,
-          backgroundColor: color === 'transparent' ? (dark ? 'rgba(30, 30, 30, 0.90)' : 'rgba(255, 255, 255, 0.85)') : (color || colors.musicPlayerBg),
+          backgroundColor: 'transparent',
         }}
       >
+        <View style={[StyleSheet.absoluteFill, { borderRadius: 35, overflow: 'hidden', zIndex: -1 }]}>
+          <BlurView
+            style={StyleSheet.absoluteFill}
+            blurType={dark ? 'dark' : 'light'}
+            blurAmount={8}
+            reducedTransparencyFallbackColor={dark ? 'rgba(18,18,18,0.85)' : 'rgba(255,255,255,0.85)'}
+          />
+        </View>
         <Animated.View
           entering={FadeIn}
           style={{

@@ -94,8 +94,7 @@ export const AlbumHeader = ({
   albumId,
   year,
   songsData = [],
-  albumData = null, // Full album data object
-  // DAB-specific props
+  albumData = null,
   artistName = null,
   qualityLabel = null,
   totalDuration = null,
@@ -178,7 +177,6 @@ export const AlbumHeader = ({
     };
   }, [albumId, songsData]);
 
-  // Subscribe to batch download events
   useEffect(() => {
     const progressListenerId = EventRegister.addEventListener(
       'batch-download-progress',
@@ -209,12 +207,10 @@ export const AlbumHeader = ({
     };
   }, []);
 
-  // Check if all songs are downloaded
   useEffect(() => {
     const checkAllDownloaded = async () => {
       const songs = songsData || albumData?.data?.songs || [];
 
-      // Don't check if there are no songs yet (still loading)
       if (songs.length === 0) {
         setAllDownloaded(false);
         return;
@@ -423,7 +419,17 @@ export const AlbumHeader = ({
         return;
       }
 
-      await AddPlaylist(songs);
+      const mappedSongs = songs.map((s) => ({
+        ...s,
+        artist:
+          s.artist ||
+          (s.artists?.primary ? FormatArtist(s.artists.primary) : null) ||
+          s.primaryArtists ||
+          artistName ||
+          'Unknown Artist',
+      }));
+
+      await AddPlaylist(mappedSongs);
       setIsPlaying(true);
       updateTrack?.();
       ToastAndroid.show(`Playing ${songs.length} songs`, ToastAndroid.SHORT);
@@ -451,18 +457,24 @@ export const AlbumHeader = ({
         return;
       }
 
-      // Shuffle the songs array
-      const shuffled = [...songs];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
+      const mappedSongs = songs.map((s) => ({
+        ...s,
+        artist:
+          s.artist ||
+          (s.artists?.primary ? FormatArtist(s.artists.primary) : null) ||
+          s.primaryArtists ||
+          artistName ||
+          'Unknown Artist',
+      }));
 
-      await AddPlaylist(shuffled);
+      // Shuffle the songs array
+      const shuffledSongs = [...mappedSongs].sort(() => Math.random() - 0.5);
+
+      await AddPlaylist(shuffledSongs);
       setIsPlaying(true);
       updateTrack?.();
       ToastAndroid.show(
-        `Shuffling ${shuffled.length} songs`,
+        `Shuffling ${shuffledSongs.length} songs`,
         ToastAndroid.SHORT
       );
     } catch (error) {

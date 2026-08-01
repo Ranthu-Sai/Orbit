@@ -904,15 +904,16 @@ export const EachSongMenuButton = ({
             {
               top: menuPosition.top,
               right: menuPosition.right,
-              backgroundColor: dark ? 'rgba(30, 30, 30, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+              backgroundColor: dark ? 'rgba(25, 25, 25, 0.65)' : 'rgba(255, 255, 255, 0.65)',
             },
           ]}
           gradientConfig={{
             x1: '0%', y1: '0%', x2: '100%', y2: '100%',
             stops: [
-              { offset: '0%', opacity: 0.5 },
-              { offset: '50%', opacity: 0.0 },
-              { offset: '100%', opacity: 0.5 },
+              { offset: '0%', opacity: 0.7, color: dark ? '#ffffff' : '#ffffff' },
+              { offset: '30%', opacity: 0.1, color: dark ? '#ffffff' : '#ffffff' },
+              { offset: '70%', opacity: 0.1, color: dark ? '#ffffff' : '#ffffff' },
+              { offset: '100%', opacity: 0.3, color: dark ? '#ffffff' : '#ffffff' },
             ],
           }}
         >

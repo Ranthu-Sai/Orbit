@@ -96,7 +96,7 @@ export const PlaybackControls = ({
           <View style={styles.navigationButton}>
             <GlassBox id="prev-btn" gradientConfig={circleGradient} style={{ width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' }}>
               <PreviousSongButton
-                size={navigationButtonSize * 1.2}
+                size={navigationButtonSize * 0.8}
                 color={iconColor}
               />
             </GlassBox>
@@ -109,7 +109,7 @@ export const PlaybackControls = ({
           <View style={styles.navigationButton}>
             <GlassBox id="next-btn" gradientConfig={circleGradient} style={{ width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' }}>
               <NextSongButton
-                size={navigationButtonSize * 1.2}
+                size={navigationButtonSize * 0.8}
                 color={iconColor}
               />
             </GlassBox>

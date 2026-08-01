@@ -18,6 +18,7 @@ import Context from '../../Context/Context';
 import { useTheme } from '@react-navigation/native';
 import { useActiveTrack } from 'react-native-track-player';
 import { Text } from 'react-native-paper';
+import { BlurView } from '@react-native-community/blur';
 
 // Extracted TabItem component to safe-guard Hooks at top level
 const TabItem = React.memo(
@@ -70,7 +71,7 @@ const TabItem = React.memo(
             {/* Inner background tint */}
             <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primary, opacity: 0.15, borderRadius: 27 }]} />
             {/* Glass effect border */}
-            <GlassBox 
+            <GlassBox
               id={`active-tab-${route.key}`}
               rectInset={0.5}
               borderOutside
@@ -85,7 +86,7 @@ const TabItem = React.memo(
               }}
             />
           </Animated.View>
-          
+
           <View style={styles.iconWrapper}>
             {GetIcon(label, isFocused, colors)}
           </View>
@@ -171,7 +172,7 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
           const currentState = navigation.getState();
           const isInCorrectTab =
             currentState?.routes?.[currentState.index]?.state?.index !==
-              undefined &&
+            undefined &&
             currentState.routes[currentState.index].state.routes.some(
               (route) => route.name === tabName && route.state
             );
@@ -212,12 +213,18 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
       style={[
         styles.mainContainer,
         {
-          backgroundColor: dark
-            ? 'rgba(18, 18, 18, 0.85)'
-            : 'rgba(255, 255, 255, 0.85)',
+          backgroundColor: 'transparent',
         },
       ]}
     >
+      <View style={[StyleSheet.absoluteFill, { borderRadius: 35, overflow: 'hidden', zIndex: -1 }]}>
+        <BlurView
+          style={StyleSheet.absoluteFill}
+          blurType={dark ? 'dark' : 'light'}
+          blurAmount={8}
+          reducedTransparencyFallbackColor={dark ? 'rgba(18,18,18,0.85)' : 'rgba(255,255,255,0.85)'}
+        />
+      </View>
       {state.routes.map((route, index) => (
         <TabItem
           key={route.key}
@@ -237,7 +244,7 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
 const styles = StyleSheet.create({
   mainContainer: {
     flexDirection: 'row',
-    height: 70, 
+    height: 70,
     alignItems: 'center',
     position: 'absolute',
     bottom: 20,
@@ -259,7 +266,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   iconWrapper: {
-    width: 64, 
+    width: 64,
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',

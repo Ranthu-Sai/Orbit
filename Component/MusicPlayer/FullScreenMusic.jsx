@@ -369,6 +369,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
           position={menuPosition}
           onClose={closeMenu}
           menuOptions={getMenuOptions()}
+          artworkSource={currentArtworkSource}
         />
         <SongInfoModal
           visible={isInfoModalVisible}

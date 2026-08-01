@@ -97,7 +97,7 @@ function transformYTToSaavnSong(song) {
     name: song.title,
     title: song.title,
     subtitle:
-      song.artists?.map((artist) => artist.name).join(', ') || 'Unknown Artist',
+      song.artists?.map((artist) => artist.name).join(', ') || song.artist || song.author || 'Unknown Artist',
     type: 'song',
     image:
       imageArray.length > 0
@@ -108,9 +108,9 @@ function transformYTToSaavnSong(song) {
               quality: '150x150',
             },
           ],
-    artist: song.artists?.[0]?.name || 'Unknown Artist',
+    artist: song.artists?.[0]?.name || song.artist || song.author || 'Unknown Artist',
     artists: {
-      primary: song.artists || [],
+      primary: song.artists || (song.artist ? [{ name: song.artist }] : []) || (song.author ? [{ name: song.author }] : []) || [],
     },
     duration: 0, // YTMusic API doesn't provide duration in search
     language: 'unknown',
@@ -121,7 +121,7 @@ function transformYTToSaavnSong(song) {
     url: '', // YTMusic doesn't provide direct audio URLs
     copyright: '',
     primaryArtists:
-      song.artists?.map((artist) => artist.name).join(', ') || 'Unknown Artist',
+      song.artists?.map((artist) => artist.name).join(', ') || song.artist || song.author || 'Unknown Artist',
     singers: '',
     composer: '',
     lyricist: '',
@@ -860,7 +860,7 @@ async function getYTMusicPlaylistData(playlistId) {
 }
 
 async function getYTMusicAlbumData(albumId) {
-  const cacheKey = `ytmusic_album_${albumId}`;
+  const cacheKey = `ytmusic_album_v2_${albumId}`;
 
   const fetchFunction = async () => {
     try {
@@ -910,12 +910,26 @@ async function getYTMusicAlbumData(albumId) {
             }
 
             // Transform song data to Saavn format
+            const songArtistName = 
+              song.artists?.[0]?.name || 
+              song.artist ||
+              albumData.artist || 
+              albumData.artists?.[0]?.name || 
+              'Unknown Artist';
+              
+            const songArtistsArr = 
+              song.artists || 
+              (albumData.artist ? [{ name: albumData.artist }] : []) || 
+              albumData.artists || 
+              [];
+
             const transformedSong = {
               id: song.videoId || song.id,
               name: song.title,
               title: song.title,
               subtitle:
                 song.artists?.map((artist) => artist.name).join(', ') ||
+                albumData.artist ||
                 'Unknown Artist',
               type: 'song',
               source: 'ytmusic', // Mark as YTMusic song
@@ -949,9 +963,9 @@ async function getYTMusicAlbumData(albumId) {
                   quality: '150x150',
                 },
               ],
-              artist: song.artists?.[0]?.name || 'Unknown Artist',
+              artist: songArtistName,
               artists: {
-                primary: song.artists || [],
+                primary: songArtistsArr,
               },
               duration: song.duration || 0,
               language: 'unknown',
@@ -963,7 +977,7 @@ async function getYTMusicAlbumData(albumId) {
               copyright: '',
               primaryArtists:
                 song.artists?.map((artist) => artist.name).join(', ') ||
-                'Unknown Artist',
+                songArtistName,
               singers: '',
               composer: '',
               lyricist: '',

@@ -326,8 +326,20 @@ export const EachSongCard = memo(function EachSongCard({
           : isSpotifyPlaylist
           ? 'Spotify'
           : 'YTMusic';
-        // Pass the raw songs array - AddPlaylist processes it
-        await AddPlaylist(songs, current.id || current.videoId);
+          
+        // Map the songs array to ensure artist is properly set from the card's props
+        // This is especially important for YTMusic albums which might have missing artists
+        const mappedSongs = songs.map((s) => ({
+          ...s,
+          artist:
+            s.artist ||
+            (s.artists?.primary ? FormatArtist(s.artists.primary) : null) ||
+            s.primaryArtists ||
+            (isFromAlbum ? artist : 'Unknown Artist'),
+        }));
+        
+        // Pass the mapped songs array - AddPlaylist processes it
+        await AddPlaylist(mappedSongs, current.id || current.videoId);
 
         updateTrack();
         return;
@@ -395,7 +407,7 @@ export const EachSongCard = memo(function EachSongCard({
           url: songUrl,
           title: formatText(e?.name),
           artist: formatText(
-            e?.primaryArtists || FormatArtist(e?.artists?.primary)
+            e?.primaryArtists || FormatArtist(e?.artists?.primary) || (isFromAlbum ? artist : null)
           ),
           artwork: artworkUri,
           image: artworkUri,
