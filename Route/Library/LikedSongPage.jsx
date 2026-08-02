@@ -23,6 +23,36 @@ import { Heading } from '../../Component/Global/Heading';
 import { SmallText } from '../../Component/Global/SmallText';
 import { Spacer } from '../../Component/Global/Spacer';
 import { AddPlaylist } from '../../MusicPlayerFunctions';
+import { GlassBox } from '../../Component/Global/GlassBox';
+
+const circleGradient = {
+  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+  stops: [
+    { offset: '0%', opacity: 0.5 },
+    { offset: '40%', opacity: 0.0 },
+    { offset: '60%', opacity: 0.0 },
+    { offset: '100%', opacity: 0.5 },
+  ],
+};
+
+const CircularGlassBox = ({ id, size = 42, children, style }) => (
+  <GlassBox
+    id={id}
+    gradientConfig={circleGradient}
+    style={[
+      {
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      style,
+    ]}
+  >
+    {children}
+  </GlassBox>
+);
 
 const DEFAULT_ALBUM_IMAGE = require('../../Images/Music.jpeg');
 import Context from '../../Context/Context';
@@ -655,58 +685,64 @@ export const LikedSongPage = () => {
         </View>
 
         <View style={styles.headerRight}>
-          <Pressable
-            style={styles.iconButton}
-            onPress={() => {
-              setShowSearch(!showSearch);
-              if (showSearch) {
-                setSearchQuery('');
-              } // Clear on close
-            }}
-            android_ripple={{
-              color: 'rgba(255,255,255,0.2)',
-              borderless: true,
-              radius: 20,
-            }}
-          >
-            <MaterialCommunityIcons
-              name={showSearch ? 'close' : 'magnify'}
-              size={26}
-              color={theme.colors.text}
-            />
-          </Pressable>
+          <CircularGlassBox id="favorites-search-glass" size={42}>
+            <Pressable
+              style={styles.iconButton}
+              onPress={() => {
+                setShowSearch(!showSearch);
+                if (showSearch) {
+                  setSearchQuery('');
+                } // Clear on close
+              }}
+              android_ripple={{
+                color: 'rgba(255,255,255,0.2)',
+                borderless: true,
+                radius: 20,
+              }}
+            >
+              <MaterialCommunityIcons
+                name={showSearch ? 'close' : 'magnify'}
+                size={22}
+                color={theme.colors.text}
+              />
+            </Pressable>
+          </CircularGlassBox>
 
-          <Pressable
-            style={styles.iconButton}
-            onPress={() => setImportModalVisible(true)}
-            android_ripple={{
-              color: 'rgba(255,255,255,0.2)',
-              borderless: true,
-              radius: 20,
-            }}
-          >
-            <MaterialCommunityIcons
-              name="import"
-              size={26}
-              color={theme.colors.text}
-            />
-          </Pressable>
+          <CircularGlassBox id="favorites-import-glass" size={42}>
+            <Pressable
+              style={styles.iconButton}
+              onPress={() => setImportModalVisible(true)}
+              android_ripple={{
+                color: 'rgba(255,255,255,0.2)',
+                borderless: true,
+                radius: 20,
+              }}
+            >
+              <MaterialCommunityIcons
+                name="import"
+                size={22}
+                color={theme.colors.text}
+              />
+            </Pressable>
+          </CircularGlassBox>
 
-          <Pressable
-            style={styles.iconButton}
-            onPress={toggleViewMode}
-            android_ripple={{
-              color: 'rgba(255,255,255,0.2)',
-              borderless: true,
-              radius: 20,
-            }}
-          >
-            <MaterialCommunityIcons
-              name={viewMode === 'list' ? 'view-grid' : 'view-list'}
-              size={26}
-              color={theme.colors.primary}
-            />
-          </Pressable>
+          <CircularGlassBox id="favorites-view-glass" size={42}>
+            <Pressable
+              style={styles.iconButton}
+              onPress={toggleViewMode}
+              android_ripple={{
+                color: 'rgba(255,255,255,0.2)',
+                borderless: true,
+                radius: 20,
+              }}
+            >
+              <MaterialCommunityIcons
+                name={viewMode === 'list' ? 'view-grid' : 'view-list'}
+                size={22}
+                color={theme.colors.primary}
+              />
+            </Pressable>
+          </CircularGlassBox>
         </View>
       </View>
 
@@ -781,8 +817,11 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   iconButton: {
-    padding: 8,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 21,
   },
   searchContainer: {
     // Kept for compatibility if needed, but unused in new layout
