@@ -44,7 +44,7 @@ export const GlassBox = ({ id, children, style, gradientConfig, rectInset = 1, b
 
   // Default SVG border (for buttons — fits exactly within viewport)
   const svgBorderDefault = dims.width > 0 && dims.height > 0 && (
-    <Svg width={dims.width} height={dims.height} style={StyleSheet.absoluteFill}>
+    <Svg width={dims.width} height={dims.height} style={StyleSheet.absoluteFill} pointerEvents="none">
       <Defs>
         <LinearGradient id={`${id}-grad`} x1={config.x1} y1={config.y1} x2={config.x2} y2={config.y2}>
           {config.stops.map((stop, i) => (
@@ -72,6 +72,7 @@ export const GlassBox = ({ id, children, style, gradientConfig, rectInset = 1, b
       width={dims.width + pad * 2}
       height={dims.height + pad * 2}
       style={{ position: 'absolute', top: -pad, left: -pad }}
+      pointerEvents="none"
     >
       <Defs>
         <LinearGradient id={`${id}-grad`} x1={config.x1} y1={config.y1} x2={config.x2} y2={config.y2}>
@@ -117,9 +118,10 @@ export const GlassBox = ({ id, children, style, gradientConfig, rectInset = 1, b
             },
           ]}
         />
+        {/* Children content (including BlurViews) */}
+        {children}
         {/* SVG border — expanded canvas prevents viewport clipping at edges */}
         {svgBorderExpanded}
-        {children}
       </View>
     );
   }
@@ -137,8 +139,8 @@ export const GlassBox = ({ id, children, style, gradientConfig, rectInset = 1, b
         style,
       ]}
     >
-      {svgBorderDefault}
       {children}
+      {svgBorderDefault}
     </View>
   );
 };

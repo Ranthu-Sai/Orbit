@@ -1,5 +1,7 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, StyleSheet } from 'react-native';
 import { useNavigation, useTheme } from '@react-navigation/native';
+import { GlassBox } from '../Global/GlassBox';
+import { BlurView } from '@react-native-community/blur';
 
 export const DiscoverCard = ({ width, icon: Icon, text, navigate }) => {
   const navigation = useNavigation();
@@ -31,20 +33,35 @@ export const DiscoverCard = ({ width, icon: Icon, text, navigate }) => {
       })}
     >
       {/* Icon container */}
-      <View
+      <GlassBox
+        id={`discover-card-icon-${text.replace(/\s+/g, '-').toLowerCase()}`}
         style={{
           width: 32,
           height: 32,
           borderRadius: 16,
-          backgroundColor: dark
-            ? 'rgba(255, 255, 255, 0.08)'
-            : 'rgba(0, 0, 0, 0.04)',
           alignItems: 'center',
           justifyContent: 'center',
+          backgroundColor: 'transparent',
+          borderWidth: 0,
+        }}
+        gradientConfig={{
+          x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+          stops: [
+            { offset: '0%', opacity: 0.0 },
+            { offset: '30%', opacity: 0.6 },
+            { offset: '70%', opacity: 0.6 },
+            { offset: '100%', opacity: 0.0 },
+          ],
         }}
       >
+        <BlurView
+          style={StyleSheet.absoluteFill}
+          blurType={dark ? 'dark' : 'light'}
+          blurAmount={8}
+          reducedTransparencyFallbackColor={dark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)'}
+        />
         <Icon size={16} color={dark ? '#FFFFFF' : '#000000'} />
-      </View>
+      </GlassBox>
 
       {/* Text */}
       <Text

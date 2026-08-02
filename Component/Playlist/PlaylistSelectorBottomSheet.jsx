@@ -30,8 +30,10 @@ import {
 } from '../../Utils/PlaylistManager';
 import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
+import { GlassBox } from '../Global/GlassBox';
 import FastImage from 'react-native-fast-image';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { BlurView } from '@react-native-community/blur';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -220,6 +222,25 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
     return () => backHandler.remove();
   }, [visible, onClose, showNewPlaylistModal]);
 
+  const renderBackground = useCallback(
+    (props) => (
+      <View
+        style={[
+          props.style,
+          { overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+        ]}
+      >
+        <BlurView
+          style={StyleSheet.absoluteFill}
+          blurType={theme.dark ? 'dark' : 'light'}
+          blurAmount={25}
+          reducedTransparencyFallbackColor={theme.colors.card}
+        />
+      </View>
+    ),
+    [theme]
+  );
+
   return (
     <BottomSheet
       ref={bottomSheetRef}
@@ -230,28 +251,43 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
       keyboardBehavior="extend"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
-      backgroundStyle={{ backgroundColor: theme.colors.card }}
+      backgroundComponent={renderBackground}
       handleIndicatorStyle={{ backgroundColor: theme.colors.text }}
     >
-      <View style={[styles.container, { backgroundColor: theme.colors.card }]}>
+      <View style={[styles.container, { backgroundColor: 'transparent' }]}>
         <View style={styles.header}>
           <PlainText
             text="Add to Playlist"
             style={[styles.title, { color: theme.colors.text }]}
           />
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <MaterialCommunityIcons
-              name="close"
-              size={24}
-              color={theme.colors.text}
-            />
+          <TouchableOpacity onPress={onClose}>
+            <GlassBox
+              id="playlist-selector-close"
+              style={styles.closeButton}
+              gradientConfig={{
+                x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+                stops: [
+                  { offset: '0%', opacity: 0.5 },
+                  { offset: '25%', opacity: 0.5 },
+                  { offset: '50%', opacity: 0.0 },
+                  { offset: '75%', opacity: 0.5 },
+                  { offset: '100%', opacity: 0.5 },
+                ],
+              }}
+            >
+              <MaterialCommunityIcons
+                name="close"
+                size={20}
+                color={theme.colors.text}
+              />
+            </GlassBox>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity
           style={[
             styles.createNewButton,
-            { backgroundColor: theme.colors.background },
+            { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' },
           ]}
           onPress={handleShowNewPlaylistModal}
         >
@@ -316,7 +352,7 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
             style={[
               styles.newPlaylistModal,
               {
-                backgroundColor: theme.colors.background,
+                backgroundColor: 'transparent',
                 paddingTop: 60,
               },
             ]}
@@ -330,9 +366,9 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
               style={[
                 styles.textInput,
                 {
-                  backgroundColor: theme.colors.card,
+                  backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
                   color: theme.colors.text,
-                  borderColor: theme.colors.border,
+                  borderColor: theme.dark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
                 },
               ]}
               placeholder="Enter playlist name"
@@ -398,7 +434,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   closeButton: {
-    padding: 4,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   createNewButton: {
     flexDirection: 'row',

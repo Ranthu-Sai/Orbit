@@ -13,6 +13,8 @@ import { useTheme } from '@react-navigation/native';
 import { importSpotifyPlaylist } from '../../Utils/PlaylistImportLogic';
 import { Heading } from '../Global/Heading';
 import { SmallText } from '../Global/SmallText';
+import { GlassBox } from '../Global/GlassBox';
+import { BlurView } from '@react-native-community/blur';
 
 /**
  * Reusable modal component for importing Spotify playlists
@@ -99,15 +101,32 @@ export const ImportPlaylistModal = ({
       visible={visible}
       onRequestClose={handleClose}
     >
-      <View
-        style={[
-          styles.modalContainer,
-          { backgroundColor: theme.colors.backdrop || 'rgba(0,0,0,0.7)' },
-        ]}
-      >
-        <View
-          style={[styles.modalContent, { backgroundColor: theme.colors.card }]}
+      <View style={styles.modalContainer}>
+        <BlurView
+          style={StyleSheet.absoluteFill}
+          blurType="dark"
+          blurAmount={5}
+          reducedTransparencyFallbackColor={theme.colors.backdrop || 'rgba(0,0,0,0.7)'}
+        />
+        <GlassBox
+          id="import-playlist-modal"
+          style={[styles.modalContent, { backgroundColor: 'transparent', borderWidth: 0 }]}
+          gradientConfig={{
+            x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+            stops: [
+              { offset: '0%', opacity: 0.0 },
+              { offset: '10%', opacity: 0.6 },
+              { offset: '90%', opacity: 0.6 },
+              { offset: '100%', opacity: 0.0 },
+            ],
+          }}
         >
+          <BlurView
+            style={StyleSheet.absoluteFill}
+            blurType={theme.dark ? 'dark' : 'light'}
+            blurAmount={15}
+            reducedTransparencyFallbackColor={theme.colors.card}
+          />
           <Heading text={title} />
 
           {!isImporting ? (
@@ -195,7 +214,7 @@ export const ImportPlaylistModal = ({
               </Text>
             </Pressable>
           </View>
-        </View>
+        </GlassBox>
       </View>
     </Modal>
   );

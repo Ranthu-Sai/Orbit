@@ -7,6 +7,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
+import { GlassBox } from '../Global/GlassBox';
 
 export const HistoryFilters = ({ activeFilter, onFilterChange }) => {
   const { colors, dark } = useTheme();
@@ -25,37 +26,55 @@ export const HistoryFilters = ({ activeFilter, onFilterChange }) => {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {filters.map((filter) => (
-          <TouchableOpacity
-            key={filter.key}
-            style={[
-              styles.filterButton,
-              activeFilter === filter.key && styles.activeFilterButton,
-              {
-                backgroundColor:
-                  activeFilter === filter.key
-                    ? colors.primary
-                    : dark
-                    ? colors.cardSurface
-                    : colors.card,
-                borderColor: colors.border,
-              },
-            ]}
-            onPress={() => onFilterChange(filter.key)}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                activeFilter === filter.key && styles.activeFilterText,
-                {
-                  color: activeFilter === filter.key ? '#FFFFFF' : colors.text,
-                },
-              ]}
+        {filters.map((filter) => {
+          const isActive = activeFilter === filter.key;
+          
+          if (isActive) {
+            return (
+              <TouchableOpacity
+                key={filter.key}
+                style={[
+                  styles.filterButton,
+                  styles.activeFilterButton,
+                  {
+                    backgroundColor: colors.primary,
+                    borderColor: colors.border,
+                  },
+                ]}
+                onPress={() => onFilterChange(filter.key)}
+              >
+                <Text style={[styles.filterText, styles.activeFilterText, { color: '#FFFFFF' }]}>
+                  {filter.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          }
+
+          return (
+            <TouchableOpacity
+              key={filter.key}
+              onPress={() => onFilterChange(filter.key)}
             >
-              {filter.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <GlassBox
+                id={`filter-${filter.key}`}
+                style={[styles.filterButton, { borderWidth: 0, backgroundColor: 'transparent' }]}
+                gradientConfig={{
+                  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+                  stops: [
+                    { offset: '0%', opacity: 0.0 },
+                    { offset: '30%', opacity: 0.3 },
+                    { offset: '70%', opacity: 0.3 },
+                    { offset: '100%', opacity: 0.0 },
+                  ],
+                }}
+              >
+                <Text style={[styles.filterText, { color: colors.text }]}>
+                  {filter.label}
+                </Text>
+              </GlassBox>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
     </View>
   );

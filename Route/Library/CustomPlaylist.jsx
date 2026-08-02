@@ -23,6 +23,8 @@ import { useTheme } from '@react-navigation/native';
 import { Heading } from '../../Component/Global/Heading';
 import { SmallText } from '../../Component/Global/SmallText';
 import { Spacer } from '../../Component/Global/Spacer';
+import { GlassBox } from '../../Component/Global/GlassBox';
+import { BlurView } from '@react-native-community/blur';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { FileInput, Import } from 'lucide-react-native';
@@ -760,14 +762,7 @@ export const CustomPlaylist = () => {
             />
             <View style={styles.headerButtons}>
               <Pressable
-                style={[
-                  styles.addButton,
-                  {
-                    backgroundColor: theme.dark
-                      ? 'rgba(255,255,255,0.07)'
-                      : 'rgba(0,0,0,0.05)',
-                  },
-                ]}
+                style={styles.addButton}
                 onPress={() => setImportModalVisible(true)}
                 android_ripple={{
                   color: theme.dark
@@ -777,17 +772,38 @@ export const CustomPlaylist = () => {
                   radius: 20,
                 }}
               >
-                <FileInput size={24} color={theme.colors.text} />
+                <GlassBox
+                  id="playlist-import-btn"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: 24,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: 'transparent',
+                    borderWidth: 0,
+                  }}
+                  gradientConfig={{
+                    x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+                    stops: [
+                      { offset: '0%', opacity: 0.0 },
+                      { offset: '30%', opacity: 0.6 },
+                      { offset: '70%', opacity: 0.6 },
+                      { offset: '100%', opacity: 0.0 },
+                    ],
+                  }}
+                >
+                  <BlurView
+                    style={StyleSheet.absoluteFill}
+                    blurType={theme.dark ? 'dark' : 'light'}
+                    blurAmount={8}
+                    reducedTransparencyFallbackColor={theme.dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'}
+                  />
+                  <FileInput size={24} color={theme.colors.text} />
+                </GlassBox>
               </Pressable>
               <Pressable
-                style={[
-                  styles.addButton,
-                  {
-                    backgroundColor: theme.dark
-                      ? 'rgba(255,255,255,0.07)'
-                      : 'rgba(0,0,0,0.05)',
-                  },
-                ]}
+                style={styles.addButton}
                 onPress={() => setModalVisible(true)}
                 android_ripple={{
                   color: theme.dark
@@ -797,11 +813,39 @@ export const CustomPlaylist = () => {
                   radius: 20,
                 }}
               >
-                <MaterialIcons
-                  name="playlist-add"
-                  size={28}
-                  color={theme.colors.text}
-                />
+                <GlassBox
+                  id="playlist-add-btn"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: 24,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: 'transparent',
+                    borderWidth: 0,
+                  }}
+                  gradientConfig={{
+                    x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+                    stops: [
+                      { offset: '0%', opacity: 0.0 },
+                      { offset: '30%', opacity: 0.6 },
+                      { offset: '70%', opacity: 0.6 },
+                      { offset: '100%', opacity: 0.0 },
+                    ],
+                  }}
+                >
+                  <BlurView
+                    style={StyleSheet.absoluteFill}
+                    blurType={theme.dark ? 'dark' : 'light'}
+                    blurAmount={8}
+                    reducedTransparencyFallbackColor={theme.dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'}
+                  />
+                  <MaterialIcons
+                    name="playlist-add"
+                    size={28}
+                    color={theme.colors.text}
+                  />
+                </GlassBox>
               </Pressable>
             </View>
           </View>
@@ -1009,7 +1053,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   addButton: {
-    padding: 10,
     borderRadius: 24,
     width: 48,
     height: 48,

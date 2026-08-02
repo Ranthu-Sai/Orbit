@@ -30,6 +30,7 @@ import {
   getPrimaryArtworkUrl,
 } from '../../Utils/ArtworkEnhancer';
 import { GlassBox } from '../Global/GlassBox';
+import { BlurView } from '@react-native-community/blur';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -898,25 +899,32 @@ export const EachSongMenuButton = ({
     >
       <Pressable style={styles.modalOverlay} onPress={closeMenu}>
         <GlassBox
-          id="dropdown-menu-container"
+          id={`dropdown-menu-container-${song?.id || Math.random()}`}
           style={[
             styles.menuContainer,
             {
               top: menuPosition.top,
               right: menuPosition.right,
-              backgroundColor: dark ? 'rgba(25, 25, 25, 0.65)' : 'rgba(255, 255, 255, 0.65)',
+              backgroundColor: 'transparent',
+              borderWidth: 0,
             },
           ]}
           gradientConfig={{
             x1: '0%', y1: '0%', x2: '100%', y2: '100%',
             stops: [
-              { offset: '0%', opacity: 0.7, color: dark ? '#ffffff' : '#ffffff' },
-              { offset: '30%', opacity: 0.1, color: dark ? '#ffffff' : '#ffffff' },
-              { offset: '70%', opacity: 0.1, color: dark ? '#ffffff' : '#ffffff' },
-              { offset: '100%', opacity: 0.3, color: dark ? '#ffffff' : '#ffffff' },
+              { offset: '0%', opacity: 0.6 },
+              { offset: '40%', opacity: 0.0 },
+              { offset: '60%', opacity: 0.0 },
+              { offset: '100%', opacity: 0.6 },
             ],
           }}
         >
+          <BlurView
+            style={StyleSheet.absoluteFill}
+            blurType={dark ? 'dark' : 'light'}
+            blurAmount={8}
+            reducedTransparencyFallbackColor={colors.card}
+          />
           <TouchableOpacity style={styles.menuItem} onPress={addToQueue}>
             <MaterialCommunityIcons
               name="playlist-plus"
