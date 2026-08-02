@@ -106,9 +106,13 @@
     },
     "@eslint/eslintrc": {
       "ajv": "^6.15.0"
-    }
+    },
+    "shell-quote": "1.8.4"
   },
   "engines": {
     "node": ">=18"
+  },
+  "resolutions": {
+    "shell-quote": "1.8.4"
   }
 }
