@@ -141,29 +141,54 @@ export const ImportPlaylistModal = ({
                   },
                 ]}
               />
-              <TextInput
-                placeholder="Paste link (Playlist, Album, Song)"
-                placeholderTextColor={
-                  theme.dark ? 'rgba(255,255,255,0.5)' : '#000000'
-                }
-                value={playlistLink}
-                onChangeText={setPlaylistLink}
-                style={[
-                  styles.input,
-                  {
-                    color: theme.colors.text,
-                    backgroundColor: theme.dark
-                      ? theme.colors.input || '#333'
-                      : '#F0F0F0',
-                    borderColor: theme.colors.border || '#444',
-                  },
-                ]}
-                autoFocus
-                editable={!isImporting}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="url"
-              />
+              <GlassBox
+                id="import-playlist-input"
+                style={{
+                  height: 50,
+                  borderRadius: 8,
+                  marginBottom: 8,
+                  backgroundColor: 'transparent',
+                  borderWidth: 0,
+                }}
+                gradientConfig={{
+                  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+                  stops: [
+                    { offset: '0%', opacity: 0.0 },
+                    { offset: '10%', opacity: 0.6 },
+                    { offset: '90%', opacity: 0.6 },
+                    { offset: '100%', opacity: 0.0 },
+                  ],
+                }}
+              >
+                <BlurView
+                  style={StyleSheet.absoluteFill}
+                  blurType={theme.dark ? 'dark' : 'light'}
+                  blurAmount={8}
+                  reducedTransparencyFallbackColor={theme.dark ? (theme.colors.input || '#333') : '#F0F0F0'}
+                />
+                <TextInput
+                  placeholder="Paste link (Playlist, Album, Song)"
+                  placeholderTextColor={
+                    theme.dark ? 'rgba(255,255,255,0.5)' : '#000000'
+                  }
+                  value={playlistLink}
+                  onChangeText={setPlaylistLink}
+                  style={[
+                    styles.input,
+                    {
+                      color: theme.colors.text,
+                      backgroundColor: 'transparent',
+                      borderWidth: 0,
+                      height: '100%',
+                    },
+                  ]}
+                  autoFocus
+                  editable={!isImporting}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                />
+              </GlassBox>
             </>
           ) : (
             <View style={styles.progressContainer}>
@@ -183,35 +208,90 @@ export const ImportPlaylistModal = ({
 
           <View style={styles.modalButtonContainer}>
             <Pressable
-              style={[
+              style={({ pressed }) => [
                 styles.cancelButton,
-                { backgroundColor: theme.colors.border || '#444' },
+                { opacity: isImporting ? 0.7 : pressed ? 0.8 : 1 },
               ]}
               onPress={handleClose}
               disabled={isImporting}
             >
-              <Text
-                style={[styles.cancelButtonText, { color: theme.colors.text }]}
+              <GlassBox
+                id="import-playlist-cancel"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: 'transparent',
+                  borderWidth: 0,
+                }}
+                gradientConfig={{
+                  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+                  stops: [
+                    { offset: '0%', opacity: 0.0 },
+                    { offset: '10%', opacity: 0.6 },
+                    { offset: '90%', opacity: 0.6 },
+                    { offset: '100%', opacity: 0.0 },
+                  ],
+                }}
               >
-                Cancel
-              </Text>
+                <BlurView
+                  style={StyleSheet.absoluteFill}
+                  blurType={theme.dark ? 'dark' : 'light'}
+                  blurAmount={8}
+                  reducedTransparencyFallbackColor={theme.colors.border || '#444'}
+                />
+                <Text
+                  style={[styles.cancelButtonText, { color: theme.colors.text }]}
+                >
+                  Cancel
+                </Text>
+              </GlassBox>
             </Pressable>
             <Pressable
-              style={[
+              style={({ pressed }) => [
                 styles.importButton,
-                {
-                  backgroundColor: isImporting
-                    ? theme.colors.border || '#666'
-                    : theme.colors.primary || '#1DB954',
-                  opacity: isImporting ? 0.7 : 1,
-                },
+                { opacity: isImporting ? 0.7 : pressed ? 0.8 : 1 },
               ]}
               onPress={handleImport}
               disabled={isImporting}
             >
-              <Text style={styles.importButtonText}>
-                {isImporting ? 'Processing...' : 'Import'}
-              </Text>
+              <GlassBox
+                id="import-playlist-import"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: 'transparent',
+                  borderWidth: 0,
+                }}
+                gradientConfig={{
+                  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+                  stops: [
+                    { offset: '0%', opacity: 0.0 },
+                    { offset: '10%', opacity: 0.6 },
+                    { offset: '90%', opacity: 0.6 },
+                    { offset: '100%', opacity: 0.0 },
+                  ],
+                }}
+              >
+                <BlurView
+                  style={StyleSheet.absoluteFill}
+                  blurType={theme.dark ? 'dark' : 'light'}
+                  blurAmount={8}
+                  reducedTransparencyFallbackColor={
+                    isImporting
+                      ? theme.colors.border || '#666'
+                      : theme.colors.primary || '#1DB954'
+                  }
+                />
+                <Text style={styles.importButtonText}>
+                  {isImporting ? 'Processing...' : 'Import'}
+                </Text>
+              </GlassBox>
             </Pressable>
           </View>
         </GlassBox>
@@ -256,19 +336,13 @@ const styles = StyleSheet.create({
   },
   importButton: {
     flex: 1,
-    backgroundColor: '#1DB954',
-    paddingVertical: 12,
-    alignItems: 'center',
+    height: 48,
     borderRadius: 8,
-    justifyContent: 'center',
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#444',
-    paddingVertical: 12,
-    alignItems: 'center',
+    height: 48,
     borderRadius: 8,
-    justifyContent: 'center',
   },
   importButtonText: {
     color: 'white',

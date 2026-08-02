@@ -43,6 +43,24 @@ const circleGradient = {
   ],
 };
 
+const CircularGlassBox = ({ id, size, children, style }) => (
+  <GlassBox
+    id={id}
+    gradientConfig={circleGradient}
+    style={[
+      {
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      style,
+    ]}
+  >
+    {children}
+  </GlassBox>
+);
 
 export const FullScreenMusic = ({ Index, setIndex }) => {
   const currentPlaying = useActiveTrack();
@@ -153,7 +171,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
             { paddingTop: insets.top + 16, zIndex: 10 },
           ]}
         >
-          <GlassBox id="collapse-btn" gradientConfig={circleGradient} style={[styles.closeButton, { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }]}>
+          <CircularGlassBox id="collapse-btn" size={44} style={styles.closeButton}>
             <IconButton
               icon="chevron-down"
               size={30}
@@ -162,10 +180,10 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
               style={{ margin: 0 }}
               rippleColor="rgba(255, 255, 255, 0.2)"
             />
-          </GlassBox>
+          </CircularGlassBox>
 
           <View style={[styles.headerActions, { gap: 8 }]}>
-            <GlassBox id="lyrics-btn" gradientConfig={circleGradient} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}>
+            <CircularGlassBox id="lyrics-btn" size={44}>
               <LyricsHandler
                 currentPlayingTrack={currentPlaying}
                 isOffline={isOffline}
@@ -173,14 +191,14 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
                 currentArtworkSource={currentArtworkSource}
                 iconColor={iconColor}
               />
-            </GlassBox>
-            <GlassBox id="menu-btn" gradientConfig={circleGradient} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}>
+            </CircularGlassBox>
+            <CircularGlassBox id="menu-btn" size={44}>
               <FullScreenMusicMenuButton
                 onPress={showMenu}
                 size={25}
                 color={iconColor}
               />
-            </GlassBox>
+            </CircularGlassBox>
           </View>
         </View>
 
@@ -224,24 +242,24 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
             </View>
             <View style={styles.iconContainer}>
               <View style={[styles.iconWrapper, { width: 52, height: 52, transform: [{ translateY: 1 }] }]}>
-                <GlassBox id="like-btn" gradientConfig={circleGradient} style={{ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' }}>
+                <CircularGlassBox id="like-btn" size={52}>
                   <LikeSongButton size={26} color={iconColor} />
-                </GlassBox>
+                </CircularGlassBox>
               </View>
               <View style={[styles.iconWrapper, { width: 52, height: 52, transform: [{ translateY: 1 }] }]}>
-                <GlassBox id="timer-btn" gradientConfig={circleGradient} style={{ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' }}>
+                <CircularGlassBox id="timer-btn" size={52}>
                   <SleepTimerButton size={26} iconColor={iconColor} />
-                </GlassBox>
+                </CircularGlassBox>
               </View>
               <View style={[styles.iconWrapper, { width: 52, height: 52, marginRight: 0, transform: [{ translateY: 1 }] }]}>
-                <GlassBox id="download-btn" gradientConfig={circleGradient} style={{ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' }}>
+                <CircularGlassBox id="download-btn" size={52}>
                   <SmartDownloadControl
                     songData={currentPlaying}
                     isOffline={isOffline}
                     size={30}
                     iconColor={iconColor}
                   />
-                </GlassBox>
+                </CircularGlassBox>
               </View>
             </View>
           </View>
@@ -276,7 +294,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
 
         {/* Footer containing bottom icons */}
         <View style={[styles.footerContainer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-          <GlassBox id="info-btn" gradientConfig={circleGradient} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}>
+          <CircularGlassBox id="info-btn" size={44}>
             <IconButton
               icon="information-outline"
               size={24}
@@ -285,8 +303,8 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
               style={{ margin: 0 }}
               rippleColor="rgba(255, 255, 255, 0.2)"
             />
-          </GlassBox>
-          <GlassBox id="queue-btn" gradientConfig={circleGradient} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}>
+          </CircularGlassBox>
+          <CircularGlassBox id="queue-btn" size={44}>
             <IconButton
               icon="menu"
               size={24}
@@ -295,7 +313,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
               style={{ margin: 0 }}
               rippleColor="rgba(255, 255, 255, 0.2)"
             />
-          </GlassBox>
+          </CircularGlassBox>
         </View>
       </LinearGradient>
     </View>
@@ -425,16 +443,7 @@ const styles = StyleSheet.create({
     margin: 0,
     padding: 0,
   },
-  iconButton: {
-    margin: 0,
-    padding: 0,
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // Adjust vertical alignment for the icons
-    transform: [{ translateY: 1 }],
-  },
+
   headerContainer: {
     width: '100%',
     padding: 16,
@@ -487,14 +496,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     zIndex: 10,
   },
-  barsButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
+
   backgroundImage: {
     flex: 1,
   },

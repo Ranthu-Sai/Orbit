@@ -25,7 +25,15 @@ export const SpotifyService = {
 
     try {
       if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
-        throw new Error('Missing Spotify credentials in .env');
+        throw new Error(
+          'Missing Spotify credentials. Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET ' +
+          'in your .env file or environment variables.'
+        );
+      }
+
+      // Validate credential format (Spotify client IDs are 32-char hex strings)
+      if (SPOTIFY_CLIENT_ID.length !== 32 || !/^[0-9a-f]+$/i.test(SPOTIFY_CLIENT_ID)) {
+        console.warn('SPOTIFY_CLIENT_ID appears to be invalid format. Expected 32-char hex string.');
       }
 
       const credentials = base64.encode(
@@ -45,8 +53,18 @@ export const SpotifyService = {
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         console.error('Spotify Auth Error:', errorData);
+        
+        // Provide specific guidance based on error type
+        if (response.status === 403) {
+          throw new Error(
+            'Spotify credentials are invalid or revoked. ' +
+            'Please update SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET in your environment variables. ' +
+            'Get credentials at: https://developer.spotify.com/dashboard'
+          );
+        }
+        
         throw new Error(
           `Spotify Auth Failed: ${
             errorData.error_description || response.status
@@ -207,8 +225,12 @@ export const SpotifyService = {
         tracks: availableTracks,
       };
     } catch (error) {
-      console.error('Error fetching Spotify playlist:', error);
-      throw error;
+      try {
+        return await SpotifyService.scrapePlaylistHTML(playlistId);
+      } catch (fallbackError) {
+        console.error('HTML scraping fallback also failed:', fallbackError);
+        throw error;
+      }
     }
   },
 
@@ -291,8 +313,12 @@ export const SpotifyService = {
           .filter((t) => t !== null),
       };
     } catch (error) {
-      console.error('Error fetching Spotify album:', error);
-      throw error;
+      try {
+        return await SpotifyService.scrapeAlbumHTML(albumId);
+      } catch (fallbackError) {
+        console.error('HTML scraping fallback also failed:', fallbackError);
+        throw error;
+      }
     }
   },
 
@@ -342,9 +368,139 @@ export const SpotifyService = {
         ],
       };
     } catch (error) {
-      console.error('Error fetching Spotify track:', error);
-      throw error;
+      try {
+        return await SpotifyService.scrapeTrackHTML(trackId);
+      } catch (fallbackError) {
+        console.error('HTML scraping fallback also failed:', fallbackError);
+        throw error;
+      }
     }
+  },
+
+  /**
+   * Scrapes Spotify Playlist HTML for initial state data (fallback for 403 API errors)
+   */
+  scrapePlaylistHTML: async (playlistId) => {
+    const response = await fetch(`https://open.spotify.com/playlist/${playlistId}`);
+    const html = await response.text();
+    const match = html.match(/<script id="initialState" type="text\/plain">([^<]+)<\/script>/);
+    if (!match) throw new Error("Could not parse Spotify page state");
+
+    const jsonStr = base64.decode(match[1]);
+    const state = JSON.parse(jsonStr);
+    
+    const playlistInfo = state.entities.items[`spotify:playlist:${playlistId}`];
+    if (!playlistInfo) throw new Error("Playlist info not found in state");
+    
+    const tracks = [];
+    if (playlistInfo.content?.items) {
+      playlistInfo.content.items.forEach(item => {
+        const t = item.itemV2?.data || item.track;
+        if (!t || !t.name) return;
+        
+        const artistName = t.artists?.items?.map(a => a.profile?.name).join(', ') || 'Unknown Artist';
+        tracks.push({
+          title: t.name,
+          artist: artistName,
+          album: t.albumOfTrack?.name || '',
+          duration: (t.trackDuration?.totalMilliseconds || t.duration?.totalMilliseconds || 0) / 1000,
+          artwork: t.albumOfTrack?.coverArt?.sources?.[0]?.url || t.album?.images?.[0]?.url || '',
+          spotifyId: t.uri?.split(':').pop() || t.id,
+        });
+      });
+    }
+
+    return {
+      id: playlistId,
+      name: playlistInfo.name || 'Imported Playlist',
+      description: playlistInfo.description || '',
+      image: playlistInfo.images?.items?.[0]?.sources?.[0]?.url || playlistInfo.images?.[0]?.url,
+      owner: playlistInfo.ownerV2?.data?.name || playlistInfo.owner?.display_name || 'Spotify',
+      totalTracks: tracks.length,
+      tracks: tracks,
+    };
+  },
+
+  /**
+   * Scrapes Spotify Album HTML for initial state data
+   */
+  scrapeAlbumHTML: async (albumId) => {
+    const response = await fetch(`https://open.spotify.com/album/${albumId}`);
+    const html = await response.text();
+    const match = html.match(/<script id="initialState" type="text\/plain">([^<]+)<\/script>/);
+    if (!match) throw new Error("Could not parse Spotify page state");
+
+    const jsonStr = base64.decode(match[1]);
+    const state = JSON.parse(jsonStr);
+    
+    const albumInfo = state.entities.items[`spotify:album:${albumId}`];
+    if (!albumInfo) throw new Error("Album info not found in state");
+    
+    const tracks = [];
+    if (albumInfo.tracks?.items) {
+      albumInfo.tracks.items.forEach(item => {
+        const t = item.track || item;
+        if (!t || !t.name) return;
+        
+        const artistName = t.artists?.items?.map(a => a.profile?.name).join(', ') || 'Unknown Artist';
+        tracks.push({
+          title: t.name,
+          artist: artistName,
+          album: albumInfo.name || '',
+          duration: (t.trackDuration?.totalMilliseconds || t.duration?.totalMilliseconds || 0) / 1000,
+          artwork: albumInfo.coverArt?.sources?.[0]?.url || albumInfo.images?.[0]?.url || '',
+          spotifyId: t.uri?.split(':').pop() || t.id,
+        });
+      });
+    }
+
+    return {
+      id: albumId,
+      name: albumInfo.name || 'Imported Album',
+      description: `Album by ${tracks[0]?.artist || 'Unknown'}`,
+      image: albumInfo.coverArt?.sources?.[0]?.url || albumInfo.images?.[0]?.url,
+      owner: tracks[0]?.artist || 'Spotify',
+      year: albumInfo.date?.year?.toString() || '',
+      totalTracks: tracks.length,
+      tracks: tracks,
+    };
+  },
+
+  /**
+   * Scrapes Spotify Track HTML for initial state data
+   */
+  scrapeTrackHTML: async (trackId) => {
+    const response = await fetch(`https://open.spotify.com/track/${trackId}`);
+    const html = await response.text();
+    const match = html.match(/<script id="initialState" type="text\/plain">([^<]+)<\/script>/);
+    if (!match) throw new Error("Could not parse Spotify page state");
+
+    const jsonStr = base64.decode(match[1]);
+    const state = JSON.parse(jsonStr);
+    
+    const trackInfo = state.entities.items[`spotify:track:${trackId}`];
+    if (!trackInfo) throw new Error("Track info not found in state");
+    
+    const artistName = trackInfo.artists?.items?.map(a => a.profile?.name).join(', ') || 'Unknown Artist';
+    
+    return {
+      id: trackId,
+      name: trackInfo.name,
+      description: `Single by ${artistName}`,
+      image: trackInfo.albumOfTrack?.coverArt?.sources?.[0]?.url || trackInfo.album?.images?.[0]?.url,
+      owner: artistName,
+      totalTracks: 1,
+      tracks: [
+        {
+          title: trackInfo.name,
+          artist: artistName,
+          album: trackInfo.albumOfTrack?.name || '',
+          duration: (trackInfo.trackDuration?.totalMilliseconds || trackInfo.duration?.totalMilliseconds || 0) / 1000,
+          artwork: trackInfo.albumOfTrack?.coverArt?.sources?.[0]?.url || trackInfo.album?.images?.[0]?.url,
+          spotifyId: trackId,
+        }
+      ],
+    };
   },
 
   /**
