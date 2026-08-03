@@ -828,13 +828,24 @@ const SectionHeader = React.memo(({ title, hasMore, theme, onViewMore }) => (
       {title}
     </Text>
     {hasMore && (
-      <IconButton
-        icon="arrow-right"
-        size={24}
-        iconColor={theme.colors.primary}
-        onPress={onViewMore}
-        style={{ margin: 0, padding: 0 }} // Remove default margins
-      />
+      <Pressable onPress={onViewMore}>
+        <GlassBox
+          id={`more-${title}`}
+          style={styles.glassIconContainer}
+          gradientConfig={{
+            x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+            stops: [
+              { offset: '0%', opacity: 0.5 },
+              { offset: '25%', opacity: 0.5 },
+              { offset: '50%', opacity: 0.0 },
+              { offset: '75%', opacity: 0.5 },
+              { offset: '100%', opacity: 0.5 },
+            ],
+          }}
+        >
+          <Ionicons name="arrow-forward" size={20} color={theme.dark ? '#FFFFFF' : theme.colors.text} />
+        </GlassBox>
+      </Pressable>
     )}
   </View>
 ));
@@ -1002,7 +1013,14 @@ const styles = StyleSheet.create({
   buttonContent: { height: 48 },
 
   // Sections
-  section: { marginTop: 0, paddingHorizontal: 0 },
+  section: { marginTop: 24, paddingHorizontal: 0 },
+  glassIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',

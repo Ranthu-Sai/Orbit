@@ -303,6 +303,7 @@ export const MyMusicPage = () => {
           <Text style={styles.emptyText}>No music files available.</Text>
         }
         contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

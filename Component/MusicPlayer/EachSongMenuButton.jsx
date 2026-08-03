@@ -230,11 +230,10 @@ export const EachSongMenuButton = ({
             gradientConfig={{
               x1: '0%', y1: '0%', x2: '100%', y2: '100%',
               stops: [
-                { offset: '0%', opacity: 0.5 },
-                { offset: '25%', opacity: 0.5 },
-                { offset: '50%', opacity: 0.0 },
-                { offset: '75%', opacity: 0.5 },
-                { offset: '100%', opacity: 0.5 },
+                { offset: '0%', opacity: 0.0 },
+                { offset: '40%', opacity: 0.5 },
+                { offset: '60%', opacity: 0.5 },
+                { offset: '100%', opacity: 0.0 },
               ],
             }}
           >

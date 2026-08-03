@@ -24,6 +24,23 @@ import FormatArtist from '../../Utils/FormatArtists';
 import FormatTitleAndArtist from '../../Utils/FormatTitleAndArtist';
 import BatchDownloadService from '../../Utils/BatchDownloadService';
 import EventRegister from '../../Utils/EventRegister';
+import ImageColors from 'react-native-image-colors';
+import LinearGradient from 'react-native-linear-gradient';
+
+const getRgba = (hexColor, alpha = 1) => {
+  if (!hexColor || hexColor === 'transparent') return `rgba(27, 67, 50, ${alpha})`;
+  let c = hexColor.replace('#', '');
+  if (c.length === 3) {
+    c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+  }
+  if (c.length === 6) {
+    const r = parseInt(c.substring(0, 2), 16);
+    const g = parseInt(c.substring(2, 4), 16);
+    const b = parseInt(c.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return hexColor;
+};
 
 // Get screen dimensions
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -112,6 +129,40 @@ export const PlaylistHeader = ({
     total: 0,
   });
   const [allDownloaded, setAllDownloaded] = useState(false);
+  const [accentColor, setAccentColor] = useState('transparent');
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!imageUrl || typeof imageUrl !== 'string') return;
+
+    ImageColors.getColors(imageUrl, {
+      fallback: 'transparent',
+      cache: true,
+      key: imageUrl,
+    })
+      .then((colors) => {
+        if (!isMounted) return;
+        let pickedColor = null;
+        if (colors.platform === 'android') {
+          pickedColor = colors.vibrant || colors.darkVibrant || colors.dominant || colors.lightVibrant;
+        } else if (colors.platform === 'ios') {
+          pickedColor = colors.background || colors.primary || colors.secondary;
+        } else {
+          pickedColor = colors.vibrant || colors.dominant;
+        }
+
+        if (pickedColor) {
+          setAccentColor(pickedColor);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to extract color for PlaylistHeader:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [imageUrl]);
 
   // Check if playlist is liked on mount
   useEffect(() => {
@@ -469,8 +520,22 @@ export const PlaylistHeader = ({
 
   return (
     <View
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={[styles.container, { backgroundColor: 'transparent' }]}
     >
+      {accentColor !== 'transparent' && (
+        <LinearGradient
+          colors={[
+            getRgba(accentColor, 0.8),
+            getRgba(accentColor, 0.45),
+            getRgba(accentColor, 0.2),
+            'transparent',
+          ]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={[StyleSheet.absoluteFillObject, { top: -350, height: 850, zIndex: -1 }]}
+          pointerEvents="none"
+        />
+      )}
       {/* Top Section: Image + Info */}
       <View style={styles.topSection}>
         {/* Cover Image - 30% width */}

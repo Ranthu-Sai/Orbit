@@ -39,6 +39,7 @@ import {
   generateCacheKey,
 } from '../../Utils/CacheConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Add a utility function to truncate text
 const truncateText = (text, limit = 30) => {
@@ -93,6 +94,7 @@ const getImageUrl = (imageData) => {
 };
 
 export const Home = () => {
+  const insets = useSafeAreaInsets();
   const [showHeader, setShowHeader] = useState(false);
   const [Language, setLanguage] = useState('english');
   const [Loading, setLoading] = useState(false); // Default to false - show cached data immediately
@@ -642,13 +644,15 @@ if (
   };
 
   return (
-    <MainWrapper>
+    <MainWrapper edges={['right', 'bottom', 'left']}>
       {showSkeleton ? (
-        <HomeSkeletonLoader source={homeFeedSource} />
+        <View style={{ paddingTop: insets.top }}>
+          <HomeSkeletonLoader source={homeFeedSource} />
+        </View>
       ) : (
-        <View>
+        <View style={{ flex: 1 }}>
           <ScrollView
-            style={{ zIndex: -1 }}
+            style={{ zIndex: -1, flex: 1 }}
             onScroll={(e) => {
               const { contentOffset, layoutMeasurement, contentSize } =
                 e.nativeEvent;
@@ -704,6 +708,7 @@ if (
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{
               paddingBottom: 180,
+              paddingTop: insets.top,
             }}
           >
             {homeFeedSource !== 'YTMusic' && (

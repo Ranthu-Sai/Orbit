@@ -13,6 +13,7 @@ import { useNavigation, useTheme } from '@react-navigation/native';
 import { Heading } from '../Global/Heading';
 import { History } from 'lucide-react-native';
 import { GlassBox } from '../Global/GlassBox';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const circleGradient = {
   x1: '0%', y1: '0%', x2: '100%', y2: '100%',
@@ -28,6 +29,7 @@ export const TopHeader = memo(({ showHeader }) => {
   const navigation = useNavigation();
   const { width } = Dimensions.get('window');
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   return (
     <>
       {showHeader && (
@@ -35,7 +37,7 @@ export const TopHeader = memo(({ showHeader }) => {
           entering={FadeInUp}
           exiting={FadeOutUp}
           style={{
-            height: 50,
+            height: 50 + insets.top,
             width: '100%',
             backgroundColor: 'transparent',
             position: 'absolute',
@@ -51,7 +53,8 @@ export const TopHeader = memo(({ showHeader }) => {
             ]}
             style={{
               flex: 1,
-              height: 50,
+              height: 50 + insets.top,
+              paddingTop: insets.top,
               justifyContent: 'flex-end',
             }}
           >

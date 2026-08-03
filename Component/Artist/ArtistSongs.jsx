@@ -63,7 +63,7 @@ const ArtistSongs = ({
       >
         <Heading
           text="Top Songs"
-          style={{ color: theme.colors.text, fontSize: 20, marginRight: 30 }}
+          style={{ color: theme.colors.text, fontSize: 24, marginRight: 30 }}
         />
         <SmallText
           text={safeString(

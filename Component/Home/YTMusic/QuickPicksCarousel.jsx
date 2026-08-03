@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
 import FastImage from 'react-native-fast-image';
 import { useTheme } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import LinearGradient from 'react-native-linear-gradient';
+import ImageColors from 'react-native-image-colors';
 import { PlayOneSong } from '../../../MusicPlayerFunctions';
 import { GlassBox } from '../../Global/GlassBox';
 
@@ -31,6 +33,21 @@ const getBestThumbnail = (thumbnails, videoId = null) => {
   return null;
 };
 
+const getRgba = (hexColor, alpha = 1) => {
+  if (!hexColor) return `rgba(27, 67, 50, ${alpha})`;
+  let c = hexColor.replace('#', '');
+  if (c.length === 3) {
+    c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+  }
+  if (c.length === 6) {
+    const r = parseInt(c.substring(0, 2), 16);
+    const g = parseInt(c.substring(2, 4), 16);
+    const b = parseInt(c.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return hexColor;
+};
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ITEM_WIDTH = SCREEN_WIDTH * 0.7; // 70% of screen width
 const ITEM_SPACING = (SCREEN_WIDTH - ITEM_WIDTH) / 2;
@@ -40,6 +57,7 @@ export const QuickPicksCarousel = ({ title, songs }) => {
   const scrollX = useRef(new Animated.Value(ITEM_WIDTH)).current;
   const flatListRef = useRef(null);
   const [currentIndex, setCurrentIndex] = useState(1);
+  const [accentColor, setAccentColor] = useState('#1b4332');
   const initializedRef = useRef(false);
 
   // Flatten the columns structure if songs are passed as 4-item columns (from original QuickPicksSection)
@@ -67,6 +85,44 @@ export const QuickPicksCarousel = ({ title, songs }) => {
       });
     }
   }, [flatSongs]);
+
+  // Extract color whenever currentIndex changes
+  useEffect(() => {
+    let isMounted = true;
+    const currentSong = flatSongs[currentIndex];
+    if (!currentSong) return;
+
+    const imageUrl = getBestThumbnail(currentSong.thumbnails, currentSong.videoId || currentSong.id);
+    if (!imageUrl) return;
+
+    ImageColors.getColors(imageUrl, {
+      fallback: '#1b4332',
+      cache: true,
+      key: imageUrl,
+    })
+      .then((colors) => {
+        if (!isMounted) return;
+        let pickedColor = null;
+        if (colors.platform === 'android') {
+          pickedColor = colors.vibrant || colors.darkVibrant || colors.dominant || colors.lightVibrant;
+        } else if (colors.platform === 'ios') {
+          pickedColor = colors.background || colors.primary || colors.secondary;
+        } else {
+          pickedColor = colors.vibrant || colors.dominant;
+        }
+
+        if (pickedColor) {
+          setAccentColor(pickedColor);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to extract color from carousel thumbnail:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentIndex, flatSongs]);
 
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 50,
@@ -137,9 +193,25 @@ export const QuickPicksCarousel = ({ title, songs }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-        {title || 'Quick Picks'}
-      </Text>
+      {/* Dynamic Ambient Background Gradient */}
+      <LinearGradient
+        colors={[
+          getRgba(accentColor, 0.8),
+          getRgba(accentColor, 0.45),
+          getRgba(accentColor, 0.2),
+          'transparent',
+        ]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={[StyleSheet.absoluteFillObject, { top: -350, height: 850, zIndex: -1 }]}
+        pointerEvents="none"
+      />
+
+      <View style={styles.headerRow}>
+        <Text style={[styles.title, { color: theme.colors.onSurface }]}>
+          {title || 'Quick Picks'}
+        </Text>
+      </View>
 
       <Animated.FlatList
         ref={flatListRef}
@@ -240,6 +312,21 @@ export const QuickPicksCarousel = ({ title, songs }) => {
         }}
       />
 
+      {/* Pagination Dots */}
+      <View style={styles.paginationContainer}>
+        {flatSongs.slice(0, Math.min(flatSongs.length, 8)).map((_, idx) => (
+          <View
+            key={`dot-${idx}`}
+            style={[
+              styles.paginationDot,
+              idx === currentIndex
+                ? { backgroundColor: accentColor, width: 14 }
+                : { backgroundColor: 'rgba(255, 255, 255, 0.25)', width: 6 },
+            ]}
+          />
+        ))}
+      </View>
+
       <View style={styles.infoContainer}>
         <Text
           style={[styles.songTitle, { color: theme.colors.onSurface }]}
@@ -323,12 +410,23 @@ const styles = StyleSheet.create({
   container: {
     marginVertical: 16,
     width: '100%',
+    position: 'relative',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  titleIndicator: {
+    width: 4,
+    height: 22,
+    borderRadius: 2,
+    marginRight: 10,
   },
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 16,
-    paddingHorizontal: 20,
   },
   cardContainer: {
     width: ITEM_WIDTH,
@@ -354,9 +452,20 @@ const styles = StyleSheet.create({
     height: '100%',
     transform: [{ scale: 1.35 }],
   },
+  paginationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+    gap: 6,
+  },
+  paginationDot: {
+    height: 6,
+    borderRadius: 3,
+  },
   infoContainer: {
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 12,
     paddingHorizontal: 32,
   },
   songTitle: {
@@ -399,3 +508,4 @@ const styles = StyleSheet.create({
     borderRadius: 26,
   },
 });
+

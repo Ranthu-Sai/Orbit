@@ -615,13 +615,32 @@ static async getHomeWithContinuation(sectionLimit = 20) {
    * Supports lazy loading via continuation
    */
   static async getSection(browseId, params = null, continuation = null) {
-    if (continuation) {
-      const data = await this.request('browse', { continuation });
+    const fetchFunction = async () => {
+      if (continuation) {
+        const data = await this.request('browse', { continuation });
+        return this.parseSection(data);
+      }
+
+      const data = await this.request('browse', { browseId, params });
       return this.parseSection(data);
+    };
+
+    if (continuation) {
+      return await fetchFunction();
     }
 
-    const data = await this.request('browse', { browseId, params });
-    return this.parseSection(data);
+    const cacheKey = `ytmusic_section_${browseId}_${params || 'none'}`;
+    try {
+      return await getCachedData(
+        cacheKey,
+        fetchFunction,
+        30,
+        CACHE_GROUPS.SEARCH
+      );
+    } catch (e) {
+      console.error('Error caching section:', e);
+      return await fetchFunction();
+    }
   }
 
   /**

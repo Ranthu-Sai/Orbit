@@ -11,6 +11,7 @@ import {
 } from '@react-navigation/native';
 import { PlainText } from '../Component/Global/PlainText';
 import { SmallText } from '../Component/Global/SmallText';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAlbumData } from '../Api/Album';
 import { getYTMusicAlbumData } from '../Api/YTMusic';
 import { SpotifyService } from '../Utils/SpotifyService';
@@ -44,6 +45,7 @@ export const Album = ({ route }) => {
   const navigation = useNavigation();
   const activeTrack = useActiveTrack();
   const playbackState = usePlaybackState();
+  const insets = useSafeAreaInsets();
 
   // Get context for FullScreen navigation handling
   const {
@@ -437,8 +439,12 @@ const getArtistName = (artistData, fallback = '') => {
   );
 
   return (
-    <MainWrapper>
-      {Loading && <DetailSkeletonLoader type="album" />}
+    <MainWrapper edges={['right', 'bottom', 'left']}>
+      {Loading && (
+        <View style={{ paddingTop: insets.top, flex: 1 }}>
+          <DetailSkeletonLoader type="album" />
+        </View>
+      )}
       {!Loading &&
         dataFetchAttempted &&
         !(Data?.data?.songs?.length || Data?.data?.tracks?.length) && (
@@ -448,6 +454,7 @@ const getArtistName = (artistData, fallback = '') => {
               justifyContent: 'center',
               alignItems: 'center',
               paddingHorizontal: 20,
+              paddingTop: insets.top,
             }}
           >
             <PlainText
@@ -465,7 +472,7 @@ const getArtistName = (artistData, fallback = '') => {
           <View
             style={{
               flex: 1,
-              backgroundColor: theme.dark ? theme.colors.background : '#FFFFFF',
+              backgroundColor: 'transparent',
             }}
           >
             <FlatList
@@ -475,15 +482,12 @@ const getArtistName = (artistData, fallback = '') => {
               ListHeaderComponent={renderHeader}
               ListFooterComponent={renderFooter}
               contentContainerStyle={{
+                paddingTop: insets.top,
                 paddingBottom: 120,
-                backgroundColor: theme.dark
-                  ? theme.colors.background
-                  : '#FFFFFF',
+                backgroundColor: 'transparent',
               }}
               style={{
-                backgroundColor: theme.dark
-                  ? theme.colors.background
-                  : '#FFFFFF',
+                backgroundColor: 'transparent',
               }}
               initialNumToRender={10}
               maxToRenderPerBatch={10}
