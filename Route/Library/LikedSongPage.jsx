@@ -8,9 +8,11 @@ import {
   ToastAndroid,
   RefreshControl,
   ScrollView,
+  FlatList,
   TextInput,
   DeviceEventEmitter,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -69,6 +71,7 @@ import { DeleteALikedAlbum } from '../../LocalStorage/StoreLikedAlbums';
 export const LikedSongPage = () => {
   const navigation = useNavigation();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const { updateTrack } = useContext(Context);
 
   // Data states
@@ -627,9 +630,20 @@ export const LikedSongPage = () => {
     }
 
     return (
-      <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
+      <FlatList
+        key={viewMode}
+        data={filteredItems}
+        renderItem={({ item, index }) => renderItem(item, index)}
+        keyExtractor={(item, index) => item.id || index.toString()}
+        numColumns={viewMode === 'grid' ? 2 : 1}
+        columnWrapperStyle={
+          viewMode === 'grid' ? { justifyContent: 'space-between', paddingHorizontal: 12 } : undefined
+        }
+        contentContainerStyle={[
+          styles.scrollContent,
+          viewMode === 'list' && styles.listContainer,
+        ]}
+        ListFooterComponent={<Spacer height={150} />}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -638,24 +652,16 @@ export const LikedSongPage = () => {
             progressBackgroundColor={theme.colors.card}
           />
         }
-      >
-        {viewMode === 'list' ? (
-          <View style={styles.listContainer}>
-            {filteredItems.map((item, index) => renderItem(item, index))}
-          </View>
-        ) : (
-          <View style={styles.gridContainer}>
-            {filteredItems.map((item, index) => renderItem(item, index))}
-          </View>
-        )}
-        <Spacer height={150} />
-      </ScrollView>
+        initialNumToRender={10}
+        windowSize={5}
+        removeClippedSubviews={true}
+      />
     );
   };
 
   return (
     <View
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}
     >
       <View style={styles.header}>
         <View

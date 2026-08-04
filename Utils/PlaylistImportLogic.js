@@ -2,7 +2,7 @@ import SpotifyService from './SpotifyService';
 import YouTubeMusicService from './YouTubeMusicService';
 import { detectLink } from './LinkDetector';
 import { createPlaylistWithSongs } from './PlaylistManager';
-import { getYTMusicSearchSongData } from '../Api/YTMusic';
+import { getYTMusicSearchAllData } from '../Api/YTMusic';
 import { SetLikedSongs } from '../LocalStorage/StoreLikedSongs';
 import { SetLikedAlbum } from '../LocalStorage/StoreLikedAlbums';
 
@@ -292,7 +292,7 @@ const matchSpotifyTracksOnYouTube = async (tracks, onProgress) => {
       try {
         const query = `${track.title} ${track.artist}`;
         // Limit 1 result is minimal, but safe.
-        const searchResult = await getYTMusicSearchSongData(query, 1, 1);
+        const searchResult = await getYTMusicSearchAllData(query, 1, 1);
 
         if (
           searchResult &&

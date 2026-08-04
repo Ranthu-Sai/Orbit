@@ -29,7 +29,7 @@ async function getAlbumData(id) {
         };
       }
     } catch (ytError) {
-      // Fall through to JioSaavn API
+
     }
   }
 
@@ -48,11 +48,9 @@ async function getAlbumData(id) {
       }
     } catch (chartError) {
       console.error(`Error fetching chart data for ID ${chartId}:`, chartError);
-      // Fall through to JioSaavn API if needed, or handle error
     }
   }
 
-  // Define the fetch function for JioSaavn API with fallback
   const fetchFunction = async () => {
     const primaryUrl = `https://saavn.sumit.co/api/albums?id=${id}`;
     const secondaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/albums?id=${id}`;
@@ -79,13 +77,13 @@ async function getAlbumData(id) {
 }
 
 async function getSearchAlbumData(searchText, page, limit) {
+  const encodedText = encodeURIComponent(searchText || '');
   // Create a cache key based on the search parameters
   const cacheKey = `album_search_v3_${searchText}_page${page}_limit${limit}`;
 
-  // Define the fetch function with fallback
   const fetchFunction = async () => {
-    const primaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/search/albums?query=${searchText}&page=${page}&limit=${limit}`;
-    const secondaryUrl = `https://saavn.sumit.co/api/search/albums?query=${searchText}&page=${page}&limit=${limit}`;
+    const primaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/search/albums?query=${encodedText}&page=${page}&limit=${limit}`;
+    const secondaryUrl = `https://saavn.sumit.co/api/search/albums?query=${encodedText}&page=${page}&limit=${limit}`;
     const config = {
       method: 'get',
       maxBodyLength: Infinity,

@@ -10,11 +10,8 @@ import axios from 'axios';
  * @throws {Error} If both primary and secondary API requests fail.
  */
 const API_HOSTS = [
-  'https://jiosaavn-c451wwyru-sumit-kolhes-projects-94a4846a.vercel.app',
-  'https://jio-saavan-api.vercel.app',
-  'https://nepotuneapi.vercel.app',
-  'https://jiosaavn-api-privatecvc2.vercel.app',
   'https://saavn.sumit.co/api',
+  'https://jio-saavan-api.vercel.app',
 ];
 
 function getUrlsToTry(primaryUrl, secondaryUrl) {

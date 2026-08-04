@@ -78,7 +78,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 6
-        versionName "3.0.4"
+        versionName "4.0.0"
         multiDexEnabled true
         
         // Java 8 Desugaring Support

@@ -1515,7 +1515,7 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       )}
       contentContainerStyle={{
         paddingBottom: 100,
-        paddingTop: 8,
+        paddingTop: 2,
       }}
       showsVerticalScrollIndicator={false}
       activationDistance={10} // Slightly increased for better reliability

@@ -10,7 +10,7 @@ import { PlainText } from './PlainText';
 import { SmallText } from './SmallText';
 import { GlassBox } from './GlassBox';
 import { AddPlaylist, getIndexQuality, PlayOneSong } from '../../MusicPlayerFunctions';
-import { useTheme } from '@react-navigation/native';
+import { useTheme, useNavigation } from '@react-navigation/native';
 import { memo, useContext, useState, useEffect } from 'react';
 import Context from '../../Context/Context';
 import TrackPlayer from 'react-native-track-player';
@@ -55,8 +55,10 @@ export const EachSongCard = memo(function EachSongCard({
   localSongPath,
   isLocal = false,
   allSongs = [],
+  isArtist = false,
 }) {
   const theme = useTheme();
+  const navigation = useNavigation();
   const { colors } = theme;
   const width1 = Dimensions.get('window').width;
   const { updateTrack } = useContext(Context);
@@ -831,7 +833,19 @@ export const EachSongCard = memo(function EachSongCard({
   return (
     <>
       <Pressable
-        onPress={AddSongToPlayer}
+        onPress={
+          isArtist
+            ? () => {
+                navigation.navigate('MainRoute', {
+                  screen: 'Home',
+                  params: {
+                    screen: 'ArtistPage',
+                    params: { artistId: id, artistName: title },
+                  },
+                });
+              }
+            : AddSongToPlayer
+        }
         onLongPress={() => {
           if (onLongPress) {
             onLongPress();
@@ -863,7 +877,7 @@ export const EachSongCard = memo(function EachSongCard({
             style={{
               width: isFromAlbum ? 45 : 50,
               height: isFromAlbum ? 45 : 50,
-              borderRadius: 4,
+              borderRadius: isArtist ? 25 : 4,
             }}
           />
         </View>
@@ -918,7 +932,11 @@ export const EachSongCard = memo(function EachSongCard({
             minWidth: isFromAlbum ? 70 : isFromPlaylist ? 70 : 65,
           }}
         >
-          <Pressable
+          {isArtist ? (
+            <MaterialCommunityIcons name="chevron-right" size={24} color={theme.dark ? '#666' : '#999'} style={{ marginRight: 10 }} />
+          ) : (
+            <>
+              <Pressable
             onPress={(e) => {
               e.stopPropagation();
               handleDownload();
@@ -993,6 +1011,8 @@ export const EachSongCard = memo(function EachSongCard({
             isDownloaded={isDownloaded}
             onDelete={handleDelete}
           />
+            </>
+          )}
         </View>
       </Pressable>
     </>

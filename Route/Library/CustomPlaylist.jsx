@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Modal,
@@ -14,6 +14,7 @@ import {
   ScrollView,
   BackHandler,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   GetCustomPlaylists,
   CreateCustomPlaylist,
@@ -54,6 +55,7 @@ const DEFAULT_WAVE_IMAGE = require('../../Images/wav.png');
 export const CustomPlaylist = () => {
   const navigation = useNavigation();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [modalVisible, setModalVisible] = useState(false);
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [playlistName, setPlaylistName] = useState('');
@@ -645,10 +647,26 @@ export const CustomPlaylist = () => {
       );
     }
 
-    // Render all playlists in one unified section
+    // Combine all playlists for FlatList rendering
+    const combinedPlaylists = useMemo(() => {
+      const user = userPlaylists.map((item, index) => ({ type: 'user', item, index }));
+      const liked = likedPlaylists.map((item, index) => ({ type: 'liked', item, index: index + userPlaylists.length }));
+      const legacy = playlistNames.map((item, index) => ({ type: 'legacy', item, index: index + userPlaylists.length + likedPlaylists.length }));
+      return [...user, ...liked, ...legacy];
+    }, [userPlaylists, likedPlaylists, playlistNames]);
+
+    const renderCombinedItem = ({ item: row }) => {
+      if (row.type === 'user') return renderUserPlaylist({ item: row.item, index: row.index });
+      if (row.type === 'liked') return renderLikedPlaylist({ item: row.item, index: row.index });
+      if (row.type === 'legacy') return renderPlaylist({ item: row.item, index: row.index });
+      return null;
+    };
+
     return (
-      <ScrollView
-        style={styles.playlistsScrollContainer}
+      <FlatList
+        data={combinedPlaylists}
+        renderItem={renderCombinedItem}
+        keyExtractor={(item, idx) => item.type + '-' + (item.item?.id || item.item || idx)}
         contentContainerStyle={[
           styles.playlistsContentContainer,
           { paddingBottom: 150 },
@@ -661,36 +679,9 @@ export const CustomPlaylist = () => {
             progressBackgroundColor={theme.colors.card}
           />
         }
-      >
-        <View style={styles.playlistsSection}>
-          {/* Render user-created playlists */}
-          {userPlaylists.map((item, index) => (
-            <View key={item.id || `user-playlist-${index}`}>
-              {renderUserPlaylist({ item, index })}
-            </View>
-          ))}
-
-          {/* Render liked/favorited playlists */}
-          {likedPlaylists.map((item, index) => (
-            <View key={item.id || `liked-playlist-${index}`}>
-              {renderLikedPlaylist({
-                item,
-                index: index + userPlaylists.length,
-              })}
-            </View>
-          ))}
-
-          {/* Render legacy playlists */}
-          {playlistNames.map((item, index) => (
-            <View key={item || `legacy-playlist-${index}`}>
-              {renderPlaylist({
-                item,
-                index: index + userPlaylists.length + likedPlaylists.length,
-              })}
-            </View>
-          ))}
-        </View>
-      </ScrollView>
+        initialNumToRender={10}
+        windowSize={5}
+      />
     );
   };
 
@@ -720,7 +711,7 @@ export const CustomPlaylist = () => {
 
   return (
     <View
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}
     >
       {/* Conditional rendering: Show playlist detail or list */}
       {showPlaylistDetail && selectedPlaylistData ? (

@@ -60,12 +60,8 @@ export const QuickPicksCarousel = ({ title, songs }) => {
   const [accentColor, setAccentColor] = useState('#1b4332');
   const initializedRef = useRef(false);
 
-  // Flatten the columns structure if songs are passed as 4-item columns (from original QuickPicksSection)
-  // Or handle flat array of songs.
   const flatSongs = React.useMemo(() => {
     if (!songs || songs.length === 0) return [];
-
-    // If the songs array contains arrays (columns), flatten it
     if (Array.isArray(songs[0])) {
       return songs.flat();
     }
@@ -73,7 +69,6 @@ export const QuickPicksCarousel = ({ title, songs }) => {
     return songs;
   }, [songs]);
 
-  // Ensure initial scroll position is index 1 once songs load
   React.useEffect(() => {
     if (!initializedRef.current && flatSongs && flatSongs.length > 1) {
       initializedRef.current = true;
@@ -86,7 +81,6 @@ export const QuickPicksCarousel = ({ title, songs }) => {
     }
   }, [flatSongs]);
 
-  // Extract color whenever currentIndex changes
   useEffect(() => {
     let isMounted = true;
     const currentSong = flatSongs[currentIndex];
@@ -145,7 +139,7 @@ export const QuickPicksCarousel = ({ title, songs }) => {
         id: song.videoId || song.id,
         duration: song.duration,
         source: 'ytmusic',
-        url: song.videoId || song.id, // For YTMusic, URL is often just the ID
+        url: song.videoId || song.id,
       };
 
       await PlayOneSong(songData);

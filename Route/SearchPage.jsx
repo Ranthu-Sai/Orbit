@@ -4,14 +4,15 @@ import { GlassBox } from '../Component/Global/GlassBox';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { getSearchSongData } from '../Api/Songs';
 import {
+  getYTMusicSearchAllData,
   getYTMusicSearchSongData,
+  getYTMusicSearchVideoData,
   getYTMusicSearchPlaylistData,
   getYTMusicSearchAlbumData,
   getYTMusicSearchArtistData,
   getYTMusicSearchSuggestions,
 } from '../Api/YTMusic';
 import dabMusicService from '../Utils/DabMusicService';
-import { SpotifyService } from '../Utils/SpotifyService';
 import {
   View,
   TouchableOpacity,
@@ -35,6 +36,7 @@ import ArtistDisplay from '../Component/SearchPage/ArtistDisplay';
 import SearchSuggestions from '../Component/SearchPage/SearchSuggestions';
 import { Spacer } from '../Component/Global/Spacer';
 import { useTheme, useFocusEffect } from '@react-navigation/native';
+import { BlurView } from '@react-native-community/blur';
 import { GitFork } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SwipeableHistoryItem from '../Component/SearchPage/SwipeableHistoryItem';
@@ -45,7 +47,7 @@ const MAX_HISTORY_ITEMS = 20;
 const SELECTED_SOURCE_KEY = '@selected_search_source';
 
 export const SearchPage = ({ navigation }) => {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   const [ActiveTab, setActiveTab] = useState(0);
   const [query, setQuery] = useState('');
   const [SearchText, setSearchText] = useState('');
@@ -57,6 +59,17 @@ export const SearchPage = ({ navigation }) => {
   const [suggestions, setSuggestions] = useState([]);
   const [quickResults, setQuickResults] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const getTabName = () => {
+    if (selectedSource === 'ytmusic') {
+      return ['All', 'Songs', 'Videos', 'Playlists', 'Albums', 'Artists'][ActiveTab] || 'All';
+    } else if (selectedSource === 'saavn') {
+      return ['All', 'Songs', 'Playlists', 'Albums', 'Artists'][ActiveTab] || 'All';
+    } else {
+      return ['All', 'Songs', 'Albums'][ActiveTab] || 'All';
+    }
+  };
+  const currentTabName = getTabName();
 
   const limit = 20;
 
@@ -128,46 +141,37 @@ export const SearchPage = ({ navigation }) => {
   // Fetch Suggestions AND Quick Results while typing
   useEffect(() => {
     const fetchSuggestionsAndQuickResults = async () => {
-      // RATE LIMIT OPTIMIZATION: Minimum 3 characters for Spotify, 2 for others
-      // Spotify now only fetches results on manual search (Enter) to save RPM.
-      const minLength = selectedSource === 'spotify' ? 3 : 2;
+      // Minimum 2 characters to trigger search suggestions
+      const minLength = 2;
       if (!query || query.trim().length < minLength) {
         setSuggestions([]);
         setQuickResults([]);
         return;
       }
 
-      try {
-        // Fetch suggestions
+        // Fetch suggestions and recommended quick items
         const suggestResult = await getYTMusicSearchSuggestions(query);
         if (suggestResult && suggestResult.queries) {
           setSuggestions(suggestResult.queries);
         }
 
-        // Fetch quick results (top 3 songs) based on selected source
-        let quickData = null;
-        if (selectedSource === 'ytmusic') {
-          quickData = await getYTMusicSearchSongData(query, 1, 3);
-        } else if (selectedSource === 'saavn') {
-          quickData = await getSearchSongData(query, 1, 3);
-        } else if (selectedSource === 'dab') {
-          // RATE LIMIT OPTIMIZATION: Disabled auto-fetching for DAB to save RPM.
-          // Results will now only appear when the user hits 'Enter'.
-          // Suggestions (YTMusic) still provide the 'instant' feel.
-          quickData = null;
-        } else if (selectedSource === 'spotify') {
-          // RATE LIMIT OPTIMIZATION: Disabled auto-fetching for Spotify to save RPM.
-          // Results will now only appear when the user hits 'Enter'.
-          // Suggestions (YTMusic) still provide the 'instant' feel.
-          quickData = null;
-        }
+        if (suggestResult && suggestResult.recommendedItems && suggestResult.recommendedItems.length > 0) {
+          setQuickResults(suggestResult.recommendedItems.slice(0, 5));
+        } else {
+          // Fetch quick results based on selected source
+          let quickData = null;
+          if (selectedSource === 'ytmusic') {
+            quickData = await getYTMusicSearchAllData(query, 1, 3);
+          } else if (selectedSource === 'saavn') {
+            quickData = await getSearchSongData(query, 1, 3);
+          }
 
-        if (quickData?.data?.results) {
-          setQuickResults(quickData.data.results.slice(0, 3));
+          if (quickData?.data?.results) {
+            setQuickResults(quickData.data.results.slice(0, 3));
+          } else {
+            setQuickResults([]);
+          }
         }
-      } catch (error) {
-        console.error('Error fetching suggestions/quick results:', error);
-      }
     };
 
     const timeoutId = setTimeout(() => {
@@ -241,42 +245,38 @@ export const SearchPage = ({ navigation }) => {
           throw error;
         }
       }
-      // For YTMusic, handle categories based on tabs
-      else if (selectedSource === 'ytmusic') {
-        if (ActiveTab === 0) {
-          data = await getYTMusicSearchSongData(text, 1, limit);
-        } else if (ActiveTab === 1) {
-          data = await getYTMusicSearchPlaylistData(text, 1, limit);
-        } else if (ActiveTab === 2) {
-          data = await getYTMusicSearchAlbumData(text, 1, limit);
-        } else if (ActiveTab === 3) {
-          data = await getYTMusicSearchArtistData(text, 1, limit);
+      // For DAB
+      if (selectedSource === 'dab') {
+        if (currentTabName === 'All' || currentTabName === 'Songs') {
+          data = await dabMusicService.search(text, 'songs', page, limit);
+        } else if (currentTabName === 'Albums') {
+          data = await dabMusicService.search(text, 'albums', page, limit);
         }
-      } else if (selectedSource === 'spotify') {
-        // Spotify search - Artists handled by YTMusic
-        if (ActiveTab === 0) {
-          data = await SpotifyService.search(text, 'tracks', limit);
-        } else if (ActiveTab === 1) {
-          data = await SpotifyService.search(text, 'playlists', limit);
-        } else if (ActiveTab === 2) {
-          data = await SpotifyService.search(text, 'albums', limit);
-        } else if (ActiveTab === 3) {
-          // Artists - Use YTMusic as per requirement
+      }
+      // For YTMusic
+      else if (selectedSource === 'ytmusic') {
+        if (currentTabName === 'All') {
+          data = await getYTMusicSearchAllData(text, 1, limit);
+        } else if (currentTabName === 'Songs') {
+          data = await getYTMusicSearchSongData(text, 1, limit);
+        } else if (currentTabName === 'Videos') {
+          data = await getYTMusicSearchVideoData(text, 1, limit);
+        } else if (currentTabName === 'Playlists') {
+          data = await getYTMusicSearchPlaylistData(text, 1, limit);
+        } else if (currentTabName === 'Albums') {
+          data = await getYTMusicSearchAlbumData(text, 1, limit);
+        } else if (currentTabName === 'Artists') {
           data = await getYTMusicSearchArtistData(text, 1, limit);
         }
       } else {
         // Saavn logic
-        if (ActiveTab === 0) {
-          // Songs
+        if (currentTabName === 'All' || currentTabName === 'Songs') {
           data = await getSearchSongData(text, 1, limit);
-        } else if (ActiveTab === 1) {
-          // Playlists - Always use Saavn API
+        } else if (currentTabName === 'Playlists') {
           data = await getSearchPlaylistData(text, 1, limit);
-        } else if (ActiveTab === 2) {
-          // Albums - Always use Saavn API
+        } else if (currentTabName === 'Albums') {
           data = await getSearchAlbumData(text, 1, limit);
-        } else if (ActiveTab === 3) {
-          // Artists - Always use YTMusic for consistent UI and features
+        } else if (currentTabName === 'Artists') {
           data = await getYTMusicSearchArtistData(text, 1, limit);
         }
       }
@@ -536,22 +536,24 @@ export const SearchPage = ({ navigation }) => {
       </View>
 
       <View style={{ zIndex: 10 }}>
-        {selectedSource === 'dab' ? (
+        {selectedSource === 'ytmusic' ? (
           <Tabs
-            tabs={['Songs', 'Albums']}
+            tabs={['All', 'Songs', 'Videos', 'Playlists', 'Albums', 'Artists']}
+            setState={setActiveTab}
+            state={ActiveTab}
+          />
+        ) : selectedSource === 'saavn' ? (
+          <Tabs
+            tabs={['All', 'Songs', 'Playlists', 'Albums', 'Artists']}
             setState={setActiveTab}
             state={ActiveTab}
           />
         ) : (
-          (selectedSource === 'saavn' ||
-            selectedSource === 'ytmusic' ||
-            selectedSource === 'spotify') && (
-            <Tabs
-              tabs={['Songs', 'Playlists', 'Albums', 'Artists']}
-              setState={setActiveTab}
-              state={ActiveTab}
-            />
-          )
+          <Tabs
+            tabs={['All', 'Songs', 'Albums']}
+            setState={setActiveTab}
+            state={ActiveTab}
+          />
         )}
       </View>
 
@@ -575,15 +577,16 @@ export const SearchPage = ({ navigation }) => {
           {selectedSource === 'dab' ? (
             // DAB supports Songs and Albums
             <>
-              {ActiveTab === 0 && (
+              {(currentTabName === 'All' || currentTabName === 'Songs') && (
                 <SongDisplay
                   data={Data}
                   limit={limit}
                   Searchtext={SearchText}
                   source={selectedSource}
+                  onRetry={() => fetchSearchData(SearchText)}
                 />
               )}
-              {ActiveTab === 1 && (
+              {currentTabName === 'Albums' && (
                 <AlbumsDisplay
                   data={Data}
                   limit={limit}
@@ -593,17 +596,18 @@ export const SearchPage = ({ navigation }) => {
               )}
             </>
           ) : (
-            // Saavn, YTMusic, and Spotify support all categories
+            // Saavn and YTMusic support all categories
             <>
-              {ActiveTab === 0 && (
+              {(currentTabName === 'All' || currentTabName === 'Songs' || currentTabName === 'Videos') && (
                 <SongDisplay
                   data={Data}
                   limit={limit}
                   Searchtext={SearchText}
                   source={selectedSource}
+                  onRetry={() => fetchSearchData(SearchText)}
                 />
               )}
-              {ActiveTab === 1 && (
+              {currentTabName === 'Playlists' && (
                 <PlaylistDisplay
                   data={Data}
                   limit={limit}
@@ -611,7 +615,7 @@ export const SearchPage = ({ navigation }) => {
                   source={selectedSource}
                 />
               )}
-              {ActiveTab === 2 && (
+              {currentTabName === 'Albums' && (
                 <AlbumsDisplay
                   data={Data}
                   limit={limit}
@@ -619,7 +623,7 @@ export const SearchPage = ({ navigation }) => {
                   source={selectedSource}
                 />
               )}
-              {ActiveTab === 3 && (
+              {currentTabName === 'Artists' && (
                 <ArtistDisplay
                   data={Data}
                   limit={limit}
@@ -643,7 +647,14 @@ export const SearchPage = ({ navigation }) => {
           style={styles.modalOverlay}
           onPress={() => setModalVisible(false)}
         >
-          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+          <View style={[styles.modalContent, { overflow: 'hidden' }]}>
+            <BlurView
+              style={StyleSheet.absoluteFill}
+              blurType={dark ? 'dark' : 'light'}
+              blurAmount={15}
+              reducedTransparencyFallbackColor={colors.card}
+            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.card, opacity: 0.5 }]} />
             <Text style={[styles.modalTitle, { color: colors.text }]}>
               Select Music Source
             </Text>
@@ -702,26 +713,6 @@ export const SearchPage = ({ navigation }) => {
                 Qobuz
               </Text>
               {selectedSource === 'dab' && (
-                <Text style={[styles.checkmark, { color: colors.primary }]}>
-                  ✓
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.sourceOption,
-                selectedSource === 'spotify' && styles.selectedOption,
-              ]}
-              onPress={() => {
-                saveSelectedSource('spotify');
-                setModalVisible(false);
-              }}
-            >
-              <Text style={[styles.sourceText, { color: colors.text }]}>
-                Spotify
-              </Text>
-              {selectedSource === 'spotify' && (
                 <Text style={[styles.checkmark, { color: colors.primary }]}>
                   ✓
                 </Text>

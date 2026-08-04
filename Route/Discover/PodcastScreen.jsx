@@ -41,7 +41,6 @@ import Context from '../../Context/Context';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ITEMS_PER_PAGE = 20;
 
-// Centralized Header Component to prevent hook order issues and remounting
 const ListHeader = memo(
   ({
     isSearching,
@@ -477,7 +476,6 @@ export const PodcastScreen = () => {
     theme.colors.primary,
   ]);
 
-  // Get data for FlatList - Pre-calculate for performance
   const listData = (() => {
     const sourceData = isSearching ? searchResults : trendingPodcasts.slice(10);
     const pairs = [];

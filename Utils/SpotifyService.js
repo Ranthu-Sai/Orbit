@@ -52,9 +52,17 @@ export const SpotifyService = {
         }
       );
 
+      const responseText = await response.text();
+      let data = {};
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Spotify Auth error (Non-JSON response):', responseText);
+        throw new Error(`Spotify Auth failed: Server returned invalid response (status ${response.status})`);
+      }
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Spotify Auth Error:', errorData);
+        console.error('Spotify Auth Error:', data);
         
         // Provide specific guidance based on error type
         if (response.status === 403) {
@@ -67,12 +75,10 @@ export const SpotifyService = {
         
         throw new Error(
           `Spotify Auth Failed: ${
-            errorData.error_description || response.status
+            data.error_description || data.error || response.status
           }`
         );
       }
-
-      const data = await response.json();
 
       accessToken = data.access_token;
       // Set expiration 5 minutes before actual expiration (usually 3600s) for safety
@@ -593,13 +599,19 @@ export const SpotifyService = {
         }
       );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Spotify Search Error:', errorData);
-        throw new Error(`Spotify Search Failed: ${response.status}`);
+      const responseText = await response.text();
+      let data = {};
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Spotify Search Error (Non-JSON response):', responseText);
+        throw new Error(`Spotify Search failed: Received non-JSON response from server (Status ${response.status})`);
       }
 
-      const data = await response.json();
+      if (!response.ok) {
+        console.error('Spotify Search Error:', data);
+        throw new Error(`Spotify Search Failed: ${data?.error?.message || response.status}`);
+      }
 
       // Transform results
       const transformTracks = (items) =>

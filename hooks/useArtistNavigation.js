@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { BackHandler } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import navigationHistoryManager from '../Utils/NavigationHistoryManager';
 import { detectNavigationLoop } from '../Utils/ArtistUtils';
 
 /**
@@ -16,14 +15,7 @@ export const useArtistNavigation = (artistId, artistName, activeTab) => {
 
   // Add this screen to navigation history
   useEffect(() => {
-    navigationHistoryManager.addScreen({
-      screenName: 'ArtistPage',
-      params: {
-        artistId,
-        artistName,
-        initialTab: activeTab,
-      },
-    });
+    // React Navigation naturally maintains history in its stack.
   }, [artistId, activeTab, artistName]);
 
   // Handle hardware back button
@@ -35,7 +27,6 @@ export const useArtistNavigation = (artistId, artistName, activeTab) => {
       try {
         // Detect navigation loop using utility function
         if (detectNavigationLoop(navigationState)) {
-          navigationHistoryManager.clearHistory();
           navigation.navigate('MainRoute', {
             screen: 'Home',
             params: {
@@ -43,15 +34,21 @@ export const useArtistNavigation = (artistId, artistName, activeTab) => {
             },
           });
         } else {
-          // Use navigation history manager for proper back navigation
-          const backAction =
-            navigationHistoryManager.getBackNavigationAction(navigation);
-          backAction();
+          // Use standard navigation back
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            navigation.navigate('MainRoute', {
+              screen: 'Home',
+              params: {
+                screen: 'Search',
+              },
+            });
+          }
         }
       } catch (error) {
         console.error('Error in ArtistPage back navigation:', error);
         // Ultimate fallback - go to Search to break any loops
-        navigationHistoryManager.clearHistory();
         navigation.navigate('MainRoute', {
           screen: 'Home',
           params: {
@@ -60,7 +57,7 @@ export const useArtistNavigation = (artistId, artistName, activeTab) => {
         });
       }
 
-      return true; // Prevent default back action
+      return true;
     };
 
     const backHandler = BackHandler.addEventListener(
@@ -79,26 +76,19 @@ export const useArtistNavigation = (artistId, artistName, activeTab) => {
    * @param {string} currentTab - Current active tab
    */
   const navigateToAlbum = (album, currentTab) => {
-    // Add album navigation to history before navigating
-    navigationHistoryManager.addScreen({
-      screenName: 'Album',
+    navigation.navigate('MainRoute', {
+      screen: 'Home',
       params: {
-        id: album.id,
-        name: album.name,
-        source: 'Artist',
-        artistId,
-        artistName,
-        previousTab: currentTab,
+        screen: 'Album',
+        params: {
+          id: album.id,
+          name: album.name,
+          source: 'Artist',
+          artistId,
+          artistName,
+          previousTab: currentTab,
+        },
       },
-    });
-
-    navigation.navigate('Album', {
-      id: album.id,
-      name: album.name,
-      source: 'Artist',
-      artistId,
-      artistName,
-      previousTab: currentTab,
     });
   };
 

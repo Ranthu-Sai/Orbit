@@ -4,8 +4,6 @@ import { SmallText } from './SmallText';
 import { useTheme } from '@react-navigation/native';
 import { memo } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import navigationHistoryManager from '../../Utils/NavigationHistoryManager';
-
 export const EachArtistCard = memo(function EachArtistCard({
   name,
   role,
@@ -19,13 +17,6 @@ export const EachArtistCard = memo(function EachArtistCard({
   const navigation = useNavigation();
 
   const handlePress = () => {
-    // Add Search screen to navigation history before navigating to Artist
-    navigationHistoryManager.addScreen({
-      screenName: 'Search',
-      params: {},
-    });
-
-    // Navigate to artist page with artist ID using nested navigation
     navigation.navigate('MainRoute', {
       screen: 'Home',
       params: {
@@ -61,7 +52,6 @@ export const EachArtistCard = memo(function EachArtistCard({
         style,
       ]}
     >
-      {/* Artist Image */}
       <View
         style={{
           width: 60,
@@ -82,7 +72,6 @@ export const EachArtistCard = memo(function EachArtistCard({
         />
       </View>
 
-      {/* Artist Info */}
       <View
         style={{
           flex: 1,
@@ -110,7 +99,6 @@ export const EachArtistCard = memo(function EachArtistCard({
         />
       </View>
 
-      {/* Optional: Add a small arrow or icon to indicate it's clickable */}
       <View
         style={{
           width: 30,

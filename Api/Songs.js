@@ -4,11 +4,12 @@ import { getCachedData, CACHE_GROUPS } from './CacheManager';
 import { requestWithFallback } from './apiUtils';
 
 async function getSearchSongData(searchText, page, limit) {
+  const encodedText = encodeURIComponent(searchText || '');
   const cacheKey = `search_v3_${searchText}_page${page}_limit${limit}`;
 
   const fetchFunction = async () => {
-    const primaryUrl = `https://saavn.sumit.co/api/search/songs?query=${searchText}&page=${page}&limit=${limit}`;
-    const secondaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/search/songs?query=${searchText}&page=${page}&limit=${limit}`;
+    const primaryUrl = `https://saavn.sumit.co/api/search/songs?query=${encodedText}&page=${page}&limit=${limit}`;
+    const secondaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/search/songs?query=${encodedText}&page=${page}&limit=${limit}`;
     const config = {
       method: 'get',
       maxBodyLength: Infinity,
@@ -137,11 +138,12 @@ async function getSongDetails(id) {
 }
 
 async function getArtistFromSong(searchText, page, limit) {
+  const encodedText = encodeURIComponent(searchText || '');
   const cacheKey = `artist_from_song_v2_${searchText}_page${page}_limit${limit}`;
 
   const fetchFunction = async () => {
-    const primaryUrl = `https://saavn.sumit.co/api/search/artists?query=${searchText}&page=${page}&limit=${limit}`;
-    const secondaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${searchText}&page=${page}&limit=${limit}`;
+    const primaryUrl = `https://saavn.sumit.co/api/search/artists?query=${encodedText}&page=${page}&limit=${limit}`;
+    const secondaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${encodedText}&page=${page}&limit=${limit}`;
     const config = {
       method: 'get',
       maxBodyLength: Infinity,

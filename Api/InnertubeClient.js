@@ -385,16 +385,16 @@ static async getHomeWithContinuation(sectionLimit = 20) {
     // OuterTune's exact filter params
     let params = null;
     if (filter === 'songs') {
-      params = 'EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D';
+      params = 'EgWKAQIIAWoKEAkQBRAKEAMQBA==';
     }
     if (filter === 'videos') {
-      params = 'EgWKAQIQAWoKEAkQChAFEAMQBA%3D%3D';
+      params = 'EgWKAQIQAWoKEAkQChAFEAMQBA==';
     }
     if (filter === 'albums') {
-      params = 'EgWKAQIYAWoKEAkQChAFEAMQBA%3D%3D';
+      params = 'EgWKAQIYAWoKEAkQChAFEAMQBA==';
     }
     if (filter === 'artists') {
-      params = 'EgWKAQIgAWoKEAkQChAFEAMQBA%3D%3D';
+      params = 'EgWKAQIgAWoKEAkQChAFEAMQBA==';
     }
     if (filter === 'playlists') {
       params = 'EgeKAQQoAEABagoQAxAEEAoQCRAF';
@@ -425,6 +425,7 @@ static async getHomeWithContinuation(sectionLimit = 20) {
 
       // Parse suggestions from response
       const suggestions = [];
+      const recommendedItems = [];
       const contents = data?.contents;
 
       if (contents && Array.isArray(contents)) {
@@ -443,11 +444,46 @@ static async getHomeWithContinuation(sectionLimit = 20) {
             }
           }
         }
+
+        // Second section contains recommended item cards (songs/artists)
+        const recommendedSection =
+          contents[1]?.searchSuggestionsSectionRenderer?.contents;
+        if (recommendedSection && Array.isArray(recommendedSection)) {
+          for (const item of recommendedSection) {
+            const renderer = item.musicResponsiveListItemRenderer;
+            if (renderer) {
+              const title =
+                renderer.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text;
+              const subtitleRuns =
+                renderer.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs;
+              const artist = subtitleRuns?.map((r) => r.text).join('') || '';
+              const videoId =
+                renderer.playlistItemData?.videoId ||
+                renderer.navigationEndpoint?.watchEndpoint?.videoId;
+              const thumbnails =
+                renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+              const artwork = thumbnails?.[thumbnails.length - 1]?.url || '';
+
+              if (title && videoId) {
+                recommendedItems.push({
+                  id: videoId,
+                  title: title,
+                  name: title,
+                  artist: artist,
+                  artwork: artwork,
+                  image: artwork,
+                  url: `https://www.youtube.com/watch?v=${videoId}`,
+                  type: 'song',
+                });
+              }
+            }
+          }
+        }
       }
 
       return {
         queries: suggestions,
-        recommendedItems: [], // Can be parsed from second section if needed
+        recommendedItems: recommendedItems,
       };
     } catch (error) {
       console.error('InnerTubeClient getSearchSuggestions error:', error);

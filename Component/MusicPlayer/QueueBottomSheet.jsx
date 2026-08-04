@@ -206,7 +206,8 @@ const QueueBottomSheet = ({ index, onChange, enablePanDownToClose = true, artwor
       )}
       handleStyle={{
         backgroundColor: 'transparent',
-        paddingVertical: 10,
+        paddingTop: 12,
+        paddingBottom: 0,
         borderTopLeftRadius: 15,
         borderTopRightRadius: 15,
       }}
@@ -372,13 +373,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
-    height: 90,
     width: SCREEN_WIDTH,
-    paddingVertical: 5,
+    paddingTop: 0,
+    paddingBottom: 2,
   },
   minusIconContainer: {
-    marginBottom: 1, // Reduced from 2 to 1
-    transform: [{ scaleY: 2.5 }, { scaleX: 1.2 }], // Increased Y scale for boldness, added X scale for width
+    marginBottom: -12,
+    transform: [{ scaleY: 2.5 }, { scaleX: 1.2 }],
   },
   headerRow: {
     flexDirection: 'row',
@@ -411,20 +412,19 @@ const styles = StyleSheet.create({
   headerText: {
     fontWeight: 'bold',
     fontSize: 18,
-    marginTop: -5, // Reduced from -3 to -5 to bring text closer to icon
-    // Color will be applied dynamically via theme
+    marginTop: -4,
   },
   reorderToggle: {
     padding: 4,
     borderRadius: 4,
     position: 'absolute',
-    right: 20, // Position on the right side
+    right: 20,
   },
   subHeaderText: {
     fontSize: 12,
-    marginTop: 0,
+    marginTop: -12,
+    marginBottom: 4,
     fontWeight: '500',
-    // Color will be applied dynamically via theme
   },
 });
 
