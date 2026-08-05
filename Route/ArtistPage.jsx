@@ -76,40 +76,29 @@ const ArtistPage = () => {
   const [ytArtist, setYtArtist] = useState(null);
   const [ytLoading, setYtLoading] = useState(false);
 
-  // Track if we pushed a screen from this ArtistPage (like SectionListPage)
-  // When we return from that screen, we should NOT immediately return to FullScreen
   const pushedNestedScreen = React.useRef(false);
 
-  // Handle back navigation - return to FullScreenMusic if we came from there
-  // Only return to FullScreen if we're at the direct entry point from FullScreen
   useFocusEffect(
     useCallback(() => {
       const onBackPress = () => {
-        // If we just returned from a nested screen we pushed, don't go to FullScreen yet
         if (pushedNestedScreen.current) {
           pushedNestedScreen.current = false;
-          // Let default back behavior happen (but it won't since we're already back here)
           return false;
         }
-
-        // Check if we should return to FullScreenMusic
         if (returnToFullScreen || fullScreenNavigationTarget === 'ArtistPage') {
-          // Clear the navigation target
           setFullScreenNavigationTarget(null);
 
-          // CRITICAL: First go back in navigation stack to remove ArtistPage
           if (navigation.canGoBack()) {
             navigation.goBack();
           }
 
-          // Then reopen FullScreenMusic
           setTimeout(() => {
             setIndex(1);
           }, 50);
 
-          return true; // Prevent default back behavior
+          return true;
         }
-        return false; // Let default back behavior happen
+        return false;
       };
 
       const backHandler = BackHandler.addEventListener(
@@ -126,7 +115,6 @@ const ArtistPage = () => {
     ])
   );
 
-  // Track when we push a nested screen
   const navigateToSectionList = useCallback(
     (endpoint, title, type) => {
       pushedNestedScreen.current = true;
@@ -135,7 +123,6 @@ const ArtistPage = () => {
     [navigation]
   );
 
-  // Use existing hooks for data (works for both Saavn and YTMusic)
   const { artistData, loading, refreshing, onRefresh } = useArtistData(
     safeArtistId,
     source
@@ -230,7 +217,7 @@ const ArtistPage = () => {
           setYtArtist(data.artist);
           setYtSections(data.sections || []);
         }
-      } catch (e) {}
+      } catch (e) { }
     }
   };
 
@@ -968,7 +955,7 @@ const styles = StyleSheet.create({
   },
   heroImage: { width: '100%', height: '100%', position: 'absolute' },
   heroGradient: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
-  heroContent: { position: 'absolute', bottom: 44, left: 24, right: 24 },
+  heroContent: { position: 'absolute', bottom: 48, left: 24, right: 24 },
   artistNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1013,7 +1000,7 @@ const styles = StyleSheet.create({
   buttonContent: { height: 48 },
 
   // Sections
-  section: { marginTop: 24, paddingHorizontal: 0 },
+  section: { marginTop: -4, paddingHorizontal: 0 },
   glassIconContainer: {
     width: 44,
     height: 44,

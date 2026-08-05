@@ -95,7 +95,7 @@ export default function SongDisplay({ data, source = 'ytmusic', onRetry }) {
                 id={item?.id}
                 width={width * 0.95}
                 title={item?.name || item?.title}
-                artist={item?.subtitle || 'Artist'}
+                artist={item?.subtitle ? item.subtitle.replace(/[\s•·]+$/, '').trim() : 'artist'}
                 Data={data}
                 index={data.data.results.findIndex((x) => x.id === item.id)}
               />

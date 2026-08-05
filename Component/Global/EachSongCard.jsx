@@ -25,7 +25,6 @@ import EventRegister from '../../Utils/EventRegister';
 import Octicons from 'react-native-vector-icons/Octicons';
 import { requestStoragePermission } from '../../Utils/PermissionManager';
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
-import queueManager from '../../Utils/QueueManager';
 import { DownloadProgressIndicator } from '../Download/DownloadProgressIndicator';
 
 export const EachSongCard = memo(function EachSongCard({
@@ -62,13 +61,10 @@ export const EachSongCard = memo(function EachSongCard({
   const { colors } = theme;
   const width1 = Dimensions.get('window').width;
   const { updateTrack } = useContext(Context);
-  // Removed hooks to prevent excessive listeners
-  // If isLocal is true (from Downloads page), songs are definitely downloaded
   const [isDownloaded, setIsDownloaded] = useState(isLocal);
   const [downloadInProgress, setDownloadInProgress] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
 
-  // Simple string image URI handling
   let imageSource = null;
   let safeImageUri = '';
 
@@ -81,16 +77,13 @@ export const EachSongCard = memo(function EachSongCard({
       if (typeof image === 'string') {
         safeImageUri = image;
       } else if (Array.isArray(image) && image.length > 0) {
-        // Try to find highest quality or take last
         if (typeof image[0] === 'object') {
-          // YT Music style with quality property
           const maxRes = image.find(
             (img) => img.quality === 'max' || img.quality === 'hd'
           );
           if (maxRes && maxRes.url) {
             safeImageUri = maxRes.url;
           } else {
-            // Fallback to last valid object property
             for (let i = image.length - 1; i >= 0; i--) {
               const img = image[i];
               if (img && (img.url || img.uri || img.link)) {
@@ -100,7 +93,6 @@ export const EachSongCard = memo(function EachSongCard({
             }
           }
         } else if (typeof image[0] === 'string') {
-          // Array of strings (Saavn style - ascending)
           const lastValid = image
             .filter((i) => i && typeof i === 'string' && i.trim() !== '')
             .pop();
@@ -118,7 +110,6 @@ export const EachSongCard = memo(function EachSongCard({
   }
 
   useEffect(() => {
-    // If already marked as local (from Downloads page), skip the async check
     if (isLocal) {
       return;
     }
@@ -165,7 +156,6 @@ export const EachSongCard = memo(function EachSongCard({
         }
       );
 
-      // Listen for progress updates
       downloadProgressListener = EventRegister.addEventListener(
         'download-progress',
         ({ songId, progress }) => {
@@ -213,7 +203,6 @@ export const EachSongCard = memo(function EachSongCard({
     }
   };
 
-  // Format duration from seconds to MM:SS format (like OuterTune)
   const formatDuration = (seconds) => {
     if (!seconds || seconds === 0 || seconds === '0') {
       return '';
@@ -224,9 +213,7 @@ export const EachSongCard = memo(function EachSongCard({
   };
 
   async function AddSongToPlayer() {
-    // Handle local/downloaded songs - queue all downloaded songs with proper metadata
     if (isLocal && allSongs.length > 0) {
-      // Helper to check if artwork is valid (not a placeholder)
       const isValidArtwork = (art) => {
         if (!art || typeof art !== 'string') {
           return false;
@@ -264,8 +251,8 @@ export const EachSongCard = memo(function EachSongCard({
         const sArtwork = isValidArtwork(s.artwork)
           ? s.artwork
           : isValidArtwork(s.image)
-          ? s.image
-          : null;
+            ? s.image
+            : null;
 
         formattedTracks.push({
           id: s.id,
@@ -301,19 +288,14 @@ export const EachSongCard = memo(function EachSongCard({
     if (isFromPlaylist) {
       const songs = Data?.data?.songs || [];
       const current = songs[index];
-
-      // If this playlist is from YTMusic, play only the clicked song immediately,
-      // then queue a small batch of next songs in background.
       const isYtMusicPlaylist =
         current &&
         (current.source === 'ytmusic' ||
           (typeof current.id === 'string' && current.id.length === 11));
 
-      // SPOTIFY PLAYLIST SUPPORT: Detect Spotify playlists for optimistic UI
       const isSpotifyPlaylist =
         current && (current.source === 'spotify' || current.spotifyId);
 
-      // DAB PLAYLIST SUPPORT: Detect DAB playlists for optimistic UI
       const isDabPlaylist =
         current && (current.source === 'dab' || current.isDabTrack);
 
@@ -321,16 +303,12 @@ export const EachSongCard = memo(function EachSongCard({
         (isYtMusicPlaylist || isSpotifyPlaylist || isDabPlaylist) &&
         current
       ) {
-        // Use the new AddPlaylist logic which handles slicing and lazy loading
-        // Pass the full songs array and the ID of the song to start from
         const sourceType = isDabPlaylist
           ? 'DAB'
           : isSpotifyPlaylist
-          ? 'Spotify'
-          : 'YTMusic';
-          
-        // Map the songs array to ensure artist is properly set from the card's props
-        // This is especially important for YTMusic albums which might have missing artists
+            ? 'Spotify'
+            : 'YTMusic';
+
         const mappedSongs = songs.map((s) => ({
           ...s,
           artist:
@@ -339,15 +317,11 @@ export const EachSongCard = memo(function EachSongCard({
             s.primaryArtists ||
             (isFromAlbum ? artist : 'Unknown Artist'),
         }));
-        
-        // Pass the mapped songs array - AddPlaylist processes it
         await AddPlaylist(mappedSongs, current.id || current.videoId);
 
         updateTrack();
         return;
       }
-
-      // Non-YTMusic playlist: keep existing Saavn-style behavior
       const ForMusicPlayer = [];
       const quality = await getIndexQuality();
 
@@ -476,7 +450,6 @@ export const EachSongCard = memo(function EachSongCard({
           language: e?.language,
           artistID: e?.primary_artists_id,
           downloadUrl: e?.downloadUrl,
-          // Preserve additional metadata for song info display
           year: e?.year,
           playCount: e?.playCount,
           label: e?.label,
@@ -491,21 +464,18 @@ export const EachSongCard = memo(function EachSongCard({
 
       await AddPlaylist(Final);
     } else {
-      // Handle single song playback
       if (source === 'ytmusic') {
-        // Handle YTMusic songs - let PlayOneSong fetch the stream URL
         const song = {
-          url: '', // PlayOneSong will fetch the stream URL
+          url: '',
           title: formatText(title),
           artist: formatText(artist),
           artwork: safeImageUri,
           image: safeImageUri,
           duration: duration,
-          id, // This is the video ID
+          id,
           language,
           artistID,
-          downloadUrl: id, // Store video ID for potential downloads
-          // Preserve additional metadata
+          downloadUrl: id,
           ...(Data?.data?.results?.[index] && {
             year: Data.data.results[index].year,
             playCount: Data.data.results[index].playCount,
@@ -521,17 +491,16 @@ export const EachSongCard = memo(function EachSongCard({
         PlayOneSong(song);
         return;
       } else if (source === 'spotify') {
-        // Handle Spotify songs - PlayOneSong will map to YTMusic
         const song = {
-          url: '', // PlayOneSong will map and fetch from YTMusic
+          url: '',
           title: formatText(title),
           artist: formatText(artist),
           artwork: safeImageUri,
           image: safeImageUri,
           duration: duration,
           id,
-          spotifyId: id, // Mark as Spotify track
-          source: 'spotify', // Important for PlayOneSong to detect
+          spotifyId: id,
+          source: 'spotify',
           language,
           artistID,
           // Preserve additional metadata
@@ -548,9 +517,8 @@ export const EachSongCard = memo(function EachSongCard({
         item?.isDabTrack ||
         (!isNaN(url) && String(url).length > 5)
       ) {
-        // Handle DAB Music tracks
         const song = {
-          url: url, // Numeric ID for DAB
+          url: url,
           title: formatText(title),
           artist: formatText(artist),
           artwork: safeImageUri,
@@ -561,7 +529,6 @@ export const EachSongCard = memo(function EachSongCard({
           isDabTrack: true,
           language,
           artistID,
-          // Preserve additional metadata
           ...(Data?.data?.results?.[index] && {
             album: Data.data.results[index].album,
             audioQuality: Data.data.results[index].audioQuality,
@@ -572,11 +539,11 @@ export const EachSongCard = memo(function EachSongCard({
         PlayOneSong(song);
         return;
       } else {
-        // Handle Saavn songs (existing logic)
+
         const quality = await getIndexQuality();
 
         let songUrl;
-        // Try `url` prop first, then fallback to `item` data
+
         const downloadUrlSource =
           url || item?.downloadUrl || item?.download_url;
 
@@ -616,7 +583,6 @@ export const EachSongCard = memo(function EachSongCard({
           artistID: artistID,
           image: safeImageUri,
           downloadUrl: url,
-          // Preserve additional metadata for song info display
           ...(Data?.data?.results?.[index] && {
             year: Data.data.results[index].year,
             playCount: Data.data.results[index].playCount,
@@ -633,7 +599,6 @@ export const EachSongCard = memo(function EachSongCard({
       }
     }
 
-    // --- Injected: If played from search, add album songs to queue ---
     if (source === 'search' && Data?.data?.results?.[index]?.album?.id) {
       try {
         const { getAlbumData } = require('../../Api/Album');
@@ -683,11 +648,9 @@ export const EachSongCard = memo(function EachSongCard({
       } catch (err) {
         console.error('Error adding album songs to queue from search:', err);
       }
-      // --- Injected: After album, add 10 songs for each artist (untruncated) ---
       try {
         const { getArtistSongsPaginated } = require('../../Api/Songs');
         const { AddSongsToQueue } = require('../../MusicPlayerFunctions');
-        // Extract full artist objects from the original song (not truncated)
         const songObj = Data?.data?.results?.[index];
         const artistArr = songObj?.artists?.primary || [];
         for (const artist of artistArr) {
@@ -705,10 +668,10 @@ export const EachSongCard = memo(function EachSongCard({
               (e) =>
                 e.id !== id &&
                 (!songObj.album || e.album?.id !== songObj.album.id)
-            ) // avoid current and album songs
+            )
             .map((e) => {
               let songUrl = '';
-              const qualityPref = 4; // High quality fallback
+              const qualityPref = 4;
               if (e.downloadUrl && Array.isArray(e.downloadUrl) && e.downloadUrl.length > 0) {
                 const entry = e.downloadUrl[qualityPref] || e.downloadUrl[0];
                 songUrl = entry?.url || entry?.link || entry?.uri || '';
@@ -752,8 +715,6 @@ export const EachSongCard = memo(function EachSongCard({
   }
 
   const handleDownload = async () => {
-    // YTMusic downloads are now supported via streaming URL
-
     if (isDownloaded) {
       ToastAndroid.show('Song is already downloaded!', ToastAndroid.SHORT);
       return;
@@ -775,8 +736,6 @@ export const EachSongCard = memo(function EachSongCard({
 
       setDownloadInProgress(true);
 
-      // Prepare song object for unified service
-      // Use item's original source (from DAB/YTMusic transform) if available
       const actualSource = item?.source || source || 'saavn';
       const songData = {
         id,
@@ -788,12 +747,11 @@ export const EachSongCard = memo(function EachSongCard({
         duration,
         language,
         artistID,
-        source: actualSource, // Preserve original source (dab, ytmusic, saavn)
-        isDabTrack: item?.isDabTrack || false, // Preserve DAB flag for detection
-        downloadUrl: item?.downloadUrl || item?.download_url, // Pass downloadUrl arrays for Saavn
+        source: actualSource,
+        isDabTrack: item?.isDabTrack || false,
+        downloadUrl: item?.downloadUrl || item?.download_url,
       };
 
-      // Use the unified download service
       const success = await UnifiedDownloadService.downloadSong(songData);
 
       if (success) {
@@ -812,13 +770,8 @@ export const EachSongCard = memo(function EachSongCard({
 
   const handleDelete = async (songId, songTitle) => {
     try {
-      // Delete using StorageManager - pass localSongPath if available for direct file deletion
       await StorageManager.removeDownloadedSongMetadata(songId, localSongPath);
-
-      // Update local state
       setIsDownloaded(false);
-
-      // Notify parent component that deletion is complete
       if (onDeleteComplete) {
         onDeleteComplete(songId);
       }
@@ -836,14 +789,18 @@ export const EachSongCard = memo(function EachSongCard({
         onPress={
           isArtist
             ? () => {
-                navigation.navigate('MainRoute', {
-                  screen: 'Home',
+              navigation.navigate('MainRoute', {
+                screen: 'Home',
+                params: {
+                  screen: 'ArtistPage',
                   params: {
-                    screen: 'ArtistPage',
-                    params: { artistId: id, artistName: title },
+                    artistId: id || item?.id || item?.browseId,
+                    artistName: title || name,
+                    source: item?.source || (source === 'ytmusic' ? 'ytmusic' : 'saavn'),
                   },
-                });
-              }
+                },
+              });
+            }
             : AddSongToPlayer
         }
         onLongPress={() => {
@@ -890,9 +847,9 @@ export const EachSongCard = memo(function EachSongCard({
             text={
               truncateTitle
                 ? truncateText(
-                    formatText(title),
-                    isFromAlbum ? 15 : isFromPlaylist ? 15 : 15
-                  )
+                  formatText(title),
+                  isFromAlbum ? 15 : isFromPlaylist ? 15 : 15
+                )
                 : formatText(title)
             }
             songId={id}
@@ -909,10 +866,14 @@ export const EachSongCard = memo(function EachSongCard({
             ellipsizeMode="tail"
           />
           <SmallText
-            text={truncateText(
-              formatText(artist),
-              isFromAlbum ? 30 : isFromPlaylist ? 32 : 35
-            )}
+            text={
+              isArtist
+                ? (artist ? String(artist).replace(/[\s•·]+$/, '').trim() : 'artist')
+                : truncateText(
+                    formatText(artist),
+                    isFromAlbum ? 30 : isFromPlaylist ? 32 : 35
+                  )
+            }
             isArtistName={true}
             style={{
               width: titleandartistwidth
@@ -937,80 +898,80 @@ export const EachSongCard = memo(function EachSongCard({
           ) : (
             <>
               <Pressable
-            onPress={(e) => {
-              e.stopPropagation();
-              handleDownload();
-            }}
-            style={{
-              marginRight: isFromAlbum ? 10 : isFromPlaylist ? 10 : 10,
-            }}
-          >
-            <GlassBox
-              id={`download-${id}`}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-              gradientConfig={{
-                x1: '0%', y1: '0%', x2: '100%', y2: '100%',
-                stops: [
-                  { offset: '0%', opacity: 0.5 },
-                  { offset: '25%', opacity: 0.5 },
-                  { offset: '50%', opacity: 0.0 },
-                  { offset: '75%', opacity: 0.5 },
-                  { offset: '100%', opacity: 0.5 },
-                ],
-              }}
-            >
-              {isDownloaded ? (
-                <Octicons name="check-circle" size={18} color="#1DB954" />
-              ) : downloadInProgress ? (
-                <DownloadProgressIndicator
-                  progress={downloadProgress}
-                  size={18}
-                  thickness={2}
-                  showPercentage={false}
-                />
-              ) : (
-                <Octicons
-                  name="download"
-                  size={18}
-                  color={theme.dark ? '#ffffff' : '#333333'}
-                />
-              )}
-            </GlassBox>
-          </Pressable>
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleDownload();
+                }}
+                style={{
+                  marginRight: isFromAlbum ? 10 : isFromPlaylist ? 10 : 10,
+                }}
+              >
+                <GlassBox
+                  id={`download-${id}`}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                  gradientConfig={{
+                    x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+                    stops: [
+                      { offset: '0%', opacity: 0.5 },
+                      { offset: '25%', opacity: 0.5 },
+                      { offset: '50%', opacity: 0.0 },
+                      { offset: '75%', opacity: 0.5 },
+                      { offset: '100%', opacity: 0.5 },
+                    ],
+                  }}
+                >
+                  {isDownloaded ? (
+                    <Octicons name="check-circle" size={18} color="#1DB954" />
+                  ) : downloadInProgress ? (
+                    <DownloadProgressIndicator
+                      progress={downloadProgress}
+                      size={18}
+                      thickness={2}
+                      showPercentage={false}
+                    />
+                  ) : (
+                    <Octicons
+                      name="download"
+                      size={18}
+                      color={theme.dark ? '#ffffff' : '#333333'}
+                    />
+                  )}
+                </GlassBox>
+              </Pressable>
 
-          <EachSongMenuButton
-            song={{
-              title,
-              artist,
-              artwork: image,
-              image: image,
-              id,
-              url,
-              downloadUrl: item?.downloadUrl || item?.download_url,
-              duration,
-              language,
-              artistID,
-              localSongPath,
-              source: item?.source || source || 'saavn',
-              spotifyId:
-                source === 'spotify' || item?.source === 'spotify'
-                  ? id
-                  : undefined,
-              isDabTrack: item?.isDabTrack || source === 'dab' || false,
-            }}
-            isFromPlaylist={isFromPlaylist}
-            isFromAlbum={isFromAlbum}
-            size={isFromAlbum ? 36 : 32}
-            marginRight={isFromAlbum ? 0 : 0}
-            isDownloaded={isDownloaded}
-            onDelete={handleDelete}
-          />
+              <EachSongMenuButton
+                song={{
+                  title,
+                  artist,
+                  artwork: image,
+                  image: image,
+                  id,
+                  url,
+                  downloadUrl: item?.downloadUrl || item?.download_url,
+                  duration,
+                  language,
+                  artistID,
+                  localSongPath,
+                  source: item?.source || source || 'saavn',
+                  spotifyId:
+                    source === 'spotify' || item?.source === 'spotify'
+                      ? id
+                      : undefined,
+                  isDabTrack: item?.isDabTrack || source === 'dab' || false,
+                }}
+                isFromPlaylist={isFromPlaylist}
+                isFromAlbum={isFromAlbum}
+                size={isFromAlbum ? 36 : 32}
+                marginRight={isFromAlbum ? 0 : 0}
+                isDownloaded={isDownloaded}
+                onDelete={handleDelete}
+              />
             </>
           )}
         </View>
