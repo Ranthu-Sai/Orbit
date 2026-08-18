@@ -385,16 +385,16 @@ static async getHomeWithContinuation(sectionLimit = 20) {
     // OuterTune's exact filter params
     let params = null;
     if (filter === 'songs') {
-      params = 'EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D';
+      params = 'EgWKAQIIAWoKEAkQBRAKEAMQBA==';
     }
     if (filter === 'videos') {
-      params = 'EgWKAQIQAWoKEAkQChAFEAMQBA%3D%3D';
+      params = 'EgWKAQIQAWoKEAkQChAFEAMQBA==';
     }
     if (filter === 'albums') {
-      params = 'EgWKAQIYAWoKEAkQChAFEAMQBA%3D%3D';
+      params = 'EgWKAQIYAWoKEAkQChAFEAMQBA==';
     }
     if (filter === 'artists') {
-      params = 'EgWKAQIgAWoKEAkQChAFEAMQBA%3D%3D';
+      params = 'EgWKAQIgAWoKEAkQChAFEAMQBA==';
     }
     if (filter === 'playlists') {
       params = 'EgeKAQQoAEABagoQAxAEEAoQCRAF';
@@ -425,6 +425,7 @@ static async getHomeWithContinuation(sectionLimit = 20) {
 
       // Parse suggestions from response
       const suggestions = [];
+      const recommendedItems = [];
       const contents = data?.contents;
 
       if (contents && Array.isArray(contents)) {
@@ -443,11 +444,46 @@ static async getHomeWithContinuation(sectionLimit = 20) {
             }
           }
         }
+
+        // Second section contains recommended item cards (songs/artists)
+        const recommendedSection =
+          contents[1]?.searchSuggestionsSectionRenderer?.contents;
+        if (recommendedSection && Array.isArray(recommendedSection)) {
+          for (const item of recommendedSection) {
+            const renderer = item.musicResponsiveListItemRenderer;
+            if (renderer) {
+              const title =
+                renderer.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text;
+              const subtitleRuns =
+                renderer.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs;
+              const artist = subtitleRuns?.map((r) => r.text).join('') || '';
+              const videoId =
+                renderer.playlistItemData?.videoId ||
+                renderer.navigationEndpoint?.watchEndpoint?.videoId;
+              const thumbnails =
+                renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+              const artwork = thumbnails?.[thumbnails.length - 1]?.url || '';
+
+              if (title && videoId) {
+                recommendedItems.push({
+                  id: videoId,
+                  title: title,
+                  name: title,
+                  artist: artist,
+                  artwork: artwork,
+                  image: artwork,
+                  url: `https://www.youtube.com/watch?v=${videoId}`,
+                  type: 'song',
+                });
+              }
+            }
+          }
+        }
       }
 
       return {
         queries: suggestions,
-        recommendedItems: [], // Can be parsed from second section if needed
+        recommendedItems: recommendedItems,
       };
     } catch (error) {
       console.error('InnerTubeClient getSearchSuggestions error:', error);
@@ -615,13 +651,32 @@ static async getHomeWithContinuation(sectionLimit = 20) {
    * Supports lazy loading via continuation
    */
   static async getSection(browseId, params = null, continuation = null) {
-    if (continuation) {
-      const data = await this.request('browse', { continuation });
+    const fetchFunction = async () => {
+      if (continuation) {
+        const data = await this.request('browse', { continuation });
+        return this.parseSection(data);
+      }
+
+      const data = await this.request('browse', { browseId, params });
       return this.parseSection(data);
+    };
+
+    if (continuation) {
+      return await fetchFunction();
     }
 
-    const data = await this.request('browse', { browseId, params });
-    return this.parseSection(data);
+    const cacheKey = `ytmusic_section_${browseId}_${params || 'none'}`;
+    try {
+      return await getCachedData(
+        cacheKey,
+        fetchFunction,
+        30,
+        CACHE_GROUPS.SEARCH
+      );
+    } catch (e) {
+      console.error('Error caching section:', e);
+      return await fetchFunction();
+    }
   }
 
   /**
@@ -2368,12 +2423,130 @@ static async getHomeWithContinuation(sectionLimit = 20) {
   }
 
   /**
-   * Client definitions for player requests (vivi-music pattern).
+   * Generate SAPISIDHASH Authorization header from cookies (matches Kotlin InnerTube.kt).
+   * Required by YouTube for authenticated player requests.
+   * @param {string} cookies - Cookie string containing SAPISID
+   * @returns {string|null} Authorization header value or null
+   */
+  static _generateSapisidHash(cookies) {
+    if (!cookies) return null;
+    try {
+      // Parse SAPISID from cookie string
+      const match = cookies.match(/SAPISID=([^;]+)/);
+      if (!match) return null;
+      const sapisid = match[1];
+      const time = Math.floor(Date.now() / 1000);
+      const origin = 'https://music.youtube.com';
+      // SHA-1 hash of "{time} {SAPISID} {origin}"
+      const input = `${time} ${sapisid} ${origin}`;
+      // Simple SHA-1 implementation for React Native
+      const sha1 = this._sha1(input);
+      return `SAPISIDHASH ${time}_${sha1}`;
+    } catch (e) {
+      console.warn('Failed to generate SAPISIDHASH:', e.message);
+      return null;
+    }
+  }
+
+  /**
+   * SHA-1 hash (pure JS, no dependencies). Matches Kotlin sha1() utility.
+   */
+  static _sha1(str) {
+    function rotl(n, s) {
+      return (n << s) | (n >>> (32 - s));
+    }
+    const utf8 = unescape(encodeURIComponent(str));
+    const len = utf8.length;
+    const words = [];
+    for (let i = 0; i < len - 3; i += 4) {
+      words.push(
+        (utf8.charCodeAt(i) << 24) |
+          (utf8.charCodeAt(i + 1) << 16) |
+          (utf8.charCodeAt(i + 2) << 8) |
+          utf8.charCodeAt(i + 3)
+      );
+    }
+    const rem = len % 4;
+    if (rem === 0) {
+      words.push(0x80000000);
+    } else if (rem === 1) {
+      words.push((utf8.charCodeAt(len - 1) << 24) | 0x800000);
+    } else if (rem === 2) {
+      words.push(
+        (utf8.charCodeAt(len - 2) << 24) |
+          (utf8.charCodeAt(len - 1) << 16) |
+          0x8000
+      );
+    } else {
+      words.push(
+        (utf8.charCodeAt(len - 3) << 24) |
+          (utf8.charCodeAt(len - 2) << 16) |
+          (utf8.charCodeAt(len - 1) << 8) |
+          0x80
+      );
+    }
+    while (words.length % 16 !== 14) words.push(0);
+    words.push(0);
+    words.push(len * 8);
+    let h0 = 0x67452301;
+    let h1 = 0xefcdab89;
+    let h2 = 0x98badcfe;
+    let h3 = 0x10325476;
+    let h4 = 0xc3d2e1f0;
+    const w = new Array(80);
+    for (let j = 0; j < words.length; j += 16) {
+      for (let i = 0; i < 16; i++) w[i] = words[j + i];
+      for (let i = 16; i < 80; i++)
+        w[i] = rotl(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
+      let a = h0,
+        b = h1,
+        c = h2,
+        d = h3,
+        e = h4;
+      for (let i = 0; i < 80; i++) {
+        let f, k;
+        if (i < 20) {
+          f = (b & c) | (~b & d);
+          k = 0x5a827999;
+        } else if (i < 40) {
+          f = b ^ c ^ d;
+          k = 0x6ed9eba1;
+        } else if (i < 60) {
+          f = (b & c) | (b & d) | (c & d);
+          k = 0x8f1bbcdc;
+        } else {
+          f = b ^ c ^ d;
+          k = 0xca62c1d6;
+        }
+        const temp = (rotl(a, 5) + f + e + k + w[i]) & 0xffffffff;
+        e = d;
+        d = c;
+        c = rotl(b, 30);
+        b = a;
+        a = temp;
+      }
+      h0 = (h0 + a) & 0xffffffff;
+      h1 = (h1 + b) & 0xffffffff;
+      h2 = (h2 + c) & 0xffffffff;
+      h3 = (h3 + d) & 0xffffffff;
+      h4 = (h4 + e) & 0xffffffff;
+    }
+    const hex = (n) => {
+      let s = '';
+      for (let i = 7; i >= 0; i--) s += ((n >>> (i * 4)) & 0xf).toString(16);
+      return s;
+    };
+    return hex(h0) + hex(h1) + hex(h2) + hex(h3) + hex(h4);
+  }
+
+  /**
+   * Client definitions for player requests.
+   * Updated versions matching Kotlin YouTubeClient.kt (2026).
    */
   static ANDROID_VR_CONTEXT = {
     client: {
       clientName: 'ANDROID_VR',
-      clientVersion: '1.43.32',
+      clientVersion: '1.61.48',
       androidSdkVersion: '32',
       osName: 'Android',
       osVersion: '12',
@@ -2385,56 +2558,127 @@ static async getHomeWithContinuation(sectionLimit = 20) {
   };
 
   static ANDROID_VR_USER_AGENT =
-    'com.google.android.apps.youtube.vr.oculus/1.43.32 (Linux; U; Android 12; en_US; Quest 3; Build/SQ3A.220605.009.A1; Cronet/107.0.5284.2)';
+    'com.google.android.apps.youtube.vr.oculus/1.61.48 (Linux; U; Android 12; en_US; Oculus Quest 3; Build/SQ3A.220605.009.A1; Cronet/132.0.6808.3)';
 
   static IOS_CONTEXT = {
     client: {
       clientName: 'IOS',
-      clientVersion: '21.03.1',
+      clientVersion: '20.10.4',
       deviceMake: 'Apple',
       deviceModel: 'iPhone16,2',
       osName: 'iPhone',
-      osVersion: '18.2.22C152',
+      osVersion: '18.3.2.22D82',
       hl: 'en',
       gl: 'US',
     },
   };
 
   static IOS_USER_AGENT =
-    'com.google.ios.youtube/21.03.1 (iPhone16,2; U; CPU iOS 18_2 like Mac OS X;)';
+    'com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)';
+
+  static WEB_REMIX_CONTEXT = {
+    client: {
+      clientName: 'WEB_REMIX',
+      clientVersion: '1.20260405.01.00',
+      hl: 'en',
+      gl: 'US',
+    },
+  };
+
+  static WEB_REMIX_USER_AGENT =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0';
+
+  static ANDROID_MUSIC_CONTEXT = {
+    client: {
+      clientName: 'ANDROID_MUSIC',
+      clientVersion: '7.27.52',
+      androidSdkVersion: '30',
+      osName: 'Android',
+      osVersion: '11',
+      hl: 'en',
+      gl: 'US',
+    },
+  };
+
+  static ANDROID_MUSIC_USER_AGENT =
+    'com.google.android.apps.youtube.music/7.27.52 (Linux; U; Android 11) gzip';
 
   /**
-   * List of clients to try in order (vivi-music fallback strategy).
+   * List of clients to try in order.
+   * WEB_REMIX with SAPISIDHASH auth is tried first (requires cookies).
+   * ANDROID_VR_NO_AUTH is the best anonymous fallback.
+   * ANDROID_MUSIC and IOS are additional fallbacks.
    */
   static _PLAYER_CLIENTS = [
+    {
+      context: 'WEB_REMIX_CONTEXT',
+      userAgent: 'WEB_REMIX_USER_AGENT',
+      clientId: '67',
+      clientVersion: '1.20260405.01.00',
+      requiresAuth: true,
+    },
     {
       context: 'ANDROID_VR_CONTEXT',
       userAgent: 'ANDROID_VR_USER_AGENT',
       clientId: '28',
-      clientVersion: '1.43.32',
+      clientVersion: '1.61.48',
+      requiresAuth: false,
+    },
+    {
+      context: 'ANDROID_MUSIC_CONTEXT',
+      userAgent: 'ANDROID_MUSIC_USER_AGENT',
+      clientId: '21',
+      clientVersion: '7.27.52',
+      requiresAuth: false,
     },
     {
       context: 'IOS_CONTEXT',
       userAgent: 'IOS_USER_AGENT',
       clientId: '5',
-      clientVersion: '21.03.1',
+      clientVersion: '20.10.4',
+      requiresAuth: false,
     },
   ];
 
   /**
    * Fetch player response from InnerTube player API.
-   * Tries ANDROID_VR first, then IOS fallback (vivi-music pattern).
-   * Fetches visitorData to satisfy bot detection.
+   * Strategy:
+   *   1. WEB_REMIX with SAPISIDHASH auth (if user is logged in with cookies)
+   *   2. ANDROID_VR no-auth (best anonymous client)
+   *   3. ANDROID_MUSIC (YouTube Music native client)
+   *   4. IOS fallback
    *
    * @param {string} videoId - YouTube video ID
+   * @param {string|null} userCookies - Stored user cookies (yt_cookies)
+   * @param {boolean} preferM4A - If true, prefer M4A format for downloads (supports metadata embedding)
    * @returns {Promise<{url: string, mimeType: string, bitrate: number, duration: number, title: string, author: string, thumbnail: string}|null>}
    */
-  static async getPlayerResponse(videoId) {
+  static async getPlayerResponse(videoId, userCookies = null, preferM4A = false) {
     // Fetch visitorData (required to avoid LOGIN_REQUIRED)
     const visitorData = await this._fetchVisitorData();
 
+    // Check stored user cookies if not explicitly provided
+    let cookies = userCookies;
+    if (!cookies) {
+      try {
+        const AsyncStorage =
+          require('@react-native-async-storage/async-storage').default;
+        cookies = await AsyncStorage.getItem('yt_cookies');
+      } catch (e) {
+        // Ignored
+      }
+    }
+
+    // Generate SAPISIDHASH for authenticated requests
+    const sapisidAuth = this._generateSapisidHash(cookies);
+
     for (const clientDef of this._PLAYER_CLIENTS) {
       try {
+        // Skip auth-required clients if we don't have valid cookies
+        if (clientDef.requiresAuth && !sapisidAuth) {
+          continue;
+        }
+
         const clientContext = this[clientDef.context];
         const ua = this[clientDef.userAgent];
 
@@ -2453,39 +2697,61 @@ static async getHomeWithContinuation(sectionLimit = 20) {
           racyCheckOk: true,
         };
 
+        const headers = {
+          'Content-Type': 'application/json',
+          'User-Agent': ua,
+          'X-Goog-Api-Format-Version': '1',
+          'X-YouTube-Client-Name': clientDef.clientId,
+          'X-YouTube-Client-Version': clientDef.clientVersion,
+          'X-Origin': 'https://music.youtube.com',
+          Referer: 'https://music.youtube.com/',
+          ...(visitorData ? { 'X-Goog-Visitor-Id': visitorData } : {}),
+        };
+
+        // Add auth headers for authenticated clients
+        if (clientDef.requiresAuth && cookies) {
+          headers['Cookie'] = cookies;
+          if (sapisidAuth) {
+            headers['Authorization'] = sapisidAuth;
+          }
+        }
+
         const response = await fetch(
           `${INNERTUBE_API_URL}/player?key=${INNERTUBE_API_KEY}&prettyPrint=false`,
           {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'User-Agent': ua,
-              'X-Goog-Api-Format-Version': '1',
-              'X-YouTube-Client-Name': clientDef.clientId,
-              'X-YouTube-Client-Version': clientDef.clientVersion,
-              'X-Origin': 'https://music.youtube.com',
-              Referer: 'https://music.youtube.com/',
-              ...(visitorData ? { 'X-Goog-Visitor-Id': visitorData } : {}),
-            },
+            headers,
             body: JSON.stringify(body),
           }
         );
 
         const data = await response.json();
 
-        if (data?.playabilityStatus?.status !== 'OK') {
+        const status = data?.playabilityStatus?.status;
+        const reason = data?.playabilityStatus?.reason || '';
+
+        if (status !== 'OK') {
           console.warn(
-            `⚠️ InnerTube player [${
-              clientContext.client.clientName
-            }]: ${data?.playabilityStatus?.status} - ${
-              data?.playabilityStatus?.reason || ''
-            }`
+            `⚠️ InnerTube player [${clientContext.client.clientName}]: ${status} - ${reason}`
           );
+
+          if (
+            reason.includes('LOGIN_REQUIRED') ||
+            status === 'LOGIN_REQUIRED'
+          ) {
+            // Reset visitorData cache so fresh visitor ID is requested next time
+            this._visitorData = null;
+            this._visitorDataTimestamp = 0;
+          }
+
           continue; // Try next client
         }
 
-        const result = this._extractBestAudio(data, videoId);
+        const result = this._extractBestAudio(data, videoId, preferM4A);
         if (result) {
+          console.log(
+            `✅ InnerTube player [${clientContext.client.clientName}] resolved stream for ${videoId}`
+          );
           return result;
         }
       } catch (error) {
@@ -2503,7 +2769,7 @@ static async getHomeWithContinuation(sectionLimit = 20) {
    * Extract the best audio stream URL from a player response.
    * @private
    */
-  static _extractBestAudio(data, videoId) {
+  static _extractBestAudio(data, videoId, preferM4A = false) {
     const adaptiveFormats = data?.streamingData?.adaptiveFormats || [];
 
     const audioFormats = adaptiveFormats.filter(
@@ -2515,15 +2781,36 @@ static async getHomeWithContinuation(sectionLimit = 20) {
       return null;
     }
 
-    // Prefer opus/webm, then sort by bitrate descending
-    const bestFormat = audioFormats.sort((a, b) => {
-      const aIsOpus = a.mimeType.includes('opus') ? 1 : 0;
-      const bIsOpus = b.mimeType.includes('opus') ? 1 : 0;
-      if (aIsOpus !== bIsOpus) {
-        return bIsOpus - aIsOpus;
+    let bestFormat;
+    if (preferM4A) {
+      // DOWNLOAD MODE: Prefer M4A/MP4 for metadata embedding support
+      const m4aFormats = audioFormats.filter(
+        (f) => f.mimeType.includes('mp4') || f.mimeType.includes('m4a')
+      );
+      if (m4aFormats.length > 0) {
+        bestFormat = m4aFormats.sort(
+          (a, b) => (b.bitrate || 0) - (a.bitrate || 0)
+        )[0];
+      } else {
+        // No M4A available, fall back to highest bitrate of any format
+        console.warn(
+          `⚠️ No M4A formats found for ${videoId}, using highest bitrate`
+        );
+        bestFormat = audioFormats.sort(
+          (a, b) => (b.bitrate || 0) - (a.bitrate || 0)
+        )[0];
       }
-      return (b.bitrate || 0) - (a.bitrate || 0);
-    })[0];
+    } else {
+      // STREAMING MODE: Prefer opus/webm, then sort by bitrate descending
+      bestFormat = audioFormats.sort((a, b) => {
+        const aIsOpus = a.mimeType.includes('opus') ? 1 : 0;
+        const bIsOpus = b.mimeType.includes('opus') ? 1 : 0;
+        if (aIsOpus !== bIsOpus) {
+          return bIsOpus - aIsOpus;
+        }
+        return (b.bitrate || 0) - (a.bitrate || 0);
+      })[0];
+    }
 
     if (!bestFormat.url) {
       console.warn(`⚠️ Best audio format has no direct URL for ${videoId}`);

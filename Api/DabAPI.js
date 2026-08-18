@@ -429,6 +429,7 @@ export async function getDabSearchSongData(searchText, page = 1, limit = 20) {
           limit: Math.min(limit, 50),
         },
         timeout: REQUEST_TIMEOUT,
+        withCredentials: true,
       });
 
       const tracks = response.data?.tracks || [];
@@ -488,6 +489,7 @@ export async function getDabSearchAlbumData(searchText, page = 1, limit = 20) {
           limit: Math.min(limit, 50),
         },
         timeout: REQUEST_TIMEOUT,
+        withCredentials: true,
       });
 
       const albums = response.data?.albums || [];
@@ -547,6 +549,7 @@ export async function getDabSearchArtistData(searchText, page = 1, limit = 20) {
           limit: Math.min(limit, 50),
         },
         timeout: REQUEST_TIMEOUT,
+        withCredentials: true,
       });
 
       const artists = response.data?.artists || [];

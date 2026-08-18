@@ -97,7 +97,7 @@ function transformYTToSaavnSong(song) {
     name: song.title,
     title: song.title,
     subtitle:
-      song.artists?.map((artist) => artist.name).join(', ') || 'Unknown Artist',
+      song.artists?.map((artist) => artist.name).join(', ') || song.artist || song.author || 'Unknown Artist',
     type: 'song',
     image:
       imageArray.length > 0
@@ -108,9 +108,9 @@ function transformYTToSaavnSong(song) {
               quality: '150x150',
             },
           ],
-    artist: song.artists?.[0]?.name || 'Unknown Artist',
+    artist: song.artists?.[0]?.name || song.artist || song.author || 'Unknown Artist',
     artists: {
-      primary: song.artists || [],
+      primary: song.artists || (song.artist ? [{ name: song.artist }] : []) || (song.author ? [{ name: song.author }] : []) || [],
     },
     duration: 0, // YTMusic API doesn't provide duration in search
     language: 'unknown',
@@ -121,7 +121,7 @@ function transformYTToSaavnSong(song) {
     url: '', // YTMusic doesn't provide direct audio URLs
     copyright: '',
     primaryArtists:
-      song.artists?.map((artist) => artist.name).join(', ') || 'Unknown Artist',
+      song.artists?.map((artist) => artist.name).join(', ') || song.artist || song.author || 'Unknown Artist',
     singers: '',
     composer: '',
     lyricist: '',
@@ -283,26 +283,68 @@ function transformYTToSaavnPlaylist(playlist) {
   };
 }
 
-async function getYTMusicSearchSongData(searchText, page = 1, limit = 20) {
-  const cacheKey = `ytmusic_search_songs_${searchText}_page${page}_limit${limit}`;
+async function getYTMusicSearchAllData(searchText, page = 1, limit = 20) {
+  const cacheKey = `ytmusic_search_all_v4_${searchText}_page${page}_limit${limit}`;
 
   const fetchFunction = async () => {
     try {
-      const searchResults = await YouTubeMusicService.search(
-        searchText,
-        'songs',
-        limit
-      );
+      const [songResults, videoResults, artistResults] = await Promise.all([
+        YouTubeMusicService.search(searchText, 'songs', limit).catch(() => []),
+        YouTubeMusicService.search(searchText, 'videos', limit).catch(() => []),
+        YouTubeMusicService.search(searchText, 'artists', limit).catch(() => []),
+      ]);
 
-      if (searchResults && Array.isArray(searchResults)) {
-        const transformedResults = searchResults.map(transformYTToSaavnSong);
+      const searchLower = (searchText || '').toLowerCase().trim();
+
+      // Sort songs/videos by title match
+      const allSongsRaw = [
+        ...(Array.isArray(videoResults) ? videoResults : []),
+        ...(Array.isArray(songResults) ? songResults : []),
+      ];
+
+      allSongsRaw.sort((a, b) => {
+        const titleA = (a.title || a.name || '').toLowerCase();
+        const titleB = (b.title || b.name || '').toLowerCase();
+        const matchA = titleA.includes(searchLower);
+        const matchB = titleB.includes(searchLower);
+        if (matchA && !matchB) return -1;
+        if (!matchA && matchB) return 1;
+        return 0;
+      });
+      
+      const combined = [];
+      const seenIds = new Set();
+      
+      const addItems = (items, type) => {
+        if (Array.isArray(items)) {
+          for (const item of items) {
+            const id = item.id || item.browseId;
+            if (id && !seenIds.has(id)) {
+              seenIds.add(id);
+              if (type === 'artist') {
+                combined.push(transformYTToSaavnArtist(item));
+              } else {
+                combined.push(transformYTToSaavnSong(item));
+              }
+            }
+          }
+        }
+      };
+
+      // Add artists first (limit to top 3), then songs
+      const topArtists = Array.isArray(artistResults) ? artistResults.slice(0, 3) : [];
+      addItems(topArtists, 'artist');
+      addItems(allSongsRaw, 'song');
+
+      if (combined.length > 0) {
+        const slicedResults = combined.slice(0, limit * 2);
         return {
           status: 'SUCCESS',
           message: '',
           data: {
-            total: transformedResults.length,
+            total: slicedResults.length,
             start: 0,
-            results: transformedResults,
+            results: slicedResults,
           },
           success: true,
         };
@@ -336,7 +378,7 @@ async function getYTMusicSearchSongData(searchText, page = 1, limit = 20) {
     return await getCachedData(cacheKey, fetchFunction, 5, CACHE_GROUPS.SEARCH);
   } catch (error) {
     console.error(
-      `Error getting YTMusic song search data for "${searchText}":`,
+      `Error getting YTMusic all search data for "${searchText}":`,
       error
     );
     return {
@@ -345,6 +387,66 @@ async function getYTMusicSearchSongData(searchText, page = 1, limit = 20) {
       error: error.message || 'Network or Cache Error',
     };
   }
+}
+
+async function getYTMusicSearchSongData(searchText, page = 1, limit = 20) {
+  const cacheKey = `ytmusic_search_songs_only_${searchText}_page${page}_limit${limit}`;
+
+  const fetchFunction = async () => {
+    try {
+      const songResults = await YouTubeMusicService.search(searchText, 'songs', limit).catch(() => []);
+      
+      if (songResults && songResults.length > 0) {
+        const transformedResults = songResults.slice(0, limit).map(transformYTToSaavnSong);
+        return {
+          status: 'SUCCESS',
+          message: '',
+          data: {
+            total: transformedResults.length,
+            start: 0,
+            results: transformedResults,
+          },
+          success: true,
+        };
+      }
+      return { status: 'SUCCESS', message: '', data: { total: 0, start: 0, results: [] }, success: false };
+    } catch (error) {
+      console.error('YTMusic song search error:', error);
+      return { status: 'FAILED', message: error.message, data: { total: 0, start: 0, results: [] }, success: false };
+    }
+  };
+
+  return await getCachedData(cacheKey, fetchFunction, 5, CACHE_GROUPS.SEARCH);
+}
+
+async function getYTMusicSearchVideoData(searchText, page = 1, limit = 20) {
+  const cacheKey = `ytmusic_search_videos_only_${searchText}_page${page}_limit${limit}`;
+
+  const fetchFunction = async () => {
+    try {
+      const videoResults = await YouTubeMusicService.search(searchText, 'videos', limit).catch(() => []);
+      
+      if (videoResults && videoResults.length > 0) {
+        const transformedResults = videoResults.slice(0, limit).map(transformYTToSaavnSong);
+        return {
+          status: 'SUCCESS',
+          message: '',
+          data: {
+            total: transformedResults.length,
+            start: 0,
+            results: transformedResults,
+          },
+          success: true,
+        };
+      }
+      return { status: 'SUCCESS', message: '', data: { total: 0, start: 0, results: [] }, success: false };
+    } catch (error) {
+      console.error('YTMusic video search error:', error);
+      return { status: 'FAILED', message: error.message, data: { total: 0, start: 0, results: [] }, success: false };
+    }
+  };
+
+  return await getCachedData(cacheKey, fetchFunction, 5, CACHE_GROUPS.SEARCH);
 }
 
 async function getYTMusicSearchArtistData(searchText, page = 1, limit = 20) {
@@ -860,7 +962,7 @@ async function getYTMusicPlaylistData(playlistId) {
 }
 
 async function getYTMusicAlbumData(albumId) {
-  const cacheKey = `ytmusic_album_${albumId}`;
+  const cacheKey = `ytmusic_album_v2_${albumId}`;
 
   const fetchFunction = async () => {
     try {
@@ -910,12 +1012,26 @@ async function getYTMusicAlbumData(albumId) {
             }
 
             // Transform song data to Saavn format
+            const songArtistName = 
+              song.artists?.[0]?.name || 
+              song.artist ||
+              albumData.artist || 
+              albumData.artists?.[0]?.name || 
+              'Unknown Artist';
+              
+            const songArtistsArr = 
+              song.artists || 
+              (albumData.artist ? [{ name: albumData.artist }] : []) || 
+              albumData.artists || 
+              [];
+
             const transformedSong = {
               id: song.videoId || song.id,
               name: song.title,
               title: song.title,
               subtitle:
                 song.artists?.map((artist) => artist.name).join(', ') ||
+                albumData.artist ||
                 'Unknown Artist',
               type: 'song',
               source: 'ytmusic', // Mark as YTMusic song
@@ -949,9 +1065,9 @@ async function getYTMusicAlbumData(albumId) {
                   quality: '150x150',
                 },
               ],
-              artist: song.artists?.[0]?.name || 'Unknown Artist',
+              artist: songArtistName,
               artists: {
-                primary: song.artists || [],
+                primary: songArtistsArr,
               },
               duration: song.duration || 0,
               language: 'unknown',
@@ -963,7 +1079,7 @@ async function getYTMusicAlbumData(albumId) {
               copyright: '',
               primaryArtists:
                 song.artists?.map((artist) => artist.name).join(', ') ||
-                'Unknown Artist',
+                songArtistName,
               singers: '',
               composer: '',
               lyricist: '',
@@ -1526,7 +1642,9 @@ async function getYTMusicSearchSuggestions(query) {
 }
 
 export {
+  getYTMusicSearchAllData,
   getYTMusicSearchSongData,
+  getYTMusicSearchVideoData,
   getYTMusicSearchArtistData,
   getYTMusicSearchAlbumData,
   getYTMusicSearchPlaylistData,

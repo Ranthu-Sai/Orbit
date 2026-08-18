@@ -1,4 +1,4 @@
-import React, { useState, useContext, useCallback } from 'react';
+import React, { useState, useContext, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Pressable,
   RefreshControl,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatedSearchBar } from '../../Component/Global/AnimatedSearchBar';
 import { LocalMusicCard } from '../../Component/MusicPlayer/LocalMusicCard';
 import Context from '../../Context/Context';
@@ -27,6 +28,7 @@ import LocalTracksMetadataManager from '../../Component/MusicPlayer/LocalTracks/
 
 export const MyMusicPage = () => {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   // Use custom hook for logic
   const { localMusic, loading, error, isOffline, refetch } = useDeviceLibrary();
 
@@ -35,6 +37,14 @@ export const MyMusicPage = () => {
   const playbackState = usePlaybackState();
   const { setIndex } = useContext(Context);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredMusic = useMemo(() => {
+    return localMusic.filter(
+      (item) =>
+        item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.artist?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [localMusic, searchQuery]);
 
   const styles = StyleSheet.create({
     container: {
@@ -255,7 +265,7 @@ export const MyMusicPage = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       {isOffline && (
         <View style={styles.offlineBanner}>
           <Image
@@ -277,11 +287,7 @@ export const MyMusicPage = () => {
             />
           </View>
         }
-        data={localMusic.filter(
-          (item) =>
-            item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            item.artist?.toLowerCase().includes(searchQuery.toLowerCase())
-        )}
+        data={filteredMusic}
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (
           <LocalMusicCard
@@ -303,6 +309,7 @@ export const MyMusicPage = () => {
           <Text style={styles.emptyText}>No music files available.</Text>
         }
         contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

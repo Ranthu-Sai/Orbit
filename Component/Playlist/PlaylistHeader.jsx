@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useContext } from 'react';
-import { View, Dimensions, StyleSheet, ToastAndroid } from 'react-native';
+import { View, Dimensions, StyleSheet, ToastAndroid, TouchableOpacity } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import {
   Text,
@@ -16,12 +16,31 @@ import {
 } from '../../LocalStorage/StoreLikedPlaylists';
 import { getPlaylistData } from '../../Api/Playlist';
 import { DownloadButton } from '../Global/DownloadButton';
+import { GlassBox } from '../Global/GlassBox';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AddPlaylist, getIndexQuality } from '../../MusicPlayerFunctions';
 import Context from '../../Context/Context';
 import FormatArtist from '../../Utils/FormatArtists';
 import FormatTitleAndArtist from '../../Utils/FormatTitleAndArtist';
 import BatchDownloadService from '../../Utils/BatchDownloadService';
 import EventRegister from '../../Utils/EventRegister';
+import ImageColors from 'react-native-image-colors';
+import LinearGradient from 'react-native-linear-gradient';
+
+const getRgba = (hexColor, alpha = 1) => {
+  if (!hexColor || hexColor === 'transparent') return `rgba(27, 67, 50, ${alpha})`;
+  let c = hexColor.replace('#', '');
+  if (c.length === 3) {
+    c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+  }
+  if (c.length === 6) {
+    const r = parseInt(c.substring(0, 2), 16);
+    const g = parseInt(c.substring(2, 4), 16);
+    const b = parseInt(c.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return hexColor;
+};
 
 // Get screen dimensions
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -110,6 +129,40 @@ export const PlaylistHeader = ({
     total: 0,
   });
   const [allDownloaded, setAllDownloaded] = useState(false);
+  const [accentColor, setAccentColor] = useState('transparent');
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!imageUrl || typeof imageUrl !== 'string') return;
+
+    ImageColors.getColors(imageUrl, {
+      fallback: 'transparent',
+      cache: true,
+      key: imageUrl,
+    })
+      .then((colors) => {
+        if (!isMounted) return;
+        let pickedColor = null;
+        if (colors.platform === 'android') {
+          pickedColor = colors.vibrant || colors.darkVibrant || colors.dominant || colors.lightVibrant;
+        } else if (colors.platform === 'ios') {
+          pickedColor = colors.background || colors.primary || colors.secondary;
+        } else {
+          pickedColor = colors.vibrant || colors.dominant;
+        }
+
+        if (pickedColor) {
+          setAccentColor(pickedColor);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to extract color for PlaylistHeader:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [imageUrl]);
 
   // Check if playlist is liked on mount
   useEffect(() => {
@@ -467,8 +520,22 @@ export const PlaylistHeader = ({
 
   return (
     <View
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={[styles.container, { backgroundColor: 'transparent' }]}
     >
+      {accentColor !== 'transparent' && (
+        <LinearGradient
+          colors={[
+            getRgba(accentColor, 0.8),
+            getRgba(accentColor, 0.45),
+            getRgba(accentColor, 0.2),
+            'transparent',
+          ]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={[StyleSheet.absoluteFillObject, { top: -350, height: 850, zIndex: -1 }]}
+          pointerEvents="none"
+        />
+      )}
       {/* Top Section: Image + Info */}
       <View style={styles.topSection}>
         {/* Cover Image - 30% width */}
@@ -490,59 +557,100 @@ export const PlaylistHeader = ({
           </Text>
 
           {/* Song Count */}
-          <Text
-            variant="bodyMedium"
-            style={[
-              styles.songCount,
-              { color: theme.colors.text, opacity: 0.7 },
-            ]}
-          >
-            {songCount} {songCount === 1 ? 'song' : 'songs'}
-          </Text>
+          <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+            <GlassBox
+              id="playlist-song-count"
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 12,
+              }}
+              gradientConfig={{
+                x1: '0%', y1: '0%', x2: '12%', y2: '170%',
+                stops: [
+                  { offset: '0%', opacity: 0.5 },
+                  { offset: '25%', opacity: 0.5 },
+                  { offset: '50%', opacity: 0.0 },
+                  { offset: '75%', opacity: 0.5 },
+                  { offset: '100%', opacity: 0.5 },
+                ],
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '600',
+                  color: theme.colors.text,
+                  opacity: 0.9,
+                }}
+              >
+                {songCount} {songCount === 1 ? 'song' : 'songs'}
+              </Text>
+            </GlassBox>
+          </View>
 
           {/* Action Icons Row: Like, Download, More */}
           <View style={styles.actionIconsRow}>
             {/* Like Button */}
-            <IconButton
-              icon={isLiked ? 'heart' : 'heart-outline'}
-              iconColor={
-                isLiked ? '#E91E63' : theme.dark ? '#FFFFFF' : theme.colors.text
-              }
-              size={22}
-              onPress={handleLikePress}
-              style={styles.actionIcon}
-            />
+            <TouchableOpacity onPress={handleLikePress}>
+              <GlassBox
+                id="playlist-like"
+                style={styles.glassIconContainer}
+                gradientConfig={{
+                  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+                  stops: [
+                    { offset: '0%', opacity: 0.5 },
+                    { offset: '25%', opacity: 0.5 },
+                    { offset: '50%', opacity: 0.0 },
+                    { offset: '75%', opacity: 0.5 },
+                    { offset: '100%', opacity: 0.5 },
+                  ],
+                }}
+              >
+                <Icon
+                  name={isLiked ? 'heart' : 'heart-outline'}
+                  color={isLiked ? '#E91E63' : theme.dark ? '#FFFFFF' : theme.colors.text}
+                  size={22}
+                />
+              </GlassBox>
+            </TouchableOpacity>
 
             {/* Download Button */}
             {isDownloading ? (
-              <View
-                style={[
-                  styles.actionIcon,
-                  {
-                    padding: 8,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  },
-                ]}
-              >
+              <View style={[styles.glassIconContainer, { borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
                 <ActivityIndicator size={18} color={theme.colors.primary} />
               </View>
             ) : allDownloaded ? (
-              <IconButton
-                icon="check-circle"
-                iconColor="#4CAF50"
-                size={22}
-                disabled
-                style={styles.actionIcon}
-              />
+              <View style={[styles.glassIconContainer, { borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
+                <Icon
+                  name="check-circle"
+                  color="#4CAF50"
+                  size={22}
+                />
+              </View>
             ) : (
-              <IconButton
-                icon="download-outline"
-                iconColor={theme.dark ? '#FFFFFF' : theme.colors.text}
-                size={22}
-                onPress={handleDownloadAllPress}
-                style={styles.actionIcon}
-              />
+              <TouchableOpacity onPress={handleDownloadAllPress}>
+                <GlassBox
+                  id="playlist-download"
+                  style={styles.glassIconContainer}
+                  gradientConfig={{
+                    x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+                    stops: [
+                      { offset: '0%', opacity: 0.5 },
+                      { offset: '25%', opacity: 0.5 },
+                      { offset: '50%', opacity: 0.0 },
+                      { offset: '75%', opacity: 0.5 },
+                      { offset: '100%', opacity: 0.5 },
+                    ],
+                  }}
+                >
+                  <Icon
+                    name="download-outline"
+                    color={theme.dark ? '#FFFFFF' : theme.colors.text}
+                    size={22}
+                  />
+                </GlassBox>
+              </TouchableOpacity>
             )}
           </View>
         </View>
@@ -551,37 +659,54 @@ export const PlaylistHeader = ({
       {/* Bottom Section: Play & Shuffle Buttons */}
       <View style={styles.buttonRow}>
         {/* Play Button */}
-        <Button
-          mode="contained"
-          icon={isPlaying ? 'pause' : 'play'}
-          onPress={handlePlayPress}
-          loading={isLoading}
-          disabled={isLoading}
-          style={[styles.playButton, { backgroundColor: theme.colors.primary }]}
-          labelStyle={[styles.buttonLabel, { color: '#FFFFFF' }]}
-          contentStyle={styles.buttonContent}
-        >
-          {isPlaying ? 'Pause' : 'Play'}
-        </Button>
+        <View style={{ flex: 1 }}>
+          <Button
+            mode="contained"
+            icon={isPlaying ? 'pause' : 'play'}
+            onPress={handlePlayPress}
+            loading={isLoading}
+            disabled={isLoading}
+            style={[styles.playButton, { backgroundColor: theme.colors.primary }]}
+            labelStyle={[styles.buttonLabel, { color: '#FFFFFF' }]}
+            contentStyle={styles.buttonContent}
+          >
+            {isPlaying ? 'Pause' : 'Play'}
+          </Button>
+        </View>
 
         {/* Shuffle Button */}
-        <Button
-          mode="outlined"
-          icon="shuffle"
-          onPress={handleShufflePress}
-          disabled={isLoading}
-          style={[
-            styles.shuffleButton,
-            { borderColor: theme.dark ? '#FFFFFF' : theme.colors.primary },
-          ]}
-          labelStyle={[
-            styles.buttonLabel,
-            { color: theme.dark ? '#FFFFFF' : theme.colors.primary },
-          ]}
-          contentStyle={styles.buttonContent}
-        >
-          Shuffle
-        </Button>
+        <TouchableOpacity onPress={handleShufflePress} style={{ flex: 1 }} disabled={isLoading}>
+          <GlassBox
+            id="playlist-shuffle"
+            style={styles.glassShuffleButton}
+            gradientConfig={{
+              x1: '6%', y1: '0%', x2: '12%', y2: '172%',
+              stops: [
+                { offset: '0%', opacity: 0.5 },
+                { offset: '25%', opacity: 0.5 },
+                { offset: '40%', opacity: 0.0 },
+                { offset: '50%', opacity: 0.0 },
+                { offset: '65%', opacity: 0.5 },
+                { offset: '100%', opacity: 0.5 },
+              ],
+            }}
+          >
+            <Icon
+              name="shuffle"
+              color={theme.dark ? '#FFFFFF' : theme.colors.primary}
+              size={20}
+              style={{ marginRight: 8 }}
+            />
+            <Text
+              style={[
+                styles.buttonLabel,
+                { color: theme.dark ? '#FFFFFF' : theme.colors.primary },
+              ]}
+            >
+              Shuffle
+            </Text>
+          </GlassBox>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -612,7 +737,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: 12,
   },
   songCount: {
     marginBottom: 12,
@@ -632,13 +757,28 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   playButton: {
-    flex: 1,
+    width: '100%',
     borderRadius: 24,
   },
   shuffleButton: {
     flex: 1,
     borderRadius: 24,
     borderWidth: 1,
+  },
+  glassShuffleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 44,
+    borderRadius: 24,
+    width: '100%',
+  },
+  glassIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   buttonLabel: {
     fontWeight: '600',

@@ -595,6 +595,7 @@ export const SettingsPage = ({ navigation }) => {
         Settings
       </Text>
       <ScrollView
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 170 }}
         contentInsetAdjustmentBehavior="automatic"
       >

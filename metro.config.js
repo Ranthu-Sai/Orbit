@@ -22,6 +22,9 @@ const config = {
     alias: {
       crypto: 'crypto-js',
     },
+    blockList: [
+      /(.*\/)?\.cxx\/.*/
+    ],
   },
 };
 

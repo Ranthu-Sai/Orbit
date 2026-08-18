@@ -19,6 +19,36 @@ import { useTheme, useNavigation } from '@react-navigation/native';
 import { StorageManager } from '../../Utils/StorageManager';
 import RNFS from 'react-native-fs';
 import { analyticsService } from '../../Utils/AnalyticsUtils';
+import { GlassBox } from '../Global/GlassBox';
+
+const circleGradient = {
+  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+  stops: [
+    { offset: '0%', opacity: 0.0 },
+    { offset: '40%', opacity: 0.5 },
+    { offset: '60%', opacity: 0.5 },
+    { offset: '100%', opacity: 0.0 },
+  ],
+};
+
+const CircularGlassBox = ({ id, size = 42, children, style }) => (
+  <GlassBox
+    id={id}
+    gradientConfig={circleGradient}
+    style={[
+      {
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      style,
+    ]}
+  >
+    {children}
+  </GlassBox>
+);
 
 const { width, height } = Dimensions.get('window');
 
@@ -263,12 +293,14 @@ export default function DownloadScreen(props) {
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity
-            onPress={() => setShowSearch(true)}
-            style={styles.searchIcon}
-          >
-            <MaterialIcons name="search" size={24} color={colors.text} />
-          </TouchableOpacity>
+          <CircularGlassBox id="download-search-glass" size={42}>
+            <TouchableOpacity
+              onPress={() => setShowSearch(true)}
+              style={styles.searchIcon}
+            >
+              <MaterialIcons name="search" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </CircularGlassBox>
         )}
       </View>
 
@@ -342,10 +374,13 @@ const getStyles = (colors, dark) =>
     title: {
       fontSize: 22,
       fontWeight: 'bold',
-      color: colors.text,
+      paddingVertical: 12,
     },
     searchIcon: {
-      padding: 4,
+      padding: 8,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     searchBarContainer: {
       flex: 1,

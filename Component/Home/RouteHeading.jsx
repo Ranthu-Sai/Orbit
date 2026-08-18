@@ -6,6 +6,17 @@ import SimpleLineIcons from 'react-native-vector-icons/SimpleLineIcons';
 import { GetCurrentDaytime } from '../../Utils/GetCurrentDaytime';
 import { useGetUserName } from '../../hooks/useGetUserName';
 import { History } from 'lucide-react-native';
+import { GlassBox } from '../Global/GlassBox';
+
+const circleGradient = {
+  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+  stops: [
+    { offset: '0%', opacity: 0.5 },
+    { offset: '40%', opacity: 0.0 },
+    { offset: '60%', opacity: 0.0 },
+    { offset: '100%', opacity: 0.5 },
+  ],
+};
 
 export const RouteHeading = ({
   bottomText,
@@ -28,7 +39,7 @@ export const RouteHeading = ({
           paddingHorizontal: 10,
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 10,
+          gap: 8,
         }}
       >
         <View>
@@ -59,11 +70,6 @@ export const RouteHeading = ({
         <View style={{ flex: 1 }} />
         {showSearch && (
           <Pressable
-            style={{
-              padding: 5,
-              backgroundColor: 'rgba(0,0,0,0)',
-              borderRadius: 10,
-            }}
             onPress={() => {
               if (onSearchPress) {
                 onSearchPress();
@@ -72,25 +78,44 @@ export const RouteHeading = ({
               }
             }}
           >
-            <Feather
-              name={'search'}
-              size={width * 0.055}
-              color={theme.colors.text}
-            />
+            <GlassBox
+              id="heading-search"
+              gradientConfig={circleGradient}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Feather
+                name={'search'}
+                size={width * 0.055}
+                color={theme.colors.text}
+              />
+            </GlassBox>
           </Pressable>
         )}
         {showSearch && (
           <Pressable
-            style={{
-              padding: 5,
-              backgroundColor: 'rgba(0,0,0,0)',
-              borderRadius: 10,
-            }}
             onPress={() => {
               navigation.navigate('HistoryPage');
             }}
           >
-            <History size={width * 0.055} color={theme.colors.text} />
+            <GlassBox
+              id="heading-history"
+              gradientConfig={circleGradient}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <History size={width * 0.055} color={theme.colors.text} />
+            </GlassBox>
           </Pressable>
         )}
         {showSettings && (
@@ -98,17 +123,24 @@ export const RouteHeading = ({
             onPress={() => {
               navigation.navigate('Settings');
             }}
-            style={{
-              padding: 5,
-              backgroundColor: 'rgba(0,0,0,0)',
-              borderRadius: 10,
-            }}
           >
-            <SimpleLineIcons
-              name={'settings'}
-              size={width * 0.055}
-              color={theme.colors.text}
-            />
+            <GlassBox
+              id="heading-settings"
+              gradientConfig={circleGradient}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <SimpleLineIcons
+                name={'settings'}
+                size={width * 0.055}
+                color={theme.colors.text}
+              />
+            </GlassBox>
           </Pressable>
         )}
         {showAbout && (
@@ -116,17 +148,24 @@ export const RouteHeading = ({
             onPress={() => {
               navigation.navigate('AboutProject');
             }}
-            style={{
-              padding: 5,
-              backgroundColor: 'rgba(0,0,0,0)',
-              borderRadius: 10,
-            }}
           >
-            <Feather
-              name={'info'}
-              size={width * 0.055}
-              color={theme.colors.text}
-            />
+            <GlassBox
+              id="heading-about"
+              gradientConfig={circleGradient}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Feather
+                name={'info'}
+                size={width * 0.055}
+                color={theme.colors.text}
+              />
+            </GlassBox>
           </Pressable>
         )}
       </View>

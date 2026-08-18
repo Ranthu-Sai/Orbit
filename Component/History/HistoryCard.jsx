@@ -25,6 +25,8 @@ import { StorageManager } from '../../Utils/StorageManager';
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
 import { AddOneSongToPlaylist } from '../../MusicPlayerFunctions';
 import historyManager from '../../Utils/HistoryManager';
+import { GlassBox } from '../Global/GlassBox';
+import { BlurView } from '@react-native-community/blur';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -348,13 +350,32 @@ export const HistoryCard = memo(function HistoryCard({
           e.stopPropagation();
           showMenu();
         }}
-        style={styles.menuButton}
       >
-        <MaterialCommunityIcons
-          name="dots-vertical"
-          size={22}
-          color={colors.text}
-        />
+        <GlassBox
+          id={`history-menu-${historyItem.id || Math.random()}`}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginLeft: 4,
+          }}
+          gradientConfig={{
+            x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+            stops: [
+              { offset: '0%', opacity: 0.3 },
+              { offset: '50%', opacity: 0.0 },
+              { offset: '100%', opacity: 0.3 },
+            ],
+          }}
+        >
+          <MaterialCommunityIcons
+            name="dots-vertical"
+            size={22}
+            color={colors.text}
+          />
+        </GlassBox>
       </Pressable>
 
       {/* Menu Modal */}
@@ -369,23 +390,42 @@ export const HistoryCard = memo(function HistoryCard({
           activeOpacity={1}
           onPress={() => setMenuVisible(false)}
         >
-          <View
+          <GlassBox
+            id={`history-menu-popup-${historyItem.id || 'default'}`}
             style={[
               styles.menuContainer,
               {
                 top: menuPosition.top,
                 right: menuPosition.right,
-                backgroundColor: colors.card,
-                borderColor: colors.border,
+                backgroundColor: 'transparent',
+                borderWidth: 0,
               },
             ]}
+            gradientConfig={{
+              x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+              stops: [
+                { offset: '0%', opacity: 0.6 },
+                { offset: '40%', opacity: 0.0 },
+                { offset: '60%', opacity: 0.0 },
+                { offset: '100%', opacity: 0.6 },
+              ],
+            }}
           >
+            <BlurView
+              style={StyleSheet.absoluteFill}
+              blurType={dark ? 'dark' : 'light'}
+              blurAmount={8}
+              reducedTransparencyFallbackColor={colors.card}
+            />
+            
             <TouchableOpacity style={styles.menuItem} onPress={playNext}>
               <MaterialIcons name="queue-music" size={20} color={colors.text} />
               <Text style={[styles.menuText, { color: colors.text }]}>
                 Play Next
               </Text>
             </TouchableOpacity>
+
+            <View style={{ height: 1, backgroundColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', marginHorizontal: 8 }} />
 
             <TouchableOpacity style={styles.menuItem} onPress={addToPlaylist}>
               <MaterialIcons
@@ -399,16 +439,19 @@ export const HistoryCard = memo(function HistoryCard({
             </TouchableOpacity>
 
             {historyItem.sourceType === 'online' && !isDownloaded && (
-              <TouchableOpacity style={styles.menuItem} onPress={downloadSong}>
-                <MaterialIcons name="download" size={20} color={colors.text} />
-                <Text style={[styles.menuText, { color: colors.text }]}>
-                  {isDownloading
-                    ? `Downloading ${downloadProgress}%`
-                    : 'Download'}
-                </Text>
-              </TouchableOpacity>
+              <>
+                <View style={{ height: 1, backgroundColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', marginHorizontal: 8 }} />
+                <TouchableOpacity style={styles.menuItem} onPress={downloadSong}>
+                  <MaterialIcons name="download" size={20} color={colors.text} />
+                  <Text style={[styles.menuText, { color: colors.text }]}>
+                    {isDownloading
+                      ? `Downloading ${downloadProgress}%`
+                      : 'Download'}
+                  </Text>
+                </TouchableOpacity>
+              </>
             )}
-          </View>
+          </GlassBox>
         </TouchableOpacity>
       </Modal>
     </Pressable>

@@ -4,11 +4,12 @@ import { getCachedData, CACHE_GROUPS } from './CacheManager';
 import { requestWithFallback } from './apiUtils';
 
 async function getSearchSongData(searchText, page, limit) {
+  const encodedText = encodeURIComponent(searchText || '');
   const cacheKey = `search_v3_${searchText}_page${page}_limit${limit}`;
 
   const fetchFunction = async () => {
-    const primaryUrl = `https://saavn.sumit.co/api/search/songs?query=${searchText}&page=${page}&limit=${limit}`;
-    const secondaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/search/songs?query=${searchText}&page=${page}&limit=${limit}`;
+    const primaryUrl = `https://saavn.sumit.co/api/search/songs?query=${encodedText}&page=${page}&limit=${limit}`;
+    const secondaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/search/songs?query=${encodedText}&page=${page}&limit=${limit}`;
     const config = {
       method: 'get',
       maxBodyLength: Infinity,
@@ -82,6 +83,63 @@ async function getArtistSongsPaginated(artistId, page = 1, limit = 10) {
   }
 }
 
+async function getArtistDetails(artistId) {
+  const cacheKey = `artist_details_v2_${artistId}`;
+
+  const fetchFunction = async () => {
+    const primaryUrl = `https://saavn.sumit.co/api/artists/${artistId}`;
+    const secondaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/artists/${artistId}`;
+    const config = {
+      method: 'get',
+      maxBodyLength: Infinity,
+      headers: {},
+    };
+    return requestWithFallback(primaryUrl, secondaryUrl, config);
+  };
+
+  try {
+    return await getCachedData(
+      cacheKey,
+      fetchFunction,
+      1440,
+      CACHE_GROUPS.SEARCH
+    );
+  } catch (error) {
+    console.error(`Error getting details for artist ID ${artistId}:`, error);
+    throw error;
+  }
+}
+
+async function getArtistAlbumsPaginated(artistId, page = 1, limit = 10) {
+  const cacheKey = `artist_albums_paginated_v3_${artistId}_page${page}_limit${limit}`;
+
+  const fetchFunction = async () => {
+    const primaryUrl = `https://saavn.sumit.co/api/artists/${artistId}/albums?page=${page}&limit=${limit}`;
+    const secondaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/artists/${artistId}/albums?page=${page}&limit=${limit}`;
+    const config = {
+      method: 'get',
+      maxBodyLength: Infinity,
+      headers: {},
+    };
+    return requestWithFallback(primaryUrl, secondaryUrl, config);
+  };
+
+  try {
+    return await getCachedData(
+      cacheKey,
+      fetchFunction,
+      60,
+      CACHE_GROUPS.SEARCH
+    );
+  } catch (error) {
+    console.error(
+      `Error getting paginated albums for artist ID ${artistId}:`,
+      error
+    );
+    throw error;
+  }
+}
+
 async function getAlbumSongs(albumId) {
   const cacheKey = `album_songs_v3_${albumId}`;
 
@@ -137,11 +195,12 @@ async function getSongDetails(id) {
 }
 
 async function getArtistFromSong(searchText, page, limit) {
+  const encodedText = encodeURIComponent(searchText || '');
   const cacheKey = `artist_from_song_v2_${searchText}_page${page}_limit${limit}`;
 
   const fetchFunction = async () => {
-    const primaryUrl = `https://saavn.sumit.co/api/search/artists?query=${searchText}&page=${page}&limit=${limit}`;
-    const secondaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${searchText}&page=${page}&limit=${limit}`;
+    const primaryUrl = `https://saavn.sumit.co/api/search/artists?query=${encodedText}&page=${page}&limit=${limit}`;
+    const secondaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${encodedText}&page=${page}&limit=${limit}`;
     const config = {
       method: 'get',
       maxBodyLength: Infinity,
@@ -489,6 +548,8 @@ export {
   getSearchSongData,
   getArtistSongs,
   getArtistSongsPaginated,
+  getArtistDetails,
+  getArtistAlbumsPaginated,
   getAlbumSongs,
   getSongDetails,
   getArtistFromSong,

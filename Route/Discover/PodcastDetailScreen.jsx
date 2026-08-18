@@ -9,9 +9,12 @@ import {
   FlatList,
   RefreshControl,
   StatusBar,
+  StyleSheet,
 } from 'react-native';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import { ArrowLeft, Play, Shuffle, Share2 } from 'lucide-react-native';
+import { GlassBox } from '../../Component/Global/GlassBox';
+import { BlurView } from '@react-native-community/blur';
 import {
   PodcastDetailSkeleton,
   EpisodeListSkeleton,
@@ -230,13 +233,38 @@ export const PodcastDetailScreen = () => {
                   width: 40,
                   height: 40,
                   borderRadius: 20,
-                  backgroundColor: 'rgba(0,0,0,0.4)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
                   opacity: pressed ? 0.6 : 1,
                 })}
               >
-                <ArrowLeft size={22} color="#FFFFFF" />
+                <GlassBox
+                  id="podcast-detail-back"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: 20,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: 'transparent',
+                    borderWidth: 0,
+                  }}
+                  gradientConfig={{
+                    x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+                    stops: [
+                      { offset: '0%', opacity: 0.0 },
+                      { offset: '30%', opacity: 0.6 },
+                      { offset: '70%', opacity: 0.6 },
+                      { offset: '100%', opacity: 0.0 },
+                    ],
+                  }}
+                >
+                  <BlurView
+                    style={StyleSheet.absoluteFill}
+                    blurType="dark"
+                    blurAmount={8}
+                    reducedTransparencyFallbackColor="rgba(0,0,0,0.4)"
+                  />
+                  <ArrowLeft size={22} color="#FFFFFF" />
+                </GlassBox>
               </Pressable>
 
               {/* Podcast artwork */}
@@ -369,13 +397,38 @@ export const PodcastDetailScreen = () => {
                     width: 44,
                     height: 44,
                     borderRadius: 22,
-                    backgroundColor: dark ? '#2E2E2E' : '#E8E8E8',
-                    alignItems: 'center',
-                    justifyContent: 'center',
                     opacity: pressed ? 0.8 : 1,
                   })}
                 >
-                  <Shuffle size={20} color={dark ? '#FFFFFF' : '#333333'} />
+                  <GlassBox
+                    id="podcast-detail-shuffle"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: 22,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: 'transparent',
+                      borderWidth: 0,
+                    }}
+                    gradientConfig={{
+                      x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+                      stops: [
+                        { offset: '0%', opacity: 0.0 },
+                        { offset: '30%', opacity: 0.6 },
+                        { offset: '70%', opacity: 0.6 },
+                        { offset: '100%', opacity: 0.0 },
+                      ],
+                    }}
+                  >
+                    <BlurView
+                      style={StyleSheet.absoluteFill}
+                      blurType={dark ? 'dark' : 'light'}
+                      blurAmount={8}
+                      reducedTransparencyFallbackColor={dark ? '#2E2E2E' : '#E8E8E8'}
+                    />
+                    <Shuffle size={20} color={dark ? '#FFFFFF' : '#333333'} />
+                  </GlassBox>
                 </Pressable>
               </View>
 

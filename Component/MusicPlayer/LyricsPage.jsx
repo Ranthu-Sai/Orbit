@@ -14,6 +14,8 @@ import {
   StatusBar,
   ImageBackground,
   ScrollView,
+  UIManager,
+  Platform,
 } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import Animated, {
@@ -26,6 +28,24 @@ import BottomSheet, {
   BottomSheetBackdrop,
 } from '@gorhom/bottom-sheet';
 import LinearGradient from 'react-native-linear-gradient';
+import { GlassBox } from '../Global/GlassBox';
+import { BlurView } from '@react-native-community/blur';
+import { BlurredBackground } from './Background';
+
+const isBlurNativeAvailable =
+  Platform.OS === 'ios' ||
+  Boolean(UIManager.getViewManagerConfig?.('AndroidBlurView')) ||
+  Boolean(UIManager.AndroidBlurView);
+
+const circleGradient = {
+  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+  stops: [
+    { offset: '0%', opacity: 0.5 },
+    { offset: '40%', opacity: 0.0 },
+    { offset: '60%', opacity: 0.0 },
+    { offset: '100%', opacity: 0.5 },
+  ],
+};
 import { useTheme } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '../../Context/ThemeContext';
@@ -627,12 +647,15 @@ const LyricsPage = ({
 
           {/* Header - Now uses paddingTop instead of marginTop for edge-to-edge */}
           <View style={[styles.header, { paddingTop: HEADER_PADDING_TOP }]}>
-            <IconButton
-              icon="chevron-down"
-              size={30}
-              onPress={onClose}
-              iconColor={iconColor}
-            />
+            <GlassBox id="lyrics-close" gradientConfig={circleGradient} style={{ borderRadius: 24, width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
+              <IconButton
+                icon="chevron-down"
+                size={30}
+                onPress={onClose}
+                iconColor={iconColor}
+                style={{ margin: 0 }}
+              />
+            </GlassBox>
             <View style={styles.headerTitle}>
               <Text
                 variant="titleMedium"
@@ -649,11 +672,15 @@ const LyricsPage = ({
                 {currentSong?.title || ''}
               </Text>
             </View>
-            <IconButton
-              icon="dots-horizontal"
-              onPress={openSettingsSheet}
-              iconColor={iconColor}
-            />
+            <GlassBox id="lyrics-menu" gradientConfig={circleGradient} style={{ borderRadius: 24, width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
+              <IconButton
+                icon="dots-horizontal"
+                size={24}
+                onPress={openSettingsSheet}
+                iconColor={iconColor}
+                style={{ margin: 0 }}
+              />
+            </GlassBox>
           </View>
 
           {/* Lyrics Content */}
@@ -724,45 +751,48 @@ const LyricsPage = ({
               styles.playbackControls,
               {
                 paddingBottom: CONTROLS_PADDING_BOTTOM + 16,
-                backgroundColor: controlsBgColor,
+                backgroundColor: 'transparent',
               },
             ]}
           >
-            <IconButton
-              icon="skip-previous"
-              size={32}
-              onPress={async () => await TrackPlayer.skipToPrevious()}
-              iconColor={iconColor}
-            />
-            <IconButton
-              icon={isPlaying ? 'pause' : 'play'}
-              size={40}
-              onPress={async () => {
-                const state = await TrackPlayer.getPlaybackState();
-                if (state.state === 'playing') {
-                  await TrackPlayer.pause();
-                  setIsPlaying(false);
-                } else {
-                  await TrackPlayer.play();
-                  setIsPlaying(true);
-                }
-              }}
-              iconColor={iconColor}
-              style={[
-                styles.playButton,
-                {
-                  backgroundColor: isDarkMode
-                    ? 'rgba(255,255,255,0.15)'
-                    : 'rgba(0,0,0,0.05)',
-                },
-              ]}
-            />
-            <IconButton
-              icon="skip-next"
-              size={32}
-              onPress={async () => await TrackPlayer.skipToNext()}
-              iconColor={iconColor}
-            />
+            <GlassBox id="lyrics-prev" gradientConfig={circleGradient} style={{ borderRadius: 28, width: 56, height: 56, alignItems: 'center', justifyContent: 'center' }}>
+              <IconButton
+                icon="skip-previous"
+                size={32}
+                onPress={async () => await TrackPlayer.skipToPrevious()}
+                iconColor={iconColor}
+                style={{ margin: 0 }}
+              />
+            </GlassBox>
+            
+            <GlassBox id="lyrics-play" gradientConfig={circleGradient} style={{ borderRadius: 32, width: 64, height: 64, alignItems: 'center', justifyContent: 'center' }}>
+              <IconButton
+                icon={isPlaying ? 'pause' : 'play'}
+                size={40}
+                onPress={async () => {
+                  const state = await TrackPlayer.getPlaybackState();
+                  if (state.state === 'playing') {
+                    await TrackPlayer.pause();
+                    setIsPlaying(false);
+                  } else {
+                    await TrackPlayer.play();
+                    setIsPlaying(true);
+                  }
+                }}
+                iconColor={iconColor}
+                style={{ margin: 0 }}
+              />
+            </GlassBox>
+
+            <GlassBox id="lyrics-next" gradientConfig={circleGradient} style={{ borderRadius: 28, width: 56, height: 56, alignItems: 'center', justifyContent: 'center' }}>
+              <IconButton
+                icon="skip-next"
+                size={32}
+                onPress={async () => await TrackPlayer.skipToNext()}
+                iconColor={iconColor}
+                style={{ margin: 0 }}
+              />
+            </GlassBox>
           </View>
         </View>
 
@@ -777,6 +807,46 @@ const LyricsPage = ({
           enableHandlePanningGesture={true}
           backdropComponent={renderBackdrop}
           backgroundStyle={styles.sheetBackground}
+          backgroundComponent={({ style }) => (
+            <View
+              style={[
+                style,
+                {
+                  borderTopLeftRadius: 24,
+                  borderTopRightRadius: 24,
+                  overflow: 'hidden',
+                },
+              ]}
+            >
+              {isBlurNativeAvailable ? (
+                <BlurView
+                  style={StyleSheet.absoluteFill}
+                  blurType="dark"
+                  blurAmount={25}
+                  overlayColor="rgba(20, 20, 20, 0.65)"
+                  reducedTransparencyFallbackColor="#1E1E1E"
+                />
+              ) : artworkSource ? (
+                <BlurredBackground
+                  source={artworkSource}
+                  blurRadius={35}
+                  overlayGradient={[
+                    'rgba(15, 15, 15, 0.7)',
+                    'rgba(15, 15, 15, 0.85)',
+                    'rgba(15, 15, 15, 0.9)',
+                    'rgba(15, 15, 15, 0.95)',
+                  ]}
+                />
+              ) : (
+                <View
+                  style={[
+                    StyleSheet.absoluteFill,
+                    { backgroundColor: 'rgba(30, 30, 30, 0.85)' },
+                  ]}
+                />
+              )}
+            </View>
+          )}
           handleIndicatorStyle={styles.sheetHandleIndicator}
         >
           <LyricsSettings
@@ -854,12 +924,12 @@ const styles = StyleSheet.create({
   },
   // Bottom Sheet styles
   sheetBackground: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: 'transparent',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
   },
   sheetHandle: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: 'transparent',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
   },
@@ -871,7 +941,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 8,
     paddingBottom: 8,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: 'transparent',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
   },
@@ -887,7 +957,7 @@ const styles = StyleSheet.create({
   },
   sheetScrollView: {
     flex: 1,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: 'transparent',
   },
   sheetScrollContent: {
     paddingHorizontal: 24,

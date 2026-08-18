@@ -3,20 +3,6 @@ import NativeStreaming from './NativeStreaming';
 import { CacheManager } from './NavigationCacheManager';
 import { GetYtMusicQuality } from '../LocalStorage/AppSettings';
 
-/**
- * YouTube Streaming Service
- *
- * Provides YouTube Music streaming URLs with proper authentication headers.
- * Uses Direct Native NewPipe Extraction (via StreamModule).
- *
- * CACHING: Stream URLs are cached for 3 hours to avoid repeated API calls.
- *
- * QUALITY MODES:
- * - Auto: Uses first available stream for faster playback start
- * - High: Selects highest bitrate stream for best audio quality
- */
-
-// Android client configuration for InnerTube API
 const ANDROID_CLIENT = {
   headers: {
     'User-Agent':
@@ -26,16 +12,14 @@ const ANDROID_CLIENT = {
   },
 };
 
-// Cache quality preference to avoid repeated AsyncStorage calls
 let cachedQualityPref = null;
 let qualityCacheTTL = 0;
-const QUALITY_CACHE_TTL = 60000; // 1 minute
+const QUALITY_CACHE_TTL = 60000;
 
 class YouTubeStreamingService {
   constructor() {
     this.cookies = null;
     this.cookiesLoaded = false;
-    // PERFORMANCE: Cache cookies in memory to avoid AsyncStorage on every call
     this.cachedCookies = null;
     this.cookiesCacheTimestamp = 0;
     this.COOKIES_CACHE_TTL = 300000; // 5 minutes
@@ -51,16 +35,13 @@ class YouTubeStreamingService {
    */
   async getStreamUrl(videoId, preferM4A = false) {
     try {
-      // For downloads (preferM4A=true), skip cache to ensure we get the right format
-      // For streaming, use cache
+
       if (!preferM4A) {
-        // Step 1: CHECK CACHE FIRST (Hybrid: RAM -> Disk) - only for streaming
         const cachedData = await CacheManager.getStreamUrlAsync(
           videoId,
           'ytmusic'
         );
         if (cachedData && cachedData.url) {
-          // Estimate bitrate based on codec if not cached
           const estimatedBitrate =
             cachedData.bitrate ||
             (cachedData.mimeType?.includes('webm') ? 148000 : 256000);
@@ -78,9 +59,7 @@ class YouTubeStreamingService {
         }
       }
 
-      // Step 2: Fetch from Native NewPipe
-      // Get quality preference (cached for performance)
-      let autoQuality = true; // Default to Auto (faster)
+      let autoQuality = true;
       if (
         Date.now() - qualityCacheTTL > QUALITY_CACHE_TTL ||
         cachedQualityPref === null
@@ -88,16 +67,13 @@ class YouTubeStreamingService {
         cachedQualityPref = await GetYtMusicQuality();
         qualityCacheTTL = Date.now();
       }
-      // Auto = true (use first stream), High = false (select best quality)
       autoQuality = cachedQualityPref !== 'High';
 
       const _mode = preferM4A
         ? 'Download (M4A)'
         : autoQuality
-        ? 'Auto (Fast)'
-        : 'High Quality';
-      // Orbit VIP Mode: Inject Cookies if available (CACHED)
-      // PERFORMANCE: Use cached cookies to avoid AsyncStorage on every call
+          ? 'Auto (Fast)'
+          : 'High Quality';
       if (
         !this.cachedCookies ||
         Date.now() - this.cookiesCacheTimestamp > this.COOKIES_CACHE_TTL
@@ -111,61 +87,69 @@ class YouTubeStreamingService {
 
       let result = null;
 
-      // Try InnerTube JS API first for streaming to avoid native extractor issues
-      if (!preferM4A) {
+      // Try InnerTube JS client first (works for both streaming and downloads)
+      try {
+        const InnerTubeClient = require('../Api/InnertubeClient').default;
+        const innertubeResult = await InnerTubeClient.getPlayerResponse(
+          videoId,
+          cookies,
+          preferM4A
+        );
+        if (innertubeResult && innertubeResult.url) {
+          const mimeType = innertubeResult.mimeType || 'audio/webm';
+          const isM4A =
+            mimeType.includes('mp4') || mimeType.includes('m4a');
+          result = {
+            url: innertubeResult.url,
+            thumbnail: innertubeResult.thumbnail,
+            duration: innertubeResult.duration,
+            title: innertubeResult.title,
+            author: innertubeResult.author,
+            format: isM4A ? 'm4a' : 'opus',
+            mimeType: mimeType,
+            bitrate: innertubeResult.bitrate,
+          };
+        }
+      } catch (innertubeErr) {
+        console.warn(
+          `⚠️ InnerTube JS player failed for ${videoId}:`,
+          innertubeErr.message
+        );
+      }
+
+      // Fallback to NativeStreaming (NewPipe) if InnerTube failed
+      if (!result) {
         try {
-          const InnerTubeClient = require('../Api/InnertubeClient').default;
-          const innertubeResult = await InnerTubeClient.getPlayerResponse(videoId);
-          if (innertubeResult && innertubeResult.url) {
-            result = {
-              url: innertubeResult.url,
-              thumbnail: innertubeResult.thumbnail,
-              duration: innertubeResult.duration,
-              title: innertubeResult.title,
-              author: innertubeResult.author,
-              format: 'opus',
-              mimeType: innertubeResult.mimeType || 'audio/webm',
-              bitrate: innertubeResult.bitrate,
-            };
+          const nativeResult = preferM4A
+            ? await NativeStreaming.getStreamUrlForDownload(
+                videoId,
+                cookies || ''
+              )
+            : await NativeStreaming.getStreamUrl(
+                videoId,
+                cookies || '',
+                autoQuality
+              );
+
+          if (nativeResult && nativeResult.url) {
+            result = nativeResult;
           }
-        } catch (innertubeErr) {
+        } catch (nativeErr) {
           console.warn(
-            `⚠️ InnerTube JS player failed for ${videoId}:`,
-            innertubeErr.message
+            `⚠️ NativeStreaming failed for ${videoId}:`,
+            nativeErr.message
           );
         }
       }
 
-      // Fallback to Native NewPipe (or use directly for downloads)
-      if (!result) {
-        const nativeResult = preferM4A
-          ? await NativeStreaming.getStreamUrlForDownload(videoId, cookies || '')
-          : await NativeStreaming.getStreamUrl(
-              videoId,
-              cookies || '',
-              autoQuality
-            );
-
-        if (nativeResult && nativeResult.url) {
-          result = nativeResult;
-        }
-      }
-
-      // Verbose logging removed for cleaner console
-
       if (result && result.url) {
-        // Determine format from native result
         const format = result.format || (preferM4A ? 'm4a' : 'opus');
         const mimeType =
           result.mimeType || (preferM4A ? 'audio/mp4' : 'audio/webm');
-
-        // Step 3: CACHE THE STREAM URL WITH FORMAT METADATA (3-hour TTL)
-        // Cache regardless of mode - useful for both streaming and download
         CacheManager.setStreamUrl(videoId, result.url, 'ytmusic', {
           format: format,
           mimeType: mimeType,
         });
-        // Cache log removed for cleaner console
 
         return {
           url: result.url,
@@ -177,7 +161,6 @@ class YouTubeStreamingService {
           duration: result.duration,
           title: result.title,
           author: result.author,
-          // Format info for correct file extension
           format: format,
           mimeType: mimeType,
           bitrate: result.bitrate,
@@ -187,13 +170,12 @@ class YouTubeStreamingService {
 
       throw new Error('All stream resolution strategies returned empty result');
     } catch (error) {
-      console.error(`❌ Native Streaming failed for ${videoId}:`, error);
+      console.error(`❌ Streaming failed for ${videoId}:`, error);
       return null;
     }
   }
 }
 
-// Create singleton instance
 const youtubeStreamingService = new YouTubeStreamingService();
 
 export default youtubeStreamingService;

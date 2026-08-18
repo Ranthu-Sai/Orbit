@@ -1,6 +1,6 @@
 {
   "name": "Orbit",
-  "version": "3.0.4",
+  "version": "4.0.0",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
@@ -10,9 +10,10 @@
     "test": "jest --passWithNoTests"
   },
   "dependencies": {
-    "@gorhom/bottom-sheet": "^4",
+    "@gorhom/bottom-sheet": "^4.6.4",
     "@react-native-async-storage/async-storage": "^1.22.3",
     "@react-native-clipboard/clipboard": "^1.13.2",
+    "@react-native-community/blur": "^4.4.1",
     "@react-native-community/netinfo": "^11.4.1",
     "@react-native-community/slider": "^4.5.0",
     "@react-native-cookies/cookies": "^6.2.1",
@@ -38,12 +39,13 @@
     "react-native-blob-util": "^0.19.8",
     "react-native-config": "^1.5.5",
     "react-native-device-info": "^10.13.1",
-    "react-native-draggable-flatlist": "^4.0.1",
+    "react-native-draggable-flatlist": "^4.0.3",
     "react-native-fast-image": "^8.6.3",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "^2.14.1",
     "react-native-get-music-files": "^2.2.4",
     "react-native-get-random-values": "^1.11.0",
+    "react-native-image-colors": "^1.5.2",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-modal": "^13.0.1",
     "react-native-paper": "^5.14.5",
@@ -90,7 +92,6 @@
     "follow-redirects": "^1.16.0",
     "fast-xml-parser": "5.8.0",
     "flatted": "3.4.2",
-    "glob": "10.5.0",
     "js-yaml": "4.2.0",
     "minimatch": "^3.1.5",
     "on-headers": "1.1.0",
@@ -106,9 +107,13 @@
     },
     "@eslint/eslintrc": {
       "ajv": "^6.15.0"
-    }
+    },
+    "shell-quote": "1.8.4"
   },
   "engines": {
     "node": ">=18"
+  },
+  "resolutions": {
+    "shell-quote": "1.8.4"
   }
 }

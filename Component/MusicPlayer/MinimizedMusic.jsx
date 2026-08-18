@@ -1,14 +1,17 @@
-import { ActivityIndicator, Dimensions, View } from 'react-native';
+import { ActivityIndicator, Dimensions, View, Animated as RNAnimated, Easing as RNEasing, StyleSheet } from 'react-native';
 import React, {
   memo,
   useContext,
   useCallback,
   useState,
   useEffect,
+  useRef,
 } from 'react';
 import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
+import { GlassBox } from '../Global/GlassBox';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { BlurView } from '@react-native-community/blur';
 import {
   GestureDetector,
   Gesture,
@@ -19,7 +22,7 @@ import { NextSongButton } from './NextSongButton';
 import { PreviousSongButton } from './PreviousSongButton';
 import { LikeSongButton } from './LikeSongButton';
 import FastImage from 'react-native-fast-image';
-import { useActiveTrack, useProgress } from 'react-native-track-player';
+import { useActiveTrack, useProgress, usePlaybackState } from 'react-native-track-player';
 import { PlayNextSong, PlayPreviousSong } from '../../MusicPlayerFunctions';
 import Context from '../../Context/Context';
 import TrackPlayer from 'react-native-track-player';
@@ -27,6 +30,7 @@ import { Pressable } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Svg, { Circle } from 'react-native-svg';
 
 // Function to get high quality artwork URL
 const getHighQualityArtwork = (artworkUrl, track = null) => {
@@ -69,10 +73,10 @@ const getHighQualityArtwork = (artworkUrl, track = null) => {
     const artworkToUse = isValidArtwork(artworkUrl)
       ? artworkUrl
       : isValidArtwork(track?.artwork)
-      ? track.artwork
-      : isValidArtwork(track?.image)
-      ? track.image
-      : null;
+        ? track.artwork
+        : isValidArtwork(track?.image)
+          ? track.image
+          : null;
 
     if (artworkToUse) {
       // Handle data: URIs (embedded artwork)
@@ -155,7 +159,7 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
   const [isOffline, setIsOffline] = useState(false);
   const [localTracks, setLocalTracks] = useState([]);
   const navigation = useNavigation();
-  const { colors } = useTheme(); // Get theme colors
+  const { colors, dark } = useTheme(); // Get theme colors
 
   // Check network status
   useEffect(() => {
@@ -444,7 +448,32 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
   }
 
   const size = Dimensions.get('window').height;
+  const screenWidth = Dimensions.get('window').width;
   const currentPlaying = useActiveTrack();
+  const playerState = usePlaybackState();
+  const isPlaying = playerState && (playerState.state === 'playing' || playerState.state === 6);
+
+  const spinValue = useRef(new RNAnimated.Value(0)).current;
+
+  useEffect(() => {
+    if (isPlaying) {
+      RNAnimated.loop(
+        RNAnimated.timing(spinValue, {
+          toValue: 1,
+          duration: 10000,
+          easing: RNEasing.linear,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      spinValue.stopAnimation();
+    }
+  }, [isPlaying]);
+
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   // OPTIMISTIC UI: Use loadingSong if available, otherwise use currentPlaying
   const displaySong = loadingSong || currentPlaying;
@@ -454,130 +483,163 @@ export const MinimizedMusic = memo(({ setIndex, color, loadingSong }) => {
   const artworkSource = displaySong?.artwork || displaySong?.image;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <Animated.View
-        entering={FadeIn}
+    <GestureHandlerRootView style={{ width: screenWidth * 0.84, alignSelf: 'center', height: 70 }}>
+      <GlassBox
+        id="minimized-music"
+        rectInset={0.5}
+        borderOutside
+        gradientConfig={{
+          x1: '0%', y1: '0%', x2: '5%', y2: '172%',
+          stops: [
+            { offset: '0%', opacity: 0.4 },
+            { offset: '38%', opacity: 0.4 },
+            { offset: '45%', opacity: 0.0 },
+            { offset: '55%', opacity: 0.0 },
+            { offset: '62%', opacity: 0.5 },
+            { offset: '100%', opacity: 0.5 },
+          ],
+        }}
         style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          height: 80,
-          paddingHorizontal: 15,
-          paddingVertical: 15,
-          alignItems: 'center',
-          gap: 10,
-          backgroundColor: color || colors.musicPlayerBg,
+          flex: 1,
+          borderRadius: 35,
+          backgroundColor: 'transparent',
         }}
       >
-        <GestureDetector gesture={pan}>
-          <View
-            style={{
-              flexDirection: 'row',
-              flex: 1,
-            }}
-          >
-            <FastImage
-              source={
-                typeof getHighQualityArtwork(artworkSource, displaySong) ===
-                'string'
-                  ? { uri: getHighQualityArtwork(artworkSource, displaySong) }
-                  : getHighQualityArtwork(artworkSource, displaySong)
-              }
-              style={{
-                height: size * 0.09 - 25,
-                width: size * 0.09 - 25,
-                borderRadius: 8,
-                marginRight: 6,
-                alignSelf: 'center',
-              }}
-            />
-            <View
-              style={{
-                flex: 1,
-                height: size * 0.1 - 25,
-                justifyContent: 'center',
-                paddingRight: 2,
-                minWidth: 0,
-                marginLeft: 2,
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <PlainText
-                  text={displaySong?.title ?? 'No music :('}
-                  style={{
-                    color: colors.text,
-                    fontSize: 13,
-                    flexShrink: 1,
-                  }}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                />
-              </View>
-              <SmallText
-                text={
-                  displaySong?.artist && displaySong.artist.length > 20
-                    ? displaySong.artist.substring(0, 20) + '...'
-                    : displaySong?.artist ?? 'Explore now!'
-                }
-                maxLine={1}
-                style={{
-                  color: colors.textSecondary,
-                  fontSize: 10,
-                  marginTop: 1,
-                  includeFontPadding: false,
-                }}
-              />
-            </View>
-          </View>
-        </GestureDetector>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {isLoadingStream ? (
-            // OPTIMISTIC UI: Show loading indicator while stream is being fetched
+        <View style={[StyleSheet.absoluteFill, { borderRadius: 35, overflow: 'hidden', zIndex: -1 }]}>
+          <BlurView
+            style={StyleSheet.absoluteFill}
+            blurType={dark ? 'dark' : 'light'}
+            blurAmount={8}
+            reducedTransparencyFallbackColor={dark ? 'rgba(18,18,18,0.85)' : 'rgba(255,255,255,0.85)'}
+          />
+        </View>
+        <Animated.View
+          entering={FadeIn}
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            flex: 1,
+            paddingLeft: 15,
+            paddingRight: 8,
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          <GestureDetector gesture={pan}>
             <View
               style={{
                 flexDirection: 'row',
-                gap: 10,
+                flex: 1,
                 alignItems: 'center',
-                paddingHorizontal: 10,
               }}
             >
-              <ActivityIndicator
-                size={24}
-                color={colors.primary || '#1DB954'}
-              />
-            </View>
-          ) : (
-            <>
-              <View style={{ marginRight: 0 }}>
-                <LikeSongButton size={20} color={colors.icon} />
+              <View style={{ justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                <Svg height="52" width="52" style={{ position: 'absolute' }}>
+                  <Circle
+                    cx="26"
+                    cy="26"
+                    r="24"
+                    stroke={colors.primary || '#1DB954'}
+                    strokeWidth="2"
+                    fill="transparent"
+                    strokeDasharray={`${2 * Math.PI * 24}`}
+                    strokeDashoffset={`${2 * Math.PI * 24 - (2 * Math.PI * 24 * TotalCompletedInpercent()) / 100}`}
+                    strokeLinecap="round"
+                    rotation="-90"
+                    origin="26, 26"
+                  />
+                </Svg>
+                <RNAnimated.View style={{ transform: [{ rotate: spin }] }}>
+                  <FastImage
+                    source={
+                      typeof getHighQualityArtwork(artworkSource, displaySong) ===
+                        'string'
+                        ? { uri: getHighQualityArtwork(artworkSource, displaySong) }
+                        : getHighQualityArtwork(artworkSource, displaySong)
+                    }
+                    style={{
+                      height: 46,
+                      width: 46,
+                      borderRadius: 23,
+                    }}
+                  />
+                </RNAnimated.View>
               </View>
               <View
-                style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}
+                style={{
+                  flex: 1,
+                  justifyContent: 'center',
+                  paddingRight: 2,
+                  minWidth: 0,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <PlainText
+                    text={displaySong?.title ?? 'No music :('}
+                    style={{
+                      color: colors.text,
+                      fontSize: 13,
+                      flexShrink: 1,
+                      fontWeight: 'bold',
+                    }}
+                    numberOfLine={1}
+                    ellipsizeMode="tail"
+                  />
+                </View>
+                <SmallText
+                  text={
+                    displaySong?.artist && displaySong.artist.length > 20
+                      ? displaySong.artist.substring(0, 20) + '...'
+                      : displaySong?.artist ?? 'Explore now!'
+                  }
+                  maxLine={1}
+                  style={{
+                    color: colors.textSecondary,
+                    fontSize: 11,
+                    marginTop: 2,
+                    includeFontPadding: false,
+                  }}
+                />
+              </View>
+            </View>
+          </GestureDetector>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {isLoadingStream ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  gap: 10,
+                  alignItems: 'center',
+                  paddingHorizontal: 10,
+                }}
+              >
+                <ActivityIndicator
+                  size={24}
+                  color={colors.primary || '#1DB954'}
+                />
+              </View>
+            ) : (
+              <View
+                style={{ flexDirection: 'row', gap: 2, alignItems: 'center' }}
               >
                 <Pressable
                   onPress={
                     isOffline ? playPreviousOfflineSong : PlayPreviousSong
                   }
                 >
-                  <PreviousSongButton color={colors.icon} />
+                  <PreviousSongButton color={colors.text} />
                 </Pressable>
-                <PlayPauseButton isplaying={false} color={colors.icon} />
+                <PlayPauseButton isplaying={false} color={colors.text} />
                 <Pressable
                   onPress={isOffline ? playNextOfflineSong : PlayNextSong}
                 >
-                  <NextSongButton color={colors.icon} />
+                  <NextSongButton color={colors.text} />
                 </Pressable>
               </View>
-            </>
-          )}
-        </View>
-      </Animated.View>
-      <View
-        style={{
-          height: 2,
-          width: `${TotalCompletedInpercent()}%`,
-          backgroundColor: colors.primary,
-        }}
-      />
+            )}
+          </View>
+        </Animated.View>
+      </GlassBox>
     </GestureHandlerRootView>
   );
 });

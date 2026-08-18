@@ -4,6 +4,8 @@ import Modal from 'react-native-modal';
 import { useTheme } from '@react-navigation/native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { PlainText } from '../../Global/PlainText';
+import { GlassBox } from '../../Global/GlassBox';
+import { BlurredBackground } from '../Background';
 
 /**
  * FullScreenMusicMenuModal - Modal component for three-dot menu options
@@ -19,6 +21,7 @@ export const FullScreenMusicMenuModal = ({
   onClose,
   menuOptions = [],
   position = { top: 100, right: 16 },
+  artworkSource,
 }) => {
   const theme = useTheme();
   const { colors } = theme;
@@ -43,9 +46,9 @@ export const FullScreenMusicMenuModal = ({
         justifyContent: 'flex-start',
       }}
     >
-      <View
+      <GlassBox
+        id="fullscreen-music-menu"
         style={{
-          backgroundColor: colors.card,
           borderRadius: 12,
           width: 220,
           overflow: 'hidden',
@@ -59,8 +62,29 @@ export const FullScreenMusicMenuModal = ({
           shadowRadius: 8,
           transform: [{ translateY: -20 }, { scale: visible ? 1 : 0.95 }],
           opacity: visible ? 1 : 0,
+          backgroundColor: 'transparent',
+        }}
+        gradientConfig={{
+          x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+          stops: [
+            { offset: '0%', opacity: 0.7, color: theme.dark ? '#ffffff' : '#ffffff' },
+            { offset: '30%', opacity: 0.1, color: theme.dark ? '#ffffff' : '#ffffff' },
+            { offset: '70%', opacity: 0.1, color: theme.dark ? '#ffffff' : '#ffffff' },
+            { offset: '100%', opacity: 0.3, color: theme.dark ? '#ffffff' : '#ffffff' },
+          ],
         }}
       >
+        {artworkSource && (
+          <BlurredBackground
+            source={artworkSource}
+            blurRadius={35}
+            overlayGradient={
+              theme.dark
+                ? ['rgba(0,0,0,0.4)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.7)']
+                : ['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.4)', 'rgba(255,255,255,0.5)', 'rgba(255,255,255,0.6)']
+            }
+          />
+        )}
         {menuOptions.map((option, index) => (
           <MenuOption
             key={option.id || index}
@@ -74,7 +98,7 @@ export const FullScreenMusicMenuModal = ({
             isLast={index === menuOptions.length - 1}
           />
         ))}
-      </View>
+      </GlassBox>
     </Modal>
   );
 };

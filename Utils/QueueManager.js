@@ -101,12 +101,12 @@ class QueueManager {
         return queueSongs;
       }
 
-      // For Saavn songs, use Saavn recommendations API
       const recommendationsData = await getRecommendedSongs(songId);
 
       if (!recommendationsData?.data || recommendationsData.data.length === 0) {
         return [];
       }
+
 
       const recommendations = recommendationsData.data.slice(0, limit);
       // Get quality index for URL selection

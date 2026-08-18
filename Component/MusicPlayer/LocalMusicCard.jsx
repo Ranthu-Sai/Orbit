@@ -24,6 +24,36 @@ import { useTheme, useNavigation } from '@react-navigation/native';
 import * as RNFS from 'react-native-fs';
 import { PlayOneSong } from '../../MusicPlayerFunctions';
 import TrackPlayer from 'react-native-track-player';
+import { GlassBox } from '../Global/GlassBox';
+
+const circleGradient = {
+  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+  stops: [
+    { offset: '0%', opacity: 0.0 },
+    { offset: '40%', opacity: 0.5 },
+    { offset: '60%', opacity: 0.5 },
+    { offset: '100%', opacity: 0.0 },
+  ],
+};
+
+const CircularGlassBox = ({ id, size = 42, children, style }) => (
+  <GlassBox
+    id={id}
+    gradientConfig={circleGradient}
+    style={[
+      {
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      style,
+    ]}
+  >
+    {children}
+  </GlassBox>
+);
 
 // Default music image for local tracks
 const DEFAULT_LOCAL_MUSIC_IMAGE = require('../../Images/Music.jpeg');
@@ -284,18 +314,26 @@ export const LocalMusicCard = ({
           />
         </View>
       </View>
-      <Pressable
-        ref={menuButtonRef}
-        onPress={handleMenuPress}
-        hitSlop={8}
-        style={styles.menuButton}
-      >
-        <MaterialCommunityIcons
-          name="dots-vertical"
-          size={24}
-          color={theme.colors.text}
-        />
-      </Pressable>
+      <CircularGlassBox id={`song-menu-${song.id || index}`} size={42}>
+        <Pressable
+          ref={menuButtonRef}
+          onPress={handleMenuPress}
+          hitSlop={8}
+          style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 42,
+            height: 42,
+            borderRadius: 21,
+          }}
+        >
+          <MaterialCommunityIcons
+            name="dots-vertical"
+            size={22}
+            color={theme.colors.textSecondary}
+          />
+        </Pressable>
+      </CircularGlassBox>
     </Pressable>
   );
 };

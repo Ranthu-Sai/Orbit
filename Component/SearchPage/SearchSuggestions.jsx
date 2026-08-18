@@ -88,10 +88,10 @@ const SearchSuggestions = ({
         </TouchableOpacity>
       ))}
 
-      {/* Quick Results Section - Top 3 Songs */}
+      {/* Quick Results Section - Top Songs / Artists */}
       {quickResults && quickResults.length > 0 && (
         <View style={styles.quickResultsSection}>
-          {quickResults.slice(0, 3).map((song, index) => (
+          {quickResults.slice(0, 5).map((song, index) => (
             <EachSongCard
               key={`quick-${song.id || index}`}
               artistID={song?.primaryArtistsId || song?.primary_artists_id}

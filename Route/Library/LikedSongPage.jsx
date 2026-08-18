@@ -8,9 +8,11 @@ import {
   ToastAndroid,
   RefreshControl,
   ScrollView,
+  FlatList,
   TextInput,
   DeviceEventEmitter,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -23,6 +25,36 @@ import { Heading } from '../../Component/Global/Heading';
 import { SmallText } from '../../Component/Global/SmallText';
 import { Spacer } from '../../Component/Global/Spacer';
 import { AddPlaylist } from '../../MusicPlayerFunctions';
+import { GlassBox } from '../../Component/Global/GlassBox';
+
+const circleGradient = {
+  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+  stops: [
+    { offset: '0%', opacity: 0.5 },
+    { offset: '40%', opacity: 0.0 },
+    { offset: '60%', opacity: 0.0 },
+    { offset: '100%', opacity: 0.5 },
+  ],
+};
+
+const CircularGlassBox = ({ id, size = 42, children, style }) => (
+  <GlassBox
+    id={id}
+    gradientConfig={circleGradient}
+    style={[
+      {
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      style,
+    ]}
+  >
+    {children}
+  </GlassBox>
+);
 
 const DEFAULT_ALBUM_IMAGE = require('../../Images/Music.jpeg');
 import Context from '../../Context/Context';
@@ -39,6 +71,7 @@ import { DeleteALikedAlbum } from '../../LocalStorage/StoreLikedAlbums';
 export const LikedSongPage = () => {
   const navigation = useNavigation();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const { updateTrack } = useContext(Context);
 
   // Data states
@@ -597,9 +630,20 @@ export const LikedSongPage = () => {
     }
 
     return (
-      <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
+      <FlatList
+        key={viewMode}
+        data={filteredItems}
+        renderItem={({ item, index }) => renderItem(item, index)}
+        keyExtractor={(item, index) => item.id || index.toString()}
+        numColumns={viewMode === 'grid' ? 2 : 1}
+        columnWrapperStyle={
+          viewMode === 'grid' ? { justifyContent: 'space-between', paddingHorizontal: 12 } : undefined
+        }
+        contentContainerStyle={[
+          styles.scrollContent,
+          viewMode === 'list' && styles.listContainer,
+        ]}
+        ListFooterComponent={<Spacer height={150} />}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -608,24 +652,16 @@ export const LikedSongPage = () => {
             progressBackgroundColor={theme.colors.card}
           />
         }
-      >
-        {viewMode === 'list' ? (
-          <View style={styles.listContainer}>
-            {filteredItems.map((item, index) => renderItem(item, index))}
-          </View>
-        ) : (
-          <View style={styles.gridContainer}>
-            {filteredItems.map((item, index) => renderItem(item, index))}
-          </View>
-        )}
-        <Spacer height={150} />
-      </ScrollView>
+        initialNumToRender={10}
+        windowSize={5}
+        removeClippedSubviews={true}
+      />
     );
   };
 
   return (
     <View
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}
     >
       <View style={styles.header}>
         <View
@@ -655,58 +691,64 @@ export const LikedSongPage = () => {
         </View>
 
         <View style={styles.headerRight}>
-          <Pressable
-            style={styles.iconButton}
-            onPress={() => {
-              setShowSearch(!showSearch);
-              if (showSearch) {
-                setSearchQuery('');
-              } // Clear on close
-            }}
-            android_ripple={{
-              color: 'rgba(255,255,255,0.2)',
-              borderless: true,
-              radius: 20,
-            }}
-          >
-            <MaterialCommunityIcons
-              name={showSearch ? 'close' : 'magnify'}
-              size={26}
-              color={theme.colors.text}
-            />
-          </Pressable>
+          <CircularGlassBox id="favorites-search-glass" size={42}>
+            <Pressable
+              style={styles.iconButton}
+              onPress={() => {
+                setShowSearch(!showSearch);
+                if (showSearch) {
+                  setSearchQuery('');
+                } // Clear on close
+              }}
+              android_ripple={{
+                color: 'rgba(255,255,255,0.2)',
+                borderless: true,
+                radius: 20,
+              }}
+            >
+              <MaterialCommunityIcons
+                name={showSearch ? 'close' : 'magnify'}
+                size={22}
+                color={theme.colors.text}
+              />
+            </Pressable>
+          </CircularGlassBox>
 
-          <Pressable
-            style={styles.iconButton}
-            onPress={() => setImportModalVisible(true)}
-            android_ripple={{
-              color: 'rgba(255,255,255,0.2)',
-              borderless: true,
-              radius: 20,
-            }}
-          >
-            <MaterialCommunityIcons
-              name="import"
-              size={26}
-              color={theme.colors.text}
-            />
-          </Pressable>
+          <CircularGlassBox id="favorites-import-glass" size={42}>
+            <Pressable
+              style={styles.iconButton}
+              onPress={() => setImportModalVisible(true)}
+              android_ripple={{
+                color: 'rgba(255,255,255,0.2)',
+                borderless: true,
+                radius: 20,
+              }}
+            >
+              <MaterialCommunityIcons
+                name="import"
+                size={22}
+                color={theme.colors.text}
+              />
+            </Pressable>
+          </CircularGlassBox>
 
-          <Pressable
-            style={styles.iconButton}
-            onPress={toggleViewMode}
-            android_ripple={{
-              color: 'rgba(255,255,255,0.2)',
-              borderless: true,
-              radius: 20,
-            }}
-          >
-            <MaterialCommunityIcons
-              name={viewMode === 'list' ? 'view-grid' : 'view-list'}
-              size={26}
-              color={theme.colors.primary}
-            />
-          </Pressable>
+          <CircularGlassBox id="favorites-view-glass" size={42}>
+            <Pressable
+              style={styles.iconButton}
+              onPress={toggleViewMode}
+              android_ripple={{
+                color: 'rgba(255,255,255,0.2)',
+                borderless: true,
+                radius: 20,
+              }}
+            >
+              <MaterialCommunityIcons
+                name={viewMode === 'list' ? 'view-grid' : 'view-list'}
+                size={22}
+                color={theme.colors.primary}
+              />
+            </Pressable>
+          </CircularGlassBox>
         </View>
       </View>
 
@@ -781,8 +823,11 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   iconButton: {
-    padding: 8,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 21,
   },
   searchContainer: {
     // Kept for compatibility if needed, but unused in new layout

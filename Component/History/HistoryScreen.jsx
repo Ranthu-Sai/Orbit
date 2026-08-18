@@ -20,11 +20,13 @@ import { useTheme } from '@react-navigation/native';
 import { HistoryCard } from './HistoryCard';
 import { HistoryFilters } from './HistoryFilters';
 import { useActiveTrack } from 'react-native-track-player';
+import LinearGradient from 'react-native-linear-gradient';
 
 import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import historyManager from '../../Utils/HistoryManager';
+import { GlassBox } from '../Global/GlassBox';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -58,19 +60,16 @@ export const HistoryScreen = forwardRef((props, ref) => {
     try {
       setIsLoading(true);
 
-      // Load filtered history from in-memory cache (very fast)
-      const history = await historyManager.getFilteredHistory(
-        activeFilter,
-        searchQuery
-      );
-      setHistoryData(history);
+      // Load full history from in-memory cache
+      const history = await historyManager.getHistory();
+      setHistoryData(history || []);
       setWeeklyStats(null); // Explicitly null since user wants charts removed
     } catch (error) {
       console.error('Error loading history data:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [activeFilter, searchQuery]);
+  }, []);
 
   // Refresh data
   const handleRefresh = useCallback(async () => {
@@ -89,12 +88,7 @@ export const HistoryScreen = forwardRef((props, ref) => {
     setSearchQuery(query);
   }, []);
 
-  // Load data on mount and when dependencies change
-  useEffect(() => {
-    loadHistoryData();
-  }, [loadHistoryData]);
-
-  // Refresh data on mount and filter changes
+  // Load data on mount
   useEffect(() => {
     loadHistoryData();
   }, [loadHistoryData]);
@@ -144,6 +138,21 @@ export const HistoryScreen = forwardRef((props, ref) => {
     <HistoryCard historyItem={item} onRefresh={handleRefresh} />
   );
 
+  // Render separator
+  const renderSeparator = () => {
+    const fadeColor = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+    const transparentColor = dark ? 'rgba(255,255,255,0)' : 'rgba(0,0,0,0)';
+    
+    return (
+      <LinearGradient
+        colors={[transparentColor, fadeColor, transparentColor]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={{ height: 1, marginHorizontal: 16 }}
+      />
+    );
+  };
+
   // Render header
   const renderHeader = () => (
     <View>
@@ -181,11 +190,27 @@ export const HistoryScreen = forwardRef((props, ref) => {
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity
-            onPress={() => setShowSearch(true)}
-            style={styles.searchIcon}
-          >
-            <MaterialIcons name="search" size={24} color={colors.text} />
+          <TouchableOpacity onPress={() => setShowSearch(true)}>
+            <GlassBox
+              id="history-search-icon"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              gradientConfig={{
+                x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+                stops: [
+                  { offset: '0%', opacity: 0.3 },
+                  { offset: '50%', opacity: 0.0 },
+                  { offset: '100%', opacity: 0.3 },
+                ],
+              }}
+            >
+              <MaterialIcons name="search" size={24} color={colors.text} />
+            </GlassBox>
           </TouchableOpacity>
         )}
       </View>
@@ -249,7 +274,7 @@ export const HistoryScreen = forwardRef((props, ref) => {
   }, [historyData, activeFilter, searchQuery]);
 
   // Get key extractor
-  const keyExtractor = (item, index) => `${item.id}-${index}`;
+  const keyExtractor = (item) => String(item.id);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -261,6 +286,7 @@ export const HistoryScreen = forwardRef((props, ref) => {
         ListEmptyComponent={
           searchQuery ? renderSearchEmptyState : renderEmptyState
         }
+        ItemSeparatorComponent={renderSeparator}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -309,6 +335,11 @@ const getThemedStyles = (colors, dark) =>
       paddingVertical: 12,
       borderBottomWidth: 1,
       borderBottomColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+    },
+    separator: {
+      height: 1,
+      backgroundColor: dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+      marginHorizontal: 16,
     },
     historyTitle: {
       fontSize: 18,

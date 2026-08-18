@@ -12,11 +12,24 @@ import SimpleLineIcons from 'react-native-vector-icons/SimpleLineIcons';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import { Heading } from '../Global/Heading';
 import { History } from 'lucide-react-native';
+import { GlassBox } from '../Global/GlassBox';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const circleGradient = {
+  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+  stops: [
+    { offset: '0%', opacity: 0.5 },
+    { offset: '40%', opacity: 0.0 },
+    { offset: '60%', opacity: 0.0 },
+    { offset: '100%', opacity: 0.5 },
+  ],
+};
 
 export const TopHeader = memo(({ showHeader }) => {
   const navigation = useNavigation();
   const { width } = Dimensions.get('window');
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   return (
     <>
       {showHeader && (
@@ -24,7 +37,7 @@ export const TopHeader = memo(({ showHeader }) => {
           entering={FadeInUp}
           exiting={FadeOutUp}
           style={{
-            height: 50,
+            height: 50 + insets.top,
             width: '100%',
             backgroundColor: 'transparent',
             position: 'absolute',
@@ -40,7 +53,8 @@ export const TopHeader = memo(({ showHeader }) => {
             ]}
             style={{
               flex: 1,
-              height: 50,
+              height: 50 + insets.top,
+              paddingTop: insets.top,
               justifyContent: 'flex-end',
             }}
           >
@@ -49,50 +63,73 @@ export const TopHeader = memo(({ showHeader }) => {
                 <View style={{ flex: 1 }}>
                   <Heading text={'Orbit'} />
                 </View>
-                <Pressable
-                  style={{
-                    padding: 5,
-                    backgroundColor: 'transparent',
-                    borderRadius: 10,
-                  }}
-                  onPress={() => {
-                    navigation.navigate('Search');
-                  }}
-                >
-                  <Feather
-                    name={'search'}
-                    size={width * 0.055}
-                    color={theme.colors.text}
-                  />
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    navigation.navigate('HistoryPage');
-                  }}
-                  style={{
-                    padding: 5,
-                    backgroundColor: 'transparent',
-                    borderRadius: 10,
-                  }}
-                >
-                  <History size={width * 0.055} color={theme.colors.text} />
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    navigation.navigate('Settings');
-                  }}
-                  style={{
-                    padding: 5,
-                    backgroundColor: 'transparent',
-                    borderRadius: 10,
-                  }}
-                >
-                  <SimpleLineIcons
-                    name={'settings'}
-                    size={width * 0.055}
-                    color={theme.colors.text}
-                  />
-                </Pressable>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pressable
+                    onPress={() => {
+                      navigation.navigate('Search');
+                    }}
+                  >
+                    <GlassBox
+                      id="topheader-search"
+                      gradientConfig={circleGradient}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Feather
+                        name={'search'}
+                        size={width * 0.055}
+                        color={theme.colors.text}
+                      />
+                    </GlassBox>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      navigation.navigate('HistoryPage');
+                    }}
+                  >
+                    <GlassBox
+                      id="topheader-history"
+                      gradientConfig={circleGradient}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <History size={width * 0.055} color={theme.colors.text} />
+                    </GlassBox>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      navigation.navigate('Settings');
+                    }}
+                  >
+                    <GlassBox
+                      id="topheader-settings"
+                      gradientConfig={circleGradient}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <SimpleLineIcons
+                        name={'settings'}
+                        size={width * 0.055}
+                        color={theme.colors.text}
+                      />
+                    </GlassBox>
+                  </Pressable>
+                </View>
               </SpaceBetween>
             </PaddingConatiner>
           </LinearGradient>

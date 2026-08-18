@@ -19,6 +19,37 @@ import TrackPlayer from 'react-native-track-player';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { ToastAndroid } from 'react-native';
 import { StorageManager } from '../../Utils/StorageManager';
+import { GlassBox } from '../Global/GlassBox';
+import { BlurView } from '@react-native-community/blur';
+
+const circleGradient = {
+  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+  stops: [
+    { offset: '0%', opacity: 0.0 },
+    { offset: '40%', opacity: 0.5 },
+    { offset: '60%', opacity: 0.5 },
+    { offset: '100%', opacity: 0.0 },
+  ],
+};
+
+const CircularGlassBox = ({ id, size = 42, children, style }) => (
+  <GlassBox
+    id={id}
+    gradientConfig={circleGradient}
+    style={[
+      {
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      style,
+    ]}
+  >
+    {children}
+  </GlassBox>
+);
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -289,26 +320,28 @@ export const DownloadedSongCard = ({
         </View>
       </View>
 
-      <Pressable
-        ref={buttonRef}
-        onPress={(e) => {
-          e.stopPropagation();
-          showMenu();
-        }}
-        style={{
-          padding: 8,
-          backgroundColor: 'transparent',
-          borderRadius: 16,
-          marginLeft: 4,
-          elevation: 0,
-        }}
-      >
-        <MaterialCommunityIcons
-          name="dots-vertical"
-          size={22}
-          color={colors.text}
-        />
-      </Pressable>
+      <CircularGlassBox id={`song-menu-${id}`} size={42}>
+        <Pressable
+          ref={buttonRef}
+          onPress={(e) => {
+            e.stopPropagation();
+            showMenu();
+          }}
+          style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 42,
+            height: 42,
+            borderRadius: 21,
+          }}
+        >
+          <MaterialCommunityIcons
+            name="dots-vertical"
+            size={22}
+            color={colors.textSecondary}
+          />
+        </Pressable>
+      </CircularGlassBox>
 
       <Modal
         visible={menuVisible}
@@ -317,12 +350,33 @@ export const DownloadedSongCard = ({
         onRequestClose={closeMenu}
       >
         <Pressable style={styles.modalOverlay} onPress={closeMenu}>
-          <View
+          <GlassBox
+            id={`dropdown-menu-container-dl-${id}`}
             style={[
               styles.menuContainer,
-              { top: menuPosition.top, right: menuPosition.right },
+              { 
+                top: menuPosition.top, 
+                right: menuPosition.right,
+                backgroundColor: 'transparent',
+                borderWidth: 0,
+              },
             ]}
+            gradientConfig={{
+              x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+              stops: [
+                { offset: '0%', opacity: 0.0 },
+                { offset: '40%', opacity: 0.6 },
+                { offset: '60%', opacity: 0.6 },
+                { offset: '100%', opacity: 0.0 },
+              ],
+            }}
           >
+            <BlurView
+              style={StyleSheet.absoluteFill}
+              blurType={dark ? 'dark' : 'light'}
+              blurAmount={8}
+              reducedTransparencyFallbackColor={colors.card}
+            />
             <TouchableOpacity style={styles.menuItem} onPress={playNext}>
               <MaterialCommunityIcons
                 name="play-speed"
@@ -334,6 +388,8 @@ export const DownloadedSongCard = ({
               </Text>
             </TouchableOpacity>
 
+            <View style={{ height: 1, backgroundColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', marginHorizontal: 8 }} />
+
             <TouchableOpacity style={styles.menuItem} onPress={handleDelete}>
               <MaterialCommunityIcons
                 name="delete-outline"
@@ -344,7 +400,7 @@ export const DownloadedSongCard = ({
                 Delete
               </Text>
             </TouchableOpacity>
-          </View>
+          </GlassBox>
         </Pressable>
       </Modal>
     </Pressable>

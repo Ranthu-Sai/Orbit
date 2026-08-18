@@ -1,18 +1,9 @@
-/**
- * MetadataResolver.js
- *
- * Resolves Last.fm recommendation metadata to playable streams.
- * Implements Quality-First hierarchy: DAB (FLAC) -> Saavn (320kbps) -> YTMusic (160kbps)
- *
- * Used by the recommendation system to find the best quality source for each song.
- */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import dabMusicService from './DabMusicService';
 import { getSearchSongData } from '../Api/Songs';
-import { getYTMusicSearchSongData } from '../Api/YTMusic';
+import { getYTMusicSearchAllData } from '../Api/YTMusic';
 
-// Settings keys
 const STRICT_FLAC_KEY = 'dab_strict_flac_mode';
 
 class MetadataResolver {
@@ -20,9 +11,6 @@ class MetadataResolver {
     this.strictFlacMode = false;
   }
 
-  /**
-   * Load user preference for strict FLAC mode
-   */
   async loadSettings() {
     try {
       const strictFlac = await AsyncStorage.getItem(STRICT_FLAC_KEY);
@@ -41,9 +29,6 @@ class MetadataResolver {
     await AsyncStorage.setItem(STRICT_FLAC_KEY, enabled ? 'true' : 'false');
   }
 
-  /**
-   * Get current strict FLAC mode setting
-   */
   isStrictFlacMode() {
     return this.strictFlacMode;
   }
@@ -63,18 +48,15 @@ class MetadataResolver {
       return { song: dabResult, source: 'dab' };
     }
 
-    // If strict FLAC mode is enabled, skip this song
     if (this.strictFlacMode) {
       return null;
     }
 
-    // 2. Try Saavn (320kbps)
     const saavnResult = await this.searchSaavn(artist, track);
     if (saavnResult) {
       return { song: saavnResult, source: 'saavn' };
     }
 
-    // 3. Fallback to YTMusic (160kbps)
     const ytResult = await this.searchYTMusic(artist, track);
     if (ytResult) {
       return { song: ytResult, source: 'ytmusic' };
@@ -88,7 +70,6 @@ class MetadataResolver {
    */
   async searchDAB(artist, track) {
     try {
-      // Check if user is authenticated with DAB
       if (!dabMusicService.isAuthenticated()) {
         return null;
       }
@@ -97,7 +78,6 @@ class MetadataResolver {
       const results = await dabMusicService.searchTracks(query, 5);
 
       if (results && results.length > 0) {
-        // Find best match
         const match = this.findBestMatch(results, artist, track);
         if (match) {
           return {
@@ -150,7 +130,7 @@ class MetadataResolver {
   async searchYTMusic(artist, track) {
     try {
       const query = `${track} ${artist}`;
-      const response = await getYTMusicSearchSongData(query, 1, 5);
+      const response = await getYTMusicSearchAllData(query, 1, 5);
 
       if (response?.success && response?.data?.results?.length > 0) {
         const results = response.data.results;
@@ -189,12 +169,11 @@ class MetadataResolver {
       const resultTitle = this.normalize(result.title || result.name || '');
       const resultArtist = this.normalize(
         result.artist ||
-          result.primaryArtists ||
-          result.artists?.primary?.[0]?.name ||
-          ''
+        result.primaryArtists ||
+        result.artists?.primary?.[0]?.name ||
+        ''
       );
 
-      // Check if title and artist are similar enough
       const titleMatch =
         resultTitle.includes(normalizedTrack) ||
         normalizedTrack.includes(resultTitle) ||
@@ -209,8 +188,6 @@ class MetadataResolver {
         return result;
       }
     }
-
-    // If no good match, return first result as fallback
     return results.length > 0 ? results[0] : null;
   }
 
@@ -282,6 +259,5 @@ class MetadataResolver {
   }
 }
 
-// Singleton instance
 const metadataResolver = new MetadataResolver();
 export default metadataResolver;

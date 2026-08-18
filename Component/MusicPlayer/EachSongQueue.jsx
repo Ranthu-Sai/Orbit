@@ -11,6 +11,17 @@ import { useThemeContext } from '../../Context/ThemeContext';
 import { useThemeManager } from './ThemeManager/useThemeManager';
 // useDownload hook removed - download state is now passed as props from parent to prevent callback leak
 import { DownloadControl } from '../Download/DownloadControl';
+import { GlassBox } from '../Global/GlassBox';
+
+const circleGradient = {
+  x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+  stops: [
+    { offset: '0%', opacity: 0.5 },
+    { offset: '40%', opacity: 0.0 },
+    { offset: '60%', opacity: 0.0 },
+    { offset: '100%', opacity: 0.5 },
+  ],
+};
 // TrackPlayer import removed to prevent callback leaks in list items
 import {
   GetLikedSongs,
@@ -502,16 +513,18 @@ export const EachSongQueue = memo(function EachSongQueue({
 
       {/* Download button */}
       <View style={{ marginRight: 8 }}>
-        <DownloadControl
-          isDownloaded={isDownloaded}
-          isDownloading={isDownloading}
-          downloadProgress={downloadProgress}
-          onDownloadPress={onDownloadPress}
-          isOffline={false}
-          disabled={!canDownload}
-          size={20}
-          style={{ padding: 6 }}
-        />
+        <GlassBox id={`dl1-${id}`} gradientConfig={circleGradient} style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
+          <DownloadControl
+            isDownloaded={isDownloaded}
+            isDownloading={isDownloading}
+            downloadProgress={downloadProgress}
+            onDownloadPress={onDownloadPress}
+            isOffline={false}
+            disabled={!canDownload}
+            size={20}
+            style={{ padding: 0 }}
+          />
+        </GlassBox>
       </View>
     </Pressable>
   );
@@ -598,16 +611,18 @@ export const EachSongQueue = memo(function EachSongQueue({
 
         {/* Download button */}
         <View style={{ marginRight: 8 }}>
-          <DownloadControl
-            isDownloaded={isDownloaded}
-            isDownloading={isDownloading}
-            downloadProgress={downloadProgress}
-            onDownloadPress={onDownloadPress}
-            isOffline={false}
-            disabled={!canDownload}
-            size={20}
-            style={{ padding: 6 }}
-          />
+          <GlassBox id={`dl2-${id}`} gradientConfig={circleGradient} style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
+            <DownloadControl
+              isDownloaded={isDownloaded}
+              isDownloading={isDownloading}
+              downloadProgress={downloadProgress}
+              onDownloadPress={onDownloadPress}
+              isOffline={false}
+              disabled={!canDownload}
+              size={20}
+              style={{ padding: 0 }}
+            />
+          </GlassBox>
         </View>
 
         {/* Drag handle indicator */}

@@ -17,6 +17,8 @@ import { useActiveTrack, usePlaybackState } from 'react-native-track-player';
 
 import { LoadingComponent } from '../Component/Global/Loading';
 import { EachSongCard } from '../Component/Global/EachSongCard';
+import { GlassBox } from '../Component/Global/GlassBox';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AddPlaylist } from '../MusicPlayerFunctions';
 import FormatArtist from '../Utils/FormatArtists';
 
@@ -133,7 +135,24 @@ const ArtistSongs = () => {
   return (
     <MainWrapper>
       <Appbar.Header style={{ backgroundColor: theme.colors.background }}>
-        <Appbar.BackAction onPress={() => navigation.goBack()} />
+        <Pressable onPress={() => navigation.goBack()} style={{ marginLeft: 8, marginRight: 8 }}>
+          <GlassBox
+            id="artist-songs-back"
+            style={styles.glassIconContainer}
+            gradientConfig={{
+              x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+              stops: [
+                { offset: '0%', opacity: 0.5 },
+                { offset: '25%', opacity: 0.5 },
+                { offset: '50%', opacity: 0.0 },
+                { offset: '75%', opacity: 0.5 },
+                { offset: '100%', opacity: 0.5 },
+              ],
+            }}
+          >
+            <Icon name="arrow-left" size={24} color={theme.colors.text} />
+          </GlassBox>
+        </Pressable>
         <Appbar.Content title={artistName || 'Songs'} />
         <Appbar.Action icon="shuffle" onPress={shufflePlay} />
       </Appbar.Header>
@@ -161,6 +180,13 @@ const styles = StyleSheet.create({
   headerInfo: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  glassIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   songCount: {
     fontSize: 14,

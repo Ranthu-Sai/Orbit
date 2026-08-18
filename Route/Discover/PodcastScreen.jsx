@@ -18,6 +18,9 @@ import {
 } from 'react-native';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import { Search, ArrowLeft } from 'lucide-react-native';
+import { GlassBox } from '../../Component/Global/GlassBox';
+import { BlurView } from '@react-native-community/blur';
+import { StyleSheet } from 'react-native';
 import { MainWrapper } from '../../Layout/MainWrapper';
 import { PodcastCard } from '../../Component/Podcast/PodcastCard';
 import { PodcastSkeleton } from '../../Component/Podcast/PodcastSkeleton';
@@ -38,7 +41,6 @@ import Context from '../../Context/Context';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ITEMS_PER_PAGE = 20;
 
-// Centralized Header Component to prevent hook order issues and remounting
 const ListHeader = memo(
   ({
     isSearching,
@@ -75,13 +77,38 @@ const ListHeader = memo(
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: dark ? '#1F1F1F' : '#F0F0F0',
-              alignItems: 'center',
-              justifyContent: 'center',
               opacity: pressed ? 0.6 : 1,
             })}
           >
-            <ArrowLeft size={22} color={dark ? '#FFFFFF' : '#000000'} />
+            <GlassBox
+              id="podcast-list-back"
+              style={{
+                width: '100%',
+                height: '100%',
+                borderRadius: 20,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'transparent',
+                borderWidth: 0,
+              }}
+              gradientConfig={{
+                x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+                stops: [
+                  { offset: '0%', opacity: 0.0 },
+                  { offset: '30%', opacity: 0.6 },
+                  { offset: '70%', opacity: 0.6 },
+                  { offset: '100%', opacity: 0.0 },
+                ],
+              }}
+            >
+              <BlurView
+                style={StyleSheet.absoluteFill}
+                blurType={dark ? 'dark' : 'light'}
+                blurAmount={8}
+                reducedTransparencyFallbackColor={dark ? '#1F1F1F' : '#F0F0F0'}
+              />
+              <ArrowLeft size={22} color={dark ? '#FFFFFF' : '#000000'} />
+            </GlassBox>
           </Pressable>
           <Text
             style={{
@@ -97,15 +124,32 @@ const ListHeader = memo(
 
         {/* Search Bar - Stable UI */}
         <View style={{ paddingHorizontal: 12, paddingVertical: 12 }}>
-          <View
+          <GlassBox
+            id="podcast-search-bar"
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: dark ? '#1F1F1F' : '#F0F0F0',
+              backgroundColor: 'transparent',
               borderRadius: 12,
               paddingHorizontal: 14,
+              borderWidth: 0,
+            }}
+            gradientConfig={{
+              x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+              stops: [
+                { offset: '0%', opacity: 0.0 },
+                { offset: '10%', opacity: 0.6 },
+                { offset: '90%', opacity: 0.6 },
+                { offset: '100%', opacity: 0.0 },
+              ],
             }}
           >
+            <BlurView
+              style={StyleSheet.absoluteFill}
+              blurType={dark ? 'dark' : 'light'}
+              blurAmount={8}
+              reducedTransparencyFallbackColor={dark ? '#1F1F1F' : '#F0F0F0'}
+            />
             <Search size={18} color={dark ? '#888888' : '#999999'} />
             <TextInput
               value={searchQuery}
@@ -130,7 +174,7 @@ const ListHeader = memo(
                 </Text>
               </Pressable>
             )}
-          </View>
+          </GlassBox>
         </View>
 
         {!isSearching ? (
@@ -432,7 +476,6 @@ export const PodcastScreen = () => {
     theme.colors.primary,
   ]);
 
-  // Get data for FlatList - Pre-calculate for performance
   const listData = (() => {
     const sourceData = isSearching ? searchResults : trendingPodcasts.slice(10);
     const pairs = [];

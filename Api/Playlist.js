@@ -61,13 +61,14 @@ async function getPlaylistData(id) {
 }
 
 async function getSearchPlaylistData(searchText, page, limit) {
+  const encodedText = encodeURIComponent(searchText || '');
   // Create a cache key based on the search parameters
   const cacheKey = `playlist_search_v3_${searchText}_page${page}_limit${limit}`;
 
   // Define the fetch function with fallback
   const fetchFunction = async () => {
-    const primaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/search/playlists?query=${searchText}&page=${page}&limit=${limit}`;
-    const secondaryUrl = `https://saavn.sumit.co/api/search/playlists?query=${searchText}&page=${page}&limit=${limit}`;
+    const primaryUrl = `https://jiosaavn-api-privatecvc2.vercel.app/search/playlists?query=${encodedText}&page=${page}&limit=${limit}`;
+    const secondaryUrl = `https://saavn.sumit.co/api/search/playlists?query=${encodedText}&page=${page}&limit=${limit}`;
     const config = {
       method: 'get',
       maxBodyLength: Infinity,

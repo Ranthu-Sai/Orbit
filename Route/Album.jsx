@@ -11,6 +11,7 @@ import {
 } from '@react-navigation/native';
 import { PlainText } from '../Component/Global/PlainText';
 import { SmallText } from '../Component/Global/SmallText';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAlbumData } from '../Api/Album';
 import { getYTMusicAlbumData } from '../Api/YTMusic';
 import { SpotifyService } from '../Utils/SpotifyService';
@@ -44,6 +45,7 @@ export const Album = ({ route }) => {
   const navigation = useNavigation();
   const activeTrack = useActiveTrack();
   const playbackState = usePlaybackState();
+  const insets = useSafeAreaInsets();
 
   // Get context for FullScreen navigation handling
   const {
@@ -281,12 +283,68 @@ export const Album = ({ route }) => {
     };
   }, []);
 
+// Helper to safely extract artist name from string, array, or object formats with fallback
+const getArtistName = (artistData, fallback = '') => {
+  if (!artistData) return fallback;
+
+  if (typeof artistData === 'string' && artistData.trim() !== '' && artistData !== 'null' && artistData !== 'undefined') {
+    // Clean up subtitle strings if they contain bullets or dashes (e.g., "Sabrina Carpenter • 2024")
+    const cleaned = artistData.split('•')[0].split('-')[0].trim();
+    return cleaned || artistData.trim();
+  }
+
+  if (Array.isArray(artistData) && artistData.length > 0) {
+    if (typeof artistData[0] === 'string') {
+      return artistData.filter(Boolean).join(', ');
+    }
+    const formatted = FormatArtist(artistData);
+    if (formatted && formatted !== 'Unknown Artist') return formatted;
+    if (artistData[0]?.name) {
+      return artistData.map((a) => a.name).filter(Boolean).join(', ');
+    }
+  }
+
+  if (typeof artistData === 'object') {
+    if (artistData.primary) {
+      return getArtistName(artistData.primary, fallback);
+    }
+    if (artistData.name) {
+      return artistData.name;
+    }
+  }
+
+  return fallback;
+};
+
   // Get songs array (handle both songs and tracks)
   const songsArray = Data?.data?.songs || Data?.data?.tracks || [];
+
+  // Extract main album artist name (heading artist)
+  const headingArtist =
+    getArtistName(Data?.data?.primary_artists) ||
+    getArtistName(Data?.data?.artistName) ||
+    getArtistName(Data?.data?.artist) ||
+    getArtistName(Data?.data?.artists?.primary) ||
+    getArtistName(Data?.data?.artists) ||
+    getArtistName(Data?.data?.subtitle) ||
+    getArtistName(route?.params?.artist) ||
+    getArtistName(route?.params?.artists) ||
+    getArtistName(route?.params?.subtitle) ||
+    '';
 
   // Render item for FlatList
   const renderSongItem = useCallback(
     ({ item: e, index: i }) => {
+      // For albums, use the heading artist for each song card as requested
+      const songArtist =
+        headingArtist ||
+        getArtistName(e?.artists?.primary) ||
+        getArtistName(e?.primary_artists) ||
+        getArtistName(e?.artists) ||
+        getArtistName(e?.artist) ||
+        getArtistName(e?.singers) ||
+        'Unknown Artist';
+
       // Get proper image URL - handle both array and direct URL formats
       let imageUrl = '';
       if (e?.image) {
@@ -315,7 +373,7 @@ export const Album = ({ route }) => {
           isFromAlbum={true}
           Data={Data}
           index={i}
-          artist={FormatArtist(e?.artists?.primary)}
+          artist={songArtist}
           language={e?.language}
           playlist={true}
           artistID={e?.primary_artists_id}
@@ -335,7 +393,7 @@ export const Album = ({ route }) => {
         />
       );
     },
-    [Data, activeTrack?.id, playbackState.state]
+    [Data, headingArtist, activeTrack?.id, playbackState.state]
   );
 
   // Key extractor for FlatList
@@ -359,14 +417,19 @@ export const Album = ({ route }) => {
         year={Data?.data?.year || ''}
         songsData={songsArray}
         albumData={Data}
-        // DAB-specific props
-        artistName={Data?.data?.artistName || Data?.data?.artist || null}
+        // DAB & Fallback artist prop
+        artistName={
+          headingArtist ||
+          Data?.data?.artistName ||
+          Data?.data?.artist ||
+          null
+        }
         qualityLabel={Data?.data?.qualityLabel || null}
         totalDuration={Data?.data?.totalDuration || null}
         isHiRes={Data?.data?.isHiRes || false}
       />
     ),
-    [Data, songsArray, route?.params?.id]
+    [Data, songsArray, headingArtist, route?.params?.id]
   );
 
   // Footer component for FlatList
@@ -376,8 +439,12 @@ export const Album = ({ route }) => {
   );
 
   return (
-    <MainWrapper>
-      {Loading && <DetailSkeletonLoader type="album" />}
+    <MainWrapper edges={['right', 'bottom', 'left']}>
+      {Loading && (
+        <View style={{ paddingTop: insets.top, flex: 1 }}>
+          <DetailSkeletonLoader type="album" />
+        </View>
+      )}
       {!Loading &&
         dataFetchAttempted &&
         !(Data?.data?.songs?.length || Data?.data?.tracks?.length) && (
@@ -387,6 +454,7 @@ export const Album = ({ route }) => {
               justifyContent: 'center',
               alignItems: 'center',
               paddingHorizontal: 20,
+              paddingTop: insets.top,
             }}
           >
             <PlainText
@@ -404,7 +472,7 @@ export const Album = ({ route }) => {
           <View
             style={{
               flex: 1,
-              backgroundColor: theme.dark ? theme.colors.background : '#FFFFFF',
+              backgroundColor: 'transparent',
             }}
           >
             <FlatList
@@ -414,21 +482,21 @@ export const Album = ({ route }) => {
               ListHeaderComponent={renderHeader}
               ListFooterComponent={renderFooter}
               contentContainerStyle={{
+                paddingTop: insets.top,
                 paddingBottom: 120,
-                backgroundColor: theme.dark
-                  ? theme.colors.background
-                  : '#FFFFFF',
+                backgroundColor: 'transparent',
               }}
               style={{
-                backgroundColor: theme.dark
-                  ? theme.colors.background
-                  : '#FFFFFF',
+                backgroundColor: 'transparent',
               }}
               initialNumToRender={10}
               maxToRenderPerBatch={10}
               windowSize={5}
               removeClippedSubviews={true}
               showsVerticalScrollIndicator={true}
+              ItemSeparatorComponent={() => (
+                <View style={{ height: 1, backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', marginHorizontal: 15 }} />
+              )}
             />
           </View>
         )}

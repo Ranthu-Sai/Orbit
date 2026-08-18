@@ -10,6 +10,7 @@ import {
   Share,
   StatusBar,
   BackHandler,
+  TouchableOpacity,
 } from 'react-native';
 import { Text, IconButton, Button } from 'react-native-paper';
 import {
@@ -26,6 +27,7 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useActiveTrack, usePlaybackState } from 'react-native-track-player';
 
 import { ArtistPageSkeleton } from '../Component/Artist/ArtistPageSkeleton';
+import { GlassBox } from '../Component/Global/GlassBox';
 import { EachSongCard } from '../Component/Global/EachSongCard';
 import { SmallText } from '../Component/Global/SmallText';
 import { AddPlaylist } from '../MusicPlayerFunctions';
@@ -74,40 +76,29 @@ const ArtistPage = () => {
   const [ytArtist, setYtArtist] = useState(null);
   const [ytLoading, setYtLoading] = useState(false);
 
-  // Track if we pushed a screen from this ArtistPage (like SectionListPage)
-  // When we return from that screen, we should NOT immediately return to FullScreen
   const pushedNestedScreen = React.useRef(false);
 
-  // Handle back navigation - return to FullScreenMusic if we came from there
-  // Only return to FullScreen if we're at the direct entry point from FullScreen
   useFocusEffect(
     useCallback(() => {
       const onBackPress = () => {
-        // If we just returned from a nested screen we pushed, don't go to FullScreen yet
         if (pushedNestedScreen.current) {
           pushedNestedScreen.current = false;
-          // Let default back behavior happen (but it won't since we're already back here)
           return false;
         }
-
-        // Check if we should return to FullScreenMusic
         if (returnToFullScreen || fullScreenNavigationTarget === 'ArtistPage') {
-          // Clear the navigation target
           setFullScreenNavigationTarget(null);
 
-          // CRITICAL: First go back in navigation stack to remove ArtistPage
           if (navigation.canGoBack()) {
             navigation.goBack();
           }
 
-          // Then reopen FullScreenMusic
           setTimeout(() => {
             setIndex(1);
           }, 50);
 
-          return true; // Prevent default back behavior
+          return true;
         }
-        return false; // Let default back behavior happen
+        return false;
       };
 
       const backHandler = BackHandler.addEventListener(
@@ -124,7 +115,6 @@ const ArtistPage = () => {
     ])
   );
 
-  // Track when we push a nested screen
   const navigateToSectionList = useCallback(
     (endpoint, title, type) => {
       pushedNestedScreen.current = true;
@@ -133,7 +123,6 @@ const ArtistPage = () => {
     [navigation]
   );
 
-  // Use existing hooks for data (works for both Saavn and YTMusic)
   const { artistData, loading, refreshing, onRefresh } = useArtistData(
     safeArtistId,
     source
@@ -228,7 +217,7 @@ const ArtistPage = () => {
           setYtArtist(data.artist);
           setYtSections(data.sections || []);
         }
-      } catch (e) {}
+      } catch (e) { }
     }
   };
 
@@ -377,29 +366,40 @@ const ArtistPage = () => {
 
             {/* Action Buttons */}
             <View style={styles.actionButtons}>
-              <Button
-                mode="contained"
-                icon="shuffle"
+              <TouchableOpacity
                 onPress={shufflePlay}
                 style={[
-                  styles.shuffleButton,
+                  styles.customShuffleButton,
                   { backgroundColor: theme.colors.primary },
                 ]}
-                labelStyle={[styles.buttonLabel, { color: '#fff' }]}
-                contentStyle={styles.buttonContent}
               >
-                Shuffle
-              </Button>
-              <Button
-                mode="outlined"
-                icon="radio"
-                onPress={playRadio}
-                style={styles.radioButton}
-                labelStyle={[styles.buttonLabel, { color: '#fff' }]}
-                contentStyle={styles.buttonContent}
-              >
-                Radio
-              </Button>
+                <Ionicons name="shuffle" size={20} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={[styles.buttonLabel, { color: '#fff', fontSize: 16, fontWeight: '600' }]}>
+                  Shuffle
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={playRadio} style={{ flex: 1 }}>
+                <GlassBox
+                  id="artist-radio"
+                  style={styles.glassRadioButton}
+                  gradientConfig={{
+                    x1: '0%', y1: '0%', x2: '12%', y2: '172%',
+                    stops: [
+                      { offset: '0%', opacity: 0.5 },
+                      { offset: '25%', opacity: 0.5 },
+                      { offset: '40%', opacity: 0.0 },
+                      { offset: '50%', opacity: 0.0 },
+                      { offset: '65%', opacity: 0.5 },
+                      { offset: '100%', opacity: 0.5 },
+                    ],
+                  }}
+                >
+                  <Ionicons name="radio" size={20} color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={[styles.buttonLabel, { color: '#fff', fontSize: 16, fontWeight: '600' }]}>
+                    Radio
+                  </Text>
+                </GlassBox>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -815,13 +815,24 @@ const SectionHeader = React.memo(({ title, hasMore, theme, onViewMore }) => (
       {title}
     </Text>
     {hasMore && (
-      <IconButton
-        icon="arrow-right"
-        size={24}
-        iconColor={theme.colors.primary}
-        onPress={onViewMore}
-        style={{ margin: 0, padding: 0 }} // Remove default margins
-      />
+      <Pressable onPress={onViewMore}>
+        <GlassBox
+          id={`more-${title}`}
+          style={styles.glassIconContainer}
+          gradientConfig={{
+            x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+            stops: [
+              { offset: '0%', opacity: 0.5 },
+              { offset: '25%', opacity: 0.5 },
+              { offset: '50%', opacity: 0.0 },
+              { offset: '75%', opacity: 0.5 },
+              { offset: '100%', opacity: 0.5 },
+            ],
+          }}
+        >
+          <Ionicons name="arrow-forward" size={20} color={theme.dark ? '#FFFFFF' : theme.colors.text} />
+        </GlassBox>
+      </Pressable>
     )}
   </View>
 ));
@@ -944,7 +955,7 @@ const styles = StyleSheet.create({
   },
   heroImage: { width: '100%', height: '100%', position: 'absolute' },
   heroGradient: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
-  heroContent: { position: 'absolute', bottom: 44, left: 24, right: 24 },
+  heroContent: { position: 'absolute', bottom: 48, left: 24, right: 24 },
   artistNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -964,16 +975,39 @@ const styles = StyleSheet.create({
   },
   actionButtons: { flexDirection: 'row', gap: 12, marginTop: 24 },
   shuffleButton: { flex: 1, borderRadius: 32 },
+  customShuffleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: 32,
+  },
   radioButton: {
     flex: 1,
     borderRadius: 32,
     borderColor: 'rgba(255,255,255,0.5)',
   },
+  glassRadioButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: 32,
+    width: '100%',
+  },
   buttonLabel: { fontSize: 16, fontWeight: '600', color: '#000' },
   buttonContent: { height: 48 },
 
   // Sections
-  section: { marginTop: 0, paddingHorizontal: 0 },
+  section: { marginTop: -4, paddingHorizontal: 0 },
+  glassIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',

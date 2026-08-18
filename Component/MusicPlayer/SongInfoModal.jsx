@@ -19,6 +19,8 @@ import {
   Surface,
 } from 'react-native-paper';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { BlurredBackground } from './Background';
+import { useThemeContext } from '../../Context/ThemeContext';
 import useSongDetails from '../../hooks/useSongDetails';
 
 const styles = StyleSheet.create({
@@ -150,8 +152,8 @@ const InfoSection = ({ title, icon, children }) => {
 
   return (
     <Surface
-      style={[styles.sectionSurface, { backgroundColor: theme.colors.surface }]}
-      elevation={2}
+      style={[styles.sectionSurface, { backgroundColor: theme.dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}
+      elevation={0}
     >
       <View
         style={[
@@ -181,6 +183,7 @@ const InfoSection = ({ title, icon, children }) => {
 
 const SongInfoModal = ({ visible, onDismiss, track }) => {
   const theme = useTheme();
+  const { themeMode } = useThemeContext();
   const dimensions = useWindowDimensions();
   const { songDetails, loading, error, reload } = useSongDetails(track);
 
@@ -195,6 +198,9 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
       'Unknown Artist',
     [track?.artist, songDetails?.basicInfo]
   );
+
+  const artworkUrl = songDetails?.imageUrl || track?.artwork || track?.image;
+  const artworkSource = artworkUrl ? { uri: artworkUrl } : null;
 
   const renderSection = (title, icon, rows) => {
     if (!rows || rows.length === 0) {
@@ -298,18 +304,39 @@ const SongInfoModal = ({ visible, onDismiss, track }) => {
         ]}
       >
         <Surface
-          elevation={4}
+          elevation={0}
           style={[
             styles.modalSurface,
-            { backgroundColor: theme.colors.background },
+            { backgroundColor: 'transparent' },
           ]}
         >
+          {/* Colorful blurred background using song artwork */}
+          <BlurredBackground
+            source={artworkSource}
+            blurRadius={35}
+            overlayGradient={
+              themeMode === 'light'
+                ? [
+                    'rgba(244,245,252,0.5)',
+                    'rgba(244,245,252,0.6)',
+                    'rgba(244,245,252,0.7)',
+                    'rgba(244,245,252,0.85)'
+                  ]
+                : [
+                    'rgba(10,10,10,0.5)',
+                    'rgba(10,10,10,0.6)',
+                    'rgba(10,10,10,0.7)',
+                    'rgba(10,10,10,0.85)'
+                  ]
+            }
+          />
+
           <View
             style={[
               styles.header,
               {
                 borderBottomColor: theme.colors.outlineVariant,
-                backgroundColor: theme.colors.surface,
+                backgroundColor: 'transparent',
               },
             ]}
           >

@@ -17,6 +17,8 @@ import { AddPlaylist } from '../MusicPlayerFunctions';
 
 import { SongsListSkeleton } from '../Component/Global/SongsListSkeleton';
 import { GridSkeleton } from '../Component/Global/GridSkeleton';
+import { GlassBox } from '../Component/Global/GlassBox';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const SectionListPage = () => {
   const theme = useTheme();
@@ -220,7 +222,24 @@ const SectionListPage = () => {
       <View
         style={[styles.header, { backgroundColor: theme.colors.background }]}
       >
-        <IconButton icon="arrow-left" onPress={() => navigation.goBack()} />
+        <Pressable onPress={() => navigation.goBack()}>
+          <GlassBox
+            id="back-btn"
+            style={styles.glassIconContainer}
+            gradientConfig={{
+              x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+              stops: [
+                { offset: '0%', opacity: 0.5 },
+                { offset: '25%', opacity: 0.5 },
+                { offset: '50%', opacity: 0.0 },
+                { offset: '75%', opacity: 0.5 },
+                { offset: '100%', opacity: 0.5 },
+              ],
+            }}
+          >
+            <Icon name="arrow-left" size={24} color={theme.colors.text} />
+          </GlassBox>
+        </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {pageTitle}
         </Text>
@@ -269,12 +288,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
-    paddingHorizontal: 4,
-    // elevation: 0, // Removed elevation
-    // zIndex: 10,
+    paddingHorizontal: 8,
+  },
+  glassIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     marginLeft: 8,
     flex: 1,

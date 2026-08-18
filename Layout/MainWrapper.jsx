@@ -10,13 +10,14 @@ LogBox.ignoreLogs([
   'Possible Unhandled Promise Rejection',
 ]);
 
-export const MainWrapper = memo(function MainWrapper({ children }) {
+export const MainWrapper = memo(function MainWrapper({ children, edges }) {
   const theme = useTheme();
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={edges}>
       <StatusBar
-        backgroundColor={theme.colors.background}
+        backgroundColor="transparent"
+        translucent={true}
         barStyle={theme.dark ? 'light-content' : 'dark-content'}
         animated={true}
       />

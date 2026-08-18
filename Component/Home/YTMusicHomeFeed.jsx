@@ -21,6 +21,7 @@ import { EachAlbumCard } from '../Global/EachAlbumCard';
 import { EachSongCard } from '../Global/EachSongCard';
 import { PlaylistRowSkeleton } from './PlaylistRowSkeleton';
 import { QuickPicksSkeleton } from './YTMusic/QuickPicksSkeleton';
+import { QuickPicksCarousel } from './YTMusic/QuickPicksCarousel';
 import YouTubeMusicService from '../../Utils/YouTubeMusicService';
 import ytAuthService from '../../Utils/YouTubeAuthService';
 import localRecommendationService from '../../Utils/LocalRecommendationService';
@@ -144,54 +145,10 @@ const getBestThumbnail = (thumbnails, videoId = null) => {
   return null;
 };
 
-// Quick Picks section - uses EachSongCard in horizontal scroll (original Orbit style)
-const QuickPicksSection = ({ title, songs }) => {
-  if (!songs || songs.length === 0) {
-    return null;
-  }
-
-  // Split songs into columns for horizontal scrolling
-  const SONGS_PER_COLUMN = 4;
-  const columns = [];
-  for (let i = 0; i < songs.length; i += SONGS_PER_COLUMN) {
-    columns.push(songs.slice(i, i + SONGS_PER_COLUMN));
-  }
-
-  return (
-    <View style={styles.sectionContainer}>
-      <View style={styles.headingContainer}>
-        <Heading text={title} />
-      </View>
-      <FlatList
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.quickPicksContainer}
-        data={columns}
-        keyExtractor={(_, index) => `column-${index}`}
-        renderItem={({ item: columnSongs }) => (
-          <View style={styles.quickPicksColumn}>
-            {columnSongs.map((song, idx) => (
-              <EachSongCard
-                key={`${song.videoId || song.id}-${idx}`}
-                title={song.title || song.name}
-                artist={song.artist || song.artists?.[0]?.name || ''}
-                image={getBestThumbnail(song.thumbnails, song.videoId)}
-                id={song.videoId || song.id}
-                duration={song.duration}
-                source="ytmusic"
-                width={SCREEN_WIDTH * 0.85}
-                titleandartistwidth={SCREEN_WIDTH * 0.55}
-              />
-            ))}
-          </View>
-        )}
-      />
-    </View>
-  );
-};
+// Old QuickPicksSection removed in favor of QuickPicksCarousel
 
 // Section for playlists/albums using existing Orbit cards
-const ContentSection = ({ title, items, type }) => {
+const ContentSection = React.memo(({ title, items, type }) => {
   if (!items || items.length === 0) {
     return null;
   }
@@ -209,6 +166,9 @@ const ContentSection = ({ title, items, type }) => {
         keyExtractor={(item, index) =>
           `${type}-${item.id || item.browseId || item.playlistId}-${index}`
         }
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={5}
         renderItem={({ item }) => {
           const thumbnail = getBestThumbnail(item.thumbnails || item.thumbnail);
           const itemTitle = item.title || item.name || '';
@@ -249,10 +209,10 @@ const ContentSection = ({ title, items, type }) => {
       />
     </View>
   );
-};
+});
 
 // Artist section with circular images
-const ArtistSection = ({ title, items }) => {
+const ArtistSection = React.memo(({ title, items }) => {
   const { colors } = useTheme();
 
   if (!items || items.length === 0) {
@@ -272,6 +232,9 @@ const ArtistSection = ({ title, items }) => {
         keyExtractor={(item, index) =>
           `artist-${item.browseId || item.id}-${index}`
         }
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={5}
         renderItem={({ item }) => (
           <EachPlaylistCard
             image={getBestThumbnail(item.thumbnails || item.thumbnail)}
@@ -286,7 +249,7 @@ const ArtistSection = ({ title, items }) => {
       />
     </View>
   );
-};
+});
 
 export const YTMusicHomeFeed = forwardRef(
   ({ refreshing, onRefreshComplete }, ref) => {
@@ -563,7 +526,7 @@ const fetchHomeData = async (forceRefresh = false) => {
           // Quick Picks / Song sections
           if (section.type === 'songs' && section.songs?.length > 0) {
             return (
-              <QuickPicksSection
+              <QuickPicksCarousel
                 key={`section-${index}`}
                 title={section.title}
                 songs={section.songs}

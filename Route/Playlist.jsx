@@ -22,6 +22,7 @@ import {
   CommonActions,
   useTheme,
 } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Spacer } from '../Component/Global/Spacer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -123,6 +124,7 @@ export const Playlist = ({
   const theme = useTheme();
   const activeTrack = useActiveTrack();
   const playbackState = usePlaybackState();
+  const insets = useSafeAreaInsets();
 
   // Safely destructure route.params with default values
   const {
@@ -692,17 +694,19 @@ export const Playlist = ({
   // NOTE: This early return is placed AFTER all hooks to comply with React rules
   if (!id) {
     // If still loading or haven't attempted fetch yet, show skeleton instead of error
-    if (Loading || !dataFetchAttempted) {
+      if (Loading || !dataFetchAttempted) {
       return (
-        <MainWrapper>
-          <DetailSkeletonLoader type="playlist" />
+        <MainWrapper edges={['right', 'bottom', 'left']}>
+          <View style={{ paddingTop: insets.top, flex: 1 }}>
+            <DetailSkeletonLoader type="playlist" />
+          </View>
         </MainWrapper>
       );
     }
     // Only show error if we've truly failed to recover/load
     return (
-      <MainWrapper>
-        <View style={styles.errorContainer}>
+      <MainWrapper edges={['right', 'bottom', 'left']}>
+        <View style={[styles.errorContainer, { paddingTop: insets.top }]}>
           <PlainText text={'Playlist not available'} />
           <SmallText text={'No playlist ID found'} />
           <Spacer height={20} />
@@ -725,12 +729,16 @@ export const Playlist = ({
   }
 
   return (
-    <MainWrapper>
-      {Loading && <DetailSkeletonLoader type="playlist" />}
+    <MainWrapper edges={['right', 'bottom', 'left']}>
+      {Loading && (
+        <View style={{ paddingTop: insets.top, flex: 1 }}>
+          <DetailSkeletonLoader type="playlist" />
+        </View>
+      )}
       {!Loading &&
         dataFetchAttempted &&
         (!Data?.data?.songs || Data?.data?.songs?.length === 0) && (
-          <View style={styles.emptyContainer}>
+          <View style={[styles.emptyContainer, { paddingTop: insets.top }]}>
             <PlainText
               text="Playlist is empty or not available"
               style={styles.centeredText}
@@ -745,7 +753,7 @@ export const Playlist = ({
         <View
           style={{
             flex: 1,
-            backgroundColor: theme.dark ? theme.colors.background : '#FFFFFF',
+            backgroundColor: 'transparent',
           }}
         >
           <FlatList
@@ -754,8 +762,9 @@ export const Playlist = ({
             keyExtractor={keyExtractor}
             ListHeaderComponent={renderHeader}
             contentContainerStyle={{
+              paddingTop: insets.top,
               paddingBottom: 150,
-              backgroundColor: theme.dark ? theme.colors.background : '#FFFFFF',
+              backgroundColor: 'transparent',
             }}
             style={{
               backgroundColor: 'transparent',
@@ -765,6 +774,9 @@ export const Playlist = ({
             windowSize={5}
             removeClippedSubviews={true}
             showsVerticalScrollIndicator={true}
+            ItemSeparatorComponent={() => (
+              <View style={{ height: 1, backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', marginHorizontal: 15 }} />
+            )}
           />
         </View>
       )}

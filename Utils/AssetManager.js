@@ -39,27 +39,53 @@ class AssetManager {
   }
 
   /**
-   * Preload critical assets for better performance
+   * Preload only the absolute minimal critical assets for faster startup
+   * Other images are lazy loaded as needed
    */
   async preloadCriticalAssets() {
+    // Only preload images needed for the initial screen render
     const criticalImages = [
-      ImageManager.OPTIMIZED_IMAGES.PLAYING_ANIMATION,
-      ImageManager.OPTIMIZED_IMAGES.PAUSED_ANIMATION,
       ImageManager.OPTIMIZED_IMAGES.DEFAULT_MUSIC,
       ImageManager.OPTIMIZED_IMAGES.DEFAULT_ALBUM,
     ];
 
     try {
-      // Convert require() results to URIs for preloading
       const imageUris = criticalImages
-        .filter((img) => typeof img === 'number') // require() results are numbers
+        .filter((img) => typeof img === 'number')
+        .map((img) => ({ uri: img }));
+
+      if (imageUris.length > 0) {
+        await FastImage.preload(imageUris);
+      }
+
+      // Defer non-essential image preloading to after app is interactive
+      setTimeout(() => {
+        this.preloadDeferredAssets();
+      }, 1000);
+    } catch (error) {
+      // Silent fail for image preloading
+    }
+  }
+
+  /**
+   * Preload non-essential images after app is interactive
+   */
+  async preloadDeferredAssets() {
+    const deferredImages = [
+      ImageManager.OPTIMIZED_IMAGES.PLAYING_ANIMATION,
+      ImageManager.OPTIMIZED_IMAGES.PAUSED_ANIMATION,
+    ];
+
+    try {
+      const imageUris = deferredImages
+        .filter((img) => typeof img === 'number')
         .map((img) => ({ uri: img }));
 
       if (imageUris.length > 0) {
         await FastImage.preload(imageUris);
       }
     } catch (error) {
-      console.warn('⚠️ Failed to preload some images:', error);
+      // Silent fail for deferred preloading
     }
   }
 

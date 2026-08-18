@@ -1,5 +1,5 @@
 import Context from './Context';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { AppState, DeviceEventEmitter } from 'react-native';
 import TrackPlayer, {
   Event,
@@ -8,11 +8,8 @@ import TrackPlayer, {
 import { getRecommendedSongs } from '../Api/Recommended';
 import { AddSongsToQueue } from '../MusicPlayerFunctions';
 import FormatArtist from '../Utils/FormatArtists';
-
-import { SetQueueSongs } from '../LocalStorage/storeQueue';
 import { EachSongMenuModal } from '../Component/Global/EachSongMenuModal';
 import { CacheManager as LegacyCacheManager } from '../Utils/CacheManager';
-import { CacheManager } from '../Utils/NavigationCacheManager';
 import historyManager from '../Utils/HistoryManager';
 
 // Repeat constants
@@ -79,12 +76,12 @@ const ContextState = (props) => {
             QueueRef.current.length > 0 &&
             (tracks[0]?.id !== QueueRef.current[0]?.id ||
               tracks[tracks.length - 1]?.id !==
-                QueueRef.current[QueueRef.current.length - 1]?.id));
+              QueueRef.current[QueueRef.current.length - 1]?.id));
 
         if (hasChanged || tracks.length > QueueRef.current.length) {
           setQueue(tracks);
         }
-      } catch (error) {}
+      } catch (error) { }
     });
   }
 
@@ -218,7 +215,7 @@ const ContextState = (props) => {
                   await TrackPlayer.play();
                   return; // Recovery successful, don't skip
                 }
-              } catch (recoveryError) {}
+              } catch (recoveryError) { }
             }
           }
         } catch (error) {
@@ -285,10 +282,7 @@ const ContextState = (props) => {
           if (event.track?.id) {
             const isStreamingSource =
               event.track.source === 'ytmusic' ||
-              event.track.source === 'spotify' ||
-              event.track.source === 'dab' ||
               event.track.isYTMusic === true ||
-              event.track.mappedFromSpotify === true ||
               (event.track.id?.length === 11 && !event.track.isLocalMusic);
 
             if (isStreamingSource) {
@@ -324,7 +318,7 @@ const ContextState = (props) => {
                       }
                     }
                   });
-                } catch (prefetchError) {}
+                } catch (prefetchError) { }
               });
             }
           }
@@ -524,33 +518,49 @@ const ContextState = (props) => {
       }
     };
   }, []);
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(
+    () => ({
+      currentPlaying,
+      Repeat,
+      setRepeat,
+      updateTrack,
+      Index,
+      setIndex,
+      QueueIndex,
+      setQueueIndex,
+      setVisible,
+      Queue,
+      previousScreen,
+      setPreviousScreen,
+      musicPreviousScreen,
+      setMusicPreviousScreen,
+      currentPlaylistData,
+      setCurrentPlaylistData,
+      updateLikedPlaylist,
+      likedPlaylists,
+      isPlaylistActive,
+      setIsPlaylistActive,
+      fullScreenNavigationTarget,
+      setFullScreenNavigationTarget,
+    }),
+    [
+      currentPlaying,
+      Repeat,
+      Index,
+      QueueIndex,
+      Queue,
+      previousScreen,
+      musicPreviousScreen,
+      currentPlaylistData,
+      likedPlaylists,
+      isPlaylistActive,
+      fullScreenNavigationTarget,
+    ]
+  );
+
   return (
-    <Context.Provider
-      value={{
-        currentPlaying,
-        Repeat,
-        setRepeat,
-        updateTrack,
-        Index,
-        setIndex,
-        QueueIndex,
-        setQueueIndex,
-        setVisible,
-        Queue,
-        previousScreen,
-        setPreviousScreen,
-        musicPreviousScreen,
-        setMusicPreviousScreen,
-        currentPlaylistData,
-        setCurrentPlaylistData,
-        updateLikedPlaylist,
-        likedPlaylists,
-        isPlaylistActive,
-        setIsPlaylistActive,
-        fullScreenNavigationTarget,
-        setFullScreenNavigationTarget,
-      }}
-    >
+    <Context.Provider value={contextValue}>
       {props.children}
       <EachSongMenuModal setVisible={setVisible} Visible={Visible} />
     </Context.Provider>
