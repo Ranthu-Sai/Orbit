@@ -11,11 +11,16 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
-export const SCROLL_SPRING = { duration: 750, dampingRatio: 0.88 };
+// Line handoff: brightness/scale move on the same soft curve and roughly the
+// same duration as the scroll, so a line brightens as it arrives, not before
+const LINE_EASE = Easing.bezier(0.33, 0, 0.2, 1);
+const LINE_IN_MS = 650;
+const LINE_OUT_MS = 750;
+// Critically damped: glides into place without the end-of-move bounce
+export const SCROLL_SPRING = { duration: 900, dampingRatio: 1 };
 // Lines below the active one start their move later, one after another
-const WAVE_STEP_MS = 45;
-const WAVE_MAX_LINES = 8;
+const WAVE_STEP_MS = 35;
+const WAVE_MAX_LINES = 6;
 
 const UNSUNG_OPACITY = 0.3;
 const FEATHER_OPACITY = 0.55;
@@ -172,12 +177,12 @@ const LyricsLine = ({
       const isActive = current === index;
       const distance = current < 0 ? index + 1 : Math.abs(index - current);
       lineActive.value = withTiming(isActive ? 1 : 0, {
-        duration: isActive ? 300 : 500,
-        easing: EASE_OUT,
+        duration: isActive ? LINE_IN_MS : LINE_OUT_MS,
+        easing: LINE_EASE,
       });
       rest.value = withTiming(Math.max(0.16, 0.42 - distance * 0.05), {
-        duration: 500,
-        easing: EASE_OUT,
+        duration: LINE_OUT_MS,
+        easing: LINE_EASE,
       });
     },
     [synced, index]

@@ -130,9 +130,11 @@ function App() {
     }
   };
 
-  const handleUpdateNow = async () => {
-    if (updateInfo?.url) {
-      await updateService.openUpdateLink(updateInfo.url);
+  // link is the APK download or the release page, chosen in the modal
+  const handleUpdateNow = async (link?: string) => {
+    const target = link || updateInfo?.url;
+    if (target) {
+      await updateService.openUpdateLink(target);
     }
   };
 

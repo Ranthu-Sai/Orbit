@@ -23,14 +23,18 @@ const UpdateModal = ({ visible, onDismiss, updateInfo, onUpdate }) => {
     return null;
   }
 
-  const { latestVersion, title, message, url, forceUpdate } = updateInfo;
+  const { latestVersion, title, message, url, apkUrl, forceUpdate } = updateInfo;
 
-  const handleUpdate = async () => {
+  // link: the direct APK download or the release page
+  const openLink = async (link) => {
+    if (!link) {
+      return;
+    }
     if (onUpdate) {
-      onUpdate();
-    } else if (url) {
+      onUpdate(link);
+    } else {
       try {
-        await Linking.openURL(url);
+        await Linking.openURL(link);
       } catch (error) {
         console.error('Failed to open update URL:', error);
       }
@@ -143,7 +147,18 @@ const UpdateModal = ({ visible, onDismiss, updateInfo, onUpdate }) => {
             </View>
           )}
 
-          {/* Buttons */}
+          {/* Buttons: direct APK first when the release has one */}
+          {apkUrl && (
+            <Button
+              mode="contained"
+              onPress={() => openLink(apkUrl)}
+              style={styles.downloadButton}
+              labelStyle={styles.buttonLabel}
+              icon="download"
+            >
+              Download APK
+            </Button>
+          )}
           <View style={styles.buttonContainer}>
             {!forceUpdate && (
               <Button
@@ -157,16 +172,16 @@ const UpdateModal = ({ visible, onDismiss, updateInfo, onUpdate }) => {
             )}
 
             <Button
-              mode="contained"
-              onPress={handleUpdate}
+              mode={apkUrl ? 'outlined' : 'contained'}
+              onPress={() => openLink(url)}
               style={[
                 styles.updateButton,
                 forceUpdate && styles.fullWidthButton,
               ]}
               labelStyle={styles.buttonLabel}
-              icon="download"
+              icon={apkUrl ? 'open-in-new' : 'download'}
             >
-              Update Now
+              {apkUrl ? 'Release Page' : 'Update Now'}
             </Button>
           </View>
         </Surface>
@@ -233,6 +248,9 @@ const styles = StyleSheet.create({
   },
   warningText: {
     flex: 1,
+  },
+  downloadButton: {
+    marginBottom: 12,
   },
   buttonContainer: {
     flexDirection: 'row',

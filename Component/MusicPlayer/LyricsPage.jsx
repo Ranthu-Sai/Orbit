@@ -86,6 +86,12 @@ const { width, height } = Dimensions.get('window');
 
 // Lyrics are shown slightly ahead of the audio so the eye leads the voice
 const LYRICS_LEAD_MS = 60;
+// The move to the next line starts this much before it is sung, so the
+// handoff is underway as the previous line's last word finishes
+const LINE_HANDOFF_LEAD_MS = 150;
+// Karaoke words for upcoming lines are created after the scroll settles,
+// never in the same frame as a line change
+const KARAOKE_WINDOW_DELAY_MS = 1000;
 // Clock drift beyond this means a seek happened: snap instead of easing
 const CLOCK_SNAP_MS = 300;
 const CLOCK_SYNC_INTERVAL_MS = 250;
@@ -281,6 +287,23 @@ const LyricsPage = ({
   const [isUserScrolling, setIsUserScrolling] = useState(false);
 
   const { lines, synced } = useMemo(() => buildLyricLines(lyrics), [lyrics]);
+
+  // Lines in [center - 1, center + 2] render karaoke words. The center trails
+  // the active line, so the next line is already built when it becomes active
+  const [karaokeCenter, setKaraokeCenter] = useState(-1);
+  useEffect(() => {
+    const covered =
+      activeLineIndex >= karaokeCenter && activeLineIndex <= karaokeCenter + 1;
+    if (!covered) {
+      setKaraokeCenter(activeLineIndex);
+      return undefined;
+    }
+    const timer = setTimeout(
+      () => setKaraokeCenter(activeLineIndex),
+      KARAOKE_WINDOW_DELAY_MS
+    );
+    return () => clearTimeout(timer);
+  }, [activeLineIndex, karaokeCenter]);
   const [activeProvider, setActiveProvider] = useState('LrcLib');
   const [fontSize, setFontSize] = useState(26);
   const [lyricsTheme, setLyricsTheme] = useState('Blur');
@@ -457,7 +480,7 @@ const LyricsPage = ({
   useAnimatedReaction(
     () => {
       const starts = lineStarts.value;
-      const t = timeMs.value + LYRICS_LEAD_MS;
+      const t = timeMs.value + LYRICS_LEAD_MS + LINE_HANDOFF_LEAD_MS;
       let idx = -1;
       for (let i = 0; i < starts.length; i++) {
         if (starts[i] <= t) idx = i;
@@ -832,7 +855,9 @@ const LyricsPage = ({
                     key={line.key}
                     line={line}
                     index={index}
-                    isNear={Math.abs(index - activeLineIndex) <= 1}
+                    isNear={
+                      index >= karaokeCenter - 1 && index <= karaokeCenter + 2
+                    }
                     activeIndex={activeIndexSV}
                     scrollCmd={scrollCmd}
                     scrollPos={scrollPos}
