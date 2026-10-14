@@ -26,24 +26,28 @@ const parseLRC = (lrcString) => {
   }
   const lines = lrcString.split('\n');
   const lyrics = [];
-  const timeRegex = /^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$/;
+  // Handles [mm:ss.xx], [m:ss], and several timestamps sharing one line
+  const tagRegex = /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
 
   lines.forEach((line) => {
-    const match = line.match(timeRegex);
-    if (match) {
-      const minutes = parseInt(match[1], 10);
-      const seconds = parseInt(match[2], 10);
-      const msString = match[3];
-      const milliseconds = parseInt(
-        msString.length === 2 ? msString + '0' : msString,
-        10
+    const times = [];
+    let match;
+    let lastIndex = 0;
+    tagRegex.lastIndex = 0;
+    while ((match = tagRegex.exec(line)) !== null) {
+      if (match.index !== lastIndex) break;
+      const fraction = match[3] || '0';
+      const milliseconds = parseInt(fraction.padEnd(3, '0'), 10);
+      times.push(
+        parseInt(match[1], 10) * 60000 +
+          parseInt(match[2], 10) * 1000 +
+          milliseconds
       );
-      const time = minutes * 60 * 1000 + seconds * 1000 + milliseconds;
-      const text = match[4].trim();
-      if (text) {
-        lyrics.push({ time, text });
-      }
+      lastIndex = tagRegex.lastIndex;
     }
+    // Empty lines are kept: they mark where the previous line stops being sung
+    const text = line.slice(lastIndex).trim();
+    times.forEach((time) => lyrics.push({ time, text }));
   });
   return lyrics.sort((a, b) => a.time - b.time);
 };
