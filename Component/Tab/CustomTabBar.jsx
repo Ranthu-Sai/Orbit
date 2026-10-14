@@ -218,12 +218,22 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
       ]}
     >
       <View style={[StyleSheet.absoluteFill, { borderRadius: 35, overflow: 'hidden', zIndex: -1 }]}>
-        <BlurView
-          style={StyleSheet.absoluteFill}
-          blurType={dark ? 'dark' : 'light'}
-          blurAmount={8}
-          reducedTransparencyFallbackColor={dark ? 'rgba(18,18,18,0.85)' : 'rgba(255,255,255,0.85)'}
-        />
+        {/* TEMP DIAGNOSTIC: live blur disabled on Android to test the blank-screen bug */}
+        {Platform.OS === 'ios' ? (
+          <BlurView
+            style={StyleSheet.absoluteFill}
+            blurType={dark ? 'dark' : 'light'}
+            blurAmount={8}
+            reducedTransparencyFallbackColor={dark ? 'rgba(18,18,18,0.85)' : 'rgba(255,255,255,0.85)'}
+          />
+        ) : (
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: dark ? 'rgba(18,18,18,0.85)' : 'rgba(255,255,255,0.85)' },
+            ]}
+          />
+        )}
       </View>
       {state.routes.map((route, index) => (
         <TabItem

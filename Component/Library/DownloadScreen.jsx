@@ -69,19 +69,18 @@ export default function DownloadScreen(props) {
     // Track active user for analytics
     analyticsService.trackActiveUser();
 
-    // Listen for download complete to clear cache
-    const FastOrbitScanner = require('../../Utils/FastOrbitScanner').default;
-    const downloadListener = (eventData) => {
-      FastOrbitScanner.clearCache();
-      // Reload songs after a short delay
-      setTimeout(() => getDownloadedSongs(), 500);
-    };
-
-    // Note: You'll need to emit 'download-complete' event from your download service
-    // For now, just using a timer as fallback
+    // A finished download lands in the songs folder; quickScan reconciles
+    // the folder with its cache, so no cache clear is needed.
+    const EventRegister = require('../../Utils/EventRegister').default;
+    const listenerId = EventRegister.addEventListener(
+      'download-complete',
+      () => {
+        getDownloadedSongs();
+      }
+    );
 
     return () => {
-      // Cleanup if needed
+      EventRegister.removeEventListener(listenerId);
     };
   }, []);
 

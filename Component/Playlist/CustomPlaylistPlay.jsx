@@ -2,7 +2,11 @@ import React, { useContext, useEffect, useState } from 'react';
 import { useTheme } from '@react-navigation/native';
 import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import TrackPlayer, { useActiveTrack } from 'react-native-track-player';
+import TrackPlayer, {
+  useActiveTrack,
+  Event,
+  State,
+} from 'react-native-track-player';
 import Context from '../../Context/Context';
 
 export const CustomPlaylistPlay = ({
@@ -30,53 +34,41 @@ export const CustomPlaylistPlay = ({
 
   // Check if this playlist is currently playing
   useEffect(() => {
+    let active = true;
     const checkPlaybackState = async () => {
       try {
-        // Check if player is playing
-        const playerState = await TrackPlayer.getState();
-        const isPlayerPlaying = playerState === TrackPlayer.STATE_PLAYING;
+        // RNTP v4 API. TrackPlayer.STATE_PLAYING no longer exists (reads as
+        // undefined), so the old check never saw "playing" and the button
+        // never showed "pause"
+        const { state: playerState } = await TrackPlayer.getPlaybackState();
+        const isPlayerPlaying = playerState === State.Playing;
 
-        // Check if current track is from this playlist
-        if (isPlayerPlaying && currentPlaying) {
-          const queue = await TrackPlayer.getQueue();
+        // Playing *this* playlist means the active track belongs to it
+        // (checking the whole queue stayed true after moving on elsewhere)
+        const isPlaylistPlaying =
+          isPlayerPlaying &&
+          !!currentPlaying &&
+          songs.some((song) => song && song.id === currentPlaying.id);
 
-          // Create a set of playlist song IDs for faster lookup
-          const playlistSongIds = new Set();
-          songs.forEach((song) => {
-            if (song && song.id) {
-              playlistSongIds.add(song.id);
-            }
-          });
-
-          // Check if any queue item is from this playlist
-          const isPlaylistPlaying = queue.some((track) =>
-            playlistSongIds.has(track.id)
-          );
-
+        if (active) {
           setIsPlaying(isPlaylistPlaying);
-        } else {
-          setIsPlaying(false);
         }
       } catch (error) {
-        console.error('Error checking playback state:', error);
-        setIsPlaying(false);
+        if (active) {
+          setIsPlaying(false);
+        }
       }
     };
 
-    // Check initially
+    // Check initially, then on every play/pause change (no polling)
     checkPlaybackState();
-
-    // Setup interval to check regularly
-    const checkInterval = setInterval(checkPlaybackState, 2000);
-
-    // Listen for track player events
     const playerStateListener = TrackPlayer.addEventListener(
-      'playback-state',
+      Event.PlaybackState,
       () => checkPlaybackState()
     );
 
     return () => {
-      clearInterval(checkInterval);
+      active = false;
       playerStateListener.remove();
     };
   }, [currentPlaying, songs, playlistId]);

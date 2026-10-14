@@ -57,21 +57,9 @@ export class LocalTracksMetadataProcessor {
         return null;
       }
 
-      // Get file paths
-      const filePaths = await this.resolveFilePaths(songId);
+      // Resolve the real file on disk (null when it no longer exists)
+      const filePaths = await this.resolveFilePaths(songId, metadata);
       if (!filePaths.songPath) {
-        console.warn(
-          `LocalTracksMetadataProcessor: Song file not found for ${songId}`
-        );
-        return null;
-      }
-
-      // Verify file exists
-      const songExists = await StorageManager.isSongDownloaded(songId);
-      if (!songExists) {
-        console.warn(
-          `LocalTracksMetadataProcessor: Song file does not exist for ${songId}`
-        );
         return null;
       }
 
@@ -123,11 +111,15 @@ export class LocalTracksMetadataProcessor {
   /**
    * Resolve file paths for a track
    * @param {string} songId - The song ID
+   * @param {Object} metadata - Stored download metadata (title, source)
    * @returns {Object} Object containing songPath and artworkPath
    */
-  static async resolveFilePaths(songId) {
+  static async resolveFilePaths(songId, metadata = null) {
     try {
-      const songPath = await StorageManager.getSongPath(songId);
+      const songPath = await StorageManager.resolveDownloadedSongPath(
+        songId,
+        metadata
+      );
       const artworkPath = await StorageManager.getArtworkPath(songId);
 
       return {
@@ -155,6 +147,10 @@ export class LocalTracksMetadataProcessor {
    */
   static createTrackObject(songId, metadata, filePaths) {
     const { songPath, artworkPath } = filePaths;
+    // The artwork file only exists when the download saved it separately
+    const artwork = metadata.localArtworkPath
+      ? `file://${artworkPath}`
+      : metadata.artwork || null;
 
     return {
       id: songId,
@@ -163,7 +159,7 @@ export class LocalTracksMetadataProcessor {
       album: metadata.album || 'Unknown Album',
       duration: metadata.duration || 0,
       url: `file://${songPath}`,
-      artwork: artworkPath ? `file://${artworkPath}` : null,
+      artwork,
       localArtworkPath: artworkPath,
       isLocal: true,
       isDownloaded: true,
@@ -177,7 +173,7 @@ export class LocalTracksMetadataProcessor {
       // Override with processed values
       id: songId,
       url: `file://${songPath}`,
-      artwork: artworkPath ? `file://${artworkPath}` : null,
+      artwork,
       isLocal: true,
       isDownloaded: true,
       sourceType: 'download',

@@ -7,9 +7,13 @@ export const SmallText = ({
   color,
   style,
   maxLine,
+  numberOfLines,
+  ellipsizeMode = 'tail',
   selectable,
   isArtistName,
 }) => {
+  // Accept the standard RN prop name as well as the legacy maxLine
+  const lines = numberOfLines !== undefined ? numberOfLines : maxLine || 2;
   const [Size, setSize] = useState(10);
   async function getFont() {
     const data = await GetFontSizeValue();
@@ -28,7 +32,8 @@ export const SmallText = ({
   return (
     <Text
       selectable={selectable}
-      numberOfLines={maxLine ? maxLine : 2}
+      numberOfLines={lines}
+      ellipsizeMode={ellipsizeMode}
       style={{
         color: !color ? undefined : color,
         fontSize: Size,

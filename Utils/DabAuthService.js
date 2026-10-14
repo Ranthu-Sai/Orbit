@@ -1,8 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import SecureStore from './SecureStore';
 
 /**
  * DAB Music Authentication Service
- * Manages user authentication state and session storage
+ * Manages user authentication state and session storage.
+ *
+ * The session token is stored in the encrypted Keystore via SecureStore
+ * (migrated from plaintext AsyncStorage). User profile info is non-secret
+ * and stays in AsyncStorage.
  */
 
 const DAB_USER_KEY = '@dab_user';
@@ -20,6 +25,9 @@ class DabAuthService {
    */
   async init() {
     try {
+      // Move any legacy plaintext session token into encrypted storage once.
+      await SecureStore.migrateFromAsyncStorage();
+
       const userData = await AsyncStorage.getItem(DAB_USER_KEY);
       if (userData) {
         this.user = JSON.parse(userData);
@@ -71,7 +79,7 @@ class DabAuthService {
       this.user = null;
       this.isAuthenticated = false;
       await AsyncStorage.removeItem(DAB_USER_KEY);
-      await AsyncStorage.removeItem(DAB_SESSION_KEY);
+      await SecureStore.removeItem(DAB_SESSION_KEY);
       this.notifyListeners();
     } catch (error) {
       console.error('Error clearing DAB user:', error);
@@ -85,7 +93,7 @@ class DabAuthService {
    */
   async setSessionToken(token) {
     try {
-      await AsyncStorage.setItem(DAB_SESSION_KEY, token);
+      await SecureStore.setItem(DAB_SESSION_KEY, token);
     } catch (error) {
       console.error('Error setting DAB session token:', error);
       throw error;
@@ -98,7 +106,7 @@ class DabAuthService {
    */
   async getSessionToken() {
     try {
-      return await AsyncStorage.getItem(DAB_SESSION_KEY);
+      return await SecureStore.getItem(DAB_SESSION_KEY);
     } catch (error) {
       console.error('Error getting DAB session token:', error);
       return null;

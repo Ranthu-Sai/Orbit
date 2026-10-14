@@ -1,6 +1,6 @@
 {
   "name": "Orbit",
-  "version": "4.0.0",
+  "version": "4.5.0",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
@@ -46,6 +46,7 @@
     "react-native-get-music-files": "^2.2.4",
     "react-native-get-random-values": "^1.11.0",
     "react-native-image-colors": "^1.5.2",
+    "react-native-keychain": "^8.2.0",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-modal": "^13.0.1",
     "react-native-paper": "^5.14.5",

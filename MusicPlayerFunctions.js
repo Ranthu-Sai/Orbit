@@ -3,10 +3,10 @@ import TrackPlayer from 'react-native-track-player';
 import { GetPlaybackQuality } from './LocalStorage/AppSettings';
 import NetInfo from '@react-native-community/netinfo';
 import {
-  ToastAndroid,
   DeviceEventEmitter,
   InteractionManager,
 } from 'react-native';
+import { showToast } from './Utils/ToastUtils';
 import historyManager from './Utils/HistoryManager';
 
 import dabMusicService from './Utils/DabMusicService';
@@ -31,10 +31,28 @@ import {
 
 let isPlayerInitialized = false;
 
+// Monotonic token for PlayOneSong invocations. When two songs are requested in
+// quick succession, both fetches run concurrently; only the LATEST request may
+// commit to TrackPlayer, so the earlier one aborts instead of overwriting the
+// newer selection with a stale stream (the "wrong song plays" race).
+let playRequestGeneration = 0;
+
 // PERFORMANCE: Cache quality index to avoid repeated AsyncStorage calls
 let cachedQualityIndex = null;
 let qualityCacheTimestamp = 0;
 const QUALITY_CACHE_TTL = 60000; // 1 minute cache TTL
+
+/** Quality setting index, cached for QUALITY_CACHE_TTL to avoid storage reads per play. */
+const getCachedQualityIndex = async () => {
+  if (
+    cachedQualityIndex === null ||
+    Date.now() - qualityCacheTimestamp > QUALITY_CACHE_TTL
+  ) {
+    cachedQualityIndex = await getIndexQuality();
+    qualityCacheTimestamp = Date.now();
+  }
+  return cachedQualityIndex;
+};
 
 // Helper to extract artwork URL from various formats
 const extractArtwork = (song) => {
@@ -171,6 +189,11 @@ await TrackPlayer.setupPlayer({
 };
 
 async function PlayOneSong(song) {
+  const requestGeneration = ++playRequestGeneration;
+
+  /** True once a newer PlayOneSong call has superseded this one. */
+  const isStale = () => requestGeneration !== playRequestGeneration;
+
   try {
     // Validate song object
     if (!song) {
@@ -222,6 +245,11 @@ async function PlayOneSong(song) {
         );
 
         if (streamData && streamData.url) {
+          // RACE GUARD: a newer request superseded this one while we awaited
+          // the stream fetch - drop it before doing any further work.
+          if (isStale()) {
+            return;
+          }
           // Verbose logging removed for cleaner console
           playbackUrl = streamData.url;
           // Update song with stream data and headers
@@ -250,10 +278,7 @@ async function PlayOneSong(song) {
           skipOperationManager.resetErrorCounter();
         } else {
           console.error('Failed to get YouTube stream URL');
-          ToastAndroid.show(
-            'Failed to load YouTube stream',
-            ToastAndroid.SHORT
-          );
+          showToast('Failed to load YouTube stream');
           return;
         }
       } catch (error) {
@@ -261,7 +286,7 @@ async function PlayOneSong(song) {
 
         // Don't show toast if operation was cancelled
         if (error.name !== 'AbortError') {
-          ToastAndroid.show('Error loading YouTube stream', ToastAndroid.SHORT);
+          showToast('Error loading YouTube stream');
         }
         return;
       }
@@ -322,15 +347,12 @@ async function PlayOneSong(song) {
           skipOperationManager.resetErrorCounter();
         } else {
           console.error('❌ Failed to find YTMusic match for Spotify track');
-          ToastAndroid.show(
-            'Could not find song on YTMusic',
-            ToastAndroid.SHORT
-          );
+          showToast('Could not find song on YTMusic');
           return;
         }
       } catch (error) {
         console.error('❌ Error mapping Spotify to YTMusic:', error);
-        ToastAndroid.show('Error finding song on YTMusic', ToastAndroid.SHORT);
+        showToast('Error finding song on YTMusic');
         return;
       }
     }
@@ -380,42 +402,55 @@ async function PlayOneSong(song) {
           };
         } else {
           console.error('Failed to get DAB stream URL');
-          ToastAndroid.show('Failed to load DAB stream', ToastAndroid.SHORT);
+          showToast('Failed to load DAB stream', 'SHORT');
           return;
         }
       } catch (error) {
         console.error('❌ Error fetching DAB stream:', error);
-        ToastAndroid.show('Error loading DAB stream', ToastAndroid.SHORT);
+        showToast('Error loading DAB stream', 'SHORT');
         return;
       }
     } else {
-      // If song has multiple quality URLs, select based on setting
-      const resolveTrackUrl = (entries) => {
+      // If song has multiple quality URLs, select based on setting.
+      // The index is passed in: reading an outer `qualityIndex` here hit the
+      // `let` declared further down (TDZ crash, or undefined -> setting ignored).
+      const resolveTrackUrl = (entries, preferredIndex) => {
         if (!Array.isArray(entries)) {
           return '';
         }
         const preferred =
-          entries[qualityIndex] || entries[entries.length - 1] || entries[0];
+          entries[preferredIndex] ||
+          entries[entries.length - 1] ||
+          entries[0];
         if (!preferred || typeof preferred !== 'object') {
           return '';
         }
         return preferred.url || preferred.link || preferred.uri || '';
       };
 
-      if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
-        const qualityIndex = await getIndexQuality();
-        playbackUrl = resolveTrackUrl(song.downloadUrl);
-      } else if (song.download_url && Array.isArray(song.download_url)) {
-        // Alternative format
-        const qualityIndex = await getIndexQuality();
-        playbackUrl = resolveTrackUrl(song.download_url);
+      const qualityEntries = Array.isArray(song.downloadUrl)
+        ? song.downloadUrl
+        : Array.isArray(song.download_url) // Alternative format
+        ? song.download_url
+        : null;
+      if (qualityEntries) {
+        playbackUrl = resolveTrackUrl(
+          qualityEntries,
+          await getCachedQualityIndex()
+        );
       }
+    }
+
+    // RACE GUARD: check again after any stream resolution path (DAB/Spotify
+    // mapping/Saavn quality lookup may also have awaited network calls).
+    if (isStale()) {
+      return;
     }
 
     // Validate song URL
     if (!playbackUrl || typeof playbackUrl !== 'string') {
       console.error('PlayOneSong: Invalid or missing song URL', song);
-      ToastAndroid.show('Cannot play song - invalid URL', ToastAndroid.SHORT);
+      showToast('Cannot play song - invalid URL', 'SHORT');
       return;
     }
 
@@ -446,15 +481,7 @@ async function PlayOneSong(song) {
 
     // Create a copy of the song with the selected playback URL and quality info
     // PERFORMANCE: Use cached quality index if available
-    let qualityIndex = cachedQualityIndex;
-    if (
-      qualityIndex === null ||
-      Date.now() - qualityCacheTimestamp > QUALITY_CACHE_TTL
-    ) {
-      qualityIndex = await getIndexQuality();
-      cachedQualityIndex = qualityIndex;
-      qualityCacheTimestamp = Date.now();
-    }
+    const qualityIndex = await getCachedQualityIndex();
     const qualityNames = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
     const currentQuality = qualityNames[qualityIndex] || 'Unknown';
 
@@ -503,6 +530,13 @@ async function PlayOneSong(song) {
       originalTitle:
         song.name || song.title || updatedSong.name || updatedSong.title,
     };
+
+    // RACE GUARD: another PlayOneSong call started while this one was fetching
+    // its stream. The newer request owns the player - abandon this one without
+    // resetting the queue, otherwise the stale song would clobber it.
+    if (isStale()) {
+      return;
+    }
 
     await TrackPlayer.reset();
     await TrackPlayer.add([songForPlayback]);
@@ -974,14 +1008,25 @@ async function AddPlaylist(songs, startSongId = null) {
         .initialize(
           remainingTracks,
           processSingleSong,
-          0 // Start from beginning of remainingTracks
+          0, // Start from beginning of remainingTracks
+          {
+            // remainingTracks[0] is playlist song #21; song #1 is already
+            // playing, so none of these is the current song
+            indexOffset: INITIAL_BATCH_SIZE,
+            firstSongIsCurrent: false,
+          }
         )
         .then((result) => {
           if (result.success && result.initialBatch.length > 0) {
             // Add the first batch from progressive loader immediately in background
             InteractionManager.runAfterInteractions(async () => {
+              // Don't append this playlist's songs to a newer playlist
+              if (!progressiveQueueLoader.isCurrentSession(result.session)) {
+                return;
+              }
               try {
                 await TrackPlayer.add(result.initialBatch);
+                invalidateQueueSnapshot();
                 DeviceEventEmitter.emit('queue-updated', {
                   count: validInitialSongs.length + result.initialBatch.length,
                   isProgressiveBatch: true,
@@ -1618,7 +1663,7 @@ async function AddOneSongToPlaylist(song) {
         '❌ Invalid song object provided to AddOneSongToPlaylist:',
         song
       );
-      ToastAndroid.show('Invalid song data', ToastAndroid.SHORT);
+      showToast('Invalid song data', 'SHORT');
       return false;
     }
     // Safe image URL extraction
@@ -1662,7 +1707,7 @@ async function AddOneSongToPlaylist(song) {
     return result;
   } catch (error) {
     console.error('❌ Error showing playlist selector bottom sheet:', error);
-    ToastAndroid.show('Error opening playlist selector', ToastAndroid.SHORT);
+    showToast('Error opening playlist selector', 'SHORT');
     return false;
   }
 }

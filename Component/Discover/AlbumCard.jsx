@@ -1,5 +1,6 @@
 import { Pressable, Text, View, Image } from 'react-native';
 import { useNavigation, useTheme } from '@react-navigation/native';
+import { placeholderArtworkUrl } from '../../Utils/PlaceholderArtwork';
 
 export const AlbumCard = ({
   album,
@@ -15,7 +16,7 @@ export const AlbumCard = ({
   const coverImage =
     album?.image?.[album.image.length - 1]?.url ||
     album?.images?.[album.images.length - 1]?.url ||
-    'https://via.placeholder.com/150';
+    placeholderArtworkUrl();
 
   const albumTitle = album?.title || album?.name || 'Unknown Album';
   const albumArtist =

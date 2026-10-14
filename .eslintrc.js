@@ -18,7 +18,9 @@ module.exports = {
     'react-hooks/exhaustive-deps': 'off',
     'prettier/prettier': 'off',
     'no-dupe-keys': 'off',
-    'react-hooks/rules-of-hooks': 'off',
+    // NOTE: rules-of-hooks must stay ON - violating it causes real crashes
+    // (hooks called conditionally). Only exhaustive-deps is relaxed.
+    'react-hooks/rules-of-hooks': 'error',
     'quotes': 'off',
     'comma-dangle': 'off',
     'curly': 'off',

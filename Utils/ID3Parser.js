@@ -490,18 +490,30 @@ class AudioMetadataParser {
    */
   static async extractID3Metadata(filePath) {
     try {
-      const MAX_READ_SIZE = 512 * 1024;
+      const MAX_READ_SIZE = 2 * 1024 * 1024;
 
-      const stats = await RNFS.stat(filePath);
-      const readSize = Math.min(stats.size, MAX_READ_SIZE);
-
-      const base64Data = await RNFS.read(filePath, readSize, 0, 'base64');
-      const bytes = this.base64ToBytes(base64Data);
-
-      if (!this.hasID3v2Header(bytes)) {
+      // Read only the 10-byte header first; files without ID3v2 stop here
+      const headerBytes = this.base64ToBytes(
+        await RNFS.read(filePath, 10, 0, 'base64')
+      );
+      if (!this.hasID3v2Header(headerBytes)) {
+        return null;
+      }
+      const tagInfo = this.parseID3v2Header(headerBytes);
+      if (!tagInfo) {
         return null;
       }
 
+      // Then read exactly the tag (small for most files, capped for huge covers)
+      const stats = await RNFS.stat(filePath);
+      const readSize = Math.min(
+        stats.size,
+        tagInfo.size + tagInfo.headerSize,
+        MAX_READ_SIZE
+      );
+
+      const base64Data = await RNFS.read(filePath, readSize, 0, 'base64');
+      const bytes = this.base64ToBytes(base64Data);
       const headerInfo = this.parseID3v2Header(bytes);
       if (!headerInfo) {
         return null;
@@ -583,70 +595,76 @@ class AudioMetadataParser {
       }
       const encoding = bytes[offset];
       const textStart = offset + 1;
-      const textEnd = offset + size;
+      const textEnd = Math.min(offset + size, bytes.length);
 
-      if (textStart >= bytes.length) {
+      if (textStart >= textEnd) {
         return null;
       }
 
-      let text = '';
+      // ID3v2.4 stores multiple values (e.g. several artists) separated by
+      // the encoding's null terminator. Collect every value, not just the first.
+      const values = [];
 
-      // ISO-8859-1 (Latin-1) - encoding 0x00
-      if (encoding === 0x00 || encoding === 0x03) {
-        for (let i = textStart; i < textEnd && i < bytes.length; i++) {
-          const char = bytes[i];
-          if (char === 0) {
-            break;
-          } // Null terminator
-          text += String.fromCharCode(char);
-        }
-      }
-      // UTF-16 with BOM or UTF-16BE - encoding 0x01 or 0x02
-      else if (encoding === 0x01 || encoding === 0x02) {
+      if (encoding === 0x01 || encoding === 0x02) {
+        // UTF-16 with BOM (0x01) or UTF-16BE (0x02); each value may carry a BOM
         let i = textStart;
-
-        // Check for BOM if encoding is 0x01
         let littleEndian = false;
-        if (encoding === 0x01 && i + 1 < textEnd) {
-          if (bytes[i] === 0xff && bytes[i + 1] === 0xfe) {
-            littleEndian = true;
-            i += 2; // Skip BOM
-          } else if (bytes[i] === 0xfe && bytes[i + 1] === 0xff) {
-            littleEndian = false;
-            i += 2; // Skip BOM
-          }
-        }
+        let current = '';
+        let atValueStart = true;
 
-        // Read UTF-16 characters (2 bytes each)
-        while (i + 1 < textEnd && i + 1 < bytes.length) {
-          let charCode;
-          if (littleEndian) {
-            charCode = bytes[i] | (bytes[i + 1] << 8);
-          } else {
-            charCode = (bytes[i] << 8) | bytes[i + 1];
+        while (i + 1 < textEnd) {
+          if (atValueStart && encoding === 0x01) {
+            if (bytes[i] === 0xff && bytes[i + 1] === 0xfe) {
+              littleEndian = true;
+              i += 2;
+              continue;
+            } else if (bytes[i] === 0xfe && bytes[i + 1] === 0xff) {
+              littleEndian = false;
+              i += 2;
+              continue;
+            }
           }
+          atValueStart = false;
 
-          // Stop at null terminator (0x0000 in UTF-16)
-          if (charCode === 0) {
-            break;
-          }
-
-          text += String.fromCharCode(charCode);
+          const charCode = littleEndian
+            ? bytes[i] | (bytes[i + 1] << 8)
+            : (bytes[i] << 8) | bytes[i + 1];
           i += 2;
-        }
-      }
-      // Fallback: try to read as UTF-8
-      else {
-        for (let i = textStart; i < textEnd && i < bytes.length; i++) {
-          const char = bytes[i];
-          if (char === 0) {
-            break;
+
+          if (charCode === 0) {
+            values.push(current);
+            current = '';
+            atValueStart = true;
+            continue;
           }
-          text += String.fromCharCode(char);
+          current += String.fromCharCode(charCode);
+        }
+        values.push(current);
+      } else {
+        // Latin-1 (0x00) or UTF-8 (0x03): single-byte null separator
+        let segmentStart = textStart;
+        for (let i = textStart; i <= textEnd; i++) {
+          if (i === textEnd || bytes[i] === 0) {
+            const segment = bytes.slice(segmentStart, i);
+            if (encoding === 0x03) {
+              values.push(this.decodeUTF8(segment));
+            } else {
+              let latin = '';
+              for (let j = 0; j < segment.length; j++) {
+                latin += String.fromCharCode(segment[j]);
+              }
+              values.push(latin);
+            }
+            segmentStart = i + 1;
+          }
         }
       }
 
-      return text.trim() || null;
+      const text = values
+        .map((v) => v.trim())
+        .filter(Boolean)
+        .join(', ');
+      return text || null;
     } catch (e) {
       return null;
     }

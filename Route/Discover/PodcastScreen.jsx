@@ -37,6 +37,7 @@ import {
 } from '../../Api/PodcastIndexAPI';
 import { PlayOneSong } from '../../MusicPlayerFunctions';
 import Context from '../../Context/Context';
+import { placeholderArtworkUrl } from '../../Utils/PlaceholderArtwork';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ITEMS_PER_PAGE = 20;
@@ -429,7 +430,7 @@ export const PodcastScreen = () => {
         artwork:
           episode.image ||
           episode.feedImage ||
-          'https://via.placeholder.com/300',
+          placeholderArtworkUrl(),
         url: episode.enclosureUrl,
         duration: episode.duration || 0,
         type: 'podcast',

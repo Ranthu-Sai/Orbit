@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ToastAndroid } from 'react-native';
 import {
   getArtistDetails,
@@ -21,8 +21,13 @@ export const useArtistData = (artistId, source = 'saavn') => {
   const [artistData, setArtistData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // Ignore responses for an artist the user already navigated away from
+  const requestIdRef = useRef(0);
 
-  const fetchArtistData = async () => {
+  // Memoized: it is an effect dependency. A new function every render made
+  // the effect re-run after each setState -> endless fetch loop.
+  const fetchArtistData = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     try {
       setLoading(true);
 
@@ -33,26 +38,36 @@ export const useArtistData = (artistId, source = 'saavn') => {
         detailsResponse = await getArtistDetails(artistId);
       }
 
-      setArtistData(detailsResponse);
+      if (requestId === requestIdRef.current) {
+        setArtistData(detailsResponse);
+      }
     } catch (error) {
       console.error('Error fetching artist data:', error);
-      ToastAndroid.show('Failed to load artist data', ToastAndroid.SHORT);
+      if (requestId === requestIdRef.current) {
+        ToastAndroid.show('Failed to load artist data', ToastAndroid.SHORT);
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, [artistId, source]);
 
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchArtistData();
     setRefreshing(false);
-  };
+  }, [fetchArtistData]);
 
   useEffect(() => {
     if (artistId) {
       fetchArtistData();
     }
-  }, [artistId, source, fetchArtistData]);
+    return () => {
+      // Invalidate in-flight requests on artist change / unmount
+      requestIdRef.current++;
+    };
+  }, [artistId, fetchArtistData]);
 
   return {
     artistData,
@@ -81,12 +96,25 @@ export const useArtistSongs = (
   const [songLoading, setSongLoading] = useState(false);
   const [hasMoreSongs, setHasMoreSongs] = useState(true);
   const [totalSongs, setTotalSongs] = useState(0);
+  const requestIdRef = useRef(0);
 
-  const loadInitialSongs = async () => {
+  // Callers often pass a new array each render; read it through a ref and
+  // key the effect on its content so it can't trigger a refetch loop.
+  const preloadedRef = useRef(preloadedSongs);
+  preloadedRef.current = preloadedSongs;
+  const preloadedKey = preloadedSongs?.length
+    ? `${preloadedSongs.length}:${preloadedSongs[0]?.id ?? ''}`
+    : '';
+
+  const loadInitialSongs = useCallback(async () => {
+    const preloaded = preloadedRef.current;
+    const requestId = ++requestIdRef.current;
+    const isCurrent = () => requestId === requestIdRef.current;
+
     // If we have preloaded songs, use them instead of fetching
-    if (preloadedSongs && preloadedSongs.length > 0) {
-      setVisibleSongs(preloadedSongs);
-      setTotalSongs(preloadedSongs.length);
+    if (preloaded && preloaded.length > 0) {
+      setVisibleSongs(preloaded);
+      setTotalSongs(preloaded.length);
       setCurrentSongPage(1);
       setHasMoreSongs(false); // No more to load since we have all preloaded songs
       return;
@@ -114,7 +142,7 @@ export const useArtistSongs = (
         response = await getArtistSongsPaginated(artistId, 1, songsPerPage);
       }
 
-      if (response?.data?.songs) {
+      if (isCurrent() && response?.data?.songs) {
         setVisibleSongs(response.data.songs);
         setTotalSongs(response.data.total || 0);
         setCurrentSongPage(1);
@@ -125,11 +153,15 @@ export const useArtistSongs = (
       }
     } catch (error) {
       console.error('Error loading initial songs:', error);
-      ToastAndroid.show('Failed to load songs', ToastAndroid.SHORT);
+      if (isCurrent()) {
+        ToastAndroid.show('Failed to load songs', ToastAndroid.SHORT);
+      }
     } finally {
-      setSongLoading(false);
+      if (isCurrent()) {
+        setSongLoading(false);
+      }
     }
-  };
+  }, [artistId, source, songsPerPage]);
 
   const loadMoreSongs = async () => {
     if (songLoading || !hasMoreSongs) {
@@ -155,12 +187,13 @@ export const useArtistSongs = (
       }
 
       if (response?.data?.songs && response.data.songs.length > 0) {
-        setVisibleSongs((prev) => [...prev, ...response.data.songs]);
+        setVisibleSongs((prev) => {
+          const next = [...prev, ...response.data.songs];
+          // Computed from the live list, not a stale closure value
+          setHasMoreSongs(next.length < response.data.total);
+          return next;
+        });
         setCurrentSongPage(nextPage);
-
-        // Check if there are more songs to load
-        const totalLoaded = visibleSongs.length + response.data.songs.length;
-        setHasMoreSongs(totalLoaded < response.data.total);
       } else {
         setHasMoreSongs(false);
       }
@@ -183,7 +216,10 @@ export const useArtistSongs = (
     if (artistId) {
       loadInitialSongs();
     }
-  }, [artistId, source, preloadedSongs, loadInitialSongs]);
+    return () => {
+      requestIdRef.current++;
+    };
+  }, [artistId, loadInitialSongs, preloadedKey]);
 
   return {
     visibleSongs,
@@ -213,8 +249,11 @@ export const useArtistAlbums = (
   const [albumLoading, setAlbumLoading] = useState(false);
   const [hasMoreAlbums, setHasMoreAlbums] = useState(true);
   const [totalAlbums, setTotalAlbums] = useState(0);
+  const requestIdRef = useRef(0);
 
-  const loadInitialAlbums = async () => {
+  const loadInitialAlbums = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+    const isCurrent = () => requestId === requestIdRef.current;
     try {
       setAlbumLoading(true);
       let response;
@@ -228,7 +267,7 @@ export const useArtistAlbums = (
         response = await getArtistAlbumsPaginated(artistId, 1, albumsPerPage);
       }
 
-      if (response?.data?.albums) {
+      if (isCurrent() && response?.data?.albums) {
         setVisibleAlbums(response.data.albums);
         setTotalAlbums(response.data.total || 0);
         setCurrentAlbumPage(1);
@@ -239,11 +278,15 @@ export const useArtistAlbums = (
       }
     } catch (error) {
       console.error('Error loading initial albums:', error);
-      ToastAndroid.show('Failed to load albums', ToastAndroid.SHORT);
+      if (isCurrent()) {
+        ToastAndroid.show('Failed to load albums', ToastAndroid.SHORT);
+      }
     } finally {
-      setAlbumLoading(false);
+      if (isCurrent()) {
+        setAlbumLoading(false);
+      }
     }
-  };
+  }, [artistId, source, albumsPerPage]);
 
   const loadMoreAlbums = async () => {
     if (albumLoading || !hasMoreAlbums) {
@@ -269,12 +312,13 @@ export const useArtistAlbums = (
       }
 
       if (response?.data?.albums && response.data.albums.length > 0) {
-        setVisibleAlbums((prev) => [...prev, ...response.data.albums]);
+        setVisibleAlbums((prev) => {
+          const next = [...prev, ...response.data.albums];
+          // Computed from the live list, not a stale closure value
+          setHasMoreAlbums(next.length < response.data.total);
+          return next;
+        });
         setCurrentAlbumPage(nextPage);
-
-        // Check if there are more albums to load
-        const totalLoaded = visibleAlbums.length + response.data.albums.length;
-        setHasMoreAlbums(totalLoaded < response.data.total);
       } else {
         setHasMoreAlbums(false);
       }
@@ -297,7 +341,10 @@ export const useArtistAlbums = (
     if (artistId) {
       loadInitialAlbums();
     }
-  }, [artistId, source, loadInitialAlbums]);
+    return () => {
+      requestIdRef.current++;
+    };
+  }, [artistId, loadInitialAlbums]);
 
   return {
     visibleAlbums,
