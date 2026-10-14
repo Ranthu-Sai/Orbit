@@ -137,22 +137,22 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
     };
 
     // Register global event listeners (only 3 listeners total, not 87*3)
-    EventRegister.addEventListener('download-started', handleDownloadStarted);
-    EventRegister.addEventListener('download-complete', handleDownloadComplete);
-    EventRegister.addEventListener('download-progress', handleDownloadProgress);
-
-    return () => {
-      EventRegister.removeEventListener(
-        'download-started',
-        handleDownloadStarted
-      );
-      EventRegister.removeEventListener(
+    // removeEventListener takes the numeric id returned here
+    const listenerIds = [
+      EventRegister.addEventListener('download-started', handleDownloadStarted),
+      EventRegister.addEventListener(
         'download-complete',
         handleDownloadComplete
-      );
-      EventRegister.removeEventListener(
+      ),
+      EventRegister.addEventListener(
         'download-progress',
         handleDownloadProgress
+      ),
+    ];
+
+    return () => {
+      listenerIds.forEach((listenerId) =>
+        EventRegister.removeEventListener(listenerId)
       );
     };
   }, []);
@@ -250,17 +250,26 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
       }
 
       // Format tracks with metadata - use batch approach
-      const tracks = await Promise.all(
-        Object.values(allMetadata).map(async (metadata) => {
-          const artworkPath = await StorageManager.getArtworkPath(metadata.id);
-          const songPath = await StorageManager.getSongPath(metadata.id);
+      const resolved = await Promise.all(
+        Object.entries(allMetadata).map(async ([songId, metadata]) => {
+          const id = metadata.id || songId;
+          const songPath = await StorageManager.resolveDownloadedSongPath(
+            id,
+            metadata
+          );
+          if (!songPath) {
+            return null;
+          }
+          const artworkPath = await StorageManager.getArtworkPath(id);
 
           return {
-            id: metadata.id,
+            id,
             url: `file://${songPath}`,
             title: metadata.title || 'Unknown',
             artist: metadata.artist || 'Unknown',
-            artwork: `file://${artworkPath}`,
+            artwork: metadata.localArtworkPath
+              ? `file://${artworkPath}`
+              : metadata.artwork || null,
             localArtworkPath: artworkPath,
             duration: metadata.duration || 0,
             isLocal: true,
@@ -269,6 +278,7 @@ const QueueRenderSongs = memo(({ reorderMode = false }) => {
           };
         })
       );
+      const tracks = resolved.filter(Boolean);
 
       // Update cache
       downloadedTracksCache.current = tracks;

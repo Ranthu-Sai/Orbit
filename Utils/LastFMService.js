@@ -11,6 +11,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import SecureStore from './SecureStore';
 import md5 from 'md5';
 
 // Storage keys for credentials
@@ -48,8 +49,9 @@ class LastFMService {
    */
   async loadSession() {
     try {
+      // Session key lives in encrypted storage (migrated from AsyncStorage).
       const [sessionKey, username] = await Promise.all([
-        AsyncStorage.getItem(LASTFM_SESSION_KEY),
+        SecureStore.getItem(LASTFM_SESSION_KEY),
         AsyncStorage.getItem(LASTFM_USERNAME_KEY),
       ]);
 
@@ -204,9 +206,9 @@ class LastFMService {
         this.sessionKey = data.session.key;
         this.username = data.session.name;
 
-        // Save to secure storage
+        // Save session key to secure storage; username is non-secret.
         await Promise.all([
-          AsyncStorage.setItem(LASTFM_SESSION_KEY, this.sessionKey),
+          SecureStore.setItem(LASTFM_SESSION_KEY, this.sessionKey),
           AsyncStorage.setItem(LASTFM_USERNAME_KEY, this.username),
         ]);
         this.notifyListeners();
@@ -250,7 +252,7 @@ class LastFMService {
       this.username = null;
 
       await Promise.all([
-        AsyncStorage.removeItem(LASTFM_SESSION_KEY),
+        SecureStore.removeItem(LASTFM_SESSION_KEY),
         AsyncStorage.removeItem(LASTFM_USERNAME_KEY),
       ]);
       this.notifyListeners();

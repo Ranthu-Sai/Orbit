@@ -323,14 +323,17 @@ export const useDownloadSong = (song, options = {}) => {
       }
     };
 
-    EventRegister.addEventListener('download-complete', onComplete);
-    EventRegister.addEventListener('download-removed', onRemoved);
-    EventRegister.addEventListener('download-progress', onProgressEvent);
+    // removeEventListener takes the numeric id returned here
+    const listenerIds = [
+      EventRegister.addEventListener('download-complete', onComplete),
+      EventRegister.addEventListener('download-removed', onRemoved),
+      EventRegister.addEventListener('download-progress', onProgressEvent),
+    ];
 
     return () => {
-      EventRegister.removeEventListener('download-complete', onComplete);
-      EventRegister.removeEventListener('download-removed', onRemoved);
-      EventRegister.removeEventListener('download-progress', onProgressEvent);
+      listenerIds.forEach((listenerId) =>
+        EventRegister.removeEventListener(listenerId)
+      );
     };
   }, [songId]);
 

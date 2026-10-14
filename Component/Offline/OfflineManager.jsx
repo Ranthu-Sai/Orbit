@@ -58,26 +58,29 @@ const OfflineManager = ({
 
       for (const [songId, metadata] of Object.entries(allMetadata)) {
         try {
-          // Get the local file path
-          const songPath = await StorageManager.getSongPath(songId);
+          // Resolve the actual file on disk (null if it no longer exists)
+          const songPath = await StorageManager.resolveDownloadedSongPath(
+            songId,
+            metadata
+          );
           const artworkPath = await StorageManager.getArtworkPath(songId);
 
-          // Check if the song file exists
-          const songExists = await StorageManager.isSongDownloaded(songId);
-
-          if (songExists && songPath) {
+          if (songPath) {
             const track = {
+              ...metadata, // Include any additional metadata
+              // Local values below must win over stored remote url/artwork
               id: songId,
               title: metadata.title || 'Unknown Title',
               artist: metadata.artist || 'Unknown Artist',
               album: metadata.album || 'Unknown Album',
               duration: metadata.duration || 0,
               url: `file://${songPath}`,
-              artwork: artworkPath ? `file://${artworkPath}` : null,
+              artwork: metadata.localArtworkPath
+                ? `file://${artworkPath}`
+                : metadata.artwork || null,
               isLocal: true,
               sourceType: 'download',
               downloadTime: metadata.downloadTime,
-              ...metadata, // Include any additional metadata
             };
 
             tracks.push(track);

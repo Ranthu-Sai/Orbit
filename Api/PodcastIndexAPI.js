@@ -13,6 +13,7 @@
 import sha1 from 'js-sha1';
 import axios from 'axios';
 import { getCachedData, CACHE_GROUPS } from './CacheManager';
+import { placeholderArtworkUrl } from '../Utils/PlaceholderArtwork';
 import {
   PODCAST_INDEX_API_KEY,
   PODCAST_INDEX_API_SECRET,
@@ -76,7 +77,7 @@ const transformPodcast = (podcast) => {
     podcast.image ||
     podcast.imageUrl ||
     podcast.originalUrl ||
-    'https://via.placeholder.com/300';
+    placeholderArtworkUrl();
 
   // Sanitize URL: Remove trailing "?" junk common in Buzzsprout URLs that causes failures
   if (typeof artworkUrl === 'string' && artworkUrl.includes('?')) {
@@ -141,13 +142,13 @@ const transformEpisode = (episode, podcast = null) => {
       episode.image ||
       episode.feedImage ||
       podcast?.artwork ||
-      'https://via.placeholder.com/300',
+      placeholderArtworkUrl(),
     feedId: episode.feedId || podcast?.feedId,
     feedTitle: episode.feedTitle || podcast?.title || 'Unknown Podcast',
     feedImage:
       episode.feedImage ||
       podcast?.artwork ||
-      'https://via.placeholder.com/300',
+      placeholderArtworkUrl(),
     explicit: episode.explicit || 0,
     episode: episode.episode || null,
     season: episode.season || null,

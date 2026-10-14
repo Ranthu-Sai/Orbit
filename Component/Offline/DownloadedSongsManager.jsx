@@ -44,13 +44,17 @@ const DownloadedSongsManager = ({
       for (const [songId, metadata] of Object.entries(allMetadata)) {
         try {
           // Verify the song file still exists
-          const songExists = await StorageManager.isSongDownloaded(songId);
+          const songPath = await StorageManager.resolveDownloadedSongPath(
+            songId,
+            metadata
+          );
 
-          if (songExists) {
-            const songPath = await StorageManager.getSongPath(songId);
+          if (songPath) {
             const artworkPath = await StorageManager.getArtworkPath(songId);
 
             const song = {
+              ...metadata,
+              // Resolved local values below must win over stored fields
               id: songId,
               title: metadata.title || 'Unknown Title',
               artist: metadata.artist || 'Unknown Artist',
@@ -63,7 +67,6 @@ const DownloadedSongsManager = ({
               artworkPath,
               isLocal: true,
               sourceType: 'download',
-              ...metadata,
             };
 
             songsArray.push(song);

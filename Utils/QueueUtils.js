@@ -89,16 +89,30 @@ export const getDownloadedTracks = async () => {
       return [];
     }
 
-    return Object.values(allMetadata).map((metadata) => {
-      const artworkPath = StorageManager.getArtworkPath(metadata.id);
-      const songPath = StorageManager.getSongPath(metadata.id);
+    const tracks = await Promise.all(
+      Object.entries(allMetadata).map(async ([songId, metadata]) => {
+        const id = metadata.id || songId;
+        const songPath = await StorageManager.resolveDownloadedSongPath(
+          id,
+          metadata
+        );
+        if (!songPath) {
+          return null;
+        }
+        const artworkPath = await StorageManager.getArtworkPath(id);
+        return { id, metadata, songPath, artworkPath };
+      })
+    );
 
+    return tracks.filter(Boolean).map(({ id, metadata, songPath, artworkPath }) => {
       return {
-        id: metadata.id,
+        id,
         url: `file://${songPath}`,
         title: metadata.title || 'Unknown',
         artist: metadata.artist || 'Unknown',
-        artwork: `file://${artworkPath}`,
+        artwork: metadata.localArtworkPath
+          ? `file://${artworkPath}`
+          : metadata.artwork || null,
         localArtworkPath: artworkPath,
         duration: metadata.duration || 0,
         isLocal: true,

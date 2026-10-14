@@ -10,6 +10,7 @@ import org.jaudiotagger.tag.FieldKey
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.util.concurrent.Executors
 import java.util.logging.Level
 import java.util.logging.Logger
 
@@ -25,6 +26,19 @@ class MetadataReaderModule(reactContext: ReactApplicationContext) :
     companion object {
         private const val TAG = "MetadataReader"
         private var isInitialized = false
+
+        // Library scans run here instead of the shared native-modules thread,
+        // so long scans never delay other modules (e.g. TrackPlayer play/skip).
+        private val scanExecutor = Executors.newSingleThreadExecutor()
+
+        // Separate from scans so opening a file from another app never waits
+        // behind a library scan
+        private val intentExecutor = Executors.newSingleThreadExecutor()
+
+        private const val INTENT_DIR = "audio_intent"
+
+        // Upper bound for files copied from other apps' content providers
+        private const val MAX_INTENT_FILE_BYTES = 1024L * 1024L * 1024L
 
         init {
             // Suppress JAudioTagger verbose logging
@@ -138,9 +152,15 @@ class MetadataReaderModule(reactContext: ReactApplicationContext) :
             for (i in 0 until filePaths.size()) {
                 val filePath = filePaths.getString(i) ?: continue
                 
+                // Every input gets exactly one result so callers can match by index
                 try {
                     val file = File(filePath)
-                    if (!file.exists()) continue
+                    if (!file.exists()) {
+                        results.pushMap(createEmptyMetadata(file.name).apply {
+                            putString("filePath", filePath)
+                        })
+                        continue
+                    }
 
                     val audioFile = AudioFileIO.read(file)
                     val tag = audioFile.tag
@@ -184,8 +204,10 @@ class MetadataReaderModule(reactContext: ReactApplicationContext) :
 
                 } catch (e: Exception) {
                     android.util.Log.w(TAG, "Failed to read $filePath: ${e.message}")
-                    // Skip this file
-                    continue
+                    // Placeholder keeps result indexes aligned with filePaths
+                    results.pushMap(createEmptyMetadata(File(filePath).name).apply {
+                        putString("filePath", filePath)
+                    })
                 }
             }
 
@@ -194,6 +216,66 @@ class MetadataReaderModule(reactContext: ReactApplicationContext) :
         } catch (e: Exception) {
             android.util.Log.e(TAG, "❌ Batch read error", e)
             promise.reject("BATCH_ERROR", "Failed to read batch: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Read tags + duration and write embedded artwork straight to [artworkOutPath].
+     * Avoids sending base64 images over the bridge. Runs on [scanExecutor].
+     * Resolves { title, artist, album, year, genre, duration, artworkPath? };
+     * empty strings mean the tag is missing. Rejects if the file can't be parsed.
+     */
+    @ReactMethod
+    fun readMetadataToFile(filePath: String, artworkOutPath: String?, promise: Promise) {
+        scanExecutor.execute {
+            try {
+                val file = File(filePath)
+                if (!file.exists()) {
+                    promise.reject("FILE_NOT_FOUND", "File does not exist: $filePath")
+                    return@execute
+                }
+
+                val audioFile = AudioFileIO.read(file)
+                val tag = audioFile.tag
+                val result = Arguments.createMap()
+
+                fun joined(key: FieldKey): String = try {
+                    tag?.getAll(key)?.filter { it.isNotBlank() }?.joinToString(", ") ?: ""
+                } catch (e: Exception) {
+                    ""
+                }
+
+                result.putString("title", joined(FieldKey.TITLE))
+                result.putString("artist", joined(FieldKey.ARTIST))
+                result.putString("album", joined(FieldKey.ALBUM))
+                result.putString("year", joined(FieldKey.YEAR))
+                result.putString("genre", joined(FieldKey.GENRE))
+
+                val durationSec = try {
+                    audioFile.audioHeader?.trackLength ?: 0
+                } catch (e: Exception) {
+                    0
+                }
+                result.putInt("duration", durationSec)
+
+                if (tag != null && !artworkOutPath.isNullOrEmpty()) {
+                    try {
+                        val imageData = tag.firstArtwork?.binaryData
+                        if (imageData != null && imageData.isNotEmpty()) {
+                            val out = File(artworkOutPath)
+                            out.parentFile?.mkdirs()
+                            FileOutputStream(out).use { it.write(imageData) }
+                            result.putString("artworkPath", out.absolutePath)
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.w(TAG, "Failed to write artwork for $filePath: ${e.message}")
+                    }
+                }
+
+                promise.resolve(result)
+            } catch (e: Exception) {
+                promise.reject("METADATA_ERROR", "Failed to read metadata: ${e.message}", e)
+            }
         }
     }
 
@@ -209,55 +291,105 @@ class MetadataReaderModule(reactContext: ReactApplicationContext) :
     }
 
     /**
+     * Copy a content:// URI into the app cache so JAudioTagger / the player can
+     * read it as a File.
+     *
+     * The URI comes from an exported VIEW intent, so the provider (and its
+     * DISPLAY_NAME) is untrusted: the name is reduced to a safe base name,
+     * prefixed with a unique stamp, and the resolved path must stay inside
+     * the audio_intent folder. Copies are size-capped and old ones pruned.
+     */
+    private fun copyContentUriToCache(contentUri: String): Pair<File, String> {
+        val context = reactApplicationContext
+        val uri = Uri.parse(contentUri)
+        if (uri.scheme != "content") {
+            throw SecurityException("Only content:// URIs are supported")
+        }
+
+        var displayName: String? = null
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (nameIndex >= 0) {
+                    displayName = cursor.getString(nameIndex)
+                }
+            }
+        }
+        val safeName = sanitizeFileName(displayName)
+
+        val cacheDir = File(context.cacheDir, INTENT_DIR)
+        if (!cacheDir.exists()) cacheDir.mkdirs()
+        pruneIntentCache(cacheDir)
+
+        val tempFile = File(cacheDir, "${System.currentTimeMillis()}_$safeName")
+        // Defence in depth: the canonical path must stay inside cacheDir
+        val dirPath = cacheDir.canonicalPath + File.separator
+        if (!tempFile.canonicalPath.startsWith(dirPath)) {
+            throw SecurityException("Refusing to write outside the cache folder")
+        }
+
+        val input = context.contentResolver.openInputStream(uri)
+            ?: throw IllegalStateException("Cannot open content URI")
+        try {
+            input.use { inputStream ->
+                FileOutputStream(tempFile).use { outputStream ->
+                    val buffer = ByteArray(64 * 1024)
+                    var total = 0L
+                    while (true) {
+                        val read = inputStream.read(buffer)
+                        if (read < 0) break
+                        total += read
+                        if (total > MAX_INTENT_FILE_BYTES) {
+                            throw IllegalStateException("File is too large")
+                        }
+                        outputStream.write(buffer, 0, read)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            tempFile.delete()
+            throw e
+        }
+        return Pair(tempFile, safeName)
+    }
+
+    /** Base name only: no separators, control chars or leading dots; bounded length. */
+    private fun sanitizeFileName(raw: String?): String {
+        val base = (raw ?: "").substringAfterLast('/').substringAfterLast('\\')
+        val cleaned = base
+            .replace(Regex("[^\\p{L}\\p{N}._ ()\\-]"), "_")
+            .trimStart('.', ' ')
+            .take(100)
+        return if (cleaned.isBlank()) "audio" else cleaned
+    }
+
+    /** Remove temp copies older than a day so the cache doesn't grow forever. */
+    private fun pruneIntentCache(dir: File) {
+        val cutoff = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
+        dir.listFiles()?.forEach { f ->
+            if (f.isFile && f.lastModified() < cutoff) f.delete()
+        }
+    }
+
+    /**
      * Resolve a content:// URI to a real file path by copying to cache
      * This is required because JAudioTagger needs a File, not a content URI
      */
     @ReactMethod
     fun resolveContentUri(contentUri: String, promise: Promise) {
-        try {
-            val context = reactApplicationContext
-            val uri = Uri.parse(contentUri)
-            
-            android.util.Log.d(TAG, "🔍 Resolving content URI: $contentUri")
-            
-            // Get filename from content provider
-            var fileName = "audio_${System.currentTimeMillis()}"
-            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                    if (nameIndex >= 0) {
-                        fileName = cursor.getString(nameIndex) ?: fileName
-                    }
-                }
+        // Copying can take seconds: keep it off the shared native-modules thread
+        intentExecutor.execute {
+            try {
+                val (tempFile, safeName) = copyContentUriToCache(contentUri)
+                val result = Arguments.createMap()
+                result.putString("filePath", tempFile.absolutePath)
+                result.putString("fileName", safeName)
+                result.putBoolean("isTempFile", true)
+                promise.resolve(result)
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "❌ Failed to resolve content URI", e)
+                promise.reject("RESOLVE_ERROR", "Failed to resolve content URI: ${e.message}", e)
             }
-            
-            android.util.Log.d(TAG, "📄 File name from URI: $fileName")
-            
-            // Create temp file in cache directory
-            val cacheDir = File(context.cacheDir, "audio_intent")
-            if (!cacheDir.exists()) cacheDir.mkdirs()
-            
-            val tempFile = File(cacheDir, fileName)
-            
-            // Copy content to temp file
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                FileOutputStream(tempFile).use { outputStream ->
-                    inputStream.copyTo(outputStream)
-                }
-            }
-            
-            android.util.Log.d(TAG, "✅ Content URI resolved to: ${tempFile.absolutePath}")
-            
-            val result = Arguments.createMap()
-            result.putString("filePath", tempFile.absolutePath)
-            result.putString("fileName", fileName)
-            result.putBoolean("isTempFile", true)
-            
-            promise.resolve(result)
-            
-        } catch (e: Exception) {
-            android.util.Log.e(TAG, "❌ Failed to resolve content URI", e)
-            promise.reject("RESOLVE_ERROR", "Failed to resolve content URI: ${e.message}", e)
         }
     }
 
@@ -267,101 +399,62 @@ class MetadataReaderModule(reactContext: ReactApplicationContext) :
      */
     @ReactMethod
     fun readMetadataFromUri(contentUri: String, promise: Promise) {
-        try {
-            val context = reactApplicationContext
-            val uri = Uri.parse(contentUri)
-            
-            android.util.Log.d(TAG, "🎵 Reading metadata from URI: $contentUri")
-            
-            // Get filename from content provider
-            var fileName = "audio_${System.currentTimeMillis()}"
-            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                    if (nameIndex >= 0) {
-                        fileName = cursor.getString(nameIndex) ?: fileName
-                    }
-                }
-            }
-            
-            // Create temp file in cache directory
-            val cacheDir = File(context.cacheDir, "audio_intent")
-            if (!cacheDir.exists()) cacheDir.mkdirs()
-            
-            val tempFile = File(cacheDir, fileName)
-            
-            // Copy content to temp file
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                FileOutputStream(tempFile).use { outputStream ->
-                    inputStream.copyTo(outputStream)
-                }
-            }
-            
-            android.util.Log.d(TAG, "📄 Temp file created: ${tempFile.absolutePath}")
-            
-            // Read metadata from temp file
-            val audioFile = try {
-                AudioFileIO.read(tempFile)
-            } catch (e: Exception) {
-                android.util.Log.w(TAG, "Cannot read file: ${e.message}")
-                val fallback = createEmptyMetadata(fileName)
-                fallback.putString("filePath", tempFile.absolutePath)
-                fallback.putBoolean("isTempFile", true)
-                promise.resolve(fallback)
-                return
-            }
+        intentExecutor.execute {
+            try {
+                val (tempFile, safeName) = copyContentUriToCache(contentUri)
 
-            val tag = audioFile.tag
-            val metadata = Arguments.createMap()
-            
-            if (tag != null) {
-                metadata.putString("title", tag.getAll(FieldKey.TITLE).joinToString(", ").ifEmpty { fileName.substringBeforeLast('.') })
-                metadata.putString("artist", tag.getAll(FieldKey.ARTIST).joinToString(", ").ifEmpty { "Unknown Artist" })
-                metadata.putString("album", tag.getAll(FieldKey.ALBUM).joinToString(", ").ifEmpty { "Unknown Album" })
-                metadata.putString("year", tag.getAll(FieldKey.YEAR).joinToString(", ").ifEmpty { "" })
-                metadata.putString("genre", tag.getAll(FieldKey.GENRE).joinToString(", ").ifEmpty { "" })
-                
-                // Extract artwork if available
-                try {
-                    val artwork = tag.firstArtwork
-                    if (artwork != null) {
-                        val imageData = artwork.binaryData
+                val audioFile = try {
+                    AudioFileIO.read(tempFile)
+                } catch (e: Exception) {
+                    android.util.Log.w(TAG, "Cannot read file: ${e.message}")
+                    val fallback = createEmptyMetadata(safeName)
+                    fallback.putString("filePath", tempFile.absolutePath)
+                    fallback.putBoolean("isTempFile", true)
+                    promise.resolve(fallback)
+                    return@execute
+                }
+
+                val tag = audioFile.tag
+                val metadata = Arguments.createMap()
+
+                if (tag != null) {
+                    metadata.putString("title", tag.getAll(FieldKey.TITLE).joinToString(", ").ifEmpty { safeName.substringBeforeLast('.') })
+                    metadata.putString("artist", tag.getAll(FieldKey.ARTIST).joinToString(", ").ifEmpty { "Unknown Artist" })
+                    metadata.putString("album", tag.getAll(FieldKey.ALBUM).joinToString(", ").ifEmpty { "Unknown Album" })
+                    metadata.putString("year", tag.getAll(FieldKey.YEAR).joinToString(", ").ifEmpty { "" })
+                    metadata.putString("genre", tag.getAll(FieldKey.GENRE).joinToString(", ").ifEmpty { "" })
+
+                    try {
+                        val artwork = tag.firstArtwork
+                        val imageData = artwork?.binaryData
                         if (imageData != null && imageData.isNotEmpty()) {
-                            val base64Image = Base64.encodeToString(imageData, Base64.NO_WRAP)
-                            metadata.putString("artworkBase64", base64Image)
-                            
+                            metadata.putString("artworkBase64", Base64.encodeToString(imageData, Base64.NO_WRAP))
                             val mimeType = when {
                                 imageData.size >= 2 && imageData[0].toInt() == 0xFF && imageData[1].toInt() == 0xD8 -> "image/jpeg"
                                 imageData.size >= 4 && imageData[0].toInt() == 0x89 && imageData[1].toInt() == 0x50 -> "image/png"
                                 else -> artwork.mimeType ?: "image/jpeg"
                             }
                             metadata.putString("artworkMimeType", mimeType)
-                            
-                            android.util.Log.d(TAG, "✅ Extracted artwork (${imageData.size} bytes)")
                         }
+                    } catch (e: Exception) {
+                        android.util.Log.w(TAG, "Failed to extract artwork: ${e.message}")
                     }
-                } catch (e: Exception) {
-                    android.util.Log.w(TAG, "Failed to extract artwork: ${e.message}")
+                } else {
+                    metadata.putString("title", safeName.substringBeforeLast('.'))
+                    metadata.putString("artist", "Unknown Artist")
+                    metadata.putString("album", "Unknown Album")
+                    metadata.putString("year", "")
+                    metadata.putString("genre", "")
                 }
-            } else {
-                metadata.putString("title", fileName.substringBeforeLast('.'))
-                metadata.putString("artist", "Unknown Artist")
-                metadata.putString("album", "Unknown Album")
-                metadata.putString("year", "")
-                metadata.putString("genre", "")
-            }
-            
-            metadata.putString("fileName", fileName)
-            metadata.putString("filePath", tempFile.absolutePath)
-            metadata.putBoolean("isTempFile", true)
-            
-            android.util.Log.d(TAG, "✅ Metadata read successfully: ${metadata.getString("title")}")
-            
-            promise.resolve(metadata)
 
-        } catch (e: Exception) {
-            android.util.Log.e(TAG, "❌ Error reading metadata from URI", e)
-            promise.reject("METADATA_URI_ERROR", "Failed to read metadata from URI: ${e.message}", e)
+                metadata.putString("fileName", safeName)
+                metadata.putString("filePath", tempFile.absolutePath)
+                metadata.putBoolean("isTempFile", true)
+                promise.resolve(metadata)
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "❌ Error reading metadata from URI", e)
+                promise.reject("METADATA_URI_ERROR", "Failed to read metadata from URI: ${e.message}", e)
+            }
         }
     }
 }

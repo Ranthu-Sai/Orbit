@@ -33,6 +33,7 @@ local.properties
 .cxx/
 *.keystore
 !debug.keystore
+keystore.properties
 
 # node.js
 #
@@ -55,6 +56,9 @@ yarn-error.log
 # Bundle artifact
 *.jsbundle
 
+# Pre-bundled Metro output (generated at build time by Gradle, never committed)
+android/app/src/main/assets/index.android.bundle
+
 # Ruby / CocoaPods
 /ios/Pods/
 /vendor/bundle/
@@ -69,6 +73,7 @@ yarn-error.log
 .env
 
 # Embedded repositories
-Utils/secrets.js
+# Utils/secrets.js is intentionally tracked: it holds no secrets (it only reads
+# .env via react-native-config) and the bundle fails without it.
 Utils/SpotifyService.js
 Utils/SpotifyService copy.js

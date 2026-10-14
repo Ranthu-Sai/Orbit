@@ -54,6 +54,16 @@ class StreamModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
     }
 
     /**
+     * Forget the YouTube session held by the extractor (call on logout).
+     * Without this the last cookies stayed attached to every request.
+     */
+    @ReactMethod
+    fun clearCookies(promise: Promise) {
+        NewPipeDownloaderInstance.downloader?.setCookies(null)
+        promise.resolve(true)
+    }
+
+    /**
      * Get stream URL for STREAMING - selects based on quality preference
      * 
      * @param videoId YouTube video ID
@@ -101,10 +111,9 @@ class StreamModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
                 val url = urlFormats[urlIndex]
                 
                 try {
-                    // Set cookies if provided
-                    if (cookies != null && cookies.isNotEmpty()) {
-                        NewPipeDownloaderInstance.downloader?.setCookies(cookies)
-                    }
+                    // Mirror exactly what JS passed: empty/null clears any
+                    // previous session instead of silently keeping it
+                    NewPipeDownloaderInstance.downloader?.setCookies(cookies)
 
                     val service = ServiceList.YouTube
                     
@@ -173,7 +182,7 @@ class StreamModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
                         result.putString("title", streamInfo.name)
                         result.putString("author", streamInfo.uploaderName)
                         result.putDouble("duration", streamInfo.duration.toDouble())
-                        result.putString("thumbnail", streamInfo.thumbnails.get(0).url)
+                        result.putString("thumbnail", streamInfo.thumbnails.firstOrNull()?.url ?: "") // empty list must not discard a valid stream
                         
                         // Get format info
                         val formatId = bestStream.formatId?.toString() ?: ""
@@ -243,7 +252,7 @@ class StreamModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
                                     result.putString("title", streamInfo.name)
                                     result.putString("author", streamInfo.uploaderName)
                                     result.putDouble("duration", streamInfo.duration.toDouble())
-                                    result.putString("thumbnail", streamInfo.thumbnails.get(0).url)
+                                    result.putString("thumbnail", streamInfo.thumbnails.firstOrNull()?.url ?: "") // empty list must not discard a valid stream
                                     
                                     val formatId = bestStream.formatId?.toString() ?: ""
                                     val formatSuffix = when {

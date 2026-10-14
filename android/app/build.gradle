@@ -50,9 +50,11 @@ react {
 }
 
 /**
- * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
+ * Run R8/ProGuard on release builds to minify and obfuscate Java bytecode.
+ * proguard-rules.pro carries keep-rules for reflection-heavy libraries
+ * (Chaquopy, and any others that break under minification).
  */
-def enableProguardInReleaseBuilds = false
+def enableProguardInReleaseBuilds = true
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -102,16 +104,38 @@ android {
             keyPassword 'android'
         }
          release {
-                    if (project.hasProperty('MYAPP_UPLOAD_STORE_FILE')) {
-                        storeFile file(MYAPP_UPLOAD_STORE_FILE)
-                        storePassword MYAPP_UPLOAD_STORE_PASSWORD
-                        keyAlias MYAPP_UPLOAD_KEY_ALIAS
-                        keyPassword MYAPP_UPLOAD_KEY_PASSWORD
+                    // Load credentials from android/keystore.properties (untracked) or -P CLI flags.
+                    // Never hardcode signing secrets in version control.
+                    def keystoreProperties = new Properties()
+                    def keystorePropertiesFile = rootProject.file("keystore.properties")
+                    if (keystorePropertiesFile.exists()) {
+                        keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+                    }
+                    def ksStoreFile = project.hasProperty('MYAPP_UPLOAD_STORE_FILE') ? project.property('MYAPP_UPLOAD_STORE_FILE') : keystoreProperties.getProperty('storeFile')
+                    def ksStorePassword = project.hasProperty('MYAPP_UPLOAD_STORE_PASSWORD') ? project.property('MYAPP_UPLOAD_STORE_PASSWORD') : keystoreProperties.getProperty('storePassword')
+                    def ksKeyAlias = project.hasProperty('MYAPP_UPLOAD_KEY_ALIAS') ? project.property('MYAPP_UPLOAD_KEY_ALIAS') : keystoreProperties.getProperty('keyAlias')
+                    def ksKeyPassword = project.hasProperty('MYAPP_UPLOAD_KEY_PASSWORD') ? project.property('MYAPP_UPLOAD_KEY_PASSWORD') : keystoreProperties.getProperty('keyPassword')
+
+                    // A configured but missing keystore file used to fail the whole build
+                    def ksFileExists = ksStoreFile && file(ksStoreFile).exists()
+                    if (ksStoreFile && !ksFileExists) {
+                        logger.warn("Release keystore '${ksStoreFile}' not found (paths are relative to android/app/)")
+                    }
+
+                    if (ksFileExists && ksStorePassword && ksKeyAlias && ksKeyPassword) {
+                        storeFile file(ksStoreFile)
+                        storePassword ksStorePassword
+                        keyAlias ksKeyAlias
+                        keyPassword ksKeyPassword
                     } else {
-                        storeFile file('orbit.keystore')
-                        storePassword 'orbitmusic'
-                        keyAlias 'my-key-alias'
-                        keyPassword 'orbitmusic'
+                        // Fall back to the debug key so `assembleRelease` still builds for
+                        // local verification. CI/Play release builds MUST provide
+                        // keystore.properties - the APK will not be signed for store upload.
+                        logger.warn("Release signing credentials unavailable - falling back to debug signing for release build")
+                        storeFile file('debug.keystore')
+                        storePassword 'android'
+                        keyAlias 'androiddebugkey'
+                        keyPassword 'android'
                     }
          }
     }
@@ -124,12 +148,11 @@ android {
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             
+            // Do NOT exclude libhermes.so / libhermes-executor-*.so: with
+            // hermesEnabled=true the app needs them at startup, and excluding them
+            // made release APKs crash on launch with UnsatisfiedLinkError.
             packagingOptions {
-                pickFirst "**/libjsc.so"
                 pickFirst "**/libc++_shared.so"
-                exclude "**/libhermes.so"
-                exclude "**/libhermes-executor-debug.so"
-                exclude "**/libhermes-executor-release.so"
             }
         }
     }

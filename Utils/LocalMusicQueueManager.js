@@ -13,14 +13,14 @@
 
 import TrackPlayer, { Event } from 'react-native-track-player';
 import { getQueueLength, invalidateQueueSnapshot } from './QueueSnapshot';
-import { InteractionManager, DeviceEventEmitter } from 'react-native';
+import { DeviceEventEmitter } from 'react-native';
 
 // Configuration constants
 const INITIAL_BATCH_SIZE = 20; // First batch for instant playback
 const BACKGROUND_BATCH_SIZE = 15; // Subsequent batches
 const LOAD_THRESHOLD = 5; // Load more when 5 songs from end of loaded queue
 const CLEANUP_THRESHOLD = 30; // Keep max 30 tracks behind current position
-const BATCH_DELAY_MS = 30; // Small delay between operations for UI responsiveness
+const RESTART_THRESHOLD_SEC = 3; // "Previous" restarts the song after this point
 
 class LocalMusicQueueManager {
   constructor() {
@@ -28,6 +28,8 @@ class LocalMusicQueueManager {
     this.loadedStartIndex = 0; // Start index in allSongs of loaded tracks
     this.loadedEndIndex = 0; // End index in allSongs of loaded tracks
     this.isLoading = false; // Prevent concurrent batch loads
+    this.loadingPromise = null; // In-flight batch load, shared by all callers
+    this.sourceType = null; // sourceType applied to every queued track
     this.trackChangeListener = null; // Event listener reference
     this.isActive = false; // Whether progressive loading is active
     this.startOffset = 0; // Original start index when initialized
@@ -76,14 +78,111 @@ class LocalMusicQueueManager {
   }
 
   _getArtwork(song) {
+    // TrackPlayer (and the media notification) expect a URI string
     if (song.cover && typeof song.cover === 'object' && song.cover.uri) {
-      return song.cover;
+      return song.cover.uri;
     }
     if (song.artwork && typeof song.artwork === 'object' && song.artwork.uri) {
+      return song.artwork.uri;
+    }
+    if (typeof song.artwork === 'string' && song.artwork) {
       return song.artwork;
     }
     // Return default cover - will be resolved by component
     return null;
+  }
+
+  /**
+   * Start playback at songs[startIndex] as fast as possible: the tapped song
+   * is added and played first, the rest of the first batch follows.
+   * @param {Array} songs - Full list of local songs
+   * @param {number} startIndex - Index of the song to play
+   * @param {Object} options
+   * @param {string} options.sourceType - Track sourceType ('mymusic' | 'download')
+   * @returns {Promise<boolean>} true when playback started
+   */
+  async playFrom(songs, startIndex = 0, { sourceType = 'mymusic' } = {}) {
+    const { initialBatch, success } = await this.initialize(songs, startIndex);
+    if (!success || initialBatch.length === 0) {
+      return false;
+    }
+    const tracks = initialBatch.map((track) => ({ ...track, sourceType }));
+    this.sourceType = sourceType;
+
+    await TrackPlayer.reset();
+    await TrackPlayer.add(tracks[0]);
+    await TrackPlayer.play();
+
+    if (tracks.length > 1) {
+      await TrackPlayer.add(tracks.slice(1));
+    }
+    invalidateQueueSnapshot();
+    return true;
+  }
+
+  /**
+   * Skip forward inside the existing queue (no rebuild).
+   * @returns {Promise<boolean>} false when there is no active local queue
+   */
+  // True when the player is still playing the queue this manager built
+  // (the user may have started something else since)
+  async _ownsActiveQueue() {
+    if (!this.isActive) {
+      return false;
+    }
+    const track = await TrackPlayer.getActiveTrack();
+    return !!track && track.isLocal === true && track.sourceType === this.sourceType;
+  }
+
+  async skipNext() {
+    if (!(await this._ownsActiveQueue())) {
+      return false;
+    }
+    const [activeIndex, queueLength] = await Promise.all([
+      TrackPlayer.getActiveTrackIndex(),
+      getQueueLength(),
+    ]);
+    if (activeIndex === undefined || activeIndex === null) {
+      return false;
+    }
+    if (
+      activeIndex >= queueLength - 1 &&
+      this.loadedEndIndex < this.allSongs.length
+    ) {
+      await this._loadNextBatch();
+    }
+    try {
+      await TrackPlayer.skipToNext();
+    } catch (e) {
+      // End of the library: wrap to the first queued song
+      await TrackPlayer.skip(0);
+    }
+    await TrackPlayer.play();
+    return true;
+  }
+
+  /**
+   * Go back inside the existing queue; restarts the song if past a few seconds.
+   * @returns {Promise<boolean>} false when there is no active local queue
+   */
+  async skipPrevious() {
+    if (!(await this._ownsActiveQueue())) {
+      return false;
+    }
+    const [activeIndex, progress] = await Promise.all([
+      TrackPlayer.getActiveTrackIndex(),
+      TrackPlayer.getProgress(),
+    ]);
+    if (activeIndex === undefined || activeIndex === null) {
+      return false;
+    }
+    if (activeIndex === 0 || progress.position > RESTART_THRESHOLD_SEC) {
+      await TrackPlayer.seekTo(0);
+    } else {
+      await TrackPlayer.skipToPrevious();
+    }
+    await TrackPlayer.play();
+    return true;
   }
 
   /**
@@ -183,61 +282,63 @@ class LocalMusicQueueManager {
   /**
    * Load the next batch of songs
    */
-  async _loadNextBatch() {
-    if (
-      this.isLoading ||
-      !this.isActive ||
-      this.loadedEndIndex >= this.allSongs.length
-    ) {
-      return;
+  _loadNextBatch() {
+    // Callers (e.g. skipNext at the queue end) wait for an in-flight load
+    // instead of continuing before the next tracks exist
+    if (this.loadingPromise) {
+      return this.loadingPromise;
+    }
+    if (!this.isActive || this.loadedEndIndex >= this.allSongs.length) {
+      return Promise.resolve();
     }
 
     this.isLoading = true;
+    this.loadingPromise = this._addBatch().finally(() => {
+      this.isLoading = false;
+      this.loadingPromise = null;
+    });
+    return this.loadingPromise;
+  }
 
+  async _addBatch() {
     try {
-      // Use InteractionManager to avoid blocking UI
-      await new Promise((resolve) => {
-        InteractionManager.runAfterInteractions(() => resolve());
-      });
-
-      // Calculate batch range
+      // Calculate batch range. Formatting 15 plain objects is cheap, so no
+      // artificial delay: a late batch would make "next" wait at queue end.
       const batchStart = this.loadedEndIndex;
       const batchEnd = Math.min(
         batchStart + BACKGROUND_BATCH_SIZE,
         this.allSongs.length
       );
 
-      // Small delay for UI responsiveness
-      await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
-
       // Process batch
       const batch = [];
       for (let i = batchStart; i < batchEnd; i++) {
         const formatted = this._formatTrack(this.allSongs[i]);
         if (formatted) {
-          batch.push(formatted);
+          batch.push(
+            this.sourceType ? { ...formatted, sourceType: this.sourceType } : formatted
+          );
         }
       }
 
       if (batch.length > 0) {
         await TrackPlayer.add(batch);
         invalidateQueueSnapshot();
-        this.loadedEndIndex = batchEnd;
-
-        // Emit event for UI updates
-        DeviceEventEmitter.emit('queue-updated', {
-          count: this.loadedEndIndex,
-          total: this.allSongs.length,
-          isLocalMusic: true,
-        });
       }
+      // Advance even if nothing was playable, so the range can't stall
+      this.loadedEndIndex = batchEnd;
+
+      // Emit event for UI updates
+      DeviceEventEmitter.emit('queue-updated', {
+        count: this.loadedEndIndex,
+        total: this.allSongs.length,
+        isLocalMusic: true,
+      });
     } catch (error) {
       console.error(
         '❌ LocalMusicQueueManager: Error loading batch:',
         error.message
       );
-    } finally {
-      this.isLoading = false;
     }
   }
 
@@ -262,11 +363,9 @@ class LocalMusicQueueManager {
         }
 
         if (indicesToRemove.length > 0) {
-          // Remove in reverse order to maintain indices
-          for (let i = indicesToRemove.length - 1; i >= 0; i--) {
-            await TrackPlayer.remove(indicesToRemove[i]);
-            invalidateQueueSnapshot();
-          }
+          // One bridge call instead of one per track
+          await TrackPlayer.remove(indicesToRemove);
+          invalidateQueueSnapshot();
 
           this.loadedStartIndex += indicesToRemove.length;
         }
@@ -308,8 +407,10 @@ class LocalMusicQueueManager {
     this.loadedStartIndex = 0;
     this.loadedEndIndex = 0;
     this.isLoading = false;
+    this.loadingPromise = null;
     this.isActive = false;
     this.startOffset = 0;
+    this.sourceType = null;
   }
 }
 

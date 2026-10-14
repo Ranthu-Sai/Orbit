@@ -25,6 +25,7 @@ import {
 } from '../../MusicPlayerFunctions';
 import Modal from 'react-native-modal';
 import { StyleSheet } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import {
   useNavigation,
   useFocusEffect,
@@ -34,7 +35,16 @@ import { PlaylistHeader } from './PlaylistHeader';
 import { PlainText } from '../Global/PlainText';
 import Context from '../../Context/Context';
 import QueueContext from '../../Context/QueueContext';
-import TrackPlayer, { useActiveTrack } from 'react-native-track-player';
+import TrackPlayer, {
+  useActiveTrack,
+  Event,
+  State,
+} from 'react-native-track-player';
+import {
+  getRgba,
+  extractColorFromImage,
+  extractImageUrl,
+} from '../../Utils/ColorExtractor';
 
 // Default image constants moved outside component to prevent re-creation
 const DEFAULT_MUSIC_IMAGE = require('../../Images/default.jpg');
@@ -44,6 +54,14 @@ const LOCAL_MUSIC_IMAGE = require('../../Images/Music.jpeg');
 const staticStyles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  ambientBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 520,
+    zIndex: 0,
   },
   header: {
     flexDirection: 'row',
@@ -215,6 +233,41 @@ export const CustomPlaylistView = (props) => {
   const [visibleSongs, setVisibleSongs] = useState([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [accentColor, setAccentColor] = useState(null);
+
+  // Extract ambient accent color from custom playlist artwork
+  useEffect(() => {
+    let active = true;
+    if (!Songs || Songs.length === 0) return;
+
+    let artworkUrl = null;
+    for (let i = Songs.length - 1; i >= 0; i--) {
+      const song = Songs[i];
+      artworkUrl =
+        extractImageUrl(song?.artwork) ||
+        extractImageUrl(song?.image) ||
+        extractImageUrl(song?.images) ||
+        extractImageUrl(song?.thumbnail) ||
+        extractImageUrl(song?.url);
+      if (artworkUrl) break;
+    }
+
+    if (!artworkUrl) return;
+
+    extractColorFromImage(artworkUrl)
+      .then((color) => {
+        if (active && color) {
+          setAccentColor(color);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to extract color for CustomPlaylistView:', err);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [Songs]);
 
   const navigation = useNavigation();
   // const theme = useTheme(); // Already added in previous step
@@ -245,28 +298,40 @@ export const CustomPlaylistView = (props) => {
     };
   }, []);
 
+  // initializePlaylist is declared below and recreated every render; the
+  // focus effect reaches it through a ref so it is neither read before its
+  // declaration nor a changing dependency (which re-ran the effect each render)
+  const initializePlaylistRef = useRef(null);
+  const initInFlightRef = useRef(false);
+  const initializedParamsRef = useRef(null);
+  const routeParams = props.route?.params;
+
   // Focus effect to reload component when it comes back into focus
   useFocusEffect(
     useCallback(() => {
       StatusBar.setBarStyle(theme.dark ? 'light-content' : 'dark-content');
       StatusBar.setBackgroundColor(theme.colors.background, true);
-      if (isMounted.current) {
-        if (!initializationComplete.current) {
-          initializePlaylist();
+      if (isMounted.current && !initInFlightRef.current) {
+        // Re-initialize when opened with a different playlist
+        const paramsChanged = initializedParamsRef.current !== routeParams;
+        if (!initializationComplete.current || paramsChanged) {
+          initializePlaylistRef.current?.();
         }
       }
 
       return () => {
         // No cleanup needed
       };
-    }, [initializePlaylist, theme.colors.background, theme.dark])
+    }, [routeParams, theme.colors.background, theme.dark])
   );
 
   // Initialize playlist with optimized loading
   const initializePlaylist = async () => {
-    if (!isMounted.current) {
+    if (!isMounted.current || initInFlightRef.current) {
       return;
     }
+    initInFlightRef.current = true;
+    initializedParamsRef.current = routeParams;
 
     setIsLoading(true);
     setChunkLoading(true);
@@ -362,6 +427,7 @@ export const CustomPlaylistView = (props) => {
           }, 500);
         }
       } finally {
+        initInFlightRef.current = false;
         if (isMounted.current) {
           // Mark initialization as complete and set loading to false
           initializationComplete.current = true;
@@ -370,6 +436,7 @@ export const CustomPlaylistView = (props) => {
       }
     }, 200);
   };
+  initializePlaylistRef.current = initializePlaylist;
 
   // Load songs in chunks to prevent UI freezing
   const loadSongChunk = (allSongs, page) => {
@@ -563,35 +630,30 @@ export const CustomPlaylistView = (props) => {
     }
   }, [navigation, props.route]);
 
-  // Add this after other useEffects
+  // Track play state with the RNTP v4 API. TrackPlayer.STATE_PLAYING no
+  // longer exists (reads as undefined), so the old 1s poll and listener
+  // always computed isPlaying = false.
   useEffect(() => {
-    // Check if any track is playing
-    const checkPlaybackState = async () => {
-      try {
-        const state = await TrackPlayer.getState();
-        setIsPlaying(state === TrackPlayer.STATE_PLAYING);
-      } catch (err) {
-        console.error('Error checking playback state:', err);
-      }
-    };
+    let active = true;
+    TrackPlayer.getPlaybackState()
+      .then(({ state }) => {
+        if (active) {
+          setIsPlaying(state === State.Playing);
+        }
+      })
+      .catch(() => {});
 
-    // Set up interval to check regularly
-    const interval = setInterval(checkPlaybackState, 1000);
-    checkPlaybackState();
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Listen for track player events
-  useEffect(() => {
     const playerStateListener = TrackPlayer.addEventListener(
-      'playback-state',
-      (state) => {
-        setIsPlaying(state.state === TrackPlayer.STATE_PLAYING);
+      Event.PlaybackState,
+      ({ state }) => {
+        setIsPlaying(state === State.Playing);
       }
     );
 
-    return () => playerStateListener.remove();
+    return () => {
+      active = false;
+      playerStateListener.remove();
+    };
   }, []);
 
   // Memoized function to format a track for playback
@@ -1003,6 +1065,29 @@ export const CustomPlaylistView = (props) => {
         barStyle={theme.dark ? 'light-content' : 'dark-content'}
       />
 
+      {/* Dynamic Ambient Background Gradient */}
+      {accentColor && (
+        <LinearGradient
+          colors={[
+            getRgba(accentColor, 0.9),
+            getRgba(accentColor, 0.65),
+            getRgba(accentColor, 0.35),
+            getRgba(accentColor, 0.1),
+            'transparent',
+          ]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={[
+            staticStyles.ambientBackground,
+            {
+              top: -(StatusBar.currentHeight || 0),
+              height: 520 + (StatusBar.currentHeight || 0),
+            },
+          ]}
+          pointerEvents="none"
+        />
+      )}
+
       <View style={staticStyles.header}>
         <Pressable onPress={handleGoBack} style={staticStyles.backButton}>
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
@@ -1037,6 +1122,11 @@ export const CustomPlaylistView = (props) => {
             playlistId={playlistId}
             follower={isUserPlaylist ? 'User Playlist' : 'Imported Playlist'}
             songsData={Songs}
+            onColorExtracted={(color) => {
+              if (!accentColor && color) {
+                setAccentColor(color);
+              }
+            }}
           />
         }
         ListFooterComponent={

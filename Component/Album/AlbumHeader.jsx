@@ -16,7 +16,7 @@ import {
 } from 'react-native-paper';
 import { useTheme } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import TrackPlayer from 'react-native-track-player';
+import TrackPlayer, { State } from 'react-native-track-player';
 import {
   SetLikedAlbum,
   DeleteALikedAlbum,
@@ -192,7 +192,8 @@ export const AlbumHeader = ({
       try {
         const state = await TrackPlayer.getState();
         const isPlayerPlaying =
-          state === TrackPlayer.STATE_PLAYING || state === 3;
+          // TrackPlayer.STATE_PLAYING no longer exists in RNTP v4 (always undefined)
+          state === State.Playing;
         const currentTrackIndex = await TrackPlayer.getCurrentTrack();
 
         if (currentTrackIndex === null) {

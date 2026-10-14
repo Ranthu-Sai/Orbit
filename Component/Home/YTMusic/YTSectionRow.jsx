@@ -27,25 +27,28 @@ const truncateText = (text, limit = 18) => {
   return text.length > limit ? text.substring(0, limit) + '...' : text;
 };
 
+const getItemThumbnail = (item) => {
+  if (!item) return null;
+  if (item.thumbnail) {
+    return item.thumbnail;
+  }
+  if (item.thumbnails && item.thumbnails.length > 0) {
+    return (
+      item.thumbnails[item.thumbnails.length - 1]?.url ||
+      item.thumbnails[0]?.url
+    );
+  }
+  if (item.image && Array.isArray(item.image)) {
+    return item.image[item.image.length - 1]?.url || item.image[0]?.url;
+  }
+  return null;
+};
+
 const SectionItem = ({ item, type, onPress }) => {
   const { colors } = useTheme();
   const isArtist = type === 'artist';
 
-  const getThumbnail = () => {
-    if (item.thumbnail) {
-      return item.thumbnail;
-    }
-    if (item.thumbnails && item.thumbnails.length > 0) {
-      return (
-        item.thumbnails[item.thumbnails.length - 1]?.url ||
-        item.thumbnails[0]?.url
-      );
-    }
-    if (item.image && Array.isArray(item.image)) {
-      return item.image[item.image.length - 1]?.url || item.image[0]?.url;
-    }
-    return null;
-  };
+  const getThumbnail = () => getItemThumbnail(item);
 
   const getSubtitle = () => {
     if (type === 'album') {
@@ -99,10 +102,13 @@ export const YTSectionRow = ({
 
     // Default navigation behavior
     const id = item.browseId || item.playlistId || item.id;
+    const thumbnail = getItemThumbnail(item);
+    const itemName = item.title || item.name;
+
     if (itemType === 'album') {
-      navigation.navigate('Album', { id, source: 'YTMusic' });
+      navigation.navigate('Album', { id, source: 'YTMusic', image: thumbnail, name: itemName });
     } else if (itemType === 'playlist') {
-      navigation.navigate('Playlist', { id, source: 'YTMusic' });
+      navigation.navigate('Playlist', { id, source: 'YTMusic', image: thumbnail, name: itemName });
     } else if (itemType === 'artist') {
       navigation.navigate('ArtistPage', { id, source: 'YTMusic' });
     }
