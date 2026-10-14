@@ -1,0 +1,17 @@
+# Generated / vendored output - never lint
+node_modules/
+android/app/src/main/assets/
+android/app/build/
+android/build/
+ios/Pods/
+ios/build/
+
+# Prebuilt native assets
+*.keystore
+
+# Local env / secrets
+.env
+Utils/secrets.js
+
+# Freebuff workspace metadata
+.freebuff/

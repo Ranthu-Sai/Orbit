@@ -1,40 +1,50 @@
 /**
- * LinkDetector.js
- *
- * Utility to parse URLs and detect source, type, and ID.
- * Supports:
- * - Spotify: Playlist, Album, Track
- * - YouTube: Playlist, Video
- * - YouTube Music: Playlist, Album, Video
+ * Pull the first http(s) URL out of arbitrary text. Share intents from
+ * Spotify / YouTube Music often wrap the link in promotional copy, e.g.
+ * "Check out this playlist on Spotify: https://open.spotify.com/playlist/...".
+ * Falls back to the trimmed input when no URL is found.
  */
+export const extractUrlFromText = (rawText) => {
+  if (!rawText || typeof rawText !== 'string') {
+    return '';
+  }
+  const match = rawText.match(/https?:\/\/[^\s"'<>]+/i);
+  return match ? match[0] : rawText.trim();
+};
 
 export const detectLink = (url) => {
   if (!url || typeof url !== 'string') {
     return null;
   }
-  const trimmedUrl = url.trim();
+  const trimmedUrl = extractUrlFromText(url);
+  if (!trimmedUrl) {
+    return null;
+  }
 
   // --- Spotify ---
   if (trimmedUrl.includes('spotify.com')) {
     // Playlist
     if (trimmedUrl.includes('/playlist/')) {
       const id = extractId(trimmedUrl, '/playlist/');
-      return { source: 'spotify', type: 'playlist', id };
+      return { source: 'spotify', type: 'playlist', id, url: trimmedUrl };
     }
     // Album
     if (trimmedUrl.includes('/album/')) {
       const id = extractId(trimmedUrl, '/album/');
-      return { source: 'spotify', type: 'album', id };
+      return { source: 'spotify', type: 'album', id, url: trimmedUrl };
     }
     // Track
     if (trimmedUrl.includes('/track/')) {
       const id = extractId(trimmedUrl, '/track/');
-      return { source: 'spotify', type: 'track', id };
+      return { source: 'spotify', type: 'track', id, url: trimmedUrl };
     }
   }
 
   // --- YouTube / YouTube Music ---
   if (trimmedUrl.includes('youtube.com') || trimmedUrl.includes('youtu.be')) {
+    const isYTMusic = trimmedUrl.includes('music.youtube.com');
+    const ytSource = isYTMusic ? 'ytmusic' : 'youtube';
+
     // 1. YouTube Playlist (list=ID)
     // Check for 'list' parameter
     const listMatch = trimmedUrl.match(/[?&]list=([^&#]+)/);
@@ -43,21 +53,18 @@ export const detectLink = (url) => {
 
       // Distinguish Album vs Playlist if possible
       if (listId.startsWith('OLAK') || listId.startsWith('MPRE')) {
-        return { source: 'ytmusic', type: 'album', id: listId };
+        return { source: 'ytmusic', type: 'album', id: listId, url: trimmedUrl };
       }
 
-      return { source: 'youtube', type: 'playlist', id: listId };
+      return { source: ytSource, type: 'playlist', id: listId, url: trimmedUrl };
     }
 
     // 2. YouTube Album (browse/ID) - mainly YTM
-    if (
-      trimmedUrl.includes('music.youtube.com') &&
-      trimmedUrl.includes('/browse/')
-    ) {
+    if (isYTMusic && trimmedUrl.includes('/browse/')) {
       const parts = trimmedUrl.split('/browse/');
       const id = parts[1]?.split('?')[0];
       if (id) {
-        return { source: 'ytmusic', type: 'album', id };
+        return { source: 'ytmusic', type: 'album', id, url: trimmedUrl };
       }
     }
 
@@ -72,7 +79,7 @@ export const detectLink = (url) => {
     }
 
     if (videoId) {
-      return { source: 'youtube', type: 'video', id: videoId };
+      return { source: ytSource, type: 'video', id: videoId, url: trimmedUrl };
     }
   }
 

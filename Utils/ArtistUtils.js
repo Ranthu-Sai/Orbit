@@ -9,12 +9,12 @@
  */
 export const getValidImageUrl = (imageArray) => {
   if (!imageArray || !Array.isArray(imageArray) || imageArray.length === 0) {
-    return 'https://via.placeholder.com/500x500/cccccc/666666?text=Artist';
+    return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==x500/cccccc/666666?text=Artist';
   }
   return (
     imageArray[imageArray.length - 1]?.url ||
     imageArray[0]?.url ||
-    'https://via.placeholder.com/500x500/cccccc/666666?text=Artist'
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==x500/cccccc/666666?text=Artist'
   );
 };
 

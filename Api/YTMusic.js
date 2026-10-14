@@ -2,6 +2,7 @@ import { getCachedData, CACHE_GROUPS } from './CacheManager';
 import YouTubeMusicService from '../Utils/YouTubeMusicService';
 import InnerTubeClient from './InnertubeClient';
 import { upgradeArtworkQuality } from '../Utils/YTMusicArtworkUtils';
+import { placeholderArtworkUrl } from '../Utils/PlaceholderArtwork';
 
 // Sections to filter out - these are YouTube video categories, not music
 // OuterTune approach: hide video-like content and show only music-focused sections
@@ -104,7 +105,7 @@ function transformYTToSaavnSong(song) {
         ? imageArray
         : [
             {
-              url: 'https://via.placeholder.com/150',
+              url: placeholderArtworkUrl(),
               quality: '150x150',
             },
           ],
@@ -160,7 +161,7 @@ function transformYTToSaavnArtist(artist) {
         ? imageArray
         : [
             {
-              url: 'https://via.placeholder.com/150',
+              url: placeholderArtworkUrl(),
               quality: '150x150',
             },
           ],
@@ -213,8 +214,8 @@ function transformYTToSaavnAlbum(album) {
         ? imageArray
         : [
             {
-              url: 'https://via.placeholder.com/150',
-              link: 'https://via.placeholder.com/150',
+              url: placeholderArtworkUrl(),
+              link: placeholderArtworkUrl(),
               quality: '150x150',
             },
           ],
@@ -268,8 +269,8 @@ function transformYTToSaavnPlaylist(playlist) {
         : [
             {
               quality: '150x150',
-              url: 'https://via.placeholder.com/150',
-              link: 'https://via.placeholder.com/150',
+              url: placeholderArtworkUrl(),
+              link: placeholderArtworkUrl(),
             },
           ],
     url: playlistId,
@@ -798,7 +799,7 @@ async function getYTMusicPlaylistData(playlistId) {
             }
 
             // Get the best quality thumbnail
-            let thumbnailUrl = 'https://via.placeholder.com/150';
+            let thumbnailUrl = placeholderArtworkUrl();
             if (
               song.thumbnails &&
               Array.isArray(song.thumbnails) &&
@@ -901,8 +902,8 @@ async function getYTMusicPlaylistData(playlistId) {
           }) || [
             {
               quality: '150x150',
-              url: 'https://via.placeholder.com/150',
-              link: 'https://via.placeholder.com/150',
+              url: placeholderArtworkUrl(),
+              link: placeholderArtworkUrl(),
             },
           ],
           url: playlistData.id || playlistId,
@@ -998,7 +999,7 @@ async function getYTMusicAlbumData(albumId) {
               thumbnails = albumData.thumbnails;
             }
 
-            let thumbnailUrl = 'https://via.placeholder.com/150';
+            let thumbnailUrl = placeholderArtworkUrl();
             if (
               thumbnails &&
               Array.isArray(thumbnails) &&
@@ -1115,8 +1116,8 @@ async function getYTMusicAlbumData(albumId) {
           }) || [
             {
               quality: '150x150',
-              url: 'https://via.placeholder.com/150',
-              link: 'https://via.placeholder.com/150',
+              url: placeholderArtworkUrl(),
+              link: placeholderArtworkUrl(),
             },
           ],
           artist: albumData.artists?.[0]?.name || 'Various Artists',
@@ -1189,7 +1190,7 @@ function transformYTToSaavnArtistDetails(artistData) {
   // Transform thumbnails
   const imageArray = [];
   // Use a default or valid image if available
-  const artistImage = 'https://via.placeholder.com/150';
+  const artistImage = placeholderArtworkUrl();
 
   if (artistData.thumbnails && Array.isArray(artistData.thumbnails)) {
     artistData.thumbnails.forEach((thumbnail) => {
@@ -1236,7 +1237,7 @@ async function getYTMusicArtistDetails(artistId) {
               url: t.url,
               quality: '500x500',
             })) || [
-              { url: 'https://via.placeholder.com/500', quality: '500x500' },
+              { url: placeholderArtworkUrl(), quality: '500x500' },
             ],
             followerCount: 0,
             bio: [],

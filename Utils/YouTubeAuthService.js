@@ -4,6 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import SecureStore from './SecureStore';
 
 const YT_USER_KEY = 'yt_user_info';
 const YT_COOKIES_KEY = 'yt_cookies';
@@ -21,9 +22,12 @@ class YouTubeAuthService {
       return;
     }
     try {
+      // Migrate legacy plaintext cookies into encrypted storage once.
+      await SecureStore.migrateFromAsyncStorage();
+
       const [userInfo, cookies] = await Promise.all([
         AsyncStorage.getItem(YT_USER_KEY),
-        AsyncStorage.getItem(YT_COOKIES_KEY),
+        SecureStore.getItem(YT_COOKIES_KEY),
       ]);
 
       if (userInfo) {
@@ -99,16 +103,56 @@ class YouTubeAuthService {
   }
 
   /**
+   * Store YouTube auth cookies in encrypted storage.
+   * Single write path for login flows (webview capture / manual paste).
+   * @param {string} cookieString - Raw Cookie header value
+   */
+  async setCookies(cookieString) {
+    try {
+      await SecureStore.setItem(YT_COOKIES_KEY, cookieString);
+      this.isAuthenticated = !!cookieString && cookieString.includes('SAPISID');
+      // New session: make the streaming layer re-read cookies right away
+      this._resetStreamingSession();
+      this._notifyListeners();
+    } catch (error) {
+      console.error('YouTubeAuthService setCookies error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get stored cookies for authenticated API requests
    * @returns {string|null} Cookie string or null if not authenticated
    */
   async getCookies() {
     try {
-      const cookies = await AsyncStorage.getItem(YT_COOKIES_KEY);
+      const cookies = await SecureStore.getItem(YT_COOKIES_KEY);
       return cookies || null;
     } catch (error) {
       console.error('YouTubeAuthService getCookies error:', error);
       return null;
+    }
+  }
+
+  /**
+   * Drop cached copies of the cookie string outside this service.
+   * Lazy requires avoid an import cycle with the streaming service.
+   * @param {Object} options
+   * @param {boolean} options.clearNative - Also clear the native extractor's cookies
+   */
+  _resetStreamingSession({ clearNative = false } = {}) {
+    try {
+      require('./YouTubeStreamingService').default.clearCookieCache();
+    } catch (e) {
+      // Streaming service not loaded yet: nothing cached
+    }
+    if (clearNative) {
+      try {
+        const StreamModule = require('./NativeStreaming').default;
+        StreamModule?.clearCookies?.().catch?.(() => {});
+      } catch (e) {
+        // Older native build without clearCookies
+      }
     }
   }
 
@@ -121,7 +165,7 @@ class YouTubeAuthService {
       this.isAuthenticated = false;
       await Promise.all([
         AsyncStorage.removeItem(YT_USER_KEY),
-        AsyncStorage.removeItem(YT_COOKIES_KEY),
+        SecureStore.removeItem(YT_COOKIES_KEY),
       ]);
 
       // Also clear headers_auth.json
@@ -134,6 +178,18 @@ class YouTubeAuthService {
         }
       } catch (fsError) {
         console.warn('Could not delete headers_auth.json:', fsError);
+      }
+
+      // Stop sending the old session everywhere it is still held
+      this._resetStreamingSession({ clearNative: true });
+      try {
+        // The login WebView's cookie jar; otherwise the next login screen
+        // silently re-captures this account. (Only the login screen uses a
+        // WebView, so clearing all WebView cookies is safe.)
+        const CookieManager = require('@react-native-cookies/cookies').default;
+        await CookieManager.clearAll();
+      } catch (cookieError) {
+        console.warn('Could not clear WebView cookies:', cookieError);
       }
 
       this._notifyListeners();

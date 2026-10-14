@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { getCachedData, CACHE_GROUPS } from './CacheManager';
 import DabAuthService from '../Utils/DabAuthService';
+import { placeholderArtworkUrl } from '../Utils/PlaceholderArtwork';
 
 // DAB Music API Base URL
 const DAB_API_BASE_URL = 'https://dabmusic.xyz/api';
@@ -39,7 +40,7 @@ function transformDabToSaavnSong(track) {
         ? imageArray
         : [
             {
-              url: 'https://via.placeholder.com/150',
+              url: placeholderArtworkUrl(),
               quality: '150x150',
             },
           ],
@@ -98,8 +99,8 @@ function transformDabToSaavnAlbum(album) {
         ? imageArray
         : [
             {
-              url: 'https://via.placeholder.com/150',
-              link: 'https://via.placeholder.com/150',
+              url: placeholderArtworkUrl(),
+              link: placeholderArtworkUrl(),
               quality: '150x150',
             },
           ],
@@ -150,7 +151,7 @@ function transformDabToSaavnArtist(artist) {
         ? imageArray
         : [
             {
-              url: 'https://via.placeholder.com/150',
+              url: placeholderArtworkUrl(),
               quality: '150x150',
             },
           ],

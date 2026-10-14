@@ -36,9 +36,9 @@ export const OPTIMIZED_IMAGES = {
 // Default fallback URLs for remote images
 export const FALLBACK_URLS = {
   ARTIST_PLACEHOLDER:
-    'https://via.placeholder.com/500x500/cccccc/666666?text=Artist',
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==x500/cccccc/666666?text=Artist',
   ALBUM_PLACEHOLDER:
-    'https://via.placeholder.com/500x500/cccccc/666666?text=Album',
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==x500/cccccc/666666?text=Album',
   GENERIC_PLACEHOLDER:
     'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
 };

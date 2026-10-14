@@ -56,3 +56,33 @@
 -keep class com.orbit.app.PythonPackage {
     <methods>;
 }
+
+# --- React Native / Jellyfish reflectively-accessed classes ---
+# Keep React Native core (reflection-based view managers & native modules)
+-keep class com.facebook.react.** { *; }
+
+# react-native-track-player: native modules and service looked up by name
+-keep class com.doublesymmetry.trackplayer.** { *; }
+
+# react-native-config: reads build config fields reflectively
+-keep class com.lugg.ReactNativeConfig.** { *; }
+
+# react-native-device-info: reflection over package manager
+-keep class com.learnium.RNDeviceInfo.** { *; }
+
+# react-native-keychain: native module pair for encrypted storage
+-keep class com.oblador.keychain.** { *; }
+
+# Firebase: reflection-based initializer
+-keep class com.google.firebase.** { *; }
+-keep class io.invertase.firebase.** { *; }
+
+# Kotlin serialization (used by Innertube models)
+-keepclassmembers class * implements kotlinx.serialization.KSerializer { *; }
+-keep,includedescriptorclasses class com.orbit.app.**$$serializer { *; }
+-keepclassmembers class com.orbit.app.** {
+    *** Companion;
+}
+-keepclasseswithmembers class com.orbit.app.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}

@@ -15,7 +15,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import FormatArtist from '../../Utils/FormatArtists';
 import FormatTitleAndArtist from '../../Utils/FormatTitleAndArtist';
 import { CacheManager } from '../../Utils/CacheManager';
-import TrackPlayer, { useActiveTrack } from 'react-native-track-player';
+import TrackPlayer, { useActiveTrack, State } from 'react-native-track-player';
 import { DownloadButton } from '../Global/DownloadButton';
 import { requestWithFallback } from '../../Api/apiUtils';
 
@@ -145,7 +145,8 @@ export const PlaylistDetails = ({
     try {
       // Get the current player state - check if playing or paused
       const playerState = await TrackPlayer.getState();
-      const isPlayerPlaying = playerState === TrackPlayer.STATE_PLAYING;
+      // TrackPlayer.STATE_PLAYING no longer exists in RNTP v4 (always undefined)
+      const isPlayerPlaying = playerState === State.Playing;
       const currentTrackIndex = await TrackPlayer.getCurrentTrack();
 
       // If no track is playing, definitely not playing

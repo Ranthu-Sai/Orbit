@@ -27,6 +27,8 @@ export const useLocalTracks = (options = {}) => {
   const [error, setError] = useState(null);
   const [showLocalTracks, setShowLocalTracks] = useState(false);
   const hasLoadedRef = useRef(false);
+  // Ref (not state) so the guard below sees the live value, not a stale closure
+  const isLoadingRef = useRef(false);
 
   // Clear error state
   const clearError = useCallback(() => {
@@ -36,10 +38,11 @@ export const useLocalTracks = (options = {}) => {
   // Load local tracks from storage
   const loadLocalTracks = useCallback(
     async (forceReload = false) => {
-      if (isLoading || (!forceReload && hasLoadedRef.current)) {
+      if (isLoadingRef.current || (!forceReload && hasLoadedRef.current)) {
         return;
       }
 
+      isLoadingRef.current = true;
       setIsLoading(true);
       setError(null);
 
@@ -50,7 +53,6 @@ export const useLocalTracks = (options = {}) => {
         if (!allMetadata || Object.keys(allMetadata).length === 0) {
           setLocalTracks([]);
           hasLoadedRef.current = true;
-          setIsLoading(false);
           return;
         }
 
@@ -72,6 +74,7 @@ export const useLocalTracks = (options = {}) => {
           onError(error, 'load');
         }
       } finally {
+        isLoadingRef.current = false;
         setIsLoading(false);
       }
     },

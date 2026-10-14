@@ -1,5 +1,9 @@
 {
   "extends": "@react-native/typescript-config/tsconfig.json",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler"
+  },
   "exclude": [
     "**/*.js",
     "**/*.jsx"

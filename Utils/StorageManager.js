@@ -146,6 +146,40 @@ const getSongPath = async (songId, songTitle = null, source = null) => {
   return `${baseDir}/songs/${String(songId)}${extension}`;
 };
 
+/**
+ * Resolves the on-disk path of a downloaded song.
+ * Downloads are saved as "<title> - <id>.<ext>"; older builds saved "<id>.<ext>".
+ * Returns the first candidate that exists, or null.
+ * @param {string} songId - Song ID
+ * @param {Object} metadata - Stored download metadata (title, source)
+ */
+const resolveDownloadedSongPath = async (songId, metadata = null) => {
+  if (!songId) {
+    return null;
+  }
+  const candidates = [];
+  // Exact path recorded at download time is the most reliable
+  if (typeof metadata?.localSongPath === 'string') {
+    candidates.push(metadata.localSongPath.replace(/^file:\/\//, ''));
+  }
+  if (metadata?.title) {
+    candidates.push(await getSongPath(songId, metadata.title, metadata.source));
+  }
+  candidates.push(await getSongPath(songId, null, metadata?.source));
+  if (metadata?.source) {
+    // Legacy files may have been saved with the default extension
+    candidates.push(await getSongPath(songId, metadata?.title || null, null));
+    candidates.push(await getSongPath(songId, null, null));
+  }
+
+  for (const candidate of candidates) {
+    if (candidate && (await safeExists(candidate))) {
+      return candidate;
+    }
+  }
+  return null;
+};
+
 // Gets the full path for an artwork file
 const getArtworkPath = async (songId) => {
   if (!songId) {
@@ -167,60 +201,20 @@ const STORAGE_KEYS = {
   LOCAL_MUSIC_CACHE: '@orbit_local_music_cache',
 };
 
-// Storage quota management
-const STORAGE_QUOTA = {
-  MAX_TOTAL_SIZE: 50 * 1024 * 1024, // 50MB max total storage
-  MAX_SONGS_COUNT: 500, // Max 500 songs
-  CLEANUP_THRESHOLD: 40 * 1024 * 1024, // Start cleanup at 40MB
-};
+// AsyncStorage on Android defaults to a ~6MB total limit. When the metadata
+// blob grows close to that, drop entries whose files no longer exist.
+// Entries for songs that are still on disk are never removed.
+const METADATA_SIZE_SOFT_LIMIT = 4 * 1024 * 1024;
 
-// Check storage quota before saving
 const checkStorageQuota = async () => {
   try {
     const allMetadata = await getAllDownloadedSongsMetadata();
-    const songCount = Object.keys(allMetadata).length;
-
-    // Check if we're approaching limits
-    if (songCount >= STORAGE_QUOTA.MAX_SONGS_COUNT) {
-      await cleanupOldMetadata(allMetadata);
-    }
-
-    // Estimate storage size (rough calculation)
     const estimatedSize = JSON.stringify(allMetadata).length;
-    if (estimatedSize >= STORAGE_QUOTA.CLEANUP_THRESHOLD) {
-      await cleanupOldMetadata(allMetadata);
+    if (estimatedSize >= METADATA_SIZE_SOFT_LIMIT) {
+      await cleanupOrphanedMetadata();
     }
   } catch (error) {
     console.error('Error checking storage quota:', error);
-  }
-};
-
-// Cleanup old metadata entries
-const cleanupOldMetadata = async (allMetadata) => {
-  try {
-    const entries = Object.entries(allMetadata);
-    if (entries.length === 0) {
-      return;
-    }
-
-    // Sort by download time (oldest first)
-    entries.sort((a, b) => a[1].downloadTime - b[1].downloadTime);
-
-    // Remove oldest 20% of entries
-    const removeCount = Math.ceil(entries.length * 0.2);
-    const keepEntries = entries.slice(removeCount);
-
-    const cleanedMetadata = {};
-    keepEntries.forEach(([id, metadata]) => {
-      cleanedMetadata[id] = metadata;
-    });
-
-    await AsyncStorage.setItem(
-      STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
-      JSON.stringify(cleanedMetadata)
-    );
-  } catch (error) {
-    console.error('Error cleaning up old metadata:', error);
   }
 };
 
@@ -249,8 +243,7 @@ const saveDownloadedSongMetadata = async (songId, metadata) => {
       error.message?.includes('quota')
     ) {
       try {
-        const allMetadata = await getAllDownloadedSongsMetadata();
-        await cleanupOldMetadata(allMetadata);
+        await cleanupOrphanedMetadata();
 
         // Retry save after cleanup
         const retryMetadata = await getAllDownloadedSongsMetadata();
@@ -304,8 +297,10 @@ const removeDownloadedSongMetadata = async (songId, localFilePath = null) => {
         songPath = localFilePath.replace('file://', '');
       }
     } else if (metadata) {
-      // Calculate path from metadata
-      songPath = await getSongPath(songId, metadata.title, metadata.source);
+      // Find the actual file (titled or legacy id-only name)
+      songPath =
+        (await resolveDownloadedSongPath(songId, metadata)) ||
+        (await getSongPath(songId, metadata.title, metadata.source));
     }
 
     // Delete song file from external storage
@@ -361,12 +356,11 @@ const isSongDownloaded = async (songId) => {
       return false;
     }
 
-    // Verify file actually exists on disk
-    const songPath = await getSongPath(songId, metadata.title, metadata.source);
-    const fileExists = await safeExists(songPath);
+    // Verify file actually exists on disk (titled or legacy id-only name)
+    const songPath = await resolveDownloadedSongPath(String(songId), metadata);
 
     // If metadata exists but file doesn't, clean up the orphaned metadata
-    if (!fileExists) {
+    if (!songPath) {
       delete allMetadata[String(songId)];
       await AsyncStorage.setItem(
         STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
@@ -415,15 +409,8 @@ const cleanupOrphanedMetadata = async () => {
     const orphanedIds = [];
 
     for (const [songId, metadata] of Object.entries(allMetadata)) {
-      // Pass source for correct file extension
-      const songPath = await getSongPath(
-        songId,
-        metadata.title,
-        metadata.source
-      );
-      const songExists = await safeExists(songPath);
-
-      if (!songExists) {
+      const songPath = await resolveDownloadedSongPath(songId, metadata);
+      if (!songPath) {
         orphanedIds.push(songId);
       }
     }
@@ -468,20 +455,9 @@ const getLocalMusicCache = async () => {
     const cacheJson = await AsyncStorage.getItem(
       STORAGE_KEYS.LOCAL_MUSIC_CACHE
     );
-    if (cacheJson) {
-      const cacheData = JSON.parse(cacheJson);
-      // Check if cache is less than 24 hours old
-      const cacheAge = Date.now() - (cacheData.timestamp || 0);
-      const maxCacheAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-
-      if (cacheAge < maxCacheAge) {
-        return cacheData;
-      } else {
-        await AsyncStorage.removeItem(STORAGE_KEYS.LOCAL_MUSIC_CACHE);
-        return null;
-      }
-    }
-    return null;
+    // No expiry: the cache is only a fast first paint. A fresh scan always
+    // runs afterwards and replaces it, so an old cache is never wrong for long.
+    return cacheJson ? JSON.parse(cacheJson) : null;
   } catch (error) {
     console.error('Error getting local music cache:', error);
     return null;
@@ -528,6 +504,7 @@ const getDownloadPathInfo = async () => {
 export const StorageManager = {
   ensureDirectoriesExist,
   getSongPath,
+  resolveDownloadedSongPath,
   getArtworkPath,
   getDownloadsDirectory,
   saveDownloadedSongMetadata,

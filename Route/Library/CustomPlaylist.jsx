@@ -586,13 +586,21 @@ export const CustomPlaylist = () => {
     );
   };
 
-  const renderPlaylists = () => {
-    // Convert object keys to array for legacy playlists
-    const playlistNames = Object.keys(playlists);
-    const hasLegacyPlaylists = playlistNames.length > 0;
-    const hasNewPlaylists = userPlaylists.length > 0;
-    const hasLikedPlaylists = likedPlaylists.length > 0;
+  // Compute playlist names and combined list at the top level so hooks are always called
+  const playlistNames = Object.keys(playlists);
+  const hasLegacyPlaylists = playlistNames.length > 0;
+  const hasNewPlaylists = userPlaylists.length > 0;
+  const hasLikedPlaylists = likedPlaylists.length > 0;
 
+  // Combine all playlists for FlatList rendering
+  const combinedPlaylists = useMemo(() => {
+    const user = userPlaylists.map((item, index) => ({ type: 'user', item, index }));
+    const liked = likedPlaylists.map((item, index) => ({ type: 'liked', item, index: index + userPlaylists.length }));
+    const legacy = playlistNames.map((item, index) => ({ type: 'legacy', item, index: index + userPlaylists.length + likedPlaylists.length }));
+    return [...user, ...liked, ...legacy];
+  }, [userPlaylists, likedPlaylists, playlistNames]);
+
+  const renderPlaylists = () => {
     if (loading) {
       return <PlaylistListSkeleton count={10} />;
     }
@@ -646,14 +654,6 @@ export const CustomPlaylist = () => {
         </View>
       );
     }
-
-    // Combine all playlists for FlatList rendering
-    const combinedPlaylists = useMemo(() => {
-      const user = userPlaylists.map((item, index) => ({ type: 'user', item, index }));
-      const liked = likedPlaylists.map((item, index) => ({ type: 'liked', item, index: index + userPlaylists.length }));
-      const legacy = playlistNames.map((item, index) => ({ type: 'legacy', item, index: index + userPlaylists.length + likedPlaylists.length }));
-      return [...user, ...liked, ...legacy];
-    }, [userPlaylists, likedPlaylists, playlistNames]);
 
     const renderCombinedItem = ({ item: row }) => {
       if (row.type === 'user') return renderUserPlaylist({ item: row.item, index: row.index });

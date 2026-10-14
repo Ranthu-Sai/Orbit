@@ -4,6 +4,7 @@ import { SmallText } from './SmallText';
 import { useTheme } from '@react-navigation/native';
 import { memo } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import { placeholderArtworkUrl } from '../../Utils/PlaceholderArtwork';
 export const EachArtistCard = memo(function EachArtistCard({
   name,
   role,
@@ -27,7 +28,7 @@ export const EachArtistCard = memo(function EachArtistCard({
   };
 
   const safeImageUri =
-    image || 'https://via.placeholder.com/150x150/cccccc/666666?text=Artist';
+    image || placeholderArtworkUrl();
 
   return (
     <Pressable

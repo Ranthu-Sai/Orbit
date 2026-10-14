@@ -39,7 +39,27 @@ class EventRegister {
    * @param {number} id - Listener ID returned from addEventListener
    * @returns {boolean} True if removed successfully
    */
-  removeEventListener(id) {
+  removeEventListener(id, callback) {
+    // Also accept the (eventName, callback) form. Callers used it by
+    // mistake, which silently removed nothing and leaked the listener.
+    if (typeof id === 'string' && typeof callback === 'function') {
+      const eventListeners = this.listeners[id];
+      if (!eventListeners) {
+        return false;
+      }
+      let removed = false;
+      for (const listenerId in eventListeners) {
+        if (eventListeners[listenerId] === callback) {
+          delete eventListeners[listenerId];
+          removed = true;
+        }
+      }
+      if (Object.keys(eventListeners).length === 0) {
+        delete this.listeners[id];
+      }
+      return removed;
+    }
+
     if (id === -1 || !id) {
       return false;
     }

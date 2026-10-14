@@ -29,6 +29,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { PlayOneSong, AddPlaylist } from '../../MusicPlayerFunctions';
 import Context from '../../Context/Context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { placeholderArtworkUrl } from '../../Utils/PlaceholderArtwork';
 
 export const PodcastDetailScreen = () => {
   const navigation = useNavigation();
@@ -95,7 +96,7 @@ export const PodcastDetailScreen = () => {
       episode.image ||
       episode.feedImage ||
       podcast?.artwork ||
-      'https://via.placeholder.com/300',
+      placeholderArtworkUrl(),
     url: episode.enclosureUrl,
     duration: episode.duration || 0,
     type: 'podcast',

@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import SecureStore from './SecureStore';
 import NativeStreaming from './NativeStreaming';
 import { CacheManager } from './NavigationCacheManager';
 import { GetYtMusicQuality } from '../LocalStorage/AppSettings';
@@ -33,6 +33,16 @@ class YouTubeStreamingService {
     this.cachedCookies = null;
     this.cookiesCacheTimestamp = 0;
     this.COOKIES_CACHE_TTL = 300000; // 5 minutes
+  }
+
+  /**
+   * Drop the in-memory cookie cache so the next request reads current
+   * storage. Called on login/logout; otherwise the previous session kept
+   * being sent for up to COOKIES_CACHE_TTL.
+   */
+  clearCookieCache() {
+    this.cachedCookies = null;
+    this.cookiesCacheTimestamp = 0;
   }
 
   /**
@@ -100,7 +110,9 @@ class YouTubeStreamingService {
         !this.cachedCookies ||
         Date.now() - this.cookiesCacheTimestamp > this.COOKIES_CACHE_TTL
       ) {
-        this.cachedCookies = await AsyncStorage.getItem('yt_cookies');
+        // Cookies live in encrypted storage (SecureStore falls back to the
+        // legacy AsyncStorage key when the keychain module is unavailable).
+        this.cachedCookies = await SecureStore.getItem('yt_cookies');
         this.cookiesCacheTimestamp = Date.now();
       }
       const cookies = this.cachedCookies;

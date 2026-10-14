@@ -3,8 +3,11 @@ import { View, StyleSheet } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { useTheme } from 'react-native-paper';
 
-export const GlassBox = ({ id, children, style, gradientConfig, rectInset = 1, borderOutside = false }) => {
-  const [dims, setDims] = useState({ width: 0, height: 0 });
+// fixedSize ({ width, height }) skips the onLayout measure + extra render,
+// which matters when many GlassBoxes are rendered in a list.
+export const GlassBox = ({ id, children, style, gradientConfig, rectInset = 1, borderOutside = false, fixedSize = null }) => {
+  const [measuredDims, setDims] = useState({ width: 0, height: 0 });
+  const dims = fixedSize || measuredDims;
   const theme = useTheme();
 
   const defaultConfig = {
@@ -37,10 +40,12 @@ export const GlassBox = ({ id, children, style, gradientConfig, rectInset = 1, b
   const svgRx = Math.max(0, safeRadius - inset2/2);
   const svgRy = svgRx;
 
-  const handleLayout = (e) => {
-    const { width, height } = e.nativeEvent.layout;
-    setDims({ width, height });
-  };
+  const handleLayout = fixedSize
+    ? undefined
+    : (e) => {
+        const { width, height } = e.nativeEvent.layout;
+        setDims({ width, height });
+      };
 
   // Default SVG border (for buttons — fits exactly within viewport)
   const svgBorderDefault = dims.width > 0 && dims.height > 0 && (

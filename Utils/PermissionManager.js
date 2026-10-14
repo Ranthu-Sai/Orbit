@@ -10,8 +10,14 @@ const { StoragePermissionModule } = NativeModules;
 
 /**
  * Requests storage permission on Android when necessary.
- * For Android 10 (API 29) and above, no permission is needed for saving to public media directories.
- * For Android 9 (API 28) and below, WRITE_EXTERNAL_STORAGE is required.
+ *
+ * - Android 13+ (API 33): READ_MEDIA_AUDIO is the granular audio permission
+ *   and must be requested at runtime - WRITE/READ_EXTERNAL_STORAGE no longer
+ *   apply.
+ * - Android 10-12 (API 29-32): no runtime permission needed to write media via
+ *   MediaStore, but reading other apps' files uses READ_EXTERNAL_STORAGE.
+ * - Android 9 and below (API <= 28): WRITE_EXTERNAL_STORAGE is required.
+ *
  * @returns {Promise<boolean>} A promise that resolves to true if permission is granted or not needed, and false otherwise.
  */
 export const requestStoragePermission = async () => {
@@ -22,8 +28,23 @@ export const requestStoragePermission = async () => {
   try {
     const apiLevel = await DeviceInfo.getApiLevel();
 
+    if (apiLevel >= 33) {
+      // READ_MEDIA_AUDIO is declared in the manifest; request it at runtime.
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO,
+        {
+          title: 'Music Access Required',
+          message:
+            'This app needs access to your music library to play and download audio files.',
+          buttonPositive: 'Allow',
+          buttonNegative: 'Cancel',
+        }
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    }
+
     if (apiLevel >= 29) {
-      return true; // No permission needed for Android 10+
+      return true; // Scoped storage - MediaStore writes need no permission
     }
 
     // For Android 9 and below, request permission
@@ -41,6 +62,56 @@ export const requestStoragePermission = async () => {
     return granted === PermissionsAndroid.RESULTS.GRANTED;
   } catch (error) {
     return false;
+  }
+};
+
+// Permission needed to read music files: granular audio permission on
+// Android 13+, legacy storage read permission below that.
+const getAudioReadPermission = () =>
+  Platform.Version >= 33
+    ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO
+    : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
+
+/**
+ * Check (without prompting) whether the app may read music files.
+ * @returns {Promise<boolean>}
+ */
+export const checkAudioReadPermission = async () => {
+  if (Platform.OS !== 'android') {
+    return true;
+  }
+  try {
+    return await PermissionsAndroid.check(getAudioReadPermission());
+  } catch (error) {
+    return false;
+  }
+};
+
+/**
+ * Prompt for permission to read music files.
+ * @returns {Promise<'granted'|'denied'|'blocked'>} 'blocked' means the user
+ *   chose "Don't ask again" and only system settings can grant it now.
+ */
+export const requestAudioReadPermission = async () => {
+  if (Platform.OS !== 'android') {
+    return 'granted';
+  }
+  try {
+    const result = await PermissionsAndroid.request(getAudioReadPermission(), {
+      title: 'Allow access to your music',
+      message: 'Orbit needs access to audio files to show and play your music.',
+      buttonPositive: 'Allow',
+      buttonNegative: 'Not now',
+    });
+    if (result === PermissionsAndroid.RESULTS.GRANTED) {
+      return 'granted';
+    }
+    if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+      return 'blocked';
+    }
+    return 'denied';
+  } catch (error) {
+    return 'denied';
   }
 };
 

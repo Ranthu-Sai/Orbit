@@ -5,7 +5,7 @@ import {
   NavigationContainerRef,
 } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { ToastAndroid, BackHandler, Linking } from 'react-native';
+import { DeviceEventEmitter, Linking, ToastAndroid } from 'react-native';
 import ContextState from './Context/ContextState';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -23,6 +23,10 @@ import { LASTFM_API_KEY, LASTFM_API_SECRET } from './Utils/secrets';
 import updateService from './Utils/UpdateService';
 import UpdateModal from './Component/Modals/UpdateModal';
 import SuspenseFallback from './Component/Global/SuspenseFallback';
+import { showToast } from './Utils/ToastUtils';
+import { ImportPlaylistModal } from './Component/Playlist/ImportPlaylistModal';
+import { detectLink, extractUrlFromText } from './Utils/LinkDetector';
+import { importFromLink } from './Utils/PlaylistImportLogic';
 
 // Lazy-loaded screen components for faster startup
 const RootRoute = lazy(() => import('./Route/RootRoute.jsx').then(m => ({ default: m.RootRoute })));
@@ -50,11 +54,41 @@ type ThemeContextType = {
 
 const Stack = createStackNavigator();
 
-// Update modal state (managed at top level for force updates)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-let _globalSetUpdateModalVisible: ((visible: boolean) => void) | null = null;
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-let _globalSetUpdateInfo: ((info: any) => void) | null = null;
+const SHARE_URL_PREFIX = 'com.orbit.app://share';
+const SHARED_LINK_DOMAINS = ['spotify.com', 'youtube.com', 'youtu.be'];
+// Ignore the same shared link if it arrives again within this window
+const SHARE_DEDUPE_MS = 5000;
+
+// Where each imported entity type lands in the Library stack
+const SHARE_DESTINATIONS: Record<string, string> = {
+  playlist: 'CustomPlaylist',
+  // Liked albums are listed on the Favorites (LikedSongs) page
+  album: 'LikedSongs',
+  track: 'LikedSongs',
+  video: 'LikedSongs',
+};
+
+// Returns the raw shared text for share intents / direct music links, otherwise null
+const getSharedText = (url: string): string | null => {
+  if (url.startsWith(SHARE_URL_PREFIX)) {
+    const match = url.match(/[?&]text=([^&]*)/);
+    if (!match) {
+      return '';
+    }
+    try {
+      return decodeURIComponent(match[1].replace(/\+/g, ' '));
+    } catch (e) {
+      return match[1];
+    }
+  }
+  if (
+    /^https?:\/\//i.test(url) &&
+    SHARED_LINK_DOMAINS.some((domain) => url.includes(domain))
+  ) {
+    return url;
+  }
+  return null;
+};
 
 function App() {
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
@@ -63,15 +97,13 @@ function App() {
   const [updateModalVisible, setUpdateModalVisible] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<any>(null);
 
-  // Register global setters for force updates
-  useEffect(() => {
-    _globalSetUpdateModalVisible = setUpdateModalVisible;
-    _globalSetUpdateInfo = setUpdateInfo;
-    return () => {
-      _globalSetUpdateModalVisible = null;
-      _globalSetUpdateInfo = null;
-    };
-  }, []);
+  // Shared-link import modal state (Share Sheet -> Orbit)
+  const [sharedModalVisible, setSharedModalVisible] = useState(false);
+  const [sharedUrl, setSharedUrl] = useState('');
+  const lastSharedRef = useRef<{ url: string; time: number }>({
+    url: '',
+    time: 0,
+  });
 
   // Startup update check
   useEffect(() => {
@@ -102,6 +134,33 @@ function App() {
     if (updateInfo?.url) {
       await updateService.openUpdateLink(updateInfo.url);
     }
+  };
+
+  const handleSharedImportClose = () => {
+    setSharedModalVisible(false);
+    setSharedUrl('');
+  };
+
+  const handleSharedImportSuccess = (linkInfo: any) => {
+    DeviceEventEmitter.emit('playlist-updated');
+    DeviceEventEmitter.emit('favorites-updated');
+
+    const navigation = navigationRef.current;
+    const screen = linkInfo?.type ? SHARE_DESTINATIONS[linkInfo.type] : null;
+    if (!navigation || !navigation.isReady() || !screen) {
+      return;
+    }
+    // Don't jump past onboarding / the initial screen
+    const hasMainRoute = navigation
+      .getRootState()
+      ?.routes?.some((route) => route.name === 'MainRoute');
+    if (!hasMainRoute) {
+      return;
+    }
+    navigation.navigate('MainRoute', {
+      screen: 'Library',
+      params: { screen },
+    });
   };
 
   useEffect(() => {
@@ -148,33 +207,48 @@ function App() {
       );
     });
 
-    const handleBackPress = () => {
-      if (navigationRef.current) {
-        try {
-          // If we can't go back (we're at the root), allow the app to exit
-          if (!navigationRef.current.canGoBack()) {
-            return false; // Return false to allow system to handle (exit app)
-          }
-
-          return false; // Allow default back navigation
-        } catch (error) {
-          return false;
-        }
-      }
-      return false;
-    };
-
-    const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
-      handleBackPress
-    );
-    return () => backHandler.remove();
+    // NOTE: no BackHandler subscription is needed. A handler that always
+    // returns `false` is identical to not subscribing at all - the default
+    // (pop navigation / exit at root) already does the right thing.
   }, []);
 
   // Handle audio file intents - allows Orbit to be a default music player
+  // Also handles links shared to Orbit from Spotify / YouTube Music / YouTube
   useEffect(() => {
+    const handleSharedLink = (url: string): boolean => {
+      const sharedText = getSharedText(url);
+      if (sharedText === null) {
+        return false;
+      }
+
+      const cleanUrl = extractUrlFromText(sharedText);
+      const linkInfo = cleanUrl ? detectLink(cleanUrl) : null;
+      if (!linkInfo) {
+        ToastAndroid.show(
+          'Unsupported link. Share a Spotify, YouTube or YouTube Music playlist, album or song.',
+          ToastAndroid.LONG
+        );
+        return true;
+      }
+
+      const now = Date.now();
+      const last = lastSharedRef.current;
+      if (last.url === linkInfo.url && now - last.time < SHARE_DEDUPE_MS) {
+        return true;
+      }
+      lastSharedRef.current = { url: linkInfo.url, time: now };
+
+      setSharedUrl(linkInfo.url);
+      setSharedModalVisible(true);
+      return true;
+    };
+
     const handleAudioFileUrl = async (url: string | null) => {
       if (!url) {
+        return;
+      }
+
+      if (handleSharedLink(url)) {
         return;
       }
 
@@ -252,12 +326,12 @@ function App() {
               image: metadata?.artworkDataUri || '',
             };
           }
-          ToastAndroid.show(`Playing: ${song.title}`, ToastAndroid.SHORT);
+          showToast(`Playing: ${song.title}`);
 
           await PlayOneSong(song);
         } catch (error) {
           console.error('Error playing audio file from intent:', error);
-          ToastAndroid.show('Failed to play audio file', ToastAndroid.SHORT);
+          showToast('Failed to play audio file');
         }
       }
     };
@@ -337,6 +411,18 @@ function App() {
                         />
                       </Stack.Navigator>
                     </Suspense>
+
+                    {/* Global Shared-Link Import Modal (Share Sheet -> Orbit).
+                        Inside NavigationContainer so useTheme() gets the app theme. */}
+                    <ImportPlaylistModal
+                      visible={sharedModalVisible}
+                      onClose={handleSharedImportClose}
+                      onImportSuccess={handleSharedImportSuccess}
+                      initialLink={sharedUrl}
+                      autoStart={true}
+                      title="Import to Orbit"
+                      customImportHandler={importFromLink}
+                    />
                   </NavigationContainer>
 
                   {/* Global Update Modal */}

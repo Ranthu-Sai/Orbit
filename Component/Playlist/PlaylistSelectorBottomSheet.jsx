@@ -54,6 +54,8 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
   const [showNewPlaylistModal, setShowNewPlaylistModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  // True from the moment the sheet starts opening until it is fully closed
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   // 4. useMemo hooks
   const snapPoints = useMemo(() => {
@@ -66,6 +68,7 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
   // 5. useCallback hooks
   const handleSheetChanges = useCallback(
     (index) => {
+      setSheetOpen(index >= 0);
       if (index === -1) {
         onClose();
       }
@@ -230,15 +233,19 @@ export const PlaylistSelectorBottomSheet = ({ visible, onClose, song }) => {
           { overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
         ]}
       >
-        <BlurView
-          style={StyleSheet.absoluteFill}
-          blurType={theme.dark ? 'dark' : 'light'}
-          blurAmount={25}
-          reducedTransparencyFallbackColor={theme.colors.card}
-        />
+        {/* Only while open: this sheet is always mounted, and an Android
+            BlurView redraws the whole app every frame even when off-screen */}
+        {(visible || sheetOpen) && (
+          <BlurView
+            style={StyleSheet.absoluteFill}
+            blurType={theme.dark ? 'dark' : 'light'}
+            blurAmount={25}
+            reducedTransparencyFallbackColor={theme.colors.card}
+          />
+        )}
       </View>
     ),
-    [theme]
+    [theme, visible, sheetOpen]
   );
 
   return (

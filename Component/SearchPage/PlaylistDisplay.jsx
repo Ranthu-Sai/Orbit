@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dimensions, FlatList, View } from 'react-native';
 import { LoadingComponent } from '../Global/Loading';
 import { EachPlaylistCard } from '../Global/EachPlaylistCard';
@@ -9,10 +9,17 @@ import { useTheme } from '@react-navigation/native';
 
 export default function PlaylistDisplay({ data, limit, Searchtext, source }) {
   const [Data, setData] = useState(data);
-  const totalPages = Math.ceil(Data?.data?.total ?? 1 / limit);
+  const totalPages = Math.ceil((Data?.data?.total ?? limit) / limit);
   const [Page, setPage] = useState(1);
   const [Loading, setLoading] = useState(false);
   const theme = useTheme();
+
+  // Follow the parent's results: this component can mount before restored or
+  // cached results arrive (e.g. when navigating back to Search)
+  useEffect(() => {
+    setData(data);
+    setPage(1);
+  }, [data]);
 
   async function fetchSearchData(text, page) {
     if (Page <= totalPages) {
@@ -33,10 +40,17 @@ export default function PlaylistDisplay({ data, limit, Searchtext, source }) {
             fetchdata = await getSearchPlaylistData(text, page, limit);
           }
 
-          const temp = Data;
-          const finalData = [...temp.data.results, ...fetchdata.data.results];
-          temp.data.results = finalData;
-          setData(temp);
+          // New object: the current one is shared with the search cache
+          setData((prev) => ({
+            ...prev,
+            data: {
+              ...prev.data,
+              results: [
+                ...(prev?.data?.results ?? []),
+                ...(fetchdata?.data?.results ?? []),
+              ],
+            },
+          }));
         } catch (e) {
         } finally {
           setLoading(false);
@@ -65,7 +79,7 @@ export default function PlaylistDisplay({ data, limit, Searchtext, source }) {
           onEndReached={() => {
             setTimeout(() => {
               setPage(Page + 1);
-              fetchSearchData(Searchtext, Page);
+              fetchSearchData(Searchtext, Page + 1);
             }, 200);
           }}
           contentContainerStyle={{

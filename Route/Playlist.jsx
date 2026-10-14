@@ -7,12 +7,19 @@ import {
   StyleSheet,
   Dimensions,
   FlatList,
+  StatusBar,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { EachSongCard } from '../Component/Global/EachSongCard';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { getPlaylistData } from '../Api/Playlist';
 import { getYTMusicPlaylistData } from '../Api/YTMusic';
 import { SpotifyService } from '../Utils/SpotifyService';
+import {
+  getRgba,
+  extractColorFromImage,
+  resolvePlaylistImageUrl,
+} from '../Utils/ColorExtractor';
 import { DetailSkeletonLoader } from '../Component/Global/DetailSkeletonLoader';
 import { PlainText } from '../Component/Global/PlainText';
 import { SmallText } from '../Component/Global/SmallText';
@@ -147,10 +154,57 @@ export const Playlist = ({
   const [navigationSource, setNavigationSource] = useState(
     routeNavigationSource || null
   );
+  const [accentColor, setAccentColor] = useState(null);
+
+  // Extract ambient accent color from playlist artwork
+  useEffect(() => {
+    let active = true;
+    const imageUrl = resolvePlaylistImageUrl(image, Data);
+    if (!imageUrl) return;
+
+    extractColorFromImage(imageUrl)
+      .then((color) => {
+        if (active && color) {
+          setAccentColor(color);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to extract color for Playlist screen:', err);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [image, Data]);
 
   // Track mount state
   const isMounted = useRef(true);
   const isInitialLoad = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Values fetchPlaylistData reads but must not depend on. As dependencies
+  // they changed the callback's identity whenever the recovery effect set
+  // them, re-running that effect and fetching again.
+  const latestRef = useRef({});
+  latestRef.current = {
+    image,
+    name,
+    follower,
+    source,
+    navigationSource,
+    routeParams: route?.params,
+    propSource,
+  };
+
+  // handleBackPress is declared further down; the BackHandler reaches it
+  // through this ref instead of reading the const before its declaration
+  const handleBackPressRef = useRef(null);
 
   // CACHE-FIRST LOADING: Memoized fetch function for playlist data
   const fetchPlaylistData = useCallback(
@@ -158,6 +212,15 @@ export const Playlist = ({
       if (!isMounted.current) {
         return;
       }
+      const {
+        image,
+        name,
+        follower,
+        source,
+        navigationSource,
+        routeParams,
+        propSource,
+      } = latestRef.current;
 
       try {
         // Only fetch if id is defined
@@ -200,7 +263,7 @@ export const Playlist = ({
         let data = {};
 
         // FIX: Use route.params.source directly to avoid React state timing issues
-        const effectiveSource = route?.params?.source || propSource || source;
+        const effectiveSource = routeParams?.source || propSource || source;
 
         if (effectiveSource === 'ytmusic') {
           data = await getYTMusicPlaylistData(id);
@@ -260,8 +323,8 @@ export const Playlist = ({
             name: data?.data?.name || name || 'Playlist',
             follower: data?.data?.follower || follower || '',
             source: source || null,
-            searchText: route?.params?.searchText || '',
-            language: route?.params?.language || '',
+            searchText: routeParams?.searchText || '',
+            language: routeParams?.language || '',
             navigationSource: navigationSource || null,
           };
 
@@ -302,16 +365,21 @@ export const Playlist = ({
         }
       }
     },
-    [id, image, name, follower, source, navigationSource, route?.params, propSource]
+    [id]
   );
 
-  // When component mounts, check if we have a route ID - if not, try to recover from AsyncStorage
+  // Fetch whenever the playlist id is known or changes
   useEffect(() => {
-    // CRITICAL: Reset isMounted to true on each effect run
-    // This fixes the bug where cleanup sets it to false, and when deps change,
-    // the new effect run still has the stale false value
-    isMounted.current = true;
+    if (id) {
+      fetchPlaylistData(false);
+    } else if (isEmbedded) {
+      setLoading(false);
+    }
+  }, [id, isEmbedded, fetchPlaylistData]);
 
+  // When component mounts, check if we have a route ID - if not, try to recover from AsyncStorage
+  // Fetching itself is done by the id effect above once `id` is set here.
+  useEffect(() => {
     const recoverPlaylistData = async () => {
       try {
         if (routeId) {
@@ -371,9 +439,6 @@ export const Playlist = ({
             return;
           }
         }
-
-        // After setting up the ID (either from route or storage), fetch the playlist data
-        fetchPlaylistData(false);
       } catch (e) {
         console.error('Error recovering playlist data:', e);
         if (!isEmbedded) {
@@ -383,22 +448,22 @@ export const Playlist = ({
     };
 
     // Only run recovery logic if not in embedded mode
+    // (in embedded mode props are already set; the id effect fetches)
     if (!isEmbedded) {
       recoverPlaylistData();
-    } else {
-      // In embedded mode, props are already set, just fetch data
-      fetchPlaylistData(false);
     }
 
-    // Set up back handler
+    // Set up back handler (returns true: the press is always handled here)
     const backHandler = BackHandler.addEventListener(
       'hardwareBackPress',
-      handleBackPress
+      () => {
+        handleBackPressRef.current?.();
+        return true;
+      }
     );
 
     return () => {
       backHandler.remove();
-      isMounted.current = false;
     };
   }, [
     routeId,
@@ -406,9 +471,7 @@ export const Playlist = ({
     routeName,
     routeFollower,
     routeNavigationSource,
-    fetchPlaylistData,
     navigation,
-    handleBackPress,
     isEmbedded,
     route?.params?.language,
     route?.params?.searchText,
@@ -564,6 +627,7 @@ export const Playlist = ({
     );
     return true;
   };
+  handleBackPressRef.current = handleBackPress;
 
   // State for long-press menu
   const [activeMenuSong, setActiveMenuSong] = useState({ visible: false });
@@ -657,14 +721,7 @@ export const Playlist = ({
   // Header component for FlatList
   const renderHeader = useCallback(() => {
     const headerImageUrl =
-      image ||
-      Data?.data?.thumbnail ||
-      (Array.isArray(Data?.data?.image)
-        ? Data.data.image[2]?.url ||
-          Data.data.image[Data.data.image.length - 1]?.url
-        : Data?.data?.image) ||
-      Data?.data?.songs?.[0]?.image?.[2]?.url ||
-      Data?.data?.songs?.[0]?.images?.[2]?.url ||
+      resolvePlaylistImageUrl(image, Data) ||
       '';
 
     return (
@@ -677,17 +734,24 @@ export const Playlist = ({
           follower={Data?.data?.follower || follower || ''}
           songsData={Data?.data?.songs}
           playlistData={Data}
+          onColorExtracted={(color) => {
+            if (!accentColor && color) {
+              setAccentColor(color);
+            }
+          }}
         />
         <View style={{ height: 15 }} />
       </>
     );
-  }, [image, Data, name, id, follower]);
+  }, [image, Data, name, id, follower, accentColor]);
 
   // key extractor
   const keyExtractor = useCallback(
     (item, index) => `song-${item?.id || index}-${index}`,
     []
   );
+
+  const statusBarHeight = StatusBar.currentHeight || insets.top || 0;
 
   // If no ID is provided and we've already attempted to recover, show an error message
   // Show skeleton while still trying to recover ID from AsyncStorage
@@ -697,6 +761,33 @@ export const Playlist = ({
       if (Loading || !dataFetchAttempted) {
       return (
         <MainWrapper edges={['right', 'bottom', 'left']}>
+          <StatusBar
+            backgroundColor="transparent"
+            translucent={true}
+            barStyle={theme.dark ? 'light-content' : 'dark-content'}
+            animated={true}
+          />
+          {accentColor && (
+            <LinearGradient
+              colors={[
+                getRgba(accentColor, 0.9),
+                getRgba(accentColor, 0.65),
+                getRgba(accentColor, 0.35),
+                getRgba(accentColor, 0.1),
+                'transparent',
+              ]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={[
+                styles.ambientBackground,
+                {
+                  top: -statusBarHeight,
+                  height: 520 + statusBarHeight,
+                },
+              ]}
+              pointerEvents="none"
+            />
+          )}
           <View style={{ paddingTop: insets.top, flex: 1 }}>
             <DetailSkeletonLoader type="playlist" />
           </View>
@@ -730,6 +821,34 @@ export const Playlist = ({
 
   return (
     <MainWrapper edges={['right', 'bottom', 'left']}>
+      <StatusBar
+        backgroundColor="transparent"
+        translucent={true}
+        barStyle={theme.dark ? 'light-content' : 'dark-content'}
+        animated={true}
+      />
+      {/* Dynamic Ambient Background Gradient */}
+      {accentColor && (
+        <LinearGradient
+          colors={[
+            getRgba(accentColor, 0.9),
+            getRgba(accentColor, 0.65),
+            getRgba(accentColor, 0.35),
+            getRgba(accentColor, 0.1),
+            'transparent',
+          ]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={[
+            styles.ambientBackground,
+            {
+              top: -statusBarHeight,
+              height: 520 + statusBarHeight,
+            },
+          ]}
+          pointerEvents="none"
+        />
+      )}
       {Loading && (
         <View style={{ paddingTop: insets.top, flex: 1 }}>
           <DetailSkeletonLoader type="playlist" />
@@ -792,6 +911,14 @@ export const Playlist = ({
 
 // Move styles to StyleSheet for better performance
 const styles = StyleSheet.create({
+  ambientBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 520,
+    zIndex: 0,
+  },
   errorContainer: {
     flex: 1,
     alignItems: 'center',
