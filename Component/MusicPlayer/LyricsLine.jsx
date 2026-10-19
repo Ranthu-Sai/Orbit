@@ -1,535 +1,314 @@
-import React, { useEffect, useMemo, useCallback } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import React, { memo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  Easing,
+  useAnimatedReaction,
   useAnimatedStyle,
+  useDerivedValue,
+  useSharedValue,
+  withDelay,
   withSpring,
   withTiming,
-  useSharedValue,
-  Easing,
-  interpolate,
-  withSequence,
-  withDelay,
 } from 'react-native-reanimated';
 
-/**
- * ArchiveTune-style smooth easing functions
- */
-const smoothstep = (x) => {
+// Line handoff: brightness/scale move on the same soft curve and roughly the
+// same duration as the scroll, so a line brightens as it arrives, not before
+const LINE_EASE = Easing.bezier(0.33, 0, 0.2, 1);
+const LINE_IN_MS = 650;
+const LINE_OUT_MS = 750;
+// Critically damped: glides into place without the end-of-move bounce
+export const SCROLL_SPRING = { duration: 900, dampingRatio: 1 };
+// Lines below the active one start their move later, one after another
+const WAVE_STEP_MS = 35;
+const WAVE_MAX_LINES = 6;
+
+const UNSUNG_OPACITY = 0.3;
+const FEATHER_OPACITY = 0.55;
+const KARAOKE_STYLES = ['Apple', 'Karaoke', 'Glow'];
+const GLOW_MIN_MS = 1000;
+
+const clamp01 = (x) => {
   'worklet';
-  const clamped = Math.min(1, Math.max(0, x));
-  return clamped * clamped * (3 - 2 * clamped);
+  return x < 0 ? 0 : x > 1 ? 1 : x;
 };
 
-// Apple Music-style easing curve
-const appleMusicEasing = Easing.bezier(0.25, 0.1, 0.25, 1.0);
-const smoothDecelerateEasing = Easing.bezier(0.0, 0.0, 0.2, 1.0);
-
 /**
- * Word component with ArchiveTune-style progressive fill animations
- * Different animation styles produce visibly different word effects
+ * One word of a line near the active one. The bright copy sits in an
+ * absolutely positioned clip whose width follows the sung progress; a wider,
+ * fainter clip in front of it gives the fill a soft leading edge.
  */
-const Word = React.memo(
-  ({
-    text,
-    isActive,
-    isPast,
-    isLineActive, // New prop
-    activeColor,
-    inactiveColor,
-    fontSize,
-    progress = 0,
-    animationStyle = 'Apple',
-  }) => {
-    // Apply smoothstep for buttery smooth transitions
-    const smoothProgress = smoothstep(progress);
+const KaraokeWord = memo(
+  ({ word, timeMs, lead, lineActive, textStyle, gap, glow, color, lift, feather }) => {
+    const [wordWidth, setWordWidth] = useState(0);
+    const [wordHeight, setWordHeight] = useState(0);
+    const { start, end } = word;
 
-    // Calculate visual properties based on animation style
-    const getStyleProperties = () => {
-      // Persistent glow: Word is past (sung) AND line is still active
-      const keepGlow = isPast && isLineActive;
+    // Reanimated 3 only tracks shared values read directly inside a worklet,
+    // not ones reached through a nested helper. Reading timeMs here makes
+    // every style below re-run each frame as the clock advances.
+    const progress = useDerivedValue(() => {
+      const t = timeMs.value + lead;
+      if (end <= start) return t >= start ? 1 : 0;
+      return clamp01((t - start) / (end - start));
+    }, [start, end, lead]);
 
-      switch (animationStyle) {
-        case 'Apple':
-          // Apple Music style: smooth opacity fade with subtle glow
-          return {
-            opacity: isPast ? 1 : isActive ? 0.45 + 0.55 * smoothProgress : 0.4,
-            scale: isActive ? 1 + 0.02 * smoothProgress : 1,
-            glowOpacity: isActive
-              ? 0.2 + 0.4 * smoothProgress
-              : keepGlow
-              ? 0.3
-              : isPast
-              ? 0.1
-              : 0,
-            glowRadius: isActive
-              ? 8 + 12 * smoothProgress
-              : keepGlow
-              ? 12
-              : isPast
-              ? 5
-              : 0,
-            fontWeight: isPast ? '700' : isActive ? '800' : '600',
-          };
-        case 'Karaoke':
-          // Karaoke style: very dramatic opacity change, pulsing glow
-          const pulseProgress = Math.sin(smoothProgress * Math.PI);
-          return {
-            opacity: isPast ? 1 : isActive ? 0.2 + 0.8 * smoothProgress : 0.2,
-            scale: isActive
-              ? 1 + 0.1 * pulseProgress
-              : keepGlow
-              ? 1.05
-              : isPast
-              ? 1.02
-              : 0.95,
-            glowOpacity: isActive
-              ? 0.35 + 0.5 * smoothProgress
-              : keepGlow
-              ? 0.5
-              : isPast
-              ? 0.15
-              : 0,
-            // Increased blur radius for softer glow
-            glowRadius: isActive
-              ? 25 + 35 * pulseProgress
-              : keepGlow
-              ? 35
-              : isPast
-              ? 10
-              : 0,
-            fontWeight: isPast ? '800' : isActive ? '900' : '500',
-          };
-        case 'Glow':
-          // Glow style: Soft diffused glow like ArchiveTune
-          const breathe = Math.sin(smoothProgress * Math.PI * 2) * 0.1;
-          return {
-            opacity: isPast ? 1 : isActive ? 0.5 + 0.5 * smoothProgress : 0.35,
-            scale: isActive
-              ? 1 + 0.04 * smoothProgress + breathe * 0.02
-              : keepGlow
-              ? 1.03
-              : 1,
-            // MUCH lower glow opacity for soft diffused effect
-            glowOpacity: isActive
-              ? 0.15 + 0.2 * smoothProgress
-              : keepGlow
-              ? 0.25
-              : isPast
-              ? 0.1
-              : 0,
-            // Moderate blur radius (not too wide)
-            glowRadius: isActive
-              ? 20 + 25 * smoothProgress
-              : keepGlow
-              ? 30
-              : isPast
-              ? 15
-              : 0,
-            fontWeight: isPast ? '700' : isActive ? '800' : '600',
-          };
-        case 'Fade':
-          // Fade style: pure opacity animation, no glow, no scale
-          return {
-            opacity: isPast ? 1 : isActive ? 0.3 + 0.7 * smoothProgress : 0.3,
-            scale: 1,
-            glowOpacity: 0,
-            glowRadius: 0,
-            fontWeight: isPast ? '700' : isActive ? '700' : '500',
-          };
-        case 'Smooth':
-        default:
-          // Smooth style: balanced animation with soft glow
-          return {
-            opacity: isPast ? 1 : isActive ? 0.4 + 0.6 * smoothProgress : 0.4,
-            scale: isActive ? 1 + 0.03 * smoothProgress : 1,
-            glowOpacity: isActive
-              ? 0.2 + 0.3 * smoothProgress
-              : keepGlow
-              ? 0.25
-              : isPast
-              ? 0.08
-              : 0,
-            // Increased blur for softer glow
-            glowRadius: isActive
-              ? 18 + 18 * smoothProgress
-              : keepGlow
-              ? 22
-              : isPast
-              ? 8
-              : 0,
-            fontWeight: isPast ? '700' : isActive ? '800' : '600',
-          };
-      }
-    };
-
-    const styleProps = getStyleProperties();
-    const targetColor =
-      isActive || isPast
-        ? activeColor || '#FFFFFF'
-        : inactiveColor || 'rgba(255,255,255,0.35)';
-
-    const animatedStyle = useAnimatedStyle(() => {
-      // Even softer spring config for smoothness
-      const springConfig = {
-        damping: 30,
-        stiffness: 90,
-        mass: 1,
-        overshootClamping: false,
-      };
-
+    // Sung words rise slightly and stay up until the line ends
+    const wordStyle = useAnimatedStyle(() => {
+      const p = progress.value;
+      const rise = 1 - (1 - p) * (1 - p);
       return {
-        opacity: withTiming(styleProps.opacity, {
-          duration: 180,
-          easing: appleMusicEasing,
-        }),
-        transform: [
-          {
-            scale: withSpring(styleProps.scale, springConfig),
-          },
-        ],
+        transform: [{ translateY: -lift * rise * lineActive.value }],
       };
-    }, [styleProps.opacity, styleProps.scale]);
+    }, [lift]);
+    const baseStyle = useAnimatedStyle(() => ({
+      opacity: 1 - (1 - UNSUNG_OPACITY) * lineActive.value,
+    }));
+    // The window slides right to reveal; the text inside slides back by the
+    // same amount so it stays aligned with the dim copy underneath
+    const fillOffset = useDerivedValue(
+      () => Math.min(wordWidth, progress.value * wordWidth) - wordWidth,
+      [wordWidth]
+    );
+    const featherOffset = useDerivedValue(
+      () => Math.min(wordWidth, progress.value * wordWidth + feather) - wordWidth,
+      [wordWidth, feather]
+    );
+    // Hidden until the word starts: an unsung word's bright copy is parked
+    // off to the left and must never show if its counter-offset lags a frame
+    const fillWindowStyle = useAnimatedStyle(() => ({
+      opacity: progress.value > 0 ? lineActive.value : 0,
+      transform: [{ translateX: fillOffset.value }],
+    }));
+    const fillTextAnim = useAnimatedStyle(() => ({
+      transform: [{ translateX: -fillOffset.value }],
+    }));
+    const featherWindowStyle = useAnimatedStyle(() => {
+      const p = progress.value;
+      return {
+        opacity:
+          lineActive.value * FEATHER_OPACITY * clamp01(p * 8) * clamp01((1 - p) * 8),
+        transform: [{ translateX: featherOffset.value }],
+      };
+    });
+    const featherTextAnim = useAnimatedStyle(() => ({
+      transform: [{ translateX: -featherOffset.value }],
+    }));
 
-    // Dynamic glow effect
-    const glowStyle = useMemo(() => {
-      if (styleProps.glowOpacity > 0) {
-        const hexOpacity = Math.round(styleProps.glowOpacity * 255)
-          .toString(16)
-          .padStart(2, '0');
-        return {
-          textShadowColor: activeColor
-            ? `${activeColor}${hexOpacity}`
-            : `rgba(255,255,255,${styleProps.glowOpacity})`,
-          textShadowOffset: { width: 0, height: 0 },
-          textShadowRadius: styleProps.glowRadius,
-        };
-      }
-      return {};
-    }, [styleProps.glowOpacity, styleProps.glowRadius, activeColor]);
+    const windowSize = { width: wordWidth, height: wordHeight };
+    const fillTextStyle = [
+      textStyle,
+      styles.fillText,
+      windowSize,
+      glow && {
+        textShadowColor: color,
+        textShadowRadius: 10,
+        textShadowOffset: { width: 0, height: 0 },
+      },
+    ];
 
     return (
-      <Animated.Text
-        style={[
-          styles.word,
-          animatedStyle,
-          glowStyle,
-          {
-            fontSize,
-            fontWeight: styleProps.fontWeight,
-            color: targetColor,
-          },
-        ]}
-      >
-        {text}{' '}
-      </Animated.Text>
+      <Animated.View style={[{ marginRight: gap }, wordStyle]}>
+        {/* Animated props go on Views: Text nodes don't reliably pick up
+            per-frame updates on the old architecture */}
+        <Animated.View
+          style={baseStyle}
+          onLayout={(e) => {
+            setWordWidth(Math.ceil(e.nativeEvent.layout.width));
+            setWordHeight(Math.ceil(e.nativeEvent.layout.height));
+          }}
+        >
+          <Text style={textStyle}>{word.text}</Text>
+        </Animated.View>
+        {wordWidth > 0 && (
+          <>
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.clip, windowSize, featherWindowStyle]}
+            >
+              <Animated.View style={[windowSize, featherTextAnim]}>
+                <Text style={fillTextStyle}>{word.text}</Text>
+              </Animated.View>
+            </Animated.View>
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.clip, windowSize, fillWindowStyle]}
+            >
+              <Animated.View style={[windowSize, fillTextAnim]}>
+                <Text style={fillTextStyle}>{word.text}</Text>
+              </Animated.View>
+            </Animated.View>
+          </>
+        )}
+      </Animated.View>
     );
   }
 );
 
-/**
- * LyricsLine - ArchiveTune-style lyrics line with distinct animation styles
- */
 const LyricsLine = ({
-  text,
-  isActive,
-  isPast,
-  distance = 0,
-  onPress,
-  animationStyle = 'Apple',
+  line,
+  index,
+  isNear,
+  activeIndex,
+  scrollCmd,
+  scrollPos,
+  autoScroll,
+  timeMs,
+  lead,
+  synced,
+  fontSize,
   activeColor,
-  inactiveColor,
-  isDarkMode = true,
-  fontSize = 26,
-  words = null,
-  currentTime = 0,
+  animationStyle,
+  reducedMotion,
+  onPress,
+  onLayout,
 }) => {
-  // Distance-based properties for each animation style
-  const getDistanceBasedStyle = () => {
-    switch (animationStyle) {
-      case 'Apple':
-        // Apple: Smooth gradient opacity falloff with edge fade
-        return {
-          opacity: isActive
-            ? 1
-            : distance === 1
-            ? 0.6
-            : distance === 2
-            ? 0.3
-            : distance === 3
-            ? 0.12
-            : distance === 4
-            ? 0.04
-            : 0.015,
-          scale: isActive
-            ? 1
-            : distance === 1
-            ? 0.98
-            : distance === 2
-            ? 0.95
-            : 0.92,
-          translateY: 0,
-        };
-      case 'Karaoke':
-        // Karaoke: More dramatic scale differences, slight vertical movement
-        return {
-          opacity: isActive
-            ? 1
-            : distance === 1
-            ? 0.45
-            : distance === 2
-            ? 0.2
-            : distance === 3
-            ? 0.08
-            : 0.03,
-          scale: isActive
-            ? 1.05
-            : distance === 1
-            ? 0.92
-            : distance === 2
-            ? 0.85
-            : 0.8,
-          translateY: isActive ? -4 : isPast ? 2 : 0,
-        };
-      case 'Glow':
-        // Glow: Soft glow on active, very smooth edge fade
-        return {
-          opacity: isActive
-            ? 1
-            : distance === 1
-            ? 0.5
-            : distance === 2
-            ? 0.22
-            : distance === 3
-            ? 0.08
-            : distance === 4
-            ? 0.025
-            : 0.01,
-          scale: isActive ? 1.03 : distance === 1 ? 0.97 : 0.93,
-          translateY: 0,
-        };
-      case 'Fade':
-        // Fade: Pure opacity, no scale, edge fade
-        return {
-          opacity: isActive
-            ? 1
-            : distance === 1
-            ? 0.45
-            : distance === 2
-            ? 0.22
-            : distance === 3
-            ? 0.1
-            : 0.04,
-          scale: 1,
-          translateY: 0,
-        };
-      case 'Smooth':
-      default:
-        // Smooth: Balanced with edge fade
-        return {
-          opacity: isActive
-            ? 1
-            : distance === 1
-            ? 0.55
-            : distance === 2
-            ? 0.28
-            : distance === 3
-            ? 0.1
-            : distance === 4
-            ? 0.03
-            : 0.01,
-          scale: isActive
-            ? 1
-            : distance === 1
-            ? 0.97
-            : distance === 2
-            ? 0.94
-            : 0.9,
-          translateY: 0,
-        };
-    }
-  };
+  const lineActive = useSharedValue(0);
+  const rest = useSharedValue(synced ? 0.4 : 0.9);
+  // This line's own copy of the scroll position; trailing it creates the wave
+  const linePos = useSharedValue(0);
+  const width = useSharedValue(0);
 
-  const distanceStyle = getDistanceBasedStyle();
+  // Everything below reacts on the UI thread, in the same frame the active
+  // line changes, without waiting for React to re-render
+  useAnimatedReaction(
+    () => activeIndex.value,
+    (current) => {
+      if (!synced) return;
+      const isActive = current === index;
+      const distance = current < 0 ? index + 1 : Math.abs(index - current);
+      lineActive.value = withTiming(isActive ? 1 : 0, {
+        duration: isActive ? LINE_IN_MS : LINE_OUT_MS,
+        easing: LINE_EASE,
+      });
+      rest.value = withTiming(Math.max(0.16, 0.42 - distance * 0.05), {
+        duration: LINE_OUT_MS,
+        easing: LINE_EASE,
+      });
+    },
+    [synced, index]
+  );
 
-  // Animated container style
-  const animatedContainerStyle = useAnimatedStyle(() => {
-    // Refined spring configs for maximum smoothness
-    const getAnimConfig = () => {
-      switch (animationStyle) {
-        case 'Karaoke':
-          return {
-            opacityDuration: 300,
-            spring: { damping: 20, stiffness: 90, mass: 1 },
-          };
-        case 'Glow':
-          return {
-            opacityDuration: 500,
-            spring: { damping: 30, stiffness: 60, mass: 1.2 }, // Very soft and flowy
-          };
-        case 'Fade':
-          return {
-            opacityDuration: 350,
-            spring: { damping: 30, stiffness: 150, mass: 0.5 },
-          };
-        case 'Apple':
-        case 'Smooth':
-        default:
-          return {
-            opacityDuration: 450,
-            spring: { damping: 30, stiffness: 75, mass: 1 }, // Soft, no bounce
-          };
+  useAnimatedReaction(
+    () => scrollCmd.value,
+    (cmd, prev) => {
+      if (!cmd) return;
+      // A freshly mounted line joins wherever the list currently is
+      if (prev === null || cmd.mode === 'jump') {
+        linePos.value = cmd.mode === 'jump' ? cmd.target : scrollPos.value;
+        return;
       }
-    };
+      if (cmd.mode === 'follow') {
+        linePos.value = cmd.from;
+        linePos.value = withSpring(cmd.target, SCROLL_SPRING);
+        return;
+      }
+      const behind = index - activeIndex.value;
+      const delay = behind <= 0 ? 0 : Math.min(behind, WAVE_MAX_LINES) * WAVE_STEP_MS;
+      linePos.value = withDelay(delay, withSpring(cmd.target, SCROLL_SPRING));
+    },
+    [index]
+  );
 
-    const config = getAnimConfig();
-
+  const containerStyle = useAnimatedStyle(() => {
+    const a = lineActive.value;
+    const scale = reducedMotion ? 1 : 0.96 + 0.04 * a;
+    const lag =
+      autoScroll.value && !reducedMotion ? scrollPos.value - linePos.value : 0;
     return {
-      opacity: withTiming(distanceStyle.opacity, {
-        duration: config.opacityDuration,
-        easing: smoothDecelerateEasing,
-      }),
+      opacity: rest.value + (1 - rest.value) * a,
       transform: [
-        { scale: withSpring(distanceStyle.scale, config.spring) },
-        { translateY: withSpring(distanceStyle.translateY, config.spring) },
+        { translateY: lag },
+        // RN 0.73 has no transformOrigin: keep left-aligned text anchored left
+        { translateX: (-width.value * (1 - scale)) / 2 },
+        { scale },
       ],
     };
-  }, [distanceStyle, animationStyle]);
+  });
 
-  // Text color animation
-  const animatedTextStyle = useAnimatedStyle(() => {
-    return {
-      color: withTiming(
-        isActive
-          ? activeColor || '#FFFFFF'
-          : inactiveColor || 'rgba(255,255,255,0.5)',
-        { duration: 250, easing: smoothDecelerateEasing }
-      ),
-    };
-  }, [isActive, activeColor, inactiveColor]);
+  const textStyle = {
+    color: activeColor,
+    fontSize,
+    lineHeight: Math.round(fontSize * 1.25),
+    fontWeight: '800',
+    letterSpacing: -0.4,
+  };
+  const gap = Math.round(fontSize * 0.27);
+  const karaoke =
+    synced && isNear && KARAOKE_STYLES.includes(animationStyle) && line.words;
 
-  // Line-level glow for active line (soft diffused)
-  const lineGlowStyle = useMemo(() => {
-    if (!isActive) {
-      return {};
-    }
-
-    switch (animationStyle) {
-      case 'Karaoke':
-        return {
-          textShadowColor: activeColor
-            ? `${activeColor}60`
-            : 'rgba(255,255,255,0.38)',
-          textShadowOffset: { width: 0, height: 0 },
-          textShadowRadius: 40, // Softer blur
-        };
-      case 'Glow':
-        return {
-          // Soft subtle glow - lower opacity, moderate blur
-          textShadowColor: activeColor
-            ? `${activeColor}35`
-            : 'rgba(255,255,255,0.20)',
-          textShadowOffset: { width: 0, height: 0 },
-          textShadowRadius: 35, // Moderate soft blur
-        };
-      case 'Apple':
-        return {
-          textShadowColor: activeColor
-            ? `${activeColor}40`
-            : 'rgba(255,255,255,0.25)',
-          textShadowOffset: { width: 0, height: 0 },
-          textShadowRadius: 28, // Softer
-        };
-      default:
-        return {};
-    }
-  }, [isActive, activeColor, animationStyle]);
+  const words =
+    line.words ||
+    line.text.split(' ').map((text, i, arr) => ({
+      text,
+      spaceAfter: i < arr.length - 1,
+    }));
 
   return (
-    <Pressable onPress={onPress} style={styles.container}>
-      <Animated.View style={[styles.lineWrapper, animatedContainerStyle]}>
-        {/* Word-by-word animation for active line with word timings */}
-        {isActive && words && words.length > 0 ? (
-          <View style={styles.wordsRow}>
-            {words.map((word, idx) => {
-              const wordStartTime = word.startTime;
-              const wordEndTime = word.endTime;
-              const wordDuration = wordEndTime - wordStartTime;
-              const isWordActive =
-                currentTime >= wordStartTime && currentTime <= wordEndTime;
-              const hasWordPassed = currentTime > wordEndTime;
-
-              // Calculate linear progress (smoothstep applied in Word component)
-              let wordProgress = 0;
-              if (isWordActive && wordDuration > 0) {
-                const elapsed = currentTime - wordStartTime;
-                wordProgress = Math.min(1, Math.max(0, elapsed / wordDuration));
-              } else if (hasWordPassed) {
-                wordProgress = 1;
-              }
-
-              return (
-                <Word
-                  key={idx}
-                  text={word.text}
-                  isActive={isWordActive}
-                  isPast={hasWordPassed}
-                  isLineActive={isActive} // PASSING ACTIVE STATE OF LINE
-                  progress={wordProgress}
-                  activeColor={activeColor}
-                  inactiveColor={inactiveColor || 'rgba(255,255,255,0.35)'}
-                  fontSize={fontSize + 2}
-                  animationStyle={animationStyle}
-                />
-              );
-            })}
-          </View>
-        ) : (
-          // Standard line-level animation (no word timings)
-          <Animated.Text
-            style={[
-              styles.text,
-              animatedTextStyle,
-              lineGlowStyle,
-              { fontSize: fontSize },
-              isActive && {
-                fontSize: fontSize + 2,
-                fontWeight: '700',
-              },
-            ]}
-          >
-            {text}
-          </Animated.Text>
-        )}
+    <Pressable
+      onPress={synced ? () => onPress(line.time) : undefined}
+      onLayout={(e) => onLayout(index, e.nativeEvent.layout)}
+      style={styles.pressable}
+    >
+      <Animated.View
+        style={[styles.row, containerStyle]}
+        onLayout={(e) => {
+          width.value = e.nativeEvent.layout.width;
+        }}
+      >
+        {words.map((word, i) => {
+          const wordGap = word.spaceAfter ? gap : 0;
+          if (karaoke) {
+            return (
+              <KaraokeWord
+                key={i}
+                word={word}
+                timeMs={timeMs}
+                lead={lead}
+                lineActive={lineActive}
+                textStyle={textStyle}
+                gap={wordGap}
+                color={activeColor}
+                lift={reducedMotion ? 0 : fontSize * 0.06}
+                feather={fontSize * 0.6}
+                glow={
+                  animationStyle === 'Glow' ||
+                  (!line.estimated && word.end - word.start >= GLOW_MIN_MS)
+                }
+              />
+            );
+          }
+          return (
+            <View key={i} style={{ marginRight: wordGap }}>
+              <Text style={textStyle}>{word.text}</Text>
+            </View>
+          );
+        })}
       </Animated.View>
     </Pressable>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+  pressable: {
+    paddingHorizontal: 28,
+    paddingVertical: 12,
   },
-  lineWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  text: {
-    textAlign: 'center',
-    lineHeight: 38,
-    fontWeight: '500',
-  },
-  wordsRow: {
+  row: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
-    alignItems: 'center',
+    alignSelf: 'flex-start',
   },
-  word: {
-    lineHeight: 38,
+  clip: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    overflow: 'hidden',
+  },
+  fillText: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
   },
 });
 
-export default React.memo(LyricsLine);
+export default memo(LyricsLine);

@@ -9,7 +9,7 @@ import {
 } from 'react-native-paper';
 import { useTheme } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import TrackPlayer from 'react-native-track-player';
+import TrackPlayer, { State } from 'react-native-track-player';
 import {
   SetLikedPlaylist,
   DeleteALikedPlaylist,
@@ -24,23 +24,11 @@ import FormatArtist from '../../Utils/FormatArtists';
 import FormatTitleAndArtist from '../../Utils/FormatTitleAndArtist';
 import BatchDownloadService from '../../Utils/BatchDownloadService';
 import EventRegister from '../../Utils/EventRegister';
-import ImageColors from 'react-native-image-colors';
-import LinearGradient from 'react-native-linear-gradient';
-
-const getRgba = (hexColor, alpha = 1) => {
-  if (!hexColor || hexColor === 'transparent') return `rgba(27, 67, 50, ${alpha})`;
-  let c = hexColor.replace('#', '');
-  if (c.length === 3) {
-    c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
-  }
-  if (c.length === 6) {
-    const r = parseInt(c.substring(0, 2), 16);
-    const g = parseInt(c.substring(2, 4), 16);
-    const b = parseInt(c.substring(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  }
-  return hexColor;
-};
+import {
+  getRgba,
+  extractImageUrl,
+  extractColorFromImage,
+} from '../../Utils/ColorExtractor';
 
 // Get screen dimensions
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -50,16 +38,11 @@ const IMAGE_SIZE = SCREEN_WIDTH * 0.4; // 40% of screen width
  * Helper to validate image URL or provide default
  */
 const getValidImageUrl = (url) => {
-  if (
-    !url ||
-    url === 'null' ||
-    url === 'undefined' ||
-    typeof url !== 'string' ||
-    url.trim() === ''
-  ) {
+  const uri = extractImageUrl(url);
+  if (!uri) {
     return require('../../Images/default.jpg');
   }
-  return { uri: url };
+  return { uri };
 };
 
 /**
@@ -117,6 +100,7 @@ export const PlaylistHeader = ({
   follower,
   songsData = [],
   playlistData = null, // Full playlist data object
+  onColorExtracted = null,
 }) => {
   const theme = useTheme();
   const { updateTrack } = useContext(Context);
@@ -129,31 +113,18 @@ export const PlaylistHeader = ({
     total: 0,
   });
   const [allDownloaded, setAllDownloaded] = useState(false);
-  const [accentColor, setAccentColor] = useState('transparent');
+  const [accentColor, setAccentColor] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
-    if (!imageUrl || typeof imageUrl !== 'string') return;
+    const uri = extractImageUrl(imageUrl);
+    if (!uri) return;
 
-    ImageColors.getColors(imageUrl, {
-      fallback: 'transparent',
-      cache: true,
-      key: imageUrl,
-    })
-      .then((colors) => {
-        if (!isMounted) return;
-        let pickedColor = null;
-        if (colors.platform === 'android') {
-          pickedColor = colors.vibrant || colors.darkVibrant || colors.dominant || colors.lightVibrant;
-        } else if (colors.platform === 'ios') {
-          pickedColor = colors.background || colors.primary || colors.secondary;
-        } else {
-          pickedColor = colors.vibrant || colors.dominant;
-        }
-
-        if (pickedColor) {
-          setAccentColor(pickedColor);
-        }
+    extractColorFromImage(uri)
+      .then((pickedColor) => {
+        if (!isMounted || !pickedColor) return;
+        setAccentColor(pickedColor);
+        onColorExtracted?.(pickedColor);
       })
       .catch((err) => {
         console.warn('Failed to extract color for PlaylistHeader:', err);
@@ -162,7 +133,7 @@ export const PlaylistHeader = ({
     return () => {
       isMounted = false;
     };
-  }, [imageUrl]);
+  }, [imageUrl, onColorExtracted]);
 
   // Check if playlist is liked on mount
   useEffect(() => {
@@ -193,7 +164,8 @@ export const PlaylistHeader = ({
       try {
         const state = await TrackPlayer.getState();
         const isPlayerPlaying =
-          state === TrackPlayer.STATE_PLAYING || state === 3;
+          // TrackPlayer.STATE_PLAYING no longer exists in RNTP v4 (always undefined)
+          state === State.Playing;
         const currentTrackIndex = await TrackPlayer.getCurrentTrack();
 
         if (currentTrackIndex === null) {
@@ -522,20 +494,6 @@ export const PlaylistHeader = ({
     <View
       style={[styles.container, { backgroundColor: 'transparent' }]}
     >
-      {accentColor !== 'transparent' && (
-        <LinearGradient
-          colors={[
-            getRgba(accentColor, 0.8),
-            getRgba(accentColor, 0.45),
-            getRgba(accentColor, 0.2),
-            'transparent',
-          ]}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={[StyleSheet.absoluteFillObject, { top: -350, height: 850, zIndex: -1 }]}
-          pointerEvents="none"
-        />
-      )}
       {/* Top Section: Image + Info */}
       <View style={styles.topSection}>
         {/* Cover Image - 30% width */}

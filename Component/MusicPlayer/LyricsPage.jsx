@@ -9,11 +9,9 @@ import {
   View,
   StyleSheet,
   Dimensions,
-  FlatList,
   Modal,
   StatusBar,
   ImageBackground,
-  ScrollView,
   UIManager,
   Platform,
 } from 'react-native';
@@ -21,7 +19,18 @@ import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedRef,
+  useAnimatedScrollHandler,
+  useAnimatedReaction,
+  useDerivedValue,
+  useFrameCallback,
+  useReducedMotion,
   withTiming,
+  withSpring,
+  cancelAnimation,
+  scrollTo,
+  runOnJS,
+  runOnUI,
 } from 'react-native-reanimated';
 import BottomSheet, {
   BottomSheetScrollView,
@@ -49,7 +58,8 @@ const circleGradient = {
 import { useTheme } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '../../Context/ThemeContext';
-import LyricsLine from './LyricsLine';
+import LyricsLine, { SCROLL_SPRING } from './LyricsLine';
+import { buildLyricLines } from './LyricsTiming';
 import {
   GetLyricsAnimationStyle,
   SetLyricsAnimationStyle,
@@ -62,7 +72,7 @@ import {
   GetLyricsTextColor,
   SetLyricsTextColor,
 } from '../../LocalStorage/AppSettings';
-import TrackPlayer, { State, useProgress } from 'react-native-track-player';
+import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
 import {
   Portal,
   Modal as PaperModal,
@@ -73,6 +83,21 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 const { width, height } = Dimensions.get('window');
+
+// Lyrics are shown slightly ahead of the audio so the eye leads the voice
+const LYRICS_LEAD_MS = 60;
+// The move to the next line starts this much before it is sung, so the
+// handoff is underway as the previous line's last word finishes
+const LINE_HANDOFF_LEAD_MS = 150;
+// Karaoke words for upcoming lines are created after the scroll settles,
+// never in the same frame as a line change
+const KARAOKE_WINDOW_DELAY_MS = 1000;
+// Clock drift beyond this means a seek happened: snap instead of easing
+const CLOCK_SNAP_MS = 300;
+const CLOCK_SYNC_INTERVAL_MS = 250;
+// Active line sits in the upper third, like Apple Music
+const ACTIVE_LINE_ANCHOR = 0.33;
+const AUTO_SCROLL_RESUME_MS = 3000;
 
 // Memoized Settings Component to prevent re-renders from playback progress
 const LyricsSettings = React.memo(
@@ -253,18 +278,32 @@ const LyricsPage = ({
   const { colors, dark } = useTheme();
   const { themeMode } = useThemeContext();
   const insets = useSafeAreaInsets();
-  // Use 50ms interval for smooth real-time updates (0 can be unreliable)
-  const { position } = useProgress(50);
-  const flatListRef = useRef(null);
-
-  // Sync offset in milliseconds to compensate for audio buffering delay
-  // Positive value = lyrics show earlier (compensates for audio lag)
-  const SYNC_OFFSET_MS = 150;
+  const reducedMotion = useReducedMotion();
+  const playbackState = usePlaybackState();
+  const isPlaying = playbackState?.state === State.Playing;
 
   const [activeLineIndex, setActiveLineIndex] = useState(-1);
   const [animationStyle, setAnimationStyle] = useState('Apple');
   const [isUserScrolling, setIsUserScrolling] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
+
+  const { lines, synced } = useMemo(() => buildLyricLines(lyrics), [lyrics]);
+
+  // Lines in [center - 1, center + 2] render karaoke words. The center trails
+  // the active line, so the next line is already built when it becomes active
+  const [karaokeCenter, setKaraokeCenter] = useState(-1);
+  useEffect(() => {
+    const covered =
+      activeLineIndex >= karaokeCenter && activeLineIndex <= karaokeCenter + 1;
+    if (!covered) {
+      setKaraokeCenter(activeLineIndex);
+      return undefined;
+    }
+    const timer = setTimeout(
+      () => setKaraokeCenter(activeLineIndex),
+      KARAOKE_WINDOW_DELAY_MS
+    );
+    return () => clearTimeout(timer);
+  }, [activeLineIndex, karaokeCenter]);
   const [activeProvider, setActiveProvider] = useState('LrcLib');
   const [fontSize, setFontSize] = useState(26);
   const [lyricsTheme, setLyricsTheme] = useState('Blur');
@@ -349,16 +388,136 @@ const LyricsPage = ({
     'transparent',
   ];
 
-  // Track playback state
+  // Playback clock on the UI thread. It advances every frame while playing;
+  // the JS thread only posts position samples, and the frame callback eases
+  // the drift out, so no frame's increment is ever overwritten
+  const timeMs = useSharedValue(0);
+  const playing = useSharedValue(false);
+  const clockSample = useSharedValue({ id: 0, pos: 0, force: false });
+  const lastSampleId = useSharedValue(0);
+  const pendingDrift = useSharedValue(0);
+
   useEffect(() => {
-    const checkState = async () => {
-      const state = await TrackPlayer.getPlaybackState();
-      setIsPlaying(state.state === 'playing');
-    };
-    checkState();
-    const interval = setInterval(checkState, 500);
-    return () => clearInterval(interval);
+    playing.value = isPlaying;
+  }, [isPlaying]);
+
+  const clock = useFrameCallback((frame) => {
+    let t = timeMs.value;
+    const sample = clockSample.value;
+    if (sample.id !== lastSampleId.value) {
+      lastSampleId.value = sample.id;
+      const drift = sample.pos - t;
+      if (sample.force || Math.abs(drift) > CLOCK_SNAP_MS) {
+        t = sample.pos;
+        pendingDrift.value = 0;
+      } else {
+        pendingDrift.value = drift;
+      }
+    }
+    if (playing.value && frame.timeSincePreviousFrame != null) {
+      // Cap the step so a suspended frame can't jump the clock
+      t += Math.min(frame.timeSincePreviousFrame, 100);
+    }
+    const correction = pendingDrift.value * 0.08;
+    pendingDrift.value -= correction;
+    timeMs.value = t + correction;
+  }, false);
+
+  const sampleCounter = useRef(0);
+  const postClockSample = useCallback((posMs, force = false) => {
+    sampleCounter.current += 1;
+    clockSample.value = { id: sampleCounter.current, pos: posMs, force };
   }, []);
+
+  useEffect(() => {
+    clock.setActive(visible);
+    if (!visible) return undefined;
+    let alive = true;
+    const sync = async (force) => {
+      try {
+        const { position } = await TrackPlayer.getProgress();
+        if (alive) postClockSample(position * 1000, force);
+      } catch (e) {
+        // Player not ready yet
+      }
+    };
+    sync(true);
+    const interval = setInterval(() => sync(false), CLOCK_SYNC_INTERVAL_MS);
+    return () => {
+      alive = false;
+      clearInterval(interval);
+    };
+  }, [visible, postClockSample]);
+
+  // Scroll state shared with every line (see LyricsLine for the wave)
+  const scrollRef = useAnimatedRef();
+  const scrollPos = useSharedValue(0);
+  const scrollOffset = useSharedValue(0);
+  const scrollCmd = useSharedValue(null);
+  const autoScroll = useSharedValue(true);
+  const lineCenters = useSharedValue([]);
+  const anchorPx = useSharedValue(0);
+  const activeIndexSV = useSharedValue(-1);
+  const lineStarts = useSharedValue([]);
+
+  const issueScroll = (mode, idx) => {
+    'worklet';
+    const center = lineCenters.value[idx];
+    if (center == null) return;
+    scrollCmd.value = {
+      mode,
+      target: Math.max(0, center - anchorPx.value),
+      from: scrollOffset.value,
+    };
+  };
+
+  useEffect(() => {
+    lineStarts.value = synced ? lines.map((l) => l.time) : [];
+  }, [lines, synced]);
+
+  // Active line is found on the UI thread; lines and scroll react in the
+  // same frame, React only hears about it to swap which lines show karaoke
+  useAnimatedReaction(
+    () => {
+      const starts = lineStarts.value;
+      const t = timeMs.value + LYRICS_LEAD_MS + LINE_HANDOFF_LEAD_MS;
+      let idx = -1;
+      for (let i = 0; i < starts.length; i++) {
+        if (starts[i] <= t) idx = i;
+        else break;
+      }
+      return idx;
+    },
+    (idx, prev) => {
+      if (idx === prev) return;
+      activeIndexSV.value = idx;
+      runOnJS(setActiveLineIndex)(idx);
+      if (autoScroll.value && idx >= 0) {
+        const advancedOne = prev != null && prev >= 0 && idx === prev + 1;
+        issueScroll(advancedOne && !reducedMotion ? 'wave' : 'follow', idx);
+      }
+    },
+    [reducedMotion]
+  );
+
+  useAnimatedReaction(
+    () => scrollCmd.value,
+    (cmd) => {
+      if (!cmd) return;
+      if (cmd.mode === 'jump') {
+        scrollPos.value = cmd.target;
+        return;
+      }
+      if (cmd.mode === 'follow') scrollPos.value = cmd.from;
+      scrollPos.value = withSpring(cmd.target, SCROLL_SPRING);
+    }
+  );
+
+  useDerivedValue(() => {
+    if (autoScroll.value) {
+      scrollTo(scrollRef, 0, scrollPos.value, false);
+    }
+  });
 
   // Smooth artwork transition when song changes
   useEffect(() => {
@@ -395,36 +554,6 @@ const LyricsPage = ({
     }
   }, [currentSong?.id]);
 
-  // Find active line with improved accuracy and sync offset compensation
-  useEffect(() => {
-    if (!lyrics || lyrics.length === 0) {
-      return;
-    }
-
-    // Apply sync offset: add offset to make lyrics appear earlier
-    // This compensates for audio buffering/decoding delay
-    const currentTime = position * 1000 + SYNC_OFFSET_MS; // Convert to ms + offset
-
-    // Find the line that's currently active
-    let newIndex = -1;
-    for (let i = 0; i < lyrics.length; i++) {
-      const line = lyrics[i];
-      const nextLine = lyrics[i + 1];
-
-      if (
-        currentTime >= line.time &&
-        (!nextLine || currentTime < nextLine.time)
-      ) {
-        newIndex = i;
-        break;
-      }
-    }
-
-    if (newIndex !== -1 && newIndex !== activeLineIndex) {
-      setActiveLineIndex(newIndex);
-    }
-  }, [position, lyrics]);
-
   // Calculate layout dimensions - Edge to edge design
   const HEADER_HEIGHT = 56;
   const HEADER_PADDING_TOP = insets.top;
@@ -436,60 +565,104 @@ const LyricsPage = ({
     HEADER_PADDING_TOP -
     CONTROLS_HEIGHT -
     CONTROLS_PADDING_BOTTOM;
-  const ITEM_HEIGHT = 80;
 
-  // Center first/last lines properly
-  const CONTENT_PADDING_TOP = VISIBLE_LYRICS_HEIGHT / 2 - ITEM_HEIGHT / 2;
-  const CONTENT_PADDING_BOTTOM = VISIBLE_LYRICS_HEIGHT / 2 - ITEM_HEIGHT / 2;
+  const CONTENT_PADDING_TOP = VISIBLE_LYRICS_HEIGHT * ACTIVE_LINE_ANCHOR;
+  const CONTENT_PADDING_BOTTOM = VISIBLE_LYRICS_HEIGHT * (1 - ACTIVE_LINE_ANCHOR);
 
-  // Auto-scroll - Keep active line CENTERED in visible area
-  // Using viewPosition: 0.5 ensures the item is centered in the viewport
   useEffect(() => {
-    if (
-      activeLineIndex >= 0 &&
-      !isUserScrolling &&
-      flatListRef.current &&
-      lyrics.length > 0
-    ) {
-      flatListRef.current.scrollToIndex({
-        index: activeLineIndex,
-        animated: true,
-        viewPosition: 0.5,
-      });
-    }
-  }, [activeLineIndex, isUserScrolling, lyrics.length]);
+    anchorPx.value = VISIBLE_LYRICS_HEIGHT * ACTIVE_LINE_ANCHOR;
+  }, [VISIBLE_LYRICS_HEIGHT]);
 
-  const onScrollToIndexFailed = (info) => {
-    const wait = new Promise((resolve) => setTimeout(resolve, 100));
-    wait.then(() => {
-      if (flatListRef.current) {
-        flatListRef.current.scrollToIndex({
-          index: info.index,
-          animated: true,
-          viewPosition: 0.5,
-        });
-      }
-    });
-  };
+  const lineLayouts = useRef([]);
+  const layoutFlush = useRef(null);
+  const hasInitialScroll = useRef(false);
 
-  const handleScrollBegin = () => {
-    setIsUserScrolling(true);
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-  };
+  useEffect(() => {
+    lineLayouts.current = [];
+    hasInitialScroll.current = false;
+  }, [lines, fontSize]);
 
-  const handleScrollEnd = () => {
-    // Resume auto-scroll after a delay
-    scrollTimeoutRef.current = setTimeout(() => {
-      setIsUserScrolling(false);
-    }, 3000);
-  };
+  const jumpToActiveLine = useCallback(() => {
+    runOnUI(() => {
+      'worklet';
+      issueScroll('jump', Math.max(0, activeIndexSV.value));
+    })();
+  }, []);
 
-  const handleLinePress = async (time) => {
-    await TrackPlayer.seekTo(time / 1000);
+  // Line positions are batched into one shared array once layout settles
+  const handleLineLayout = useCallback(
+    (index, layout) => {
+      lineLayouts.current[index] = layout.y + layout.height / 2;
+      clearTimeout(layoutFlush.current);
+      layoutFlush.current = setTimeout(() => {
+        lineCenters.value = [...lineLayouts.current];
+        if (!hasInitialScroll.current && synced) {
+          hasInitialScroll.current = true;
+          jumpToActiveLine();
+        }
+      }, 16);
+    },
+    [synced, jumpToActiveLine]
+  );
+
+  const resumeAutoScroll = useCallback(() => {
+    runOnUI(() => {
+      'worklet';
+      // Start the spring from where the user left the list
+      scrollPos.value = scrollOffset.value;
+      autoScroll.value = true;
+      if (activeIndexSV.value >= 0) issueScroll('follow', activeIndexSV.value);
+    })();
     setIsUserScrolling(false);
-  };
+  }, []);
+
+  const handleScrollBegin = useCallback(() => {
+    setIsUserScrolling(true);
+    clearTimeout(scrollTimeoutRef.current);
+  }, []);
+
+  const handleScrollEnd = useCallback(() => {
+    clearTimeout(scrollTimeoutRef.current);
+    scrollTimeoutRef.current = setTimeout(
+      resumeAutoScroll,
+      AUTO_SCROLL_RESUME_MS
+    );
+  }, [resumeAutoScroll]);
+
+  useEffect(
+    () => () => {
+      clearTimeout(scrollTimeoutRef.current);
+      clearTimeout(layoutFlush.current);
+    },
+    []
+  );
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      scrollOffset.value = e.contentOffset.y;
+    },
+    onBeginDrag: () => {
+      autoScroll.value = false;
+      cancelAnimation(scrollPos);
+      runOnJS(handleScrollBegin)();
+    },
+    onEndDrag: () => {
+      runOnJS(handleScrollEnd)();
+    },
+    onMomentumEnd: () => {
+      runOnJS(handleScrollEnd)();
+    },
+  });
+
+  const handleLinePress = useCallback(
+    async (time) => {
+      postClockSample(time, true);
+      clearTimeout(scrollTimeoutRef.current);
+      resumeAutoScroll();
+      await TrackPlayer.seekTo(time / 1000);
+    },
+    [postClockSample, resumeAutoScroll]
+  );
 
   const handleFontSizeChange = useCallback(
     (delta) => {
@@ -523,42 +696,6 @@ const LyricsPage = ({
     setAnimationStyle(style);
     await SetLyricsAnimationStyle(style);
   }, []);
-
-  const renderItem = useCallback(
-    ({ item, index }) => {
-      const isActive = index === activeLineIndex;
-      const isPast = index < activeLineIndex;
-      const distance =
-        activeLineIndex >= 0 ? Math.abs(index - activeLineIndex) : 0;
-
-      return (
-        <LyricsLine
-          text={item.text}
-          isActive={isActive}
-          isPast={isPast}
-          distance={distance}
-          syncOffset={SYNC_OFFSET_MS}
-          onPress={() => handleLinePress(item.time)}
-          animationStyle={animationStyle}
-          activeColor={activeTextColor}
-          inactiveColor={inactiveTextColor}
-          isDarkMode={isDarkMode}
-          fontSize={fontSize}
-          words={item.words}
-          currentTime={position * 1000 + SYNC_OFFSET_MS}
-        />
-      );
-    },
-    [
-      activeLineIndex,
-      animationStyle,
-      activeTextColor,
-      inactiveTextColor,
-      isDarkMode,
-      fontSize,
-      position,
-    ]
-  );
 
   // Animated background style
   const animatedBackgroundStyle = useAnimatedStyle(() => ({
@@ -688,7 +825,7 @@ const LyricsPage = ({
             <View style={styles.centerContent}>
               <ActivityIndicator size="large" color={colors.primary} />
             </View>
-          ) : !lyrics || lyrics.length === 0 ? (
+          ) : lines.length === 0 ? (
             <View style={styles.centerContent}>
               <Text
                 variant="headlineSmall"
@@ -703,25 +840,40 @@ const LyricsPage = ({
             </View>
           ) : (
             <View style={styles.lyricsContainer}>
-              <FlatList
-                ref={flatListRef}
-                data={lyrics}
-                renderItem={renderItem}
-                keyExtractor={(item, index) => index.toString()}
+              <Animated.ScrollView
+                ref={scrollRef}
+                onScroll={scrollHandler}
+                scrollEventThrottle={16}
                 contentContainerStyle={{
-                  paddingTop: CONTENT_PADDING_TOP,
-                  paddingBottom: CONTENT_PADDING_BOTTOM,
+                  paddingTop: synced ? CONTENT_PADDING_TOP : 24,
+                  paddingBottom: synced ? CONTENT_PADDING_BOTTOM : 24,
                 }}
-                onScrollBeginDrag={handleScrollBegin}
-                onMomentumScrollEnd={handleScrollEnd}
-                getItemLayout={null} // Let FlatList measure items dynamically
-                onScrollToIndexFailed={onScrollToIndexFailed}
                 showsVerticalScrollIndicator={false}
-                initialNumToRender={20}
-                maxToRenderPerBatch={15}
-                windowSize={11}
-                removeClippedSubviews={false}
-              />
+              >
+                {lines.map((line, index) => (
+                  <LyricsLine
+                    key={line.key}
+                    line={line}
+                    index={index}
+                    isNear={
+                      index >= karaokeCenter - 1 && index <= karaokeCenter + 2
+                    }
+                    activeIndex={activeIndexSV}
+                    scrollCmd={scrollCmd}
+                    scrollPos={scrollPos}
+                    autoScroll={autoScroll}
+                    timeMs={timeMs}
+                    lead={LYRICS_LEAD_MS}
+                    synced={synced}
+                    fontSize={fontSize}
+                    activeColor={activeTextColor}
+                    animationStyle={animationStyle}
+                    reducedMotion={reducedMotion}
+                    onPress={handleLinePress}
+                    onLayout={handleLineLayout}
+                  />
+                ))}
+              </Animated.ScrollView>
             </View>
           )}
 
@@ -773,10 +925,8 @@ const LyricsPage = ({
                   const state = await TrackPlayer.getPlaybackState();
                   if (state.state === 'playing') {
                     await TrackPlayer.pause();
-                    setIsPlaying(false);
                   } else {
                     await TrackPlayer.play();
-                    setIsPlaying(true);
                   }
                 }}
                 iconColor={iconColor}

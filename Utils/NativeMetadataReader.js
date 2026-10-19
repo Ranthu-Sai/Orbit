@@ -75,6 +75,36 @@ class NativeMetadataReader {
   }
 
   /**
+   * Whether the off-thread, artwork-to-file reader exists in this native build
+   */
+  static supportsReadToFile() {
+    return !!(MetadataReaderModule && MetadataReaderModule.readMetadataToFile);
+  }
+
+  /**
+   * Read tags + duration on a background native thread and write embedded
+   * artwork directly to artworkOutPath (no base64 over the bridge).
+   * @param {string} filePath - Absolute path to audio file
+   * @param {string|null} artworkOutPath - Where to write the cover image
+   * @returns {Promise<Object|null>} { title, artist, album, year, genre,
+   *   duration, artworkPath? } or null when unsupported / unreadable
+   */
+  static async readMetadataToFile(filePath, artworkOutPath = null) {
+    if (!this.supportsReadToFile()) {
+      return null;
+    }
+    try {
+      await this.initialize();
+      return await MetadataReaderModule.readMetadataToFile(
+        filePath,
+        artworkOutPath
+      );
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
    * Read metadata from multiple files (batch operation)
    * More efficient than calling readMetadata multiple times
    * @param {string[]} filePaths - Array of absolute file paths

@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import CookieManager from '@react-native-cookies/cookies';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { NativeModules } from 'react-native';
@@ -343,10 +342,41 @@ const fetchYouTubeAccountInfo = async (cookieString) => {
   }
 };
 
+// Auth cookies are split across these hosts' cookie scopes
+const COOKIE_URLS = ['https://music.youtube.com', 'https://www.youtube.com'];
+
+/**
+ * Read the WebView cookie jar natively. Unlike document.cookie this includes
+ * HttpOnly cookies (SID, HSID, SSID, __Secure-*PSID), which the session needs.
+ * @returns {Promise<string>} "name=value; name2=value2"
+ */
+const readWebViewCookies = async () => {
+  const jars = await Promise.all(
+    COOKIE_URLS.map((url) => CookieManager.get(url).catch(() => ({})))
+  );
+  const merged = {};
+  jars.forEach((jar) => {
+    Object.entries(jar || {}).forEach(([key, cookie]) => {
+      if (cookie && cookie.value !== undefined) {
+        merged[key] = cookie.value;
+      }
+    });
+  });
+  return Object.entries(merged)
+    .map(([key, value]) => `${key}=${value}`)
+    .join('; ');
+};
+
+// SAPISID alone is readable by JS; a usable session also needs an HttpOnly SID
+const hasSessionCookies = (cookieString) =>
+  /(^|;\s*)SAPISID=/.test(cookieString) &&
+  /(^|;\s*)(SID|__Secure-3PSID|__Secure-1PSID)=/.test(cookieString);
+
 const LoginScreen = () => {
   const navigation = useNavigation();
   const webViewRef = useRef(null);
   const hasSavedCookiesRef = useRef(false);
+  const autoCaptureInFlightRef = useRef(false);
   const lastCookieRef = useRef('');
   const [cookieInput, setCookieInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -371,14 +401,10 @@ true;
   const handleCookieExtraction = async () => {
     try {
       setLoading(true);
-      const cookies = await CookieManager.get('https://music.youtube.com');
-      // Convert to cookie string format expected by Python requests
-      // Format: "name=value; name2=value2"
-      const cookieString = Object.entries(cookies)
-        .map(([key, value]) => `${key}=${value.value} `)
-        .join('; ');
+      // Format: "name=value; name2=value2" (no stray spaces in values)
+      const cookieString = await readWebViewCookies();
 
-      if (cookieString.includes('SAPISID')) {
+      if (hasSessionCookies(cookieString)) {
         await saveAndSendCookies(cookieString);
       } else {
         Alert.alert(
@@ -414,8 +440,10 @@ true;
         return;
       }
       setLoading(true);
-      // Save to AsyncStorage for persistence
-      await AsyncStorage.setItem('yt_cookies', cookieString);
+      // Save to encrypted storage (SecureStore handles migration from legacy
+      // plaintext AsyncStorage). Also mirrors through the auth service so
+      // listeners re-evaluate authenticated state.
+      await ytAuthService.setCookies(cookieString);
 
       const RNFS = require('react-native-fs');
       const path = `${RNFS.DocumentDirectoryPath}/headers_auth.json`;
@@ -578,15 +606,33 @@ true;
                 // Not JSON, treat as cookie string
               }
 
-              // Handle as cookie string
+              // document.cookie only tells us login finished (SAPISID is
+              // JS-readable). It lacks the HttpOnly session cookies, so the
+              // full set is read from the native cookie jar instead.
               const cookies = data;
               if (
                 cookies &&
                 cookies.includes('SAPISID') &&
                 !loading &&
-                !hasSavedCookiesRef.current
+                !hasSavedCookiesRef.current &&
+                !autoCaptureInFlightRef.current
               ) {
-                saveAndSendCookies(cookies, { fromAutoCapture: true });
+                autoCaptureInFlightRef.current = true;
+                readWebViewCookies()
+                  .then((fullCookies) => {
+                    // Not all session cookies set yet: the watcher retries
+                    if (hasSessionCookies(fullCookies)) {
+                      return saveAndSendCookies(fullCookies, {
+                        fromAutoCapture: true,
+                      });
+                    }
+                  })
+                  .catch((err) =>
+                    console.warn('Auto cookie capture failed:', err)
+                  )
+                  .finally(() => {
+                    autoCaptureInFlightRef.current = false;
+                  });
               }
             }}
           />

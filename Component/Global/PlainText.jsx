@@ -8,11 +8,16 @@ import { GetFontSizeValue } from '../../LocalStorage/AppSettings';
 export const PlainText = ({
   text,
   style,
-  numberOfLine,
+  numberOfLine: legacyNumberOfLine,
+  numberOfLines,
+  ellipsizeMode = 'tail',
   songId,
   isSongTitle,
   isCurrentlyPlaying,
 }) => {
+  // Accept the standard RN prop name as well as the legacy one
+  const numberOfLine =
+    numberOfLines !== undefined ? numberOfLines : legacyNumberOfLine;
   const width = Dimensions.get('window').width;
   const [Size, setSize] = useState(width * 0.035);
   // isCurrentlyPlaying is now passed from parent to avoid excessive TrackPlayer listeners
@@ -53,6 +58,7 @@ export const PlainText = ({
   return (
     <Text
       {...textProps}
+      ellipsizeMode={ellipsizeMode}
       style={{
         color: textColor,
         fontSize: Size,

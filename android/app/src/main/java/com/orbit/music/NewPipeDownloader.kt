@@ -10,10 +10,12 @@ import java.io.IOException
 
 class NewPipeDownloader(private val client: OkHttpClient) : Downloader() {
 
+    @Volatile
     private var cookies: String? = null
 
-    fun setCookies(cookies: String) {
-        this.cookies = cookies
+    /** Null or blank clears them, so a logged-out user stops sending the old session. */
+    fun setCookies(cookies: String?) {
+        this.cookies = cookies?.takeIf { it.isNotBlank() }
     }
 
     @Throws(IOException::class, ReCaptchaException::class)

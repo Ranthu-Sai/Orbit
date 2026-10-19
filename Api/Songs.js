@@ -236,7 +236,26 @@ async function getStreamingUrl(id) {
   }
 }
 
-async function getLyricsFromLrcLib(artist, title) {
+// LrcLib sits behind Cloudflare and rejects requests without a User-Agent (520)
+const LYRICS_REQUEST_HEADERS = {
+  'User-Agent': 'Orbit Music App (https://github.com/gauravxdevv/Orbit)',
+  Accept: 'application/json',
+};
+
+// Pick the result closest to the track duration, preferring synced lyrics
+function pickBestLrcLibMatch(results, duration) {
+  const withLyrics = results.filter(
+    (r) => r && !r.instrumental && (r.syncedLyrics || r.plainLyrics)
+  );
+  if (withLyrics.length === 0) return null;
+  const score = (r) => {
+    const diff = duration && r.duration ? Math.abs(r.duration - duration) : 0;
+    return diff + (r.syncedLyrics ? 0 : 1000);
+  };
+  return withLyrics.reduce((best, r) => (score(r) < score(best) ? r : best));
+}
+
+async function getLyricsFromLrcLib(artist, title, duration) {
   if (!artist || !title) {
     return { success: false, message: 'Missing artist or title' };
   }
@@ -251,35 +270,38 @@ async function getLyricsFromLrcLib(artist, title) {
 
   const cleanArtist = artist.split(',')[0].trim();
 
-  const cacheKey = `lrc_lib_${cleanArtist.toLowerCase()}_${cleanTitle.toLowerCase()}`;
+  const cacheKey = `lrc_lib_v2_${cleanArtist.toLowerCase()}_${cleanTitle.toLowerCase()}`;
   const fetchFunction = async () => {
     const urlsToTry = [
       `https://lrclib.net/api/search?artist_name=${encodeURIComponent(
         cleanArtist
       )}&track_name=${encodeURIComponent(cleanTitle)}`,
-      `https://lrclib.net/api/search?artist_name=${encodeURIComponent(
-        cleanArtist.split(' ')[0]
-      )}&track_name=${encodeURIComponent(cleanTitle)}`,
+      `https://lrclib.net/api/search?q=${encodeURIComponent(
+        `${cleanTitle} ${cleanArtist}`
+      )}`,
+      `https://lrclib.net/api/search?track_name=${encodeURIComponent(
+        cleanTitle
+      )}`,
     ];
 
     for (const url of urlsToTry) {
       try {
         console.log('[LrcLib] Try URL:', url);
-        const response = await fetch(url);
+        const response = await fetch(url, { headers: LYRICS_REQUEST_HEADERS });
         if (response.ok) {
           const data = await response.json();
           console.log('[LrcLib] Response length:', data ? data.length : 0);
-          if (
-            data &&
-            data.length > 0 &&
-            (data[0].syncedLyrics || data[0].plainLyrics)
-          ) {
+          const match = Array.isArray(data)
+            ? pickBestLrcLibMatch(data, duration)
+            : null;
+          if (match) {
             console.log(
               '[LrcLib] Success match:',
-              data[0].name,
-              data[0].artistName
+              match.trackName || match.name,
+              match.artistName,
+              match.duration
             );
-            return { success: true, data: data[0] };
+            return { success: true, data: match };
           }
         } else {
           console.log('[LrcLib] Response not OK:', response.status);
@@ -315,6 +337,15 @@ function parseTTMLTime(timeStr) {
   return parseFloat(timeStr) * 1000;
 }
 
+function decodeEntities(str) {
+  return str
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&#039;|&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+}
+
 // TTML Parser Helper - Extracts line and word-level timings
 function parseTTML(ttml) {
   try {
@@ -326,13 +357,16 @@ function parseTTML(ttml) {
 
     lines.forEach((lineContent) => {
       const match = lineContent.match(
-        /<p\s+[^>]*begin="([^"]+)"[^>]*>(.*?)<\/p>/s
+        /<p\s+([^>]*)begin="([^"]+)"([^>]*)>(.*?)<\/p>/s
       );
       if (match) {
-        const timeStr = match[1];
-        const innerContent = match[2];
+        const attrs = `${match[1]} ${match[3]}`;
+        const timeStr = match[2];
+        const innerContent = match[4];
+        const endMatch = attrs.match(/\bend="([^"]+)"/);
 
         const lineTime = parseTTMLTime(timeStr);
+        const lineEnd = endMatch ? parseTTMLTime(endMatch[1]) : null;
 
         // Extract words from spans if available
         const words = [];
@@ -340,25 +374,29 @@ function parseTTML(ttml) {
           /<span\s+[^>]*begin="([^"]+)"\s+end="([^"]+)"[^>]*>(.*?)<\/span>/gs;
         let spanMatch;
         while ((spanMatch = spanRegex.exec(innerContent)) !== null) {
+          const wordText = decodeEntities(
+            spanMatch[3].replace(/<[^>]+>/g, '')
+          );
+          if (!wordText.trim()) continue;
+          // Syllables of one word are adjacent spans with no whitespace between
+          const after = innerContent.slice(spanRegex.lastIndex);
           words.push({
             startTime: parseTTMLTime(spanMatch[1]),
             endTime: parseTTMLTime(spanMatch[2]),
-            text: spanMatch[3].replace(/<[^>]+>/g, '').trim(),
+            text: wordText.trim(),
+            spaceAfter: /^\s/.test(after) || /\s$/.test(wordText),
           });
         }
 
         // Clean up text for the full line
-        const text = innerContent.replace(/<[^>]+>/g, '').trim();
-        console.log(
-          '[parseTTML] Line:',
-          text.substring(0, 30),
-          'Words found:',
-          words.length
-        );
+        const text = decodeEntities(innerContent.replace(/<[^>]+>/g, ''))
+          .replace(/\s+/g, ' ')
+          .trim();
 
         if (text) {
           lyrics.push({
             time: lineTime,
+            endTime: lineEnd,
             text: text,
             words: words.length > 0 ? words : null,
           });
@@ -386,18 +424,18 @@ async function getLyricsFromBetterLyrics(artist, title, duration) {
     .trim();
 
   const cleanArtist = artist.split(',')[0].trim();
-  const cacheKey = `better_lyrics_${cleanArtist.toLowerCase()}_${cleanTitle.toLowerCase()}`;
+  const cacheKey = `better_lyrics_v2_${cleanArtist.toLowerCase()}_${cleanTitle.toLowerCase()}`;
 
   const fetchFunction = async () => {
     try {
-      const url = `https://lyrics-api-go-better-lyrics-api-pr-12.up.railway.app/getLyrics?s=${encodeURIComponent(
+      const url = `https://api.betterlyrics.org/getLyrics?s=${encodeURIComponent(
         cleanTitle
       )}&a=${encodeURIComponent(cleanArtist)}${
         duration ? `&d=${Math.floor(duration)}` : ''
       }`;
       console.log('[BetterLyrics] Fetching:', url);
 
-      const response = await fetch(url);
+      const response = await fetch(url, { headers: LYRICS_REQUEST_HEADERS });
       console.log('[BetterLyrics] Response status:', response.status);
       if (response.ok) {
         const data = await response.json();
@@ -499,7 +537,7 @@ async function getUnifiedLyrics(
     if (
       trackFullName &&
       !trackFullName.endsWith('...') &&
-      !trackFullName.endsWith('…')
+      !trackFullName.endsWith('â€¦')
     ) {
       fullTitle = trackFullName;
     }
@@ -510,7 +548,7 @@ async function getUnifiedLyrics(
     .replace(/&amp;/g, '&')
     .replace(/&#039;/g, "'");
   // If still truncated (ends with ...), strip it but note this is lossy
-  if (fullTitle.endsWith('...') || fullTitle.endsWith('…')) {
+  if (fullTitle.endsWith('...') || fullTitle.endsWith('â€¦')) {
     fullTitle = fullTitle.slice(0, -3).trim();
   }
 

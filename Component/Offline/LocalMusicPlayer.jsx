@@ -34,25 +34,30 @@ const LocalMusicPlayer = ({
 
       for (const [songId, metadata] of Object.entries(allMetadata)) {
         try {
-          const songPath = await StorageManager.getSongPath(songId);
+          const songPath = await StorageManager.resolveDownloadedSongPath(
+            songId,
+            metadata
+          );
           const artworkPath = await StorageManager.getArtworkPath(songId);
-          const songExists = await StorageManager.isSongDownloaded(songId);
 
-          if (songExists && songPath) {
+          if (songPath) {
             const track = {
+              ...metadata,
+              // Local values below must win over stored remote url/artwork
               id: songId,
               title: metadata.title || 'Unknown Title',
               artist: metadata.artist || 'Unknown Artist',
               album: metadata.album || 'Unknown Album',
               duration: metadata.duration || 0,
               url: `file://${songPath}`,
-              artwork: artworkPath ? `file://${artworkPath}` : null,
+              artwork: metadata.localArtworkPath
+                ? `file://${artworkPath}`
+                : metadata.artwork || null,
               isLocal: true,
               sourceType: 'download',
               downloadTime: metadata.downloadTime,
               quality: metadata.quality || 'unknown',
               fileSize: metadata.fileSize || 0,
-              ...metadata,
             };
 
             tracks.push(track);

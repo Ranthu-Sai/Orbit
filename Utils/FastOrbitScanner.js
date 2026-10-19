@@ -1,112 +1,115 @@
 import RNFS from 'react-native-fs';
 import { StorageManager } from './StorageManager';
-import { Platform, ToastAndroid } from 'react-native';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isAudioFile, pathToKey } from './LocalMusicUtils';
+
+const MAX_ENRICH_ATTEMPTS = 3; // Retry songs whose tag read failed, up to this many scans
+const DEFAULT_ARTWORK =
+  'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png';
 
 /**
  * FastOrbitScanner - Optimized scanner with DISK-BASED caching
  *
  * Features:
  * - Permanent disk cache (no size limits, no expiration)
- * - Only scans NEW files
- * - Enriches metadata in background with embedded artwork
- * - Instant load from cache
- * - Supports 1000+ songs without issues
+ * - Only reads tags for new, changed or previously failed files
+ * - Tags read on a background native thread when available; covers are
+ *   written as image files (never embedded in the JSON cache)
+ * - Instant load from cache, always reconciled with the folder contents
  *
- * Storage: .orbit_metadata.json in songs directory
+ * Storage: .orbit_metadata.json in the app's internal cache directory
  */
 class FastOrbitScanner {
-  static SUPPORTED_EXTENSIONS = [
-    '.mp3',
-    '.m4a',
-    '.aac',
-    '.flac',
-    '.ogg',
-    '.opus',
-  ];
   static METADATA_FILENAME = '.orbit_metadata.json';
   static METADATA_BACKUP_FILENAME = '.orbit_metadata.backup.json';
+  static ARTWORK_DIRNAME = 'artwork';
   static CACHE_KEY = '@orbit_songs_cache_v2'; // Legacy key for migration
 
-  // In-memory cache for instant access (no disk I/O on repeated visits)
+  // In-memory cache for instant access (no JSON parse on repeated visits)
   static _memoryCache = null;
-  static _memoryCacheTimestamp = 0;
-  static MEMORY_CACHE_TTL = 10 * 60 * 1000; // 10 minutes (increased from 5)
 
   // 🚀 State caching to avoid redundant async lookups
-  static _songsDirectory = null;
   static _metadataFilePath = null;
   static _backupFilePath = null;
   static _migrationDone = false;
   static _cacheDirectoryReady = false;
+  static _isEnriching = false;
+
+  static async _listAudioFiles() {
+    const songsDir = await this.getSongsDirectory();
+    if (!songsDir) {
+      return [];
+    }
+    if (!(await RNFS.exists(songsDir))) {
+      await RNFS.mkdir(songsDir).catch(() => {});
+      return [];
+    }
+    const files = await RNFS.readDir(songsDir);
+    return files.filter((file) => file.isFile() && isAudioFile(file.name));
+  }
+
+  static _needsEnrichment(song, file) {
+    if (!song) {
+      return true;
+    }
+    // File replaced since it was read
+    if (file && song.fileSize && file.size && song.fileSize !== file.size) {
+      return true;
+    }
+    // Old cache format stored covers inline; move them to files
+    if (typeof song.artwork === 'string' && song.artwork.startsWith('data:')) {
+      return true;
+    }
+    return !song.isEnriched && (song.enrichAttempts || 0) < MAX_ENRICH_ATTEMPTS;
+  }
 
   /**
-   * Quick scan - returns from MEMORY cache if available, else disk cache
-   * This makes repeated visits to DownloadScreen instant
+   * Quick scan - lists the songs folder (one cheap readDir) and reconciles it
+   * with the cache, so new and deleted files always show up immediately.
    */
   static async quickScan(onUpdate = null) {
     try {
-      // 🚀 FAST PATH: Return from memory cache if valid (no disk I/O!)
-      if (this._memoryCache && this._memoryCache.length > 0) {
-        const cacheAge = Date.now() - this._memoryCacheTimestamp;
-        if (cacheAge < this.MEMORY_CACHE_TTL) {
-          return this._memoryCache;
-        }
-      }
-      // Get current files in directory
-      const songsDir = await this.getSongsDirectory();
-      if (!songsDir) {
-        return [];
-      }
-
-      const dirExists = await RNFS.exists(songsDir);
-      if (!dirExists) {
-        await RNFS.mkdir(songsDir).catch(() => {});
-        return [];
-      }
-
-      const files = await RNFS.readDir(songsDir);
-      const audioFiles = files.filter((file) => {
-        const ext = file.name
-          .toLowerCase()
-          .substring(file.name.lastIndexOf('.'));
-        return this.SUPPORTED_EXTENSIONS.includes(ext) && file.isFile();
-      });
+      const audioFiles = await this._listAudioFiles();
       if (audioFiles.length === 0) {
+        this._memoryCache = [];
         return [];
       }
 
-      // Get cached songs
-      const cachedSongs = await this.getCachedSongs();
+      // Memory cache first; disk cache only on the first visit
+      const cachedSongs = this._memoryCache || (await this.getCachedSongs());
       const cachedMap = new Map(cachedSongs.map((s) => [s.localSongPath, s]));
 
-      // Find new files (not in cache)
-      const newFiles = audioFiles.filter((f) => !cachedMap.has(f.path));
-      const existingFiles = audioFiles.filter((f) => cachedMap.has(f.path));
-      // Build result from cache for existing files
-      let allSongs = existingFiles.map((f) => cachedMap.get(f.path));
-
-      // Quick add new files with basic info
-      if (newFiles.length > 0) {
-        const newSongs = newFiles.map((file) => this.createBasicSong(file));
-        allSongs = [...allSongs, ...newSongs];
-
-        // Save immediately so songs appear
-        await this.saveCachedSongs(allSongs);
-
-        // Enrich new songs in background
-        if (onUpdate) {
-          this.enrichNewSongs(newSongs, newFiles, allSongs, onUpdate);
+      let changed = cachedSongs.length !== audioFiles.length;
+      const allSongs = audioFiles.map((file) => {
+        const cached = cachedMap.get(file.path);
+        if (cached) {
+          return cached;
         }
-      }
-      // Update memory cache for instant access on next visit
+        changed = true;
+        return this.createBasicSong(file);
+      });
+      this._ensureUniqueIds(allSongs);
+
+      const fileByPath = new Map(audioFiles.map((f) => [f.path, f]));
+      const toEnrich = allSongs.filter((song) =>
+        this._needsEnrichment(song, fileByPath.get(song.localSongPath))
+      );
+
       this._memoryCache = allSongs;
-      this._memoryCacheTimestamp = Date.now();
+      if (changed) {
+        // Save immediately so songs appear (and deletions persist)
+        await this.saveCachedSongs(allSongs);
+      }
+
+      if (toEnrich.length > 0) {
+        this.enrichNewSongs(toEnrich, allSongs, onUpdate);
+      }
 
       return allSongs;
     } catch (error) {
       console.error('❌ [FastScanner] Quick scan error:', error);
-      return [];
+      return this._memoryCache || [];
     }
   }
 
@@ -115,125 +118,113 @@ class FastOrbitScanner {
    */
   static async fullRescan(onUpdate = null) {
     await this.clearCache();
+    try {
+      const audioFiles = await this._listAudioFiles();
+      if (audioFiles.length === 0) {
+        this._memoryCache = [];
+        return [];
+      }
 
-    const songsDir = await this.getSongsDirectory();
-    if (!songsDir) {
+      const songs = audioFiles.map((file) => this.createBasicSong(file));
+      this._ensureUniqueIds(songs);
+
+      this._memoryCache = songs;
+      await this.saveCachedSongs(songs);
+      this.enrichNewSongs(songs, songs, onUpdate);
+
+      return songs;
+    } catch (error) {
+      console.error('❌ [FastScanner] Full rescan error:', error);
       return [];
     }
-
-    const dirExists = await RNFS.exists(songsDir);
-    if (!dirExists) {
-      return [];
-    }
-
-    const files = await RNFS.readDir(songsDir);
-    const audioFiles = files.filter((file) => {
-      const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-      return this.SUPPORTED_EXTENSIONS.includes(ext) && file.isFile();
-    });
-
-    if (audioFiles.length === 0) {
-      return [];
-    }
-
-    // Create basic songs
-    const songs = audioFiles.map((file) => this.createBasicSong(file));
-
-    // Save immediately
-    await this.saveCachedSongs(songs);
-    // Enrich all in background
-    if (onUpdate) {
-      this.enrichNewSongs(songs, audioFiles, songs, onUpdate);
-    }
-
-    return songs;
   }
 
   /**
-   * Enrich only new songs with metadata (runs in background)
-   * 🚀 Uses parallel processing for faster metadata extraction
+   * Read tags for the given songs in the background.
+   * Each song object is replaced (not mutated) so React lists see the change.
+   * @param {Array} songsToEnrich - Songs needing tags (must be items of allSongs)
+   * @param {Array} allSongs - Full list; updated in place by index
+   * @param {Function|null} onUpdate - Receives a new array after each chunk
    */
-  static async enrichNewSongs(newSongs, newFiles, allSongs, onUpdate) {
+  static async enrichNewSongs(songsToEnrich, allSongs, onUpdate) {
+    if (songsToEnrich.length === 0 || this._isEnriching) {
+      return;
+    }
+    this._isEnriching = true;
     try {
-      if (newSongs.length === 0) {
-        return;
-      }
-
-      const AudioMetadataParser = require('./ID3Parser').default;
       const NativeMetadataReader = require('./NativeMetadataReader').default;
+      const AudioMetadataParser = require('./ID3Parser').default;
+      const artworkDir = await this.ensureArtworkDirectoryExists();
 
-      let nativeReaderAvailable = false;
-      try {
-        await NativeMetadataReader.initialize();
-        nativeReaderAvailable = true;
-      } catch (e) {
-        // Native reader not available
-      }
+      const enrichSong = async (song) => {
+        const artworkFile = `${artworkDir}/${pathToKey(song.localSongPath)}.jpg`;
+        let title = null;
+        let artist = null;
+        let album = null;
+        let duration = song.duration || 0;
+        let artwork = null;
 
-      // 🚀 Helper function to enrich a single song
-      const enrichSong = async (song, file) => {
-        const isM4A =
-          file.name.toLowerCase().endsWith('.m4a') ||
-          file.name.toLowerCase().endsWith('.aac');
-
-        try {
-          let metadataResult = null;
-
-          if (isM4A && nativeReaderAvailable) {
-            const nativeMetadata = await NativeMetadataReader.readMetadata(
-              file.path
-            );
-            if (nativeMetadata) {
-              metadataResult = {
-                metadata: {
-                  title: nativeMetadata.title,
-                  artist: nativeMetadata.artist,
-                  album: nativeMetadata.album,
-                },
-                artwork: nativeMetadata.artworkDataUri
-                  ? {
-                      dataUri: nativeMetadata.artworkDataUri,
-                    }
-                  : null,
-              };
-            }
-          } else {
-            metadataResult = await AudioMetadataParser.extractMetadata(
-              file.path
-            );
+        // Native reader: background thread, cover written straight to disk
+        const native = await NativeMetadataReader.readMetadataToFile(
+          song.localSongPath,
+          artworkFile
+        );
+        if (native) {
+          ({ title, artist, album } = native);
+          duration = native.duration || duration;
+          artwork = native.artworkPath ? `file://${native.artworkPath}` : null;
+        } else {
+          const result = await AudioMetadataParser.extractMetadata(
+            song.localSongPath
+          );
+          if (!result) {
+            return {
+              ...song,
+              enrichAttempts: (song.enrichAttempts || 0) + 1,
+            };
           }
-
-          if (metadataResult && metadataResult.metadata) {
-            song.title = metadataResult.metadata.title || song.title;
-            song.artist = metadataResult.metadata.artist || song.artist;
-            song.album = metadataResult.metadata.album || song.album;
-            song.isEnriched = true;
-
-            if (metadataResult.artwork) {
-              if (metadataResult.artwork.dataUri) {
-                song.artwork = metadataResult.artwork.dataUri;
-              } else if (metadataResult.artwork.base64) {
-                const mimeType =
-                  metadataResult.artwork.mimeType || 'image/jpeg';
-                song.artwork = `data:${mimeType};base64,${metadataResult.artwork.base64}`;
-              }
-            }
+          ({ title, artist, album } = result.metadata || {});
+          if (result.artwork?.base64) {
+            await RNFS.writeFile(artworkFile, result.artwork.base64, 'base64');
+            artwork = `file://${artworkFile}`;
           }
-        } catch (error) {
-          // Silently skip failed enrichment
         }
+
+        return {
+          ...song,
+          title: title || song.title,
+          artist: artist || song.artist,
+          album: album || song.album,
+          duration,
+          artwork: artwork || DEFAULT_ARTWORK,
+          isEnriched: true,
+          enrichAttempts: 0,
+        };
       };
 
-      // 🚀 PARALLEL PROCESSING: Process songs in chunks of 5
-      const CHUNK_SIZE = 5;
-      for (let i = 0; i < newSongs.length; i += CHUNK_SIZE) {
-        const chunkSongs = newSongs.slice(i, i + CHUNK_SIZE);
-        const chunkFiles = newFiles.slice(i, i + CHUNK_SIZE);
+      const indexByPath = new Map(
+        allSongs.map((s, i) => [s.localSongPath, i])
+      );
 
-        // Process chunk in parallel
-        await Promise.all(
-          chunkSongs.map((song, idx) => enrichSong(song, chunkFiles[idx]))
+      // 🚀 PARALLEL PROCESSING: native reads are serialized on their own
+      // thread; small chunks keep the UI updating without flooding the bridge
+      const CHUNK_SIZE = 5;
+      for (let i = 0; i < songsToEnrich.length; i += CHUNK_SIZE) {
+        const chunk = songsToEnrich.slice(i, i + CHUNK_SIZE);
+        const results = await Promise.all(
+          chunk.map((song) =>
+            enrichSong(song).catch(() => ({
+              ...song,
+              enrichAttempts: (song.enrichAttempts || 0) + 1,
+            }))
+          )
         );
+        results.forEach((updated) => {
+          const index = indexByPath.get(updated.localSongPath);
+          if (index !== undefined) {
+            allSongs[index] = updated;
+          }
+        });
 
         // Update UI after each chunk
         if (onUpdate) {
@@ -241,14 +232,26 @@ class FastOrbitScanner {
         }
       }
 
-      // Save enriched data permanently
-      await this.saveCachedSongs(allSongs);
+      // A newer scan may have replaced the list meanwhile: carry the
+      // enriched entries over to it instead of losing them
+      if (this._memoryCache && this._memoryCache !== allSongs) {
+        const enrichedByPath = new Map(
+          allSongs.map((s) => [s.localSongPath, s])
+        );
+        this._memoryCache = this._memoryCache.map((s) => {
+          const enriched = enrichedByPath.get(s.localSongPath);
+          return enriched && enriched.isEnriched && !s.isEnriched
+            ? { ...enriched, id: s.id }
+            : s;
+        });
+      }
 
-      // Also update memory cache with enriched data
-      this._memoryCache = allSongs;
-      this._memoryCacheTimestamp = Date.now();
+      // Save enriched data permanently
+      await this.saveCachedSongs(this._memoryCache || allSongs);
     } catch (error) {
       console.error('❌ [FastScanner] Enrichment error:', error);
+    } finally {
+      this._isEnriching = false;
     }
   }
 
@@ -275,17 +278,29 @@ class FastOrbitScanner {
       artist: 'Unknown Artist',
       album: 'Downloads',
       url: `file://${file.path}`,
-      artwork:
-        'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+      artwork: DEFAULT_ARTWORK,
       duration: 0,
       isLocal: true,
       isDownloaded: true,
       isEnriched: false,
+      enrichAttempts: 0,
       localSongPath: file.path,
       fileName: file.name,
       fileSize: file.size,
       source: 'orbit_download',
     };
+  }
+
+  // Two files can share an extracted ID (e.g. the same song downloaded
+  // twice); list keys and queue IDs must be unique.
+  static _ensureUniqueIds(songs) {
+    const seen = new Set();
+    songs.forEach((song, index) => {
+      if (seen.has(song.id)) {
+        songs[index] = { ...song, id: `${song.id}_${pathToKey(song.localSongPath)}` };
+      }
+      seen.add(songs[index].id);
+    });
   }
 
   /**
@@ -318,6 +333,16 @@ class FastOrbitScanner {
       this._cacheDirectoryReady = true;
     }
     return cacheDir;
+  }
+
+  static async ensureArtworkDirectoryExists() {
+    const dir = `${await this.ensureCacheDirectoryExists()}/${
+      this.ARTWORK_DIRNAME
+    }`;
+    if (!(await RNFS.exists(dir))) {
+      await RNFS.mkdir(dir).catch(() => {});
+    }
+    return dir;
   }
 
   /**
@@ -369,11 +394,9 @@ class FastOrbitScanner {
 
       const content = await RNFS.readFile(metadataPath, 'utf8');
       const songs = JSON.parse(content);
-      return songs;
+      return Array.isArray(songs) ? songs : [];
     } catch (error) {
-      // Silently handle load errors - will scan fresh
-
-      // Try to restore from backup silently
+      // Main file unreadable - try to restore from backup silently
       try {
         const backupPath = await this.getBackupFilePath();
         if (backupPath && (await RNFS.exists(backupPath))) {
@@ -387,7 +410,7 @@ class FastOrbitScanner {
               () => {}
             );
           }
-          return songs;
+          return Array.isArray(songs) ? songs : [];
         }
       } catch (backupError) {
         // Silently handle backup restore failure - will scan fresh
@@ -399,7 +422,7 @@ class FastOrbitScanner {
 
   /**
    * Save songs to DISK cache (permanent, no size limits)
-   * Uses atomic write with backup for crash safety
+   * Keeps the previous file as a backup for crash safety
    */
   static async saveCachedSongs(songs) {
     try {
@@ -410,7 +433,8 @@ class FastOrbitScanner {
         return; // Silently skip if no path
       }
 
-      const jsonContent = JSON.stringify(songs, null, 2);
+      // Compact JSON: covers are files now, so this stays small
+      const jsonContent = JSON.stringify(songs);
 
       // Create backup of existing file first (if exists)
       const exists = await RNFS.exists(metadataPath);
@@ -429,13 +453,12 @@ class FastOrbitScanner {
 
   /**
    * Clear cache (call on force refresh)
-   * Clears memory, disk file, and legacy AsyncStorage
+   * Clears memory, disk file, extracted covers and legacy AsyncStorage
    */
   static async clearCache() {
     try {
       // Clear memory cache first
       this._memoryCache = null;
-      this._memoryCacheTimestamp = 0;
 
       // Clear disk metadata file
       const metadataPath = await this.getMetadataFilePath();
@@ -446,6 +469,13 @@ class FastOrbitScanner {
       }
       if (backupPath && (await RNFS.exists(backupPath))) {
         await RNFS.unlink(backupPath);
+      }
+
+      const artworkDir = `${this.getAppCacheDirectory()}/${
+        this.ARTWORK_DIRNAME
+      }`;
+      if (await RNFS.exists(artworkDir)) {
+        await RNFS.unlink(artworkDir).catch(() => {});
       }
 
       // Also clear legacy AsyncStorage cache
@@ -461,15 +491,17 @@ class FastOrbitScanner {
   static async removeSongFromCache(songPath) {
     try {
       // Update disk cache
-      const songs = await this.getCachedSongs();
+      const songs = this._memoryCache || (await this.getCachedSongs());
       const filtered = songs.filter((s) => s.localSongPath !== songPath);
+      this._memoryCache = filtered;
       await this.saveCachedSongs(filtered);
 
-      // 🚀 Also update memory cache for instant consistency
-      if (this._memoryCache) {
-        this._memoryCache = this._memoryCache.filter(
-          (s) => s.localSongPath !== songPath
-        );
+      // Remove the extracted cover too
+      const artworkFile = `${this.getAppCacheDirectory()}/${
+        this.ARTWORK_DIRNAME
+      }/${pathToKey(songPath)}.jpg`;
+      if (await RNFS.exists(artworkFile)) {
+        await RNFS.unlink(artworkFile).catch(() => {});
       }
     } catch (error) {
       console.error('Failed to remove from cache:', error);
@@ -491,18 +523,23 @@ class FastOrbitScanner {
   }
 
   /**
-   * Generate song ID
+   * Generate song ID.
+   * Orbit downloads are named "<title> - <sourceId>.<ext>"; that source ID is
+   * reused so the file matches its download record. Anything else gets a
+   * collision-free hash of the path (works for non-Latin names too).
    */
   static generateSongId(filePath) {
     const fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
     const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
 
     const match = nameWithoutExt.match(/\s-\s([A-Za-z0-9_-]+)$/);
-    if (match) {
+    // Must look like a source ID (has a digit, or an 11-char YouTube ID),
+    // so a suffix like "- Remix" isn't mistaken for one
+    if (match && (/\d/.test(match[1]) || match[1].length === 11)) {
       return match[1];
     }
 
-    return nameWithoutExt.replace(/[^a-zA-Z0-9]/g, '_');
+    return pathToKey(filePath);
   }
 
   /**
@@ -525,9 +562,7 @@ class FastOrbitScanner {
 
       const songs = JSON.parse(legacyCache);
       if (songs && songs.length > 0) {
-        // Save to disk
-        const jsonContent = JSON.stringify(songs, null, 2);
-        await RNFS.writeFile(metadataPath, jsonContent, 'utf8');
+        await RNFS.writeFile(metadataPath, JSON.stringify(songs), 'utf8');
 
         // Remove old AsyncStorage cache to free up space
         await AsyncStorage.removeItem(this.CACHE_KEY);

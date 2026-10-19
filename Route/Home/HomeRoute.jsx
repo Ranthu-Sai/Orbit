@@ -31,34 +31,14 @@ export const HomeRoute = () => {
         name="Playlist"
         component={Playlist}
         options={{
-          headerShown: true,
-          headerTransparent: true,
-          title: '', // Ensure no default title from navigation
-          headerBackVisible: false,
-          headerStyle: {
-            backgroundColor: 'transparent',
-          },
-          headerTintColor: '#FFFFFF',
-          headerTitleStyle: {
-            color: '#FFFFFF',
-          },
+          headerShown: false,
         }}
       />
       <Stack.Screen
         name={'Album'}
         component={Album}
         options={{
-          headerShown: true,
-          headerTransparent: true,
-          title: '', // Ensure no default title from navigation
-          headerBackVisible: false, // Hide native back button
-          headerStyle: {
-            backgroundColor: 'transparent',
-          },
-          headerTintColor: '#FFFFFF',
-          headerTitleStyle: {
-            color: '#FFFFFF',
-          },
+          headerShown: false,
         }}
       />
       <Stack.Screen name="Search" component={SearchPage} />

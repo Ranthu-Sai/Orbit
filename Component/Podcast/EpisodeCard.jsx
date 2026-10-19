@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import { Play, Clock } from 'lucide-react-native';
 import FastImage from 'react-native-fast-image';
+import { placeholderArtworkUrl } from '../../Utils/PlaceholderArtwork';
 
 /**
  * EpisodeCard - Horizontal card component for displaying podcast episodes
@@ -65,7 +66,7 @@ export const EpisodeCard = ({ episode, onPress, onPlay }) => {
   };
 
   const imageUrl =
-    episode.image || episode.feedImage || 'https://via.placeholder.com/300';
+    episode.image || episode.feedImage || placeholderArtworkUrl();
 
   return (
     <Pressable
@@ -221,7 +222,7 @@ export const EpisodeCardHorizontal = ({
   };
 
   const imageUrl =
-    episode.image || episode.feedImage || 'https://via.placeholder.com/300';
+    episode.image || episode.feedImage || placeholderArtworkUrl();
 
   return (
     <Pressable

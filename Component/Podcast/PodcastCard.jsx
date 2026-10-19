@@ -3,8 +3,9 @@ import { Pressable, Text, View } from 'react-native';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import { Mic } from 'lucide-react-native';
 import FastImage from 'react-native-fast-image';
+import { placeholderArtworkUrl } from '../../Utils/PlaceholderArtwork';
 
-const FALLBACK_IMAGE = 'https://via.placeholder.com/300?text=Podcast';
+const FALLBACK_IMAGE = placeholderArtworkUrl();
 
 /**
  * PodcastCard - Square card component for displaying podcasts

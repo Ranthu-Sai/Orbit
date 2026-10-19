@@ -291,15 +291,16 @@ const matchSpotifyTracksOnYouTube = async (tracks, onProgress) => {
 
       try {
         const query = `${track.title} ${track.artist}`;
-        // Limit 1 result is minimal, but safe.
-        const searchResult = await getYTMusicSearchAllData(query, 1, 1);
+        const searchResult = await getYTMusicSearchAllData(query, 1, 5);
 
-        if (
-          searchResult &&
-          searchResult.success &&
-          searchResult.data.results.length > 0
-        ) {
-          const ytMatch = searchResult.data.results[0];
+        // Search-all puts artists first; only a song/video has a playable videoId
+        const ytMatch = searchResult?.success
+          ? searchResult.data.results.find(
+              (r) => r.type === 'song' && r.id && !r.id.startsWith('UC')
+            )
+          : null;
+
+        if (ytMatch) {
           return {
             id: ytMatch.id,
             videoId: ytMatch.id,

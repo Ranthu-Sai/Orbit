@@ -17,7 +17,14 @@ const GITHUB_RELEASES_PAGE = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/
 const STORAGE_KEYS = {
   DISMISSED_VERSION: 'update_dismissed_version',
   LAST_CHECK_TIME: 'update_last_check_time',
-  CACHED_UPDATE_INFO: 'update_cached_info',
+  // v2: cached info now carries apkUrl; older cached entries lack it
+  CACHED_UPDATE_INFO: 'update_cached_info_v2',
+};
+
+// The universal APK runs on every device; fall back to any attached APK
+const pickApkAsset = (assets = []) => {
+  const apks = assets.filter((a) => /\.apk$/i.test(a?.name || ''));
+  return apks.find((a) => /universal/i.test(a.name)) || apks[0] || null;
 };
 
 // Minimum time between automatic checks (24 hours)
@@ -112,6 +119,7 @@ class UpdateService {
         url: release.html_url || GITHUB_RELEASES_PAGE,
         publishedAt: release.published_at,
         assets: release.assets || [],
+        apkUrl: pickApkAsset(release.assets)?.browser_download_url || null,
       };
       return this.latestRelease;
     } catch (error) {
@@ -170,6 +178,7 @@ class UpdateService {
           title: githubRelease.title,
           message: githubRelease.body,
           url: githubRelease.url,
+          apkUrl: githubRelease.apkUrl,
           source: 'github',
         };
       }
@@ -184,6 +193,7 @@ class UpdateService {
         title: null,
         message: null,
         url: null,
+        apkUrl: null,
         source: null,
       };
     }
@@ -234,20 +244,17 @@ class UpdateService {
   }
 
   /**
-   * Open the update URL (GitHub releases page or custom URL)
+   * Open the update URL (GitHub releases page, direct APK download, or custom URL)
    */
   async openUpdateLink(url = null) {
     const targetUrl = url || GITHUB_RELEASES_PAGE;
 
+    // No canOpenURL pre-check: on Android 11+ it returns false for web links
+    // unless they are declared in the manifest's <queries>, which made this
+    // silently do nothing. openURL itself throws if nothing can handle it.
     try {
-      const canOpen = await Linking.canOpenURL(targetUrl);
-      if (canOpen) {
-        await Linking.openURL(targetUrl);
-        return true;
-      } else {
-        console.warn('[UpdateService] Cannot open URL:', targetUrl);
-        return false;
-      }
+      await Linking.openURL(targetUrl);
+      return true;
     } catch (error) {
       console.error('[UpdateService] Failed to open update link:', error);
       return false;

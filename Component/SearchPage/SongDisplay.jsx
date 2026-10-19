@@ -6,6 +6,7 @@ import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
 import { useTheme } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { placeholderArtworkUrl } from '../../Utils/PlaceholderArtwork';
 
 export default function SongDisplay({ data, source = 'ytmusic', onRetry }) {
   const theme = useTheme();
@@ -90,7 +91,7 @@ export default function SongDisplay({ data, source = 'ytmusic', onRetry }) {
                   item?.image?.[0]?.url ??
                   item?.image?.[0]?.link ??
                   item?.artwork ??
-                  'https://via.placeholder.com/150'
+                  placeholderArtworkUrl()
                 }
                 id={item?.id}
                 width={width * 0.95}

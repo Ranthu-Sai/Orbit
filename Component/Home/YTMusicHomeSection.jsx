@@ -17,6 +17,7 @@ import { Spacer } from '../Global/Spacer';
 import YouTubeMusicService from '../../Utils/YouTubeMusicService';
 import { PlaylistRowSkeleton } from './PlaylistRowSkeleton';
 import { PaddingConatiner } from '../../Layout/PaddingConatiner';
+import { placeholderArtworkUrl } from '../../Utils/PlaceholderArtwork';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -397,8 +398,8 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
             : '500x500',
       })) || [
         {
-          url: bestThumbnail?.url || 'https://via.placeholder.com/150',
-          link: bestThumbnail?.url || 'https://via.placeholder.com/150',
+          url: bestThumbnail?.url || placeholderArtworkUrl(),
+          link: bestThumbnail?.url || placeholderArtworkUrl(),
           quality: '150x150',
         },
       ];
@@ -428,7 +429,7 @@ export const YTMusicHomeSection = forwardRef((props, ref) => {
         thumbnailUrl:
           bestThumbnail?.url ||
           item.thumbnails?.[0]?.url ||
-          'https://via.placeholder.com/150',
+          placeholderArtworkUrl(),
         sectionTitle: item.sectionTitle, // Keep section info for debugging
         sectionStrapline: item.sectionStrapline,
       };

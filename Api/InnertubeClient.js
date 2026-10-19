@@ -2676,9 +2676,9 @@ static async getHomeWithContinuation(sectionLimit = 20) {
     let cookies = userCookies;
     if (!cookies) {
       try {
-        const AsyncStorage =
-          require('@react-native-async-storage/async-storage').default;
-        cookies = await AsyncStorage.getItem('yt_cookies');
+        const SecureStore =
+          require('../Utils/SecureStore').default;
+        cookies = await SecureStore.getItem('yt_cookies');
       } catch (e) {
         // Ignored
       }

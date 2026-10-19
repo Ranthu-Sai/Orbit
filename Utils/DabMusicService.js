@@ -11,6 +11,7 @@ import axios from 'axios';
 import { ToastAndroid } from 'react-native';
 import DabAuthService from './DabAuthService';
 import { CacheManager } from './NavigationCacheManager';
+import { placeholderArtworkUrl } from './PlaceholderArtwork';
 
 // Configuration
 const DAB_API_BASE = 'https://dabmusic.xyz/api';
@@ -273,7 +274,7 @@ class DabMusicService {
         ]
       : [
           {
-            url: 'https://via.placeholder.com/150',
+            url: placeholderArtworkUrl(),
             quality: '150x150',
           },
         ];
@@ -345,7 +346,7 @@ class DabMusicService {
           { url: imageUrl, quality: '150x150' },
           { url: imageUrl, quality: '500x500' },
         ]
-      : [{ url: 'https://via.placeholder.com/150', quality: '150x150' }];
+      : [{ url: placeholderArtworkUrl(), quality: '150x150' }];
 
     return {
       id: String(album.id),
@@ -381,7 +382,7 @@ class DabMusicService {
           { url: imageUrl, quality: '150x150' },
           { url: imageUrl, quality: '500x500' },
         ]
-      : [{ url: 'https://via.placeholder.com/150', quality: '150x150' }];
+      : [{ url: placeholderArtworkUrl(), quality: '150x150' }];
 
     // DAB API may return 'items' or 'tracks' for the song list
     const rawTracks = album.tracks || album.items || album.songs || [];
